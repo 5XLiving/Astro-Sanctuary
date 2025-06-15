@@ -95,6 +95,19 @@
       border-top: 1px solid var(--gold);
       margin-top: 40px;
     }
+    .burn-button {
+      margin-top: 15px;
+      background-color: #b33a3a;
+      color: #fff;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    .burn-button:hover {
+      background-color: #d64f4f;
+    }
   </style>
 </head>
 <body>
@@ -126,26 +139,45 @@
   </div>
 <script>
   const storageKey = window.location.pathname.includes('family') ? 'familyMemories' : 'personalMemories';
-  const memories = JSON.parse(localStorage.getItem(storageKey)) || [];
+  let memories = JSON.parse(localStorage.getItem(storageKey)) || [];
   const container = document.querySelector('.container');
 
-  memories.forEach(mem => {
-    const div = document.createElement('div');
-    div.className = 'soul-page';
-    div.innerHTML = `
-      <div class="memory-text">
-        <h2>${mem.person} - ${mem.type}</h2>
-        <p>${mem.text}</p>
-        ${mem.file.endsWith('.mp3') || mem.file.endsWith('.wav') ?
-          `<audio controls src="uploads/${mem.file}"></audio>` :
-          `<div class="photo-cover" style="background-image: url('uploads/${mem.file}'); height: 200px;"></div>`}
-        <div class="tags">状态：${mem.status}</div>
-        <div class="visibility">${mem.visibility === 'public' ? '🔓 公开' : '🔒 私密'}</div>
-      </div>
-    `;
-    container.appendChild(div);
-  });
-</script>  
+  function renderMemories() {
+    container.innerHTML = ''; // 先清空
+    memories.forEach((mem, index) => {
+      if (mem.status === 'burned') return; // 不显示已焚毁内容
+
+      const div = document.createElement('div');
+      div.className = 'soul-page';
+      div.innerHTML = `
+        <div class="memory-text">
+          <h2>${mem.person} - ${mem.type}</h2>
+          <p>${mem.text}</p>
+          ${mem.file.endsWith('.mp3') || mem.file.endsWith('.wav') ?
+            `<audio controls src="uploads/${mem.file}"></audio>` :
+            `<div class="photo-cover" style="background-image: url('uploads/${mem.file}'); height: 200px;"></div>`}
+          <div class="tags">状态：${mem.status || 'active'}</div>
+          <div class="visibility">${mem.visibility === 'public' ? '🔓 公开' : '🔒 私密'}</div>
+          <button class="burn-button" onclick="burnMemory(${index})">🔥 焚毁并释放</button>
+        </div>
+      `;
+      container.appendChild(div);
+    });
+  }
+
+  function burnMemory(index) {
+    const confirmBurn = confirm("你确定要焚毁这段记忆？它将从页面中消失，并化作光之尘埃，返回宇宙之中。");
+    if (confirmBurn) {
+      memories[index].status = "burned";
+      localStorage.setItem(storageKey, JSON.stringify(memories));
+      alert("✨ 焚毁完成。伤痛已被接引。愿你回归平静。");
+      renderMemories(); // 重新渲染页面
+    }
+  }
+
+  renderMemories();
+</script>
+
 
       <div class="candle">
       <img src="candle.png" alt="点灯祈福图标">
