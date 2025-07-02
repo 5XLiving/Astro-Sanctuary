@@ -80,6 +80,8 @@
 <script>
 let ttsData = {};
 const lessonId = 'tarot_lesson_1'; // 改为当前页面的ID名称
+let isPlaying = false;
+let currentUtterance = null;
 
 fetch('/assets/data/tts_lessons.json')
   .then(response => response.json())
@@ -90,6 +92,14 @@ fetch('/assets/data/tts_lessons.json')
 
 function playSpeech() {
   const synth = window.speechSynthesis;
+
+  // If already playing, stop it on second click
+  if (isPlaying) {
+    synth.cancel();
+    isPlaying = false;
+    return;
+  }
+
   const lang = document.getElementById("langSelect").value;
   const text = ttsData[lessonId]?.[lang];
 
@@ -98,8 +108,9 @@ function playSpeech() {
     return;
   }
 
-  synth.cancel(); // Stop previous playback
+  synth.cancel(); // Ensure any previous speech is stopped
   const utterance = new SpeechSynthesisUtterance(text);
+  currentUtterance = utterance;
   utterance.lang = lang;
   utterance.rate = 1;
 
@@ -110,10 +121,11 @@ function playSpeech() {
   if (voice) utterance.voice = voice;
 
   utterance.onend = () => {
-    // Optional: do something when speech ends
+    isPlaying = false;
   };
 
   synth.speak(utterance);
+  isPlaying = true;
 }
 
 // 预加载语音库
@@ -121,6 +133,7 @@ window.speechSynthesis.onvoiceschanged = () => {
   speechSynthesis.getVoices();
 };
 </script>
+
 
 </body>
 </html>
