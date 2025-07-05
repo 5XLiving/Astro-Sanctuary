@@ -1,83 +1,107 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-  <meta charset="UTF-8">
-  <title>朗读测试</title>
+  <meta charset="UTF-8" />
+  <title>塔罗课程语音功能</title>
+  <style>
+    body { background: #111; color: gold; font-family: sans-serif; padding: 2rem; }
+    .audio-controls { margin-bottom: 1rem; }
+    select, button { font-size: 1rem; margin-right: 0.5rem; }
+    .playback-options label { margin-right: 1rem; }
+  </style>
 </head>
 <body>
-  <h1>🎧 多语言朗读测试</h1>
 
-  <select id="langSelect">
-    <option value="zh-CN">中文</option>
-    <option value="en">English</option>
-    <option value="ja">日本語</option>
-  </select>
+  <h2>塔罗课程 第1课</h2>
 
-  <button onclick="play()">🔊 Play</button>
+  <div class="audio-controls">
+    <label for="language-select">播放语言：</label>
+    <select id="language-select">
+      <option value="中文（简体）">中文（简体）</option>
+      <option value="English">English</option>
+      <option value="Español">Español</option>
+      <option value="日本語">日本語</option>
+    </select>
+
+    <button id="play-btn" aria-label="播放音频">🎧 Listen</button>
+
+    <div class="playback-options">
+      <label>语速: <input type="range" id="speed-control" min="0.5" max="1.5" step="0.1" value="1.0"></label>
+      <label>音量: <input type="range" id="volume-control" min="0" max="1" step="0.1" value="0.8"></label>
+    </div>
+  </div>
+
+  <div class="spiritual-text">
+    塔罗牌最早可追溯至14世纪的欧洲，最初是一种贵族娱乐纸牌，但它真正流传开来，是因为其深藏的神秘主义象征体系，与卡巴拉、占星、炼金术等传统密切相关。
+  </div>
 
   <script>
-    const ttsData = {
-      "tarot_lesson_1": {
-        "zh-CN": [
-          "你好，欢迎来到塔罗课。",
-          "这是第二段内容。",
-          "第三段也是重点。"
-        ],
-        "en": [
-          "Hello, welcome to the Tarot course.",
-          "This is the second paragraph.",
-          "The third part is important too."
-        ],
-        "ja": [
-          "こんにちは。タロット講座へようこそ。",
-          "これは2番目の段落です。",
-          "そして最後の部分も重要です。"
-        ]
-      }
+    const voiceMap = {
+      '中文（简体）': { languageCode: 'cmn-CN', name: 'cmn-CN-Wavenet-B' },
+      'English': { languageCode: 'en-US', name: 'en-US-Wavenet-B' },
+      'Español': { languageCode: 'es-ES', name: 'es-ES-Wavenet-B' },
+      '日本語': { languageCode: 'ja-JP', name: 'ja-JP-Wavenet-B' }
     };
 
-    let isPlaying = false;
-    function play() {
-      const lang = document.getElementById("langSelect").value;
-      const lesson = ttsData["tarot_lesson_1"];
-      const textArray = lesson[lang];
-      const synth = window.speechSynthesis;
+    async function playSpiritualContent(lang, text) {
+      try {
+        const response = await fetch('/api/get-tts-token', { method: 'POST' });
+        const { token } = await response.json();
+        if (!token) throw new Error('无法取得 TTS token');
 
-      if (isPlaying) {
-        synth.cancel();
-        isPlaying = false;
-        return;
-      }
-
-      const voices = synth.getVoices();
-      const voice = voices.find(v => v.lang === lang)
-                   || voices.find(v => v.lang.startsWith(lang.split('-')[0]))
-                   || voices.find(v => v.lang.startsWith('en'));
-
-      let index = 0;
-      isPlaying = true;
-
-      function speakNext() {
-        if (!isPlaying || index >= textArray.length) {
-          isPlaying = false;
+        const voice = voiceMap[lang];
+        if (!voice) {
+          alert('暂无此语言的语音资料');
           return;
         }
-        const utter = new SpeechSynthesisUtterance(textArray[index]);
-        utter.lang = lang;
-        if (voice) utter.voice = voice;
-        utter.onend = () => {
-          index++;
-          speakNext();
-        };
-        synth.speak(utter);
-      }
 
-      speakNext();
+        const inputData = { text };
+
+        const audioResponse = await fetch(
+          `https://text-to-speech.googleapis.com/v1/text:synthesize?key=${token}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              input: inputData,
+              voice,
+              audioConfig: {
+                audioEncoding: 'MP3',
+                speakingRate: 0.9,
+                pitch: -2.0
+              }
+            })
+          }
+        );
+
+        const result = await audioResponse.json();
+        if (!result.audioContent) throw new Error('TTS 无音频输出');
+
+        const byteCharacters = atob(result.audioContent);
+        const byteArray = new Uint8Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteArray[i] = byteCharacters.charCodeAt(i);
+        }
+        const blob = new Blob([byteArray], { type: 'audio/mp3' });
+        const url = URL.createObjectURL(blob);
+        const audio = new Audio(url);
+
+        audio.volume = parseFloat(document.getElementById('volume-control')?.value || 0.8);
+        audio.playbackRate = parseFloat(document.getElementById('speed-control')?.value || 1.0);
+        audio.play();
+
+      } catch (err) {
+        console.error(err);
+        alert('语音播放失败，请检查控制台');
+      }
     }
 
-    window.speechSynthesis.onvoiceschanged = () => {
-      speechSynthesis.getVoices();
-    };
+    document.getElementById('play-btn').addEventListener('click', () => {
+      const lang = document.getElementById('language-select').value;
+      const text = document.querySelector('.spiritual-text').innerText;
+      playSpiritualContent(lang, text);
+    });
   </script>
+
 </body>
 </html>
