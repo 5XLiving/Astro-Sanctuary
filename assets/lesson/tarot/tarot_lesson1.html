@@ -88,30 +88,30 @@ fetch('/assets/data/tts_lessons.json')
   })
   .catch(error => console.error('加载 TTS JSON 出错:', error));
 
-function playSpeech() {
+    function playSpeech() {
   const synth = window.speechSynthesis;
+  if (!synth) {
+    alert("您的浏览器不支持语音合成功能");
+    return;
+  }
+
   const lang = document.getElementById("langSelect").value;
   const text = ttsData[lessonId]?.[lang];
 
   if (!text) {
-    alert("⚠️ 暂无此语言的语音资料");
+    alert(`⚠️ 暂无${lang}语言的语音资料\n当前数据: ${JSON.stringify(ttsData[lessonId])}`);
     return;
   }
 
-  synth.cancel(); // Stop previous playback
+  console.log("准备播放:", {lang, text});
+  
+  synth.cancel();
   const utterance = new SpeechSynthesisUtterance(text);
   utterance.lang = lang;
   utterance.rate = 1;
 
-  const voices = synth.getVoices();
-  let voice = voices.find(v => v.lang === lang)
-              || voices.find(v => v.lang.startsWith(lang.split('-')[0]))
-              || voices.find(v => v.lang.startsWith('en'));
-  if (voice) utterance.voice = voice;
-
-  utterance.onend = () => {
-    // Optional: do something when speech ends
-  };
+  // 打印可用语音列表
+  console.log("可用语音:", speechSynthesis.getVoices());
 
   synth.speak(utterance);
 }
