@@ -27,59 +27,26 @@
       border-left: 5px solid #ffd700;
       border-radius: 8px;
     }
-    function playSpeech() {
-  const synth = window.speechSynthesis;
-
-  if (currentUtterance) {
-    synth.cancel();
-    document.querySelector("button").textContent = "🔊 朗读全文";
-    currentUtterance = null;
-    return;
-  }
-
-  const lang = document.getElementById("langSelect").value;
-
-  // 自动抓取所有 <p data-lang=xx> 对应语言的内容
-  const paragraphs = document.querySelectorAll(`p[data-lang="${lang}"]`);
-  let combinedText = "";
-  paragraphs.forEach(p => {
-    combinedText += p.textContent + "\n";
-  });
-
-  if (!combinedText.trim()) {
-    alert("⚠️ 当前语言下没有可朗读的内容");
-    return;
-  }
-
-  currentUtterance = new SpeechSynthesisUtterance(combinedText);
-  currentUtterance.lang = lang;
-  currentUtterance.rate = 0.9;
-
-  currentUtterance.onend = function () {
-    document.querySelector("button").textContent = "🔊 朗读全文";
-    currentUtterance = null;
-  };
-
-  document.querySelector("button").textContent = "⏹️ 停止朗读";
-
-  const voices = synth.getVoices();
-  const preferredVoice = voices.find(v => v.lang === lang) ||
-                         voices.find(v => v.lang.startsWith(lang.split('-')[0])) ||
-                         voices[0];
-
-  if (preferredVoice) {
-    currentUtterance.voice = preferredVoice;
-  }
-
-  synth.speak(currentUtterance);
-}
+    select, button {
+      font-size: 1rem;
+      padding: 6px 10px;
+      margin-bottom: 20px;
+    }
+    #playerContainer {
+      margin-top: 20px;
+      text-align: center;
+    }
+    audio {
+      width: 100%;
+      outline: none;
+    }
   </style>
 </head>
 <body>
 
   <h1>📘 塔罗课 第1课：塔罗牌的起源与神秘象征</h1>
 
-  <label for="langSelect">🎙️ 播放语言：</label>
+  <label for="langSelect">🌍 播放语言：</label>
   <select id="langSelect">
     <option value="zh-CN">中文（简体）</option>
     <option value="zh-TW">中文（繁體）</option>
@@ -92,8 +59,7 @@
     <option value="id">Bahasa Indonesia</option>
     <option value="th">ภาษาไทย</option>
   </select>
-
-  <button onclick="playSpeech()">🔊 朗读全文</button>
+  <button onclick="translateAndSpeak()">📣 翻译并朗读</button>
 
   <section>
     <h2>🔮 塔罗的神秘起源</h2>
@@ -122,63 +88,52 @@
   </section>
 
 <script>
-let currentUtterance = null;
-const lessonId = 'tarot_lesson_1';
+const apiKey = "AIzaSyAjTuqwHfTVLdxDOHqfbI9UJcFoM1hBlX4";
 
-function playSpeech() {
-  const synth = window.speechSynthesis;
-  
-  // 如果正在播放，先停止
-  if (currentUtterance) {
-    synth.cancel();
-    document.querySelector("button").textContent = "🔊 朗读全文";
-    currentUtterance = null;
-    return;
-  }
-
+async function translateAndSpeak() {
   const lang = document.getElementById("langSelect").value;
-  const text = ttsData[lessonId]?.[lang];
+  const paragraphs = Array.from(document.querySelectorAll("p"));
+  const originalText = paragraphs.map(p => p.textContent).join("\n");
 
-  if (!text) {
-    alert("⚠️ 暂无此语言的语音资料");
+  if (!originalText.trim()) {
+    alert("⚠️ 页面中没有内容可翻译");
     return;
   }
 
-  currentUtterance = new SpeechSynthesisUtterance(text);
-  currentUtterance.lang = lang;
-  currentUtterance.rate = 0.9; // 稍慢的语速
-  
-  // 设置语音结束回调
-  currentUtterance.onend = function() {
-    document.querySelector("button").textContent = "🔊 朗读全文";
-    currentUtterance = null;
-  };
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=zh-CN&tl=${lang}&dt=t&q=${encodeURIComponent(originalText)}`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const translatedText = data[0].map(d => d[0]).join(" ");
 
-  // 更新按钮状态
-  document.querySelector("button").textContent = "⏹️ 停止朗读";
+    const ttsRes = await fetch("https://texttospeech.googleapis.com/v1/text:synthesize?key=" + apiKey, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { text: translatedText },
+        voice: { languageCode: lang, ssmlGender: "NEUTRAL" },
+        audioConfig: { audioEncoding: "MP3", speakingRate: 0.9 }
+      })
+    });
 
-  // 尝试找到匹配的语音
-  const voices = synth.getVoices();
-  const preferredVoice = voices.find(v => v.lang === lang) || 
-                       voices.find(v => v.lang.startsWith(lang.split('-')[0])) || 
-                       voices[0];
-  
-  if (preferredVoice) {
-    currentUtterance.voice = preferredVoice;
+    const ttsData = await ttsRes.json();
+    if (!ttsData.audioContent) {
+      alert("❌ 无法生成语音：" + JSON.stringify(ttsData));
+      return;
+    }
+
+    const playerContainer = document.getElementById("playerContainer");
+    playerContainer.innerHTML = `
+      <audio controls autoplay>
+        <source src="data:audio/mp3;base64,${ttsData.audioContent}" type="audio/mp3">
+        Your browser does not support the audio element.
+      </audio>
+    `;
+
+  } catch (err) {
+    alert("❌ 出错：" + err.message);
   }
-
-  synth.speak(currentUtterance);
 }
-
-// 预加载语音库
-window.speechSynthesis.onvoiceschanged = function() {
-  speechSynthesis.getVoices();
-};
-
-// 页面加载时初始化
-window.addEventListener('load', function() {
-  speechSynthesis.getVoices(); // 触发语音加载
-});
 </script>
 
 </body>
