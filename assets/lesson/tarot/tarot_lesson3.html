@@ -103,7 +103,7 @@ function playSpeech() {
     return;
   }
 
-  // 只抓取所有 <p> 的文字
+  // 获取所有段落文字
   const paragraphs = document.querySelectorAll("p");
   let combinedText = "";
   paragraphs.forEach(p => {
@@ -115,8 +115,16 @@ function playSpeech() {
     return;
   }
 
-currentUtterance = new SpeechSynthesisUtterance(translatedText);
-currentUtterance.lang = lang;
+  // 朗读设定
+  currentUtterance = new SpeechSynthesisUtterance(combinedText);
+  currentUtterance.lang = "zh-CN";  // 固定朗读中文
+  currentUtterance.rate = 0.9;
+
+  const voices = synth.getVoices();
+  const voice = voices.find(v => v.lang === "zh-CN") ||
+                voices.find(v => v.lang.startsWith("zh")) ||
+                voices[0];
+  if (voice) currentUtterance.voice = voice;
 
   currentUtterance.onend = function () {
     document.querySelector("button").textContent = "🔊 朗读全文";
@@ -124,24 +132,11 @@ currentUtterance.lang = lang;
   };
 
   document.querySelector("button").textContent = "⏹️ 停止朗读";
-
-const voices = window.speechSynthesis.getVoices();
-const voice = voices.find(v => v.lang === lang) || 
-              voices.find(v => v.lang.startsWith(lang.split('-')[0])) || 
-              voices[0];
-  if (voice) currentUtterance.voice = voice;
-  }
-
   synth.speak(currentUtterance);
 }
 
-window.speechSynthesis.onvoiceschanged = function () {
-  speechSynthesis.getVoices();
-};
-
-window.addEventListener('load', function () {
-  speechSynthesis.getVoices();
-});
+window.speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
+window.addEventListener("load", () => speechSynthesis.getVoices());
 </script>
 
 </body>
