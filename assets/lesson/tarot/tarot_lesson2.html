@@ -160,50 +160,47 @@
   </section>
 
 <script>
-const apiKey = "AIzaSyAjTuqwHfTVLdxDOHqfbI9UJcFoM1hBlX4";
+let currentAudio = null;
 
-async function translateAndSpeak() {
-  const lang = document.getElementById("langSelect").value;
-  const paragraphs = Array.from(document.querySelectorAll("p"));
-  const originalText = paragraphs.map(p => p.textContent).join("\n");
-
-  if (!originalText.trim()) {
-    alert("⚠️ 页面中没有内容可翻译");
+async function toggleSpeak(button) {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+    button.textContent = "📣 翻译并朗读";
     return;
   }
 
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=zh-CN&tl=${lang}&dt=t&q=${encodeURIComponent(originalText)}`;
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    const translatedText = data[0].map(d => d[0]).join(" ");
+  const lang = document.getElementById("langSelect").value;
+  const section = button.closest("section");
+  const text = section.querySelector("p").textContent;
 
-    const ttsRes = await fetch("https://texttospeech.googleapis.com/v1/text:synthesize?key=" + apiKey, {
+  try {
+    const transRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=zh-CN&tl=${lang}&dt=t&q=${encodeURIComponent(text)}`);
+    const transData = await transRes.json();
+    const translated = transData[0].map(d => d[0]).join(" ");
+
+    const ttsRes = await fetch("https://texttospeech.googleapis.com/v1/text:synthesize?key=AIzaSyAjTuqwHfTVLdxDOHqfbI9UJcFoM1hBlX4", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        input: { text: translatedText },
+        input: { text: translated },
         voice: { languageCode: lang, ssmlGender: "NEUTRAL" },
-        audioConfig: { audioEncoding: "MP3", speakingRate: 0.9 }
+        audioConfig: { audioEncoding: "MP3" }
       })
     });
 
     const ttsData = await ttsRes.json();
-    if (!ttsData.audioContent) {
-      alert("❌ 无法生成语音：" + JSON.stringify(ttsData));
-      return;
-    }
+    const audio = new Audio("data:audio/mp3;base64," + ttsData.audioContent);
+    audio.play();
+    button.textContent = "⏹️ 停止朗读";
 
-    const playerContainer = document.getElementById("playerContainer");
-    playerContainer.innerHTML = `
-      <audio controls autoplay>
-        <source src="data:audio/mp3;base64,${ttsData.audioContent}" type="audio/mp3">
-        Your browser does not support the audio element.
-      </audio>
-    `;
-
+    currentAudio = audio;
+    audio.onended = () => {
+      currentAudio = null;
+      button.textContent = "📣 翻译并朗读";
+    };
   } catch (err) {
-    alert("❌ 出错：" + err.message);
+    alert("❌ 无法播放语音：" + err.message);
   }
 }
 </script>
