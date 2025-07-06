@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>塔罗课 第3课：多语言朗读</title>
+  <title>塔罗课 第3课：大阿尔克那之下半部</title>
   <style>
     body {
       background-color: #0b0b0b;
@@ -66,18 +66,10 @@
   <section><h2>🌍 21 宇宙</h2><p>宇宙牌象征圆满、整合与完成。旅程来到终点，也即将展开新的篇章。</p></section>
 
 <script>
-let currentUtterance = null;
+const apiKey = "AIzaSyAjTuqwHfTVLdxDOHqfbI9UJcFoM1hBlX4"; // ✅ 已设定你的 API Key
+let audio = null;
 
 async function translateAndSpeak() {
-  const synth = window.speechSynthesis;
-
-  if (currentUtterance) {
-    synth.cancel();
-    currentUtterance = null;
-    document.querySelector("button").textContent = "📣 翻译并朗读";
-    return;
-  }
-
   const lang = document.getElementById("langSelect").value;
   const paragraphs = Array.from(document.querySelectorAll("p"));
   const originalText = paragraphs.map(p => p.textContent).join("\n");
@@ -87,38 +79,37 @@ async function translateAndSpeak() {
     return;
   }
 
+  // Translate using Google Translate API (free endpoint)
   const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=zh-CN&tl=${lang}&dt=t&q=${encodeURIComponent(originalText)}`;
-
   try {
     const res = await fetch(url);
     const data = await res.json();
     const translatedText = data[0].map(d => d[0]).join(" ");
 
-    currentUtterance = new SpeechSynthesisUtterance(translatedText);
-    currentUtterance.lang = lang;
-    currentUtterance.rate = 0.9;
+    const ttsRes = await fetch("https://texttospeech.googleapis.com/v1/text:synthesize?key=" + apiKey, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { text: translatedText },
+        voice: { languageCode: lang, ssmlGender: "NEUTRAL" },
+        audioConfig: { audioEncoding: "MP3", speakingRate: 0.9 }
+      })
+    });
 
-    const voices = synth.getVoices();
-    const voice = voices.find(v => v.lang === lang) ||
-                  voices.find(v => v.lang.startsWith(lang.split('-')[0])) ||
-                  voices[0];
-    if (voice) currentUtterance.voice = voice;
+    const ttsData = await ttsRes.json();
+    if (!ttsData.audioContent) {
+      alert("❌ 无法生成语音：" + JSON.stringify(ttsData));
+      return;
+    }
 
-    currentUtterance.onend = function () {
-      currentUtterance = null;
-      document.querySelector("button").textContent = "📣 翻译并朗读";
-    };
-
-    document.querySelector("button").textContent = "⏹️ 停止朗读";
-    synth.speak(currentUtterance);
+    if (audio) audio.pause();
+    audio = new Audio("data:audio/mp3;base64," + ttsData.audioContent);
+    audio.play();
 
   } catch (err) {
-    alert("❌ 翻译失败：" + err.message);
+    alert("❌ 出错：" + err.message);
   }
 }
-
-window.speechSynthesis.onvoiceschanged = () => speechSynthesis.getVoices();
-window.addEventListener('load', () => speechSynthesis.getVoices());
 </script>
 
 </body>
