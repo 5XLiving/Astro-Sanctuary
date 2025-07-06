@@ -27,6 +27,52 @@
       border-left: 5px solid #ffd700;
       border-radius: 8px;
     }
+    function playSpeech() {
+  const synth = window.speechSynthesis;
+
+  if (currentUtterance) {
+    synth.cancel();
+    document.querySelector("button").textContent = "🔊 朗读全文";
+    currentUtterance = null;
+    return;
+  }
+
+  const lang = document.getElementById("langSelect").value;
+
+  // 自动抓取所有 <p data-lang=xx> 对应语言的内容
+  const paragraphs = document.querySelectorAll(`p[data-lang="${lang}"]`);
+  let combinedText = "";
+  paragraphs.forEach(p => {
+    combinedText += p.textContent + "\n";
+  });
+
+  if (!combinedText.trim()) {
+    alert("⚠️ 当前语言下没有可朗读的内容");
+    return;
+  }
+
+  currentUtterance = new SpeechSynthesisUtterance(combinedText);
+  currentUtterance.lang = lang;
+  currentUtterance.rate = 0.9;
+
+  currentUtterance.onend = function () {
+    document.querySelector("button").textContent = "🔊 朗读全文";
+    currentUtterance = null;
+  };
+
+  document.querySelector("button").textContent = "⏹️ 停止朗读";
+
+  const voices = synth.getVoices();
+  const preferredVoice = voices.find(v => v.lang === lang) ||
+                         voices.find(v => v.lang.startsWith(lang.split('-')[0])) ||
+                         voices[0];
+
+  if (preferredVoice) {
+    currentUtterance.voice = preferredVoice;
+  }
+
+  synth.speak(currentUtterance);
+}
   </style>
 </head>
 <body>
