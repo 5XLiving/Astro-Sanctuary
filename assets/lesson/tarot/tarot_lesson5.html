@@ -28,18 +28,18 @@
       border-left: 5px solid #ffd700;
       border-radius: 8px;
     }
-    button#ttsBtn {
-      background: #ffd700;
-      color: #0b0b0b;
-      border: none;
-      padding: 10px 20px;
+    select, button {
       font-size: 1rem;
-      border-radius: 8px;
-      cursor: pointer;
-      margin-top: 30px;
-      margin-left: auto;
-      margin-right: 0;
-      display: block;
+      padding: 6px 10px;
+      margin-bottom: 20px;
+    }
+    #playerContainer {
+      margin-top: 20px;
+      text-align: center;
+    }
+    audio {
+      width: 100%;
+      outline: none;
     }
   </style>
 </head>
@@ -47,8 +47,27 @@
 
   <h1>📘 塔罗课 第5课：数字牌含义详解</h1>
 
-  <!-- Speaker Button -->
-  <button id="ttsBtn" onclick="playSpeech()">🔊 Listen</button>
+  <label for="langSelect">🌍 播放语言：</label>
+<select id="langSelect">
+  <option value="zh-CN">中文（简体）</option>
+  <option value="zh-TW">中文（繁體）</option>
+  <option value="en">English</option>
+  <option value="en-IN">English (India)</option>
+  <option value="ja">日本語</option>
+  <option value="ko">한국어</option>
+  <option value="fr">Français</option>
+  <option value="de">Deutsch</option>
+  <option value="es">Español</option>
+  <option value="id">Bahasa Indonesia</option>
+  <option value="th">ภาษาไทย</option>
+  <option value="hi-IN">हिन्दी (Hindi)</option>
+  <option value="vi-VN">Tiếng Việt</option>
+  <option value="ar-XA">العربية</option>
+  <option value="ru-RU">Русский</option>
+</select>
+  <button onclick="translateAndSpeak()">📣 翻译并朗读</button>
+
+  <div id="playerContainer"></div>
 
   <section>
   <p data-lang="zh-CN">
@@ -169,73 +188,54 @@
     </p>
   </section>
 
-  <!-- Google Translate script -->
-  <script src="https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-
 <script>
-  let isSpeaking = false;
+const apiKey = "AIzaSyAjTuqwHfTVLdxDOHqfbI9UJcFoM1hBlX4";
 
-  function playSpeech() {
-    const synth = window.speechSynthesis;
+async function translateAndSpeak() {
+  const lang = document.getElementById("langSelect").value;
+  const paragraphs = Array.from(document.querySelectorAll("p"));
+  const originalText = paragraphs.map(p => p.textContent).join("\n");
 
-    // 第二次点击停止播放
-    if (isSpeaking) {
-      synth.cancel();
-      isSpeaking = false;
+  if (!originalText.trim()) {
+    alert("⚠️ 页面中没有内容可翻译");
+    return;
+  }
+
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=zh-CN&tl=${lang}&dt=t&q=${encodeURIComponent(originalText)}`;
+  try {
+    const res = await fetch(url);
+    const data = await res.json();
+    const translatedText = data[0].map(d => d[0]).join(" ");
+
+    const ttsRes = await fetch("https://texttospeech.googleapis.com/v1/text:synthesize?key=" + apiKey, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { text: translatedText },
+        voice: { languageCode: lang, ssmlGender: "NEUTRAL" },
+        audioConfig: { audioEncoding: "MP3", speakingRate: 0.9 }
+      })
+    });
+
+    const ttsData = await ttsRes.json();
+    if (!ttsData.audioContent) {
+      alert("❌ 无法生成语音：" + JSON.stringify(ttsData));
       return;
     }
 
-    // 正确抓取段落文字
-    const text = Array.from(document.querySelectorAll("section p"))
-      .map(p => p.innerText)
-      .join("\n\n");
+    const playerContainer = document.getElementById("playerContainer");
+    playerContainer.innerHTML = `
+      <audio controls autoplay>
+        <source src="data:audio/mp3;base64,${ttsData.audioContent}" type="audio/mp3">
+        Your browser does not support the audio element.
+      </audio>
+    `;
 
-    let lang = document.documentElement.lang || "zh-CN";
-
-    const frame = document.querySelector('iframe.goog-te-menu-frame');
-    if (frame) {
-      try {
-        const selected = frame.contentDocument.querySelector('.goog-te-menu2-item-selected span').innerText;
-        const langMap = {
-          "中文（简体）": "zh-CN",
-          "中文（繁體）": "zh-TW",
-          "Japanese": "ja",
-          "Korean": "ko",
-          "English": "en",
-          "French": "fr",
-          "German": "de",
-          "Spanish": "es",
-          "Thai": "th",
-          "Indonesian": "id"
-        };
-        lang = langMap[selected] || lang;
-      } catch (err) {
-        console.log("Language detection failed:", err);
-      }
-    }
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang;
-    utterance.rate = 1;
-
-    const voices = synth.getVoices();
-    const voice = voices.find(v => v.lang.startsWith(lang));
-    if (voice) {
-      utterance.voice = voice;
-    }
-
-    utterance.onend = () => {
-      isSpeaking = false;
-    };
-
-    synth.cancel();
-    isSpeaking = true;
-    synth.speak(utterance);
+  } catch (err) {
+    alert("❌ 出错：" + err.message);
   }
-
-    // Preload voices
-    window.speechSynthesis.onvoiceschanged = () => {};
-  </script>
+}
+</script>
 
 </body>
 </html>
