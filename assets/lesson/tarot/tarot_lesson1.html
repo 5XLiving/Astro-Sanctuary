@@ -32,14 +32,6 @@
       padding: 6px 10px;
       margin-bottom: 20px;
     }
-    #playerContainer {
-      margin-top: 20px;
-      text-align: center;
-    }
-    audio {
-      width: 100%;
-      outline: none;
-    }
   </style>
 </head>
 <body>
@@ -66,13 +58,12 @@
 </select>
   <button onclick="translateAndSpeak()">📣 翻译并朗读</button>
 
-  <div id="playerContainer"></div>
-
   <section>
     <h2>🔮 塔罗的神秘起源</h2>
     <p data-lang="zh-CN">
       塔罗牌最早可追溯至14世纪的欧洲，最初是一种贵族娱乐纸牌。<br>
       但它真正流传开来，是因为其深藏的神秘主义象征系统，与卡巴拉、占星、炼金术等传统密切相关。
+      </p><button onclick="toggleSpeak(this)">📣 翻译并朗读</button></section>
     </p>
   </section>
 
@@ -82,6 +73,7 @@
       塔罗共有78张牌，其中22张是大阿尔卡那，代表灵魂的进化历程。<br>
       从愚人（The Fool）出发，走过魔术师、女祭司、皇帝等，最终回到宇宙（The World）的圆满。<br>
       它是一个关于"自我觉醒"的宇宙故事。
+      </p><button onclick="toggleSpeak(this)">📣 翻译并朗读</button></section>
     </p>
   </section>
 
@@ -91,54 +83,52 @@
       每张塔罗牌都结合了图像、数字、颜色与象征元素。<br>
       它不是死记的知识，而是透过"图像语言"与"直觉感应"来与潜意识对话。<br>
       所以学习塔罗，也是在训练你的"内在灵性感知力"。
+      </p><button onclick="toggleSpeak(this)">📣 翻译并朗读</button></section>
     </p>
   </section>
 
 <script>
-const apiKey = "AIzaSyAjTuqwHfTVLdxDOHqfbI9UJcFoM1hBlX4";
+let currentAudio = null;
 
-async function translateAndSpeak() {
-  const lang = document.getElementById("langSelect").value;
-  const paragraphs = Array.from(document.querySelectorAll("p"));
-  const originalText = paragraphs.map(p => p.textContent).join("\n");
-
-  if (!originalText.trim()) {
-    alert("⚠️ 页面中没有内容可翻译");
+async function toggleSpeak(button) {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+    button.textContent = "📣 翻译并朗读";
     return;
   }
 
-  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=zh-CN&tl=${lang}&dt=t&q=${encodeURIComponent(originalText)}`;
-  try {
-    const res = await fetch(url);
-    const data = await res.json();
-    const translatedText = data[0].map(d => d[0]).join(" ");
+  const lang = document.getElementById("langSelect").value;
+  const section = button.closest("section");
+  const text = section.querySelector("p").textContent;
 
-    const ttsRes = await fetch("https://texttospeech.googleapis.com/v1/text:synthesize?key=" + apiKey, {
+  try {
+    const transRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=zh-CN&tl=${lang}&dt=t&q=${encodeURIComponent(text)}`);
+    const transData = await transRes.json();
+    const translated = transData[0].map(d => d[0]).join(" ");
+
+    const ttsRes = await fetch("https://texttospeech.googleapis.com/v1/text:synthesize?key=AIzaSyAjTuqwHfTVLdxDOHqfbI9UJcFoM1hBlX4", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        input: { text: translatedText },
+        input: { text: translated },
         voice: { languageCode: lang, ssmlGender: "NEUTRAL" },
-        audioConfig: { audioEncoding: "MP3", speakingRate: 0.9 }
+        audioConfig: { audioEncoding: "MP3" }
       })
     });
 
     const ttsData = await ttsRes.json();
-    if (!ttsData.audioContent) {
-      alert("❌ 无法生成语音：" + JSON.stringify(ttsData));
-      return;
-    }
+    const audio = new Audio("data:audio/mp3;base64," + ttsData.audioContent);
+    audio.play();
+    button.textContent = "⏹️ 停止朗读";
 
-    const playerContainer = document.getElementById("playerContainer");
-    playerContainer.innerHTML = `
-      <audio controls autoplay>
-        <source src="data:audio/mp3;base64,${ttsData.audioContent}" type="audio/mp3">
-        Your browser does not support the audio element.
-      </audio>
-    `;
-
+    currentAudio = audio;
+    audio.onended = () => {
+      currentAudio = null;
+      button.textContent = "📣 翻译并朗读";
+    };
   } catch (err) {
-    alert("❌ 出错：" + err.message);
+    alert("❌ 无法播放语音：" + err.message);
   }
 }
 </script>
