@@ -50,43 +50,106 @@
 
   <h1>📘 第8课：十神解析与生克合冲</h1>
 
+        <label for="langSelect">🌍 播放语言：</label>
+  <select id="langSelect">
+    <option value="zh-CN">中文（简体）</option>
+    <option value="zh-TW">中文（繁體）</option>
+    <option value="en-US">English</option>
+    <option value="ja-JP">日本語</option>
+    <option value="th-TH">ภาษาไทย</option>
+    <option value="id-ID">Bahasa Indonesia</option>
+    <option value="vi-VN">Tiếng Việt</option>
+    <option value="tl-PH">Filipino（菲律宾）</option>
+    <option value="fr-FR">Français（法语）</option>
+    <option value="de-DE">Deutsch（德语）</option>
+    <option value="es-ES">Español（西语）</option>
+    <option value="pt-PT">Português（葡语）</option>
+    <option value="hi-IN">हिन्दी（Hindi）</option>
+  </select>
+
   <section>
-    <h2>🌟 什么是十神？</h2>
-    <p data-lang="zh-CN">
+    <p><h2>什么是十神？</h2><br>
       十神，是以日主为核心，透过五行生克关系，推导出的十种人我关系的象征。<br>
       分为五阳五阴，包含：正官、七杀、正印、偏印、比肩、劫财、食神、伤官、正财、偏财。
     </p>
   </section>
+  <button class="speak-btn" onclick="readByDataLang(this)">📣 朗读</button>
 
   <section>
-    <h2>🔗 十神与五行生克的关系</h2>
-    <p data-lang="zh-CN">
+    <p><h2>十神与五行生克的关系</h2><br>
       十神的本质是五行的生克逻辑延伸：<br>
-      ● 我生者为“食伤”；我克者为“财”；<br>
-      ● 生我者为“印”；克我者为“官杀”；<br>
-      ● 同我者为“比劫”。<br>
+      我生者为“食伤”；我克者为“财”；<br>
+      生我者为“印”；克我者为“官杀”；<br>
+      同我者为“比劫”。<br>
       不同组合展现了不同的个性、人生方向与外在人事。
     </p>
   </section>
+  <button class="speak-btn" onclick="readByDataLang(this)">📣 朗读</button>
 
   <section>
-    <h2>🧭 生克合冲简介</h2>
-    <p data-lang="zh-CN">
+    <p><h2>生克合冲简介</h2><br>
       生：代表助力与顺势，象征成长、资源、机会。<br>
       克：代表压力、挑战，也可能是权力、驱动。<br>
       合：代表合作、吸引、联合，但有时也会“合化无情”。<br>
       冲：代表剧烈变化、不安定、突发事件，是命运中的转折点来源。
     </p>
   </section>
+  <button class="speak-btn" onclick="readByDataLang(this)">📣 朗读</button>
 
   <section>
-    <h2>🎯 实战应用</h2>
-    <p data-lang="zh-CN">
+    <p><h2>实战应用</h2>
       掌握十神与生克合冲，不只可以了解命主的性格特质，<br>
       更能判断其事业、人际、婚姻等运势走向。<br>
       例如：伤官见官容易冲突，财官双美代表事业成就。
     </p>
   </section>
+  <button class="speak-btn" onclick="readByDataLang(this)">📣 朗读</button>
+
+      <script>
+let currentAudio = null;
+
+async function toggleSpeak(button) {
+  if (currentAudio) {
+    currentAudio.pause();
+    currentAudio = null;
+    button.textContent = "📣 翻译并朗读";
+    return;
+  }
+
+  const lang = document.getElementById("langSelect").value;
+  const section = button.closest("section");
+  const text = section.innerText.trim(); // 修复：包含表格文字
+
+  try {
+    const transRes = await fetch(`https://translate.googleapis.com/translate_a/single?client=gtx&sl=zh-CN&tl=${lang}&dt=t&q=${encodeURIComponent(text)}`);
+    const transData = await transRes.json();
+    const translated = transData[0].map(d => d[0]).join(" ");
+
+    const ttsRes = await fetch("https://texttospeech.googleapis.com/v1/text:synthesize?key=AIzaSyAjTuqwHfTVLdxDOHqfbI9UJcFoM1hBlX4", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        input: { text: translated },
+        voice: { languageCode: lang, ssmlGender: "NEUTRAL" },
+        audioConfig: { audioEncoding: "MP3" }
+      })
+    });
+
+    const ttsData = await ttsRes.json();
+    const audio = new Audio("data:audio/mp3;base64," + ttsData.audioContent);
+    audio.play();
+    button.textContent = "⏹️ 停止朗读";
+
+    currentAudio = audio;
+    audio.onended = () => {
+      currentAudio = null;
+      button.textContent = "📣 翻译并朗读";
+    };
+  } catch (err) {
+    alert("❌ 无法播放语音：" + err.message);
+  }
+}
+</script>
 
 </body>
 </html>
