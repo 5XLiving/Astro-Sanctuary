@@ -4,36 +4,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>家族记忆影壁 - Page 1</title>
-  <style> 
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      background-image: url('assets/images/gate.jpg');
-      background-size: cover;
-      background-position: center;
-      background-attachment: fixed;
-      z-index: -1;
-      pointer-events: none;
-    }
-
+  <title>家族记忆影壁 - Page</title>
+  <style>
     body {
-      margin: 0;
-      padding: 0;
-      overflow-x: hidden;
+      font-family: "Noto Serif SC", serif;
+      background: #0b0b0b;
       color: #d4af37;
-      font-family: 'Noto Serif', serif;
-      text-align: center;
+      margin: 0;
+      padding: 20px;
     }
-
     .container {
       background-color: rgba(0, 0, 0, 0.2);
-      border: 1px solid #d4af37;
       max-width: 900px;
       margin: 40px auto;
       padding: 20px;
+      border-radius: 12px;
     }
     h1 {
       text-align: center;
@@ -91,37 +76,44 @@
   </style>
 </head>
 <body>
-  <h1>家族记忆影壁 · Page 1</h1>
+  <div class="container">
+    <h1>家族记忆影壁 · 分页浏览</h1>
 
-  <div class="filter-bar">
-    <label for="typeFilter">筛选类型：</label>
-    <select id="typeFilter">
-      <option value="all">全部</option>
-      <option value="photo">📷 照片</option>
-      <option value="video">📹 视频</option>
-      <option value="audio">🎙️ 语音</option>
-      <option value="note">📝 笔记</option>
-      <option value="journal">📓 记事本</option>
-    </select>
-    <input type="search" id="searchInput" placeholder="搜索人物或内容..." />
+    <div class="filter-bar">
+      <label for="typeFilter">筛选类型：</label>
+      <select id="typeFilter">
+        <option value="all">全部</option>
+        <option value="photo">📷 照片</option>
+        <option value="video">📹 视频</option>
+        <option value="audio">🎙️ 语音</option>
+        <option value="note">📝 笔记</option>
+        <option value="journal">📓 记事本</option>
+      </select>
+      <input type="search" id="searchInput" placeholder="搜索人物或内容..." />
+    </div>
+
+    <div class="bulk-manage-bar">
+      <label for="personFilter">人物标签：</label>
+      <select id="personFilter"></select>
+      <label style="margin-left: 10px;">
+        <input type="checkbox" id="selectAllPerson" />
+        显示全部记录
+      </label>
+      <button id="bulkDelete" disabled>🗑 删除所选</button>
+      <button id="bulkMove" disabled>🕯️ 导入往生记怜录</button>
+    </div>
+
+    <div class="memory-list" id="memoryList"></div>
   </div>
-
-  <div class="bulk-manage-bar">
-    <label for="personFilter">人物标签：</label>
-    <select id="personFilter"></select>
-    <label style="margin-left: 10px;">
-      <input type="checkbox" id="selectAllPerson" />
-      显示全部记录
-    </label>
-    <button id="bulkDelete" disabled>🗑 删除所选</button>
-    <button id="bulkMove" disabled>🕯️ 导入往生记怜录</button>
-  </div>
-
-  <div class="memory-list" id="memoryList"></div>
 
   <script>
+    const PAGE_SIZE = 500;
+    const urlParams = new URLSearchParams(window.location.search);
+    const PAGE_INDEX = parseInt(urlParams.get('page') || '1');
+    const start = (PAGE_INDEX - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+
     const memories = JSON.parse(localStorage.getItem('familyMemories')) || [];
-    const memorials = JSON.parse(localStorage.getItem('memorialMemories')) || [];
     const memoryList = document.getElementById('memoryList');
     const typeFilter = document.getElementById('typeFilter');
     const searchInput = document.getElementById('searchInput');
@@ -136,7 +128,7 @@
     }
 
     function populatePersonFilter() {
-      const options = getUniquePersons().map(name => 
+      const options = getUniquePersons().map(name =>
         `<option value="${name}">${name}</option>`).join('');
       personFilter.innerHTML = `<option value="">请选择</option>` + options;
     }
@@ -151,6 +143,7 @@
 
     function moveToMemorial(index) {
       const memory = memories[index];
+      const memorials = JSON.parse(localStorage.getItem('memorialMemories')) || [];
       memorials.push(memory);
       memories.splice(index, 1);
       localStorage.setItem('memorialMemories', JSON.stringify(memorials));
@@ -187,7 +180,9 @@
         .filter(m => (filterType === 'all' || m.type === filterType))
         .filter(m => m.person.toLowerCase().includes(keyword) || m.text?.toLowerCase().includes(keyword));
 
-      filtered.forEach(memory => {
+      const paginated = filtered.slice(start, end);
+
+      paginated.forEach(memory => {
         const card = document.createElement('div');
         card.className = 'memory-card';
 
