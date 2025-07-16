@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -76,8 +75,7 @@
 <body>
   <h1>记忆上传 Memory Upload</h1>
   <div class="container">
-    
-    <form>
+    <form id="memoryForm">
       <label for="person">人物标签（如：奶奶）</label>
       <input type="text" id="person" name="person" required />
 
@@ -109,34 +107,47 @@
       </select>
 
       <button type="submit" class="submit-btn">保存回忆</button>
-<script>
-  document.querySelector('form').addEventListener('submit', function (e) {
-    e.preventDefault();
-
-    const data = {
-      person: document.getElementById('person').value,
-      status: document.getElementById('status').value,
-      type: document.getElementById('type').value,
-      text: document.getElementById('text').value,
-      visibility: document.getElementById('visibility').value,
-      file: document.getElementById('file').value.split('\\').pop() // 这里只取文件名展示用
-    };
-
-    const storageKey = data.visibility === 'public' ? 'familyMemories' : 'personalMemories';
-    const memories = JSON.parse(localStorage.getItem(storageKey)) || [];
-
-    memories.push(data);
-    localStorage.setItem(storageKey, JSON.stringify(memories));
-
-    alert('回忆已保存 ✅');
-
-    // 跳转
-    window.location.href = data.visibility === 'public' ? 'family_memory.html' : 'personal_memory.html';
-  });
-</script>
     </form>
   </div>
 
   <footer>心怜空间 · 记录你与所爱之人的灵魂连结</footer>
+
+  <script>
+    document.getElementById('memoryForm').addEventListener('submit', function (e) {
+      e.preventDefault();
+
+      const fileInput = document.getElementById('file');
+      const file = fileInput.files[0];
+
+      const reader = new FileReader();
+
+      reader.onload = function () {
+        const data = {
+          person: document.getElementById('person').value,
+          status: document.getElementById('status').value,
+          type: document.getElementById('type').value,
+          text: document.getElementById('text').value,
+          visibility: document.getElementById('visibility').value,
+          fileData: reader.result // base64 数据
+        };
+
+        const storageKey = data.visibility === 'public' ? 'familyMemories' : 'personalMemories';
+        const memories = JSON.parse(localStorage.getItem(storageKey)) || [];
+
+        memories.push(data);
+        localStorage.setItem(storageKey, JSON.stringify(memories));
+
+        alert('回忆已保存 ✅');
+
+        window.location.href = data.visibility === 'public' ? 'family_memory.html' : 'personal_memory.html';
+      };
+
+      if (file) {
+        reader.readAsDataURL(file); // 读取成 base64
+      } else {
+        reader.onload(); // 没上传也可保存
+      }
+    });
+  </script>
 </body>
 </html>
