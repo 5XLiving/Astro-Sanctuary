@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>私人记忆影壁 Personal Memory</title>
+  <title>私人记忆影壁 - Page 1</title>
   <style>
     body {
       font-family: "Noto Serif SC", serif;
@@ -44,6 +44,7 @@
       padding: 15px;
       border-radius: 10px;
       border: 1px solid #d4af37;
+      position: relative;
     }
 
     .memory-card img,
@@ -66,10 +67,32 @@
       border-radius: 6px;
       white-space: pre-wrap;
     }
+
+    .unlock-button {
+      display: block;
+      margin: 40px auto;
+      background-color: #d4af37;
+      color: #000;
+      font-weight: bold;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 1.1rem;
+      text-align: center;
+      text-decoration: none;
+      border: none;
+      cursor: pointer;
+    }
+
+    .locked-msg {
+      text-align: center;
+      margin-top: 40px;
+      font-size: 1.2rem;
+      color: #aaa;
+    }
   </style>
 </head>
 <body>
-  <h1>私人记忆影壁</h1>
+  <h1>私人记忆影壁 · Page 1</h1>
 
   <div class="filter-bar">
     <label for="typeFilter">筛选类型：</label>
@@ -86,7 +109,19 @@
 
   <div class="memory-list" id="memoryList"></div>
 
+  <div id="nextPageSection" class="locked-msg">
+    <p>需要更多空间吗？解锁 Page 2 获取 500 额外记忆卡</p>
+    <a class="unlock-button" href="https://yourshop.myshopify.com/products/unlock-page-2" target="_blank">
+      🔓 解锁 Page 2 · $2.90 SGD
+    </a>
+  </div>
+
   <script>
+    const PAGE_SIZE = 500;
+    const PAGE_INDEX = 1; // 当前页是 Page 1
+    const start = (PAGE_INDEX - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+
     const memories = JSON.parse(localStorage.getItem('personalMemories')) || [];
     const memoryList = document.getElementById('memoryList');
     const typeFilter = document.getElementById('typeFilter');
@@ -94,18 +129,20 @@
 
     function renderMemories() {
       memoryList.innerHTML = '';
-
       const filterType = typeFilter.value;
       const keyword = searchInput.value.trim().toLowerCase();
 
-      const filtered = memories.filter(memory => {
-        const matchType = (filterType === 'all' || memory.type === filterType);
-        const matchKeyword = (
-          memory.person.toLowerCase().includes(keyword) ||
-          memory.text?.toLowerCase().includes(keyword)
-        );
-        return matchType && matchKeyword;
-      });
+      const filtered = memories
+        .map((m, i) => ({ ...m, index: i }))
+        .filter((m, i) => i >= start && i < end)
+        .filter(m => {
+          const matchType = (filterType === 'all' || m.type === filterType);
+          const matchKeyword = (
+            m.person.toLowerCase().includes(keyword) ||
+            m.text?.toLowerCase().includes(keyword)
+          );
+          return matchType && matchKeyword;
+        });
 
       filtered.forEach(memory => {
         const card = document.createElement('div');
@@ -138,7 +175,6 @@
       });
     }
 
-    // 初始化 + 事件监听
     renderMemories();
     typeFilter.addEventListener('change', renderMemories);
     searchInput.addEventListener('input', renderMemories);
