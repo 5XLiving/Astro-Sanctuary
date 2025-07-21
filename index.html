@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>命理供门 Index</title>
   <style>
     body::before {
@@ -36,16 +36,9 @@
       border-radius: 12px;
     }
 
-    h1 {
-      font-size: 2.4rem;
-      margin-top: 40px;
-    }
+    h1 { font-size: 2.4rem; margin-top: 40px; }
 
-    .group-title {
-      font-size: 1.2rem;
-      margin: 20px 0 10px;
-      color: #ffe084;
-    }
+    .group-title { font-size: 1.2rem; margin: 20px 0 10px; color: #ffe084; }
 
     .grid {
       display: flex;
@@ -89,9 +82,7 @@
       display: inline-block;
     }
 
-    form {
-      margin-top: 20px;
-    }
+    form { margin-top: 20px; }
 
     input {
       padding: 10px;
@@ -112,14 +103,9 @@
       cursor: pointer;
     }
 
-    ul {
-      text-align: center;
-      padding-left: 20px;
-    }
+    ul { text-align: center; padding-left: 20px; }
 
-    li {
-      margin: 8px 0;
-    }
+    li { margin: 8px 0; }
 
     @media screen and (max-width: 480px) {
       h1 { font-size: 2rem; }
@@ -144,7 +130,7 @@
     </div>
   </div>
 
-  <div class="container2">
+  <div class="container2" style="display:none;">
     <h2>🗝 Members Segment - 年费会员内容预览</h2>
     <ul>
       <li>姻缘方向：恋爱缘分、婚姻走势</li>
@@ -157,7 +143,7 @@
     </ul>
   </div>
 
-  <div class="container3">
+  <div class="container3" style="display:none;">
     <h2>🌙 VIP Segment - 心怜空间专属内容</h2>
     <ul>
       <li>🧘‍♀️ 灵性记录：照片、梦境、声音、愿望祈祷</li>
@@ -181,19 +167,74 @@
     </form>
 
     <a class="back-button" href="https://yourshopifyshop.myshopify.com">← 返回命理商城</a>
+    <div class="status" id="status" style="margin-top:20px;"></div>
   </div>
 
   <script>
-    function handleLogin(event) {
+    const API_KEY = "YOUR_API_KEY";
+    const BASE_ID = "YOUR_BASE_ID";
+    const TABLE_NAME = "Members";
+
+    async function handleLogin(event) {
       event.preventDefault();
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
-      if (email.endsWith("@vip.com")) {
-        window.location.href = "vip_soul_sanctuary.html";
-      } else {
-        window.location.href = "member_astro_report.html";
+      const status = document.getElementById("status");
+
+      if (!email || !password) {
+        status.textContent = "請輸入 Email 和 密碼";
+        return;
       }
-      return false;
+
+      status.textContent = "登入中...";
+
+      const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}?filterByFormula={email}='${email}'`;
+
+      try {
+        const res = await fetch(url, {
+          headers: {
+            Authorization: "Bearer " + API_KEY
+          }
+        });
+
+        const data = await res.json();
+        if (!data.records || data.records.length === 0) {
+          status.textContent = "查無此帳號";
+          return;
+        }
+
+        const member = data.records[0].fields;
+        const today = new Date().toISOString().split("T")[0];
+        const expire = member.expire_date?.split("T")[0] || "1900-01-01";
+
+        if (today > expire) {
+          status.textContent = "會員已過期";
+          return;
+        }
+
+        if (member.password !== password) {
+          status.textContent = "密碼錯誤";
+          return;
+        }
+
+        localStorage.setItem("membership", member.membership);
+        localStorage.setItem("email", member.email);
+        localStorage.setItem("name", member.name || "");
+
+        status.textContent = `登入成功（${member.membership.toUpperCase()} 會員）`;
+
+        // 顯示會員內容
+        if (member.membership === "vip") {
+          document.querySelector(".container2").style.display = "block";
+          document.querySelector(".container3").style.display = "block";
+        } else if (member.membership === "yearly") {
+          document.querySelector(".container2").style.display = "block";
+        }
+
+      } catch (err) {
+        console.error(err);
+        status.textContent = "登入失敗，請稍後再試";
+      }
     }
   </script>
 </body>
