@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="zh">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>命理供门 Index</title>
+  <title>命理供门 Soul Portal</title>
   <style>
     body::before {
       content: "";
@@ -149,99 +148,82 @@
     <a class="gold-button" href="https://yourshopifyshop.com/products/yearly-member">立即注册年费会员</a>
     <a class="gold-button" href="https://yourshopifyshop.com/products/monthly-vip">升级为月费 VIP</a>
 
-<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px;">
-  <div style="flex: 1; min-width: 240px;">
-    <h3>登入账户 Login</h3>
-    <form onsubmit="return handleLogin(event)">
-      <input type="email" id="email" placeholder="邮箱 Email" required>
-      <input type="password" id="password" placeholder="密码 Password" required>
-      <button type="submit">登入账户</button>
-    </form>
+    <div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 20px;">
+      <div style="flex: 1; min-width: 240px;">
+        <h3>登入账户 Login</h3>
+        <form id="loginForm">
+          <input type="email" id="email" placeholder="邮箱 Email" required>
+          <input type="password" id="password" placeholder="密码 Password" required>
+          <button type="submit">登入账户</button>
+        </form>
+      </div>
+
+      <div style="flex: 1; min-width: 240px;">
+        <h3>🔐 重设密码 Reset Password</h3>
+        <form id="resetForm">
+          <input type="email" id="resetEmail" placeholder="邮箱 Email" required>
+          <button type="submit">发送重置链接</button>
+        </form>
+      </div>
+    </div>
+
+    <div id="status" style="margin-top:20px;"></div>
   </div>
 
-  <div style="flex: 1; min-width: 240px;">
-  <h3>🔐 重设密码 Reset Password</h3>
-  <form onsubmit="return handleReset(event)">
-    <input type="email" id="resetEmail" placeholder="邮箱 Email" required>
-    <input type="password" id="newPassword" placeholder="新密码 New Password" required>
-    <button type="submit">重设密码</button>
-  </form>
-</div>
-
-  <div id="status" style="margin-top:20px;"></div>
-  
   <script>
-    const API_KEY = "patCNZisIV0Yl7Rnf.bd657624e4227d8133ffee4466ad48e083d210e3f406938a70edacf3c3c9f6fd";
-    const BASE_ID = "apphD4o8Efxs8h0fz";
-    const TABLE_NAME = "Members";
+    // Secure: Replace with your backend API endpoint
+    const API_ENDPOINT = "https://your-backend-api.com/auth"; 
 
-    async function handleLogin(event) {
-      event.preventDefault();
+    // Handle login (calls your backend)
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
       const email = document.getElementById("email").value.trim();
       const password = document.getElementById("password").value.trim();
       const status = document.getElementById("status");
 
-      if (!email || !password) {
-        status.textContent = "請輸入 Email 和 密碼";
-        return;
-      }
-
       status.textContent = "登入中...";
 
-      const formula = `LOWER({Email})='${email.toLowerCase()}'`;
-      const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}?filterByFormula=${encodeURIComponent(formula)}`;
-
-
       try {
-        const res = await fetch(url, {
-          headers: {
-            Authorization: "Bearer " + API_KEY
-          }
+        const response = await fetch(API_ENDPOINT + "/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
         });
 
-        const data = await res.json();
+        const data = await response.json();
 
-        if (!data.records || data.records.length === 0) {
-          status.textContent = "查無此帳號";
-          return;
+        if (response.ok) {
+          localStorage.setItem("token", data.token);
+          window.location.href = data.redirectUrl; // e.g., "member_astro_report.html"
+        } else {
+          status.textContent = data.error || "登入失败";
         }
-
-const member = data.records[0].fields;
-const today = new Date().toISOString().split("T")[0];
-const expire = member["Expired Date"]?.split("T")[0] || "1900-01-01";
-
-if (member.Password !== password) {
-  status.textContent = "密碼錯誤";
-  return;
-}
-
-if (today > expire) {
-  status.textContent = "會員已過期";
-  return;
-}
-
-// 儲存登入資料
-localStorage.setItem("membership", member.membership);
-localStorage.setItem("email", member.email);
-localStorage.setItem("name", member.name || "");
-
-const level = (member.membership || "").toLowerCase(); // 統一轉小寫
-
-if (level === "vip") {
-  window.location.href = "vip_soul_sanctuary.html";
-} else if (level === "yearly") {
-  window.location.href = "member_astro_report.html";
-} else if (level === "guest") {
-  window.location.href = "guest_preview.html";
-} else {
-  status.textContent = `未知會員等級（${member.membership}），請聯繫客服`;
-}
-
       } catch (err) {
-        console.error(err);
-        status.textContent = "登入失敗，請稍後再試";
+        status.textContent = "网络错误，请稍后重试";
       }
-    }
+    });
+
+    // Handle password reset (calls your backend)
+    document.getElementById("resetForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const email = document.getElementById("resetEmail").value.trim();
+      const status = document.getElementById("status");
+
+      status.textContent = "发送中...";
+
+      try {
+        const response = await fetch(API_ENDPOINT + "/reset-password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email })
+        });
+
+        const data = await response.json();
+        status.textContent = data.message || "重置链接已发送至邮箱";
+      } catch (err) {
+        status.textContent = "发送失败，请稍后重试";
+      }
+    });
   </script>
 </body>
 </html>
