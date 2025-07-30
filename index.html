@@ -192,6 +192,70 @@
       </form>
       <a class="back-button" href="https://yourshopifyshop.myshopify.com">← 返回命理商城</a>
     </div>
-  </div>
+
+  <script>
+const BASE_ID = "apphD4o8Efxs8h0fz";
+const TABLE_NAME = "Users"; // 若你的表格不是叫這個，請改掉
+const TOKEN = "patCNZisIV0Yl7Rnf";
+
+async function login() {
+  const email = document.getElementById("email").value.trim();
+  const password = document.getElementById("password").value.trim();
+
+  const response = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}?filterByFormula={email}='${email}'`, {
+    headers: {
+      Authorization: `Bearer ${TOKEN}`
+    }
+  });
+
+  const data = await response.json();
+
+  if (!data.records || data.records.length === 0) {
+    alert("帳號錯誤，請確認 Email 是否正確");
+    return;
+  }
+
+  const user = data.records[0];
+  const fields = user.fields;
+
+  if (fields.password !== password) {
+    alert("密碼錯誤");
+    return;
+  }
+
+  if (fields.membership === "VIP") {
+    const today = new Date();
+    const expiredDate = new Date(fields["expired date"]);
+
+    if (expiredDate >= today) {
+      // VIP 未過期
+      window.location.href = "vip.html";
+    } else {
+      // VIP 已過期 → 降為 GUEST
+      await downgradeToGuest(user.id);
+      window.location.href = "guest.html";
+    }
+  } else {
+    // GUEST
+    window.location.href = "guest.html";
+  }
+}
+
+async function downgradeToGuest(recordId) {
+  await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}/${recordId}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${TOKEN}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      fields: {
+        membership: "GUEST"
+      }
+    })
+  });
+}
+</script>
+  
 </body>
 </html>
