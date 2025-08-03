@@ -170,26 +170,20 @@
   <script>
     const BASE_ID = "apphD4o8Efxs8h0fz";
     const TABLE_NAME = "members";
-    const TOKEN = "patrciW8c0s9IIT2m.5fa42a27dc796b099b18f118bb640d96f1361a809a2a49d3dfffd2c81acf3553";
+    const TOKEN = "your_token_here"; // 使用安全方式存储密钥
 
-async function login() {
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
+    async function login() {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value.trim();
+      const passwordHash = await hashPassword(password);
 
-  console.log("你輸入的 email 是：", email); // ← 這一行非常重要
+      const filter = encodeURIComponent(`LOWER({Email}) = '${email.toLowerCase()}'`);
+      const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}?filterByFormula=${filter}`;
 
-  const filter = encodeURIComponent(`{Email} = '${email}'`);
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}?filterByFormula=${filter}`;
-
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${TOKEN}`
-    }
-  });
-
-  const data = await response.json();
-  console.log("API 回傳：", data);
-
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${TOKEN}` }
+      });
+      const data = await response.json();
 
       if (!data.records || data.records.length === 0) {
         alert("帳號錯誤，請確認 Email 是否正確");
@@ -199,23 +193,28 @@ async function login() {
       const user = data.records[0];
       const fields = user.fields;
 
-      if (fields.Password !== password) {
+      if (fields.PasswordHash !== passwordHash) {
         alert("密碼錯誤");
         return;
       }
 
-      if (fields.Membership === "VIP") {
-        const today = new Date();
-        const expiredDate = new Date(fields["Expired Date"]);
-        if (expiredDate >= today) {
-          window.location.href = "https://astro.5xliving.com/vip_soul_sanctuary.html";
-        } else {
-          await downgradeToGuest(user.id);
-          window.location.href = "https://astro.5xliving.com";
-        }
+      const today = new Date();
+      const expiredDate = new Date(fields["Expired Date"]);
+
+      if (fields.Membership === "VIP" && expiredDate >= today) {
+        window.location.href = "https://astro.5xliving.com/vip_soul_sanctuary.html";
       } else {
+        await downgradeToGuest(user.id);
         window.location.href = "https://astro.5xliving.com";
       }
+    }
+
+    async function hashPassword(password) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(password);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
     async function downgradeToGuest(recordId) {
@@ -225,9 +224,7 @@ async function login() {
           Authorization: `Bearer ${TOKEN}`,
           "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-          fields: { Membership: "GUEST" }
-        })
+        body: JSON.stringify({ fields: { Membership: "GUEST" } })
       });
     }
   </script>
