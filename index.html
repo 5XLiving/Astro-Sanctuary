@@ -154,16 +154,21 @@
         </ul>
       </div>
 
-      <div class="group-title">💎 解锁VIP功能</div>
-      <p>$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）</p>
-      <a class="gold-button" href="https://yourshopifyshop.com/products/monthly-vip">升级为VIP(月费）</a>
+<div class="group-title">💎 登入VIP功能</div>
 
-      <form onsubmit="event.preventDefault(); login();">
-        <input type="email" id="email" placeholder="邮箱 Email" required>
-        <input type="password" id="password" placeholder="密码 Password" required>
-        <button type="submit">登入账户</button>
-      </form>
+<form onsubmit="event.preventDefault();">
+  <input type="email" id="email" placeholder="邮箱 Email" required>
+  <input type="password" id="password" placeholder="密码 Password" required>
 
+  <div style="display: flex; gap: 10px; margin: 10px 0;">
+    <button type="button" onclick="register()">注册账户</button>
+    <button type="button" onclick="login()">登入账户</button>
+  </div>
+
+  <p>$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）</p>
+  <a class="gold-button" href="https://yourshopifyshop.com/products/monthly-vip">💎 升级为 VIP（月费）</a>
+</form>
+  
       <a class="back-button" href="https://yourshopifyshop.myshopify.com">← 返回命理商城</a>
     </div>
   </div>
@@ -173,92 +178,61 @@
     const TABLE_NAME = "members";
     const TOKEN = "patrciW8c0s9IIT2m.5fa42a27dc796b099b18f118bb640d96f1361a809a2a49d3dfffd2c81acf3553";
 
-async function login() {
-  const email = document.getElementById("email").value.trim();
-  const password = document.getElementById("password").value.trim();
+  async function register() {
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value.trim();
 
-  console.log("你輸入的 email 是：", email); // ← 這一行非常重要
+    // 密码强度检查
+    const lengthCheck = password.length >= 8;
+    const upperCheck = /[A-Z]/.test(password);
+    const lowerCheck = /[a-z]/.test(password);
+    const numberCheck = /[0-9]/.test(password);
+    const specialCheck = /[^A-Za-z0-9]/.test(password);
 
-  const filter = encodeURIComponent(`{Email} = '${email}'`);
-  const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}?filterByFormula=${filter}`;
-
-  const response = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${TOKEN}`
+    if (!lengthCheck || !upperCheck || !lowerCheck || !numberCheck || !specialCheck) {
+      alert("❌ 密码至少 8 个字符，包含大写、小写、数字与特殊符号");
+      return;
     }
-  });
 
-  const data = await response.json();
-  console.log("API 回傳：", data);
+    // 检查是否已存在账号
+    const filter = encodeURIComponent(`{Email} = '${email}'`);
+    const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}?filterByFormula=${filter}`;
 
+    const checkResponse = await fetch(url, {
+      headers: { Authorization: `Bearer ${TOKEN}` }
+    });
 
-      if (!data.records || data.records.length === 0) {
-        alert("帳號錯誤，請確認 Email 是否正確");
-        return;
-      }
+    const checkData = await checkResponse.json();
+    if (checkData.records.length > 0) {
+      alert("⚠️ 此邮箱已注册，请直接登入");
+      return;
+    }
 
-      const user = data.records[0];
-      const fields = user.fields;
-
-      if (fields.Password !== password) {
-        alert("密碼錯誤");
-        return;
-      }
-
-      if (fields.Membership === "VIP") {
-        const today = new Date();
-        const expiredDate = new Date(fields["Expired Date"]);
-        if (expiredDate >= today) {
-          window.location.href = "https://astro.5xliving.com/vip_soul_sanctuary.html";
-        } else {
-          await downgradeToGuest(user.id);
-          window.location.href = "https://astro.5xliving.com";
+    // 注册账号
+    const createResponse = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${TOKEN}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        fields: {
+          Email: email,
+          Password: password,
+          Membership: "GUEST",
+          "Start Date": new Date().toISOString().split("T")[0]
         }
-      } else {
-        window.location.href = "https://astro.5xliving.com";
-      }
+      })
+    });
+
+    if (createResponse.ok) {
+      alert("✅ 注册成功，请返回登入");
+    } else {
+      alert("❌ 注册失败，请稍后重试");
     }
-
-    async function downgradeToGuest(recordId) {
-      await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}/${recordId}`, {
-        method: "PATCH",
-        headers: {
-          Authorization: `Bearer ${TOKEN}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          fields: { Membership: "GUEST" }
-        })
-      });
-    }
-  </script>
-
-  <form onsubmit="return validatePassword()">
-  <input type="password" id="password" placeholder="Enter password" required />
-  <button type="submit">Submit</button>
-  <p id="error" style="color: red;"></p>
-</form>
-
-<script>
-function validatePassword() {
-  const password = document.getElementById("password").value;
-  const error = document.getElementById("error");
-
-  const lengthCheck = password.length >= 8;
-  const upperCheck = /[A-Z]/.test(password);
-  const lowerCheck = /[a-z]/.test(password);
-  const numberCheck = /[0-9]/.test(password);
-  const specialCheck = /[^A-Za-z0-9]/.test(password);
-
-  if (!lengthCheck || !upperCheck || !lowerCheck || !numberCheck || !specialCheck) {
-    error.innerText = "❌ 密码至少 8 个字符，包含大写、小写、数字与特殊符号";
-    return false;
   }
-
-  error.innerText = "";
-  return true;
-}
 </script>
+
   
 </body>
 </html>
