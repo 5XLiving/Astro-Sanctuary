@@ -3,9 +3,19 @@ from flask_cors import CORS
 import os
 
 app = Flask(__name__)
-CORS(app, resources={r"/*": {"origins": "https://astro.5xliving.com"}})  # ✅ 安全做法：仅允许你的前端来源
 
-# ✅ 示例八字逻辑函数
+# ✅ 允许来自特定域名的跨域请求，包含OPTIONS预检支持
+CORS(app, supports_credentials=True, resources={
+    r"/*": {
+        "origins": [
+            "https://astro.5xliving.com"
+        ],
+        "methods": ["GET", "POST", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
+
+# 模拟八字排盘逻辑
 def mock_bazi_calculator(birth_date, birth_time, gender):
     return {
         "structure": "木火通明",
@@ -21,8 +31,12 @@ def mock_bazi_calculator(birth_date, birth_time, gender):
 def index():
     return "5XLiving Bazi API is running."
 
-@app.route("/bazi", methods=["POST"])
+@app.route("/bazi", methods=["POST", "OPTIONS"])
 def calculate_bazi():
+    if request.method == "OPTIONS":
+        # ✅ 预检请求直接返回200
+        return '', 200
+
     try:
         data = request.get_json()
         birth_date = data.get("birth_date")
