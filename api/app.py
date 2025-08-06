@@ -4,16 +4,8 @@ import os
 
 app = Flask(__name__)
 
-# ✅ 允许来自特定域名的跨域请求，包含OPTIONS预检支持
-CORS(app, supports_credentials=True, resources={
-    r"/*": {
-        "origins": [
-            "https://astro.5xliving.com"
-        ],
-        "methods": ["GET", "POST", "OPTIONS"],
-        "allow_headers": ["Content-Type", "Authorization"]
-    }
-})
+# ✅ 允许所有来源（开发阶段）或指定域名
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 # 模拟八字排盘逻辑
 def mock_bazi_calculator(birth_date, birth_time, gender):
@@ -34,8 +26,12 @@ def index():
 @app.route("/bazi", methods=["POST", "OPTIONS"])
 def calculate_bazi():
     if request.method == "OPTIONS":
-        # ✅ 预检请求直接返回200
-        return '', 200
+        # ✅ 手动处理预检请求（preflight）
+        response = jsonify({})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        response.headers.add("Access-Control-Allow-Headers", "Content-Type")
+        response.headers.add("Access-Control-Allow-Methods", "POST, OPTIONS")
+        return response
 
     try:
         data = request.get_json()
@@ -47,11 +43,16 @@ def calculate_bazi():
             return jsonify({"error": "Missing required fields"}), 400
 
         result = mock_bazi_calculator(birth_date, birth_time, gender)
-        return jsonify(result)
+
+        response = jsonify(result)
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        response = jsonify({"error": str(e)})
+        response.headers.add("Access-Control-Allow-Origin", "*")
+        return response, 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port)
