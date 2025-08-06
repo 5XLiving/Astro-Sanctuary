@@ -1,10 +1,11 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS  # ✅ NEW
+from flask_cors import CORS
 import os
 
 app = Flask(__name__)
-CORS(app)  # ✅ NEW
+CORS(app, resources={r"/*": {"origins": "https://astro.5xliving.com"}})  # ✅ 安全做法：仅允许你的前端来源
 
+# ✅ 示例八字逻辑函数
 def mock_bazi_calculator(birth_date, birth_time, gender):
     return {
         "structure": "木火通明",
