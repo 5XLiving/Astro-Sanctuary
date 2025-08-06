@@ -3,18 +3,7 @@ from flask_cors import CORS
 import os
 
 app = Flask(__name__)
-CORS(app)  # ✅ 一行解决所有 CORS 问题
-
-def mock_bazi_calculator(birth_date, birth_time, gender):
-    return {
-        "structure": "木火通明",
-        "day_master": "甲木",
-        "useful_god": "火",
-        "advice": "多用火土气场，利南方发展",
-        "birth_date": birth_date,
-        "birth_time": birth_time,
-        "gender": gender
-    }
+CORS(app)
 
 @app.route("/")
 def index():
@@ -31,8 +20,15 @@ def calculate_bazi():
         if not (birth_date and birth_time and gender):
             return jsonify({"error": "Missing required fields"}), 400
 
-        result = mock_bazi_calculator(birth_date, birth_time, gender)
-        return jsonify(result)
+        return jsonify({
+            "structure": "木火通明",
+            "day_master": "甲木",
+            "useful_god": "火",
+            "advice": "多用火土气场，利南方发展",
+            "birth_date": birth_date,
+            "birth_time": birth_time,
+            "gender": gender
+        })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
