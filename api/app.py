@@ -1,7 +1,9 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS  # ✅ NEW
 import os
 
 app = Flask(__name__)
+CORS(app)  # ✅ NEW
 
 def mock_bazi_calculator(birth_date, birth_time, gender):
     return {
@@ -34,7 +36,6 @@ def calculate_bazi():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
