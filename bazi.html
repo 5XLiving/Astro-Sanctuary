@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>八字命理分析 - 命理供门</title>
   <style>
+    /* 之前的样式保持不变 */
     html { font-size: 18px; }
     body::before {
       content: "";
@@ -136,6 +137,26 @@
   </div>
 
 <script>
+  // 模拟API返回的数据结构
+  const mockData = {
+    pillars: [
+      { heavenly_stem: "甲", earthly_branch: "子", element: "木" },
+      { heavenly_stem: "乙", earthly_branch: "丑", element: "土" },
+      { heavenly_stem: "丙", earthly_branch: "寅", element: "火" },
+      { heavenly_stem: "丁", earthly_branch: "卯", element: "木" }
+    ],
+    solar_date: "1990年1月15日",
+    birth_time: "08:30",
+    day_master: "丙火",
+    day_master_element: "火",
+    elements_balance: "木:2 火:2 土:1 金:0 水:0",
+    strength_level: "身强",
+    strength_description: "日主丙火得月令，命局火旺",
+    personality_traits: "性格热情开朗，行动力强，但有时容易急躁",
+    career_suggestions: "适合从事创意、营销、教育等需要热情和表达力的工作",
+    relationships_advice: "与人相处直率坦诚，但需注意控制脾气"
+  };
+
   async function showReport(event) {
     const btn = event?.target || document.querySelector("button");
     const gender = document.getElementById("gender").value;
@@ -149,15 +170,17 @@
     const old = btn.textContent; btn.disabled = true; btn.textContent = "生成中…";
 
     try {
-      const res = await fetch("https://api.5xliving.com/bazi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ birth_date, birth_time, gender })
-      });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-
-      const data = await res.json();
+      // 实际开发中使用真实API
+      // const res = await fetch("https://api.5xliving.com/bazi", {
+      //   method: "POST",
+      //   headers: { "Content-Type": "application/json" },
+      //   body: JSON.stringify({ birth_date, birth_time, gender })
+      // });
+      // if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      // const data = await res.json();
+      
+      // 开发阶段使用模拟数据
+      const data = mockData;
       console.log("API 返回：", data);
 
       // 更新八字排盘显示
@@ -173,7 +196,7 @@
   }
 
   function updateBaziDisplay(data) {
-    // 更新八字四柱显示
+    // 更新八字四柱显示 - 添加防御性编程
     const pillarsContainer = document.getElementById("bazi-pillars");
     pillarsContainer.innerHTML = '';
     
@@ -183,22 +206,27 @@
       '金': 'metal', '水': 'water'
     };
     
-    data.pillars.forEach((pillar, index) => {
-      const elementClass = elements[pillar.element] || '';
-      const pillarDiv = document.createElement('div');
-      pillarDiv.className = 'bazi-pillar';
-      pillarDiv.innerHTML = `
-        <div class="bazi-title">${pillarTitles[index]}</div>
-        <div>${pillar.heavenly_stem}${pillar.earthly_branch}</div>
-        <div><span class="element ${elementClass}">${pillar.element}</span></div>
-      `;
-      pillarsContainer.appendChild(pillarDiv);
-    });
+    // 检查data.pillars是否存在且有数据
+    if (data.pillars && Array.isArray(data.pillars) && data.pillars.length > 0) {
+      data.pillars.forEach((pillar, index) => {
+        const elementClass = elements[pillar.element] || '';
+        const pillarDiv = document.createElement('div');
+        pillarDiv.className = 'bazi-pillar';
+        pillarDiv.innerHTML = `
+          <div class="bazi-title">${pillarTitles[index]}</div>
+          <div>${pillar.heavenly_stem || '—'}${pillar.earthly_branch || '—'}</div>
+          <div><span class="element ${elementClass}">${pillar.element || '—'}</span></div>
+        `;
+        pillarsContainer.appendChild(pillarDiv);
+      });
+    } else {
+      pillarsContainer.innerHTML = '<p>八字排盘数据不可用</p>';
+    }
 
-    // 更新其他信息
-    document.getElementById("bazi-date").textContent = `出生时间：${data.solar_date} ${data.birth_time}`;
-    document.getElementById("bazi-day-master").textContent = `日主（代表自己）：${data.day_master} ${data.day_master_element}`;
-    document.getElementById("bazi-element").textContent = `五行属性：${data.day_master_element}命`;
+    // 更新其他信息 - 添加默认值处理
+    document.getElementById("bazi-date").textContent = `出生时间：${data.solar_date || '—'} ${data.birth_time || '—'}`;
+    document.getElementById("bazi-day-master").textContent = `日主（代表自己）：${data.day_master || '—'}`;
+    document.getElementById("bazi-element").textContent = `五行属性：${data.day_master_element ? data.day_master_element + '命' : '—'}`;
     
     // 五行分析
     document.getElementById("bazi-elements-balance").textContent = 
@@ -206,7 +234,7 @@
     
     const strengthsContainer = document.getElementById("bazi-strengths");
     strengthsContainer.innerHTML = `
-      <p>命局${data.strength_level}：${data.strength_description || "—"}</p>
+      <p>命局${data.strength_level || '—'}：${data.strength_description || "—"}</p>
     `;
     
     // 命格简评
