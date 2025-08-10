@@ -90,43 +90,72 @@
     </div>
   </div>
 
-  <script>
-    async function showReport() {
-      const gender = document.getElementById("gender").value;
-      const datetime = document.getElementById("datetime").value;
+<script>
+  async function showReport() {
+    const btn = event.target;
+    const gender = document.getElementById("gender").value;
+    const datetime = document.getElementById("datetime").value;
+    const resultBox = document.getElementById("result");
+    const structure = document.getElementById("bazi-structure");
+    const dayMaster = document.getElementById("bazi-day-master");
+    const advice = document.getElementById("bazi-advice");
 
-      if (!datetime) {
-        alert("请填写出生日期时间！");
-        return;
-      }
-
-      const [birth_date, birth_time] = datetime.split("T");
-
-      try {
-        const response = await fetch("https://api.5xliving.com/bazi", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            birth_date,
-            birth_time,
-            gender
-          })
-        });
-
-        const data = await response.json();
-
-        document.getElementById("bazi-structure").innerText = "命格结构：" + data.structure;
-        document.getElementById("bazi-day-master").innerText = "日主：" + data.day_master;
-        document.getElementById("bazi-advice").innerText = "建议：" + data.advice;
-
-        document.getElementById("result").style.display = "block";
-      } catch (error) {
-        alert("请求失败，请稍后重试");
-        console.error(error);
-      }
+    if (!datetime) {
+      alert("请填写出生日期时间！");
+      return;
     }
-  </script>
+
+    const [birth_date, birth_time] = datetime.split("T");
+
+    // UI: loading
+    btn.disabled = true;
+    const oldText = btn.textContent;
+    btn.textContent = "生成中…";
+
+    // allow cancel after 15s
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 15000);
+
+    try {
+      const res = await fetch("https://api.5xliving.com/bazi", {
+        method: "POST",
+        mode: "cors",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ birth_date, birth_time, gender }),
+        signal: ctrl.signal
+      });
+
+      // if backend returns 4xx/5xx, show exact message
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(`HTTP ${res.status} – ${errText || "No response body"}`);
+      }
+
+      // try to parse JSON; if fails, show raw text
+      let data;
+      const text = await res.text();
+      try { data = JSON.parse(text); } catch {
+        throw new Error("后端未返回 JSON：\n" + text);
+      }
+
+      structure.textContent = "命格结构：" + (data.structure ?? "—");
+      dayMaster.textContent = "日主：" + (data.day_master ?? "—");
+      advice.textContent   = "建议：" + (data.advice ?? "—");
+      resultBox.style.display = "block";
+    } catch (err) {
+      resultBox.style.display = "block";
+      structure.textContent = "";
+      dayMaster.textContent = "";
+      advice.textContent = "❌ 出错：" + (err.message || err);
+      console.error(err);
+      alert("请求失败：" + (err.message || err));
+    } finally {
+      clearTimeout(t);
+      btn.disabled = false;
+      btn.textContent = oldText;
+    }
+  }
+</script>
+
 </body>
 </html>
