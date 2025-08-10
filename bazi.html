@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <title>八字命理分析 - 命理供门</title>
   <style>
-    /* 样式保持不变 */
     html { font-size: 18px; }
     body::before {
       content: "";
@@ -84,9 +83,10 @@
 <body>
   <h1>八字命理简评</h1>
 
-<div>
+  <div>
     <input type="text" id="name" placeholder="姓名 (可选)">
     <select id="gender">
+      <option value="" disabled selected>选择性别</option>
       <option value="male">男性</option>
       <option value="female">女性</option>
     </select>
@@ -97,7 +97,7 @@
     </select>
     <p class="note">说明：若您只知道农历生日，请选择"农历"；系统将自动转换为阳历后进行排盘。</p>
     <button onclick="showReport()">生成八字</button>
-</div>
+  </div>
 
   <div id="result" style="display:none;">
     <div class="section">
@@ -137,32 +137,6 @@
   </div>
 
 <script>
-  // 根据1978年2月21日12:00(午时)生成的正确八字数据
-  function getBaziData(birth_date, birth_time, gender) {
-    // 这里应该是调用API获取真实数据
-    // 以下是手动计算的1978年2月21日午时的八字数据
-    return {
-      name: "黄炳林",
-      gender: "male",
-      pillars: [
-        { heavenly_stem: "戊", earthly_branch: "午", element: "火" },
-        { heavenly_stem: "甲", earthly_branch: "寅", element: "木" },
-        { heavenly_stem: "甲", earthly_branch: "戌", element: "土" },
-        { heavenly_stem: "庚", earthly_branch: "午", element: "火" }
-      ],
-      solar_date: "1978年2月21日",
-      birth_time: "12:00",
-      day_master: "甲木",
-      day_master_element: "木",
-      elements_balance: "木:2 火:3 土:2 金:1 水:0",
-      strength_level: "身强",
-      strength_description: "日主甲木得月令寅木相助，命局木旺",
-      personality_traits: "性格正直坚韧，有领导才能，但有时固执",
-      career_suggestions: "适合管理、建筑、农林等需要决断力和持久力的工作",
-      relationships_advice: "待人诚恳，但需注意不要太坚持己见"
-    };
-  }
-
   async function showReport(event) {
     const btn = event?.target || document.querySelector("button");
     const name = document.getElementById("name").value;
@@ -170,6 +144,7 @@
     const datetime = document.getElementById("datetime").value;
 
     if (!datetime) { alert("请填写出生日期时间！"); return; }
+    if (!gender) { alert("请选择性别！"); return; }
 
     const [birth_date, birth_time] = datetime.split("T");
 
@@ -177,17 +152,16 @@
     const old = btn.textContent; btn.disabled = true; btn.textContent = "生成中...";
 
     try {
-      // 实际应用中这里应该调用API
-      // const res = await fetch("https://api.5xliving.com/bazi", {
-      //   method: "POST",
-      //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ birth_date, birth_time, gender, name })
-      // });
-      // if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
-      // const data = await res.json();
+      // 这里应该是调用API获取真实数据
+      const res = await fetch("https://api.5xliving.com/bazi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ birth_date, birth_time, gender, name })
+      });
       
-      // 开发阶段使用本地计算的数据
-      const data = getBaziData(birth_date, birth_time, gender);
+      if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+      
+      const data = await res.json();
       console.log("八字数据：", data);
 
       // 更新八字排盘显示
@@ -254,12 +228,6 @@
     document.getElementById("bazi-relationships").textContent = 
       `人际建议：${data.relationships_advice || "—"}`;
   }
-
-  // 页面加载时自动填充测试数据
-  window.onload = function() {
-    document.getElementById("name").value = "黄炳林";
-    document.getElementById("datetime").value = "1978-02-21T12:00";
-  };
 </script>
 
 </body>
