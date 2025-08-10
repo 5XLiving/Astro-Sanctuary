@@ -138,53 +138,88 @@
   </div>
 
 <script>
-  // 更完善的本地八字计算函数
-  function calculateBazi(birthDate, gender) {
-    // 简单示例：根据日期生成不同的八字（仅用于演示）
-    const year = birthDate.getFullYear();
-    const month = birthDate.getMonth() + 1;
-    const day = birthDate.getDate();
-    const hour = birthDate.getHours();
+  // 1. 首先定义 updateBaziDisplay 函数
+  function updateBaziDisplay(data) {
+    // 确保元素存在
+    const pillarsContainer = document.getElementById("bazi-pillars");
+    if (!pillarsContainer) {
+      console.error("找不到八字排盘容器元素");
+      return;
+    }
     
-    // 示例数据 - 实际应用中应该根据生辰八字算法计算
+    pillarsContainer.innerHTML = '';
+    
+    const pillarTitles = ['年柱', '月柱', '日柱', '时柱'];
+    const elements = {
+      '木': 'wood', '火': 'fire', '土': 'earth', 
+      '金': 'metal', '水': 'water'
+    };
+    
+    // 确保有数据
+    if (data.pillars && Array.isArray(data.pillars)) {
+      data.pillars.forEach((pillar, index) => {
+        const elementClass = elements[pillar.element] || '';
+        const pillarDiv = document.createElement('div');
+        pillarDiv.className = 'bazi-pillar';
+        pillarDiv.innerHTML = `
+          <div class="bazi-title">${pillarTitles[index]}</div>
+          <div>${pillar.heavenly_stem || '—'}${pillar.earthly_branch || '—'}</div>
+          <div><span class="element ${elementClass}">${pillar.element || '—'}</span></div>
+        `;
+        pillarsContainer.appendChild(pillarDiv);
+      });
+    } else {
+      pillarsContainer.innerHTML = '<p>八字排盘数据不可用</p>';
+    }
+
+    // 更新其他信息
+    const setTextContent = (id, text) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = text;
+    };
+
+    setTextContent("bazi-date", `出生时间：${data.solar_date || '—'} ${data.birth_time || '—'}`);
+    setTextContent("bazi-day-master", `日主（代表自己）：${data.day_master || '—'}`);
+    setTextContent("bazi-element", `五行属性：${data.day_master_element ? data.day_master_element + '命' : '—'}`);
+    setTextContent("bazi-elements-balance", `五行分布：${data.elements_balance || "—"}`);
+    
+    const strengthsContainer = document.getElementById("bazi-strengths");
+    if (strengthsContainer) {
+      strengthsContainer.innerHTML = `
+        <p>命局${data.strength_level || '—'}：${data.strength_description || "—"}</p>
+      `;
+    }
+    
+    setTextContent("bazi-advice", `性格特点：${data.personality_traits || "—"}`);
+    setTextContent("bazi-career", `适合领域：${data.career_suggestions || "—"}`);
+    setTextContent("bazi-relationships", `人际建议：${data.relationships_advice || "—"}`);
+  }
+
+  // 2. 然后定义 calculateBazi 函数
+  function calculateBazi(birthDate, gender) {
+    // 这里是示例数据，实际应用中应该根据生辰八字算法计算
     const stems = ["甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"];
     const branches = ["子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"];
     const elements = ["木", "火", "土", "金", "水"];
     
     // 简单算法仅用于演示
-    const yearIndex = (year - 4) % 10;
-    const monthIndex = month % 12;
-    const dayIndex = day % 10;
-    const hourIndex = hour % 12;
+    const yearIndex = (birthDate.getFullYear() - 4) % 10;
+    const monthIndex = (birthDate.getMonth() + 1) % 12;
+    const dayIndex = birthDate.getDate() % 10;
+    const hourIndex = birthDate.getHours() % 12;
     
     return {
       pillars: [
-        { 
-          heavenly_stem: stems[yearIndex % 10], 
-          earthly_branch: branches[yearIndex % 12],
-          element: elements[yearIndex % 5]
-        },
-        { 
-          heavenly_stem: stems[monthIndex % 10], 
-          earthly_branch: branches[monthIndex % 12],
-          element: elements[monthIndex % 5]
-        },
-        { 
-          heavenly_stem: stems[dayIndex % 10], 
-          earthly_branch: branches[dayIndex % 12],
-          element: elements[dayIndex % 5]
-        },
-        { 
-          heavenly_stem: stems[hourIndex % 10], 
-          earthly_branch: branches[hourIndex % 12],
-          element: elements[hourIndex % 5]
-        }
+        { heavenly_stem: stems[yearIndex], earthly_branch: branches[yearIndex], element: elements[yearIndex % 5] },
+        { heavenly_stem: stems[monthIndex], earthly_branch: branches[monthIndex], element: elements[monthIndex % 5] },
+        { heavenly_stem: stems[dayIndex], earthly_branch: branches[dayIndex], element: elements[dayIndex % 5] },
+        { heavenly_stem: stems[hourIndex], earthly_branch: branches[hourIndex], element: elements[hourIndex % 5] }
       ],
-      solar_date: `${year}年${month}月${day}日`,
-      birth_time: `${hour}:${birthDate.getMinutes().toString().padStart(2, '0')}`,
-      day_master: stems[dayIndex % 10] + elements[dayIndex % 5],
+      solar_date: birthDate.toLocaleDateString('zh-CN'),
+      birth_time: birthDate.toLocaleTimeString('zh-CN', {hour: '2-digit', minute:'2-digit'}),
+      day_master: stems[dayIndex] + elements[dayIndex % 5],
       day_master_element: elements[dayIndex % 5],
-      elements_balance: "木:2 火:2 土:2 金:2 水:2", // 示例数据
+      elements_balance: "木:2 火:2 土:2 金:2 水:2",
       strength_level: "中强",
       strength_description: "命局五行相对平衡",
       personality_traits: "性格随和，适应力强",
@@ -193,36 +228,18 @@
     };
   }
 
+  // 3. 最后定义 showReport 函数
   async function showReport() {
     const btn = document.querySelector("button");
     const name = document.getElementById("name").value;
-    const genderSelect = document.getElementById("gender");
-    const gender = genderSelect.value;
-    const datetimeInput = document.getElementById("datetime");
-    const datetime = datetimeInput.value;
+    const gender = document.getElementById("gender").value;
+    const datetime = document.getElementById("datetime").value;
 
-    // 验证输入
-    if (!datetime) {
-      alert("请填写出生日期时间！");
-      datetimeInput.focus();
-      return;
-    }
-    
-    if (!gender || gender === "") {
-      alert("请选择性别！");
-      genderSelect.focus();
-      return;
-    }
+    if (!datetime) { alert("请填写出生日期时间！"); return; }
+    if (!gender) { alert("请选择性别！"); return; }
 
     const birthDate = new Date(datetime);
     
-    // 验证日期有效性
-    if (isNaN(birthDate.getTime())) {
-      alert("请输入有效的日期时间！");
-      datetimeInput.focus();
-      return;
-    }
-
     // UI loading
     btn.disabled = true; 
     const oldText = btn.textContent;
@@ -230,21 +247,10 @@
 
     try {
       let data;
-      let apiSuccess = false;
       
-      // 尝试调用API（如果有）
+      // 尝试调用API
       try {
         const [birth_date, birth_time] = datetime.split("T");
-        console.log("尝试调用API...");
-        
-        // 这里使用模拟API响应，实际使用时去掉这个setTimeout
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // 模拟API失败，回退到本地计算
-        throw new Error("模拟API失败，使用本地计算");
-        
-        // 实际API调用代码（注释掉因为可能不存在）
-        /*
         const res = await fetch("https://api.5xliving.com/bazi", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -253,15 +259,12 @@
         
         if (res.ok) {
           data = await res.json();
-          apiSuccess = true;
+        } else {
+          // API失败时使用本地计算
+          data = calculateBazi(birthDate, gender);
         }
-        */
       } catch (e) {
-        console.log("API调用失败，使用本地计算:", e.message);
-      }
-      
-      // 如果API调用不成功，使用本地计算
-      if (!apiSuccess) {
+        // API出错时使用本地计算
         data = calculateBazi(birthDate, gender);
       }
 
@@ -271,14 +274,21 @@
       
     } catch (err) {
       console.error("生成八字时出错：", err);
-      alert("生成八字时出错: " + err.message);
+      alert("生成八字时出错，请稍后再试");
     } finally {
       btn.disabled = false; 
       btn.textContent = oldText;
     }
   }
 
-  // 其他函数保持不变...
+  // 初始化日期为当前日期时间
+  window.addEventListener('DOMContentLoaded', () => {
+    const now = new Date();
+    const datetimeInput = document.getElementById("datetime");
+    if (datetimeInput) {
+      datetimeInput.value = now.toISOString().slice(0, 16);
+    }
+  });
 </script>
 
 </body>
