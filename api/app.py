@@ -4,7 +4,8 @@ import os
 from datetime import datetime
 
 app = Flask(__name__)
-CORS(app)  # 允许跨域给 astro.5xliving.com
+# 生产时可改为：CORS(app, resources={r"/*": {"origins": "https://astro.5xliving.com"}})
+CORS(app)
 
 # ——— 简单五行映射（示例）：天干/地支 → 五行，用于免费版概述 —— #
 STEM_ELEMENTS = {
@@ -17,23 +18,17 @@ BRANCH_ELEMENTS = {
 }
 STEMS = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"]
 BRANCHES = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"]
-ELEMENTS = ["木","火","土","金","水"]
 
 def quick_pillars(birth_date: str, birth_time: str):
     """
     轻量“示例级”推演：按年月日时做简单索引，供免费版概述展示。
     不是正式排盘，仅用于占位 & 前端展示全面信息。
     """
-    # 解析
     dt = datetime.strptime(f"{birth_date} {birth_time}", "%Y-%m-%d %H:%M")
-    y = (dt.year - 4) % 10
-    yb = (dt.year - 4) % 12
-    m = (dt.month) % 10
-    mb = (dt.month) % 12
-    d = (dt.day) % 10
-    db = (dt.day) % 12
-    h = (dt.hour) % 10
-    hb = (dt.hour) % 12
+    y = (dt.year - 4) % 10;   yb = (dt.year - 4) % 12
+    m = (dt.month) % 10;      mb = (dt.month) % 12
+    d = (dt.day) % 10;        db = (dt.day) % 12
+    h = (dt.hour) % 10;       hb = (dt.hour) % 12
 
     pillars = [
         {"heavenly_stem": STEMS[y], "earthly_branch": BRANCHES[yb]},
@@ -41,29 +36,29 @@ def quick_pillars(birth_date: str, birth_time: str):
         {"heavenly_stem": STEMS[d], "earthly_branch": BRANCHES[db]},
         {"heavenly_stem": STEMS[h], "earthly_branch": BRANCHES[hb]},
     ]
-    # 给每柱补 element（用天干为主，缺则用地支）
+    # 给每柱补 element（天干为主，缺则用地支）
     for p in pillars:
-        el = STEM_ELEMENTS.get(p["heavenly_stem"]) or BRANCH_ELEMENTS.get(p["earthly_branch"]) or "木"
-        p["element"] = el
+        p["element"] = STEM_ELEMENTS.get(p["heavenly_stem"]) or BRANCH_ELEMENTS.get(p["earthly_branch"]) or "木"
     return pillars, dt
 
 def summarize_free(birth_date, birth_time, gender):
     pillars, dt = quick_pillars(birth_date, birth_time)
+
     # 五行计数
     fe_count = {"木":0,"火":0,"土":0,"金":0,"水":0}
     for p in pillars:
-        fe_count[p["element"]] = fe_count.get(p["element"], 0) + 1
+        fe_count[p["element"]] += 1
 
-    # 以“日柱天干”做日主（示例）
+    # 日主（用日柱天干）
     day_stem = pillars[2]["heavenly_stem"]
     day_master_element = STEM_ELEMENTS.get(day_stem, "木")
 
-    # 强弱（示例规则，仅用于免费概述）
+    # 强弱（示例规则，仅免费概述）
     max_ele = max(fe_count, key=fe_count.get)
     strength_level = "中强" if fe_count[max_ele] >= 2 else "中平"
     strength_description = f"命局{max_ele}较旺，整体为{strength_level}，需协调其它五行。"
 
-    # 基础建议（按元素做一版示例引导，可随品牌口吻微调）
+    # —— 性格 / 事业 / 感情（免费版概述）——
     personality = {
         "木":"理想感强，向上生发，重原则与成长",
         "火":"外向主动，表达力强，重热情与速度",
@@ -72,42 +67,50 @@ def summarize_free(birth_date, birth_time, gender):
         "水":"思维流动，善沟通学习，重灵活"
     }[day_master_element]
 
-    career = {
-        "木":"教育/内容/咨询/设计/健康服务",
-        "火":"传播/公关/直播/培训/餐饮",
-        "土":"项目管理/地产/供应链/后勤",
-        "金":"金融/法务/运营/质量/工业",
-        "水":"新媒体/研发/外贸/数据/旅游"
+    career_basic = {
+        "木":"宜创意教育健康等长期积累型；先打造口碑与作品库。",
+        "火":"宜传播演讲销售培训等快节奏；善用人脉与曝光。",
+        "土":"宜管理地产供应链等稳健运营；重流程与复盘。",
+        "金":"宜金融法务质量工业等规则明确；以专业换价值。",
+        "水":"宜新媒体科研贸易数据等灵活多变；重信息差。"
     }[day_master_element]
 
     relationships = {
-        "木":"表达直率但在意边界，宜多倾听与包容",
-        "火":"热情主动但易急，宜放慢节奏与耐心",
-        "土":"重承诺但慢热，宜增强表达与柔软度",
-        "金":"清晰果断但偏硬，宜多赞美与接纳",
-        "水":"温和机智但摇摆，宜定节奏与稳定性"
+        "木":"直率重边界，宜多倾听与包容，避免僵硬坚持。",
+        "火":"热烈但易急，宜放慢节奏与耐心，避免情绪化。",
+        "土":"重承诺但慢热，宜增强表达与柔软度。",
+        "金":"清晰果断但偏硬，宜多赞美与接纳。",
+        "水":"温和机智但易摇摆，宜定节奏与稳定性。"
     }[day_master_element]
 
-    # Lucky & 提示（示例）
+    # —— 五行协调（免费版方向性指导）——
+    coordination_advice = {
+        "木":"多接触绿色植物/林地与阅读学习；少辛辣油炸；用木质家具与东方气场。",
+        "火":"多阳光/暖色/社交；少去阴寒环境与长夜熬灯；午时动、子时眠。",
+        "土":"多亲近大地/园艺，稳定作息；少频繁搬动；居家以米黄土色稳场。",
+        "金":"多做清理收纳与规则化；少拖延；可用金属器物/金白色调提气。",
+        "水":"多亲水旅行与思考流动；少过劳；用蓝黑色系与北方气场安神。"
+    }[day_master_element]
+
+    # —— 幸运（免费版易用信息）——
     lucky_map = {
         "木": {"colors":["青绿","木青"], "directions":["东","东南"], "numbers":[3,8]},
-        "火": {"colors":["朱红","绛紫"], "directions":["南"], "numbers":[9]},
-        "土": {"colors":["土黄","咖"], "directions":["中","西南"], "numbers":[5]},
-        "金": {"colors":["白金","银"], "directions":["西","西北"], "numbers":[4,7]},
-        "水": {"colors":["黛蓝","玄黑"], "directions":["北"], "numbers":[1,6]},
+        "火": {"colors":["朱红","绛紫"], "directions":["南"],     "numbers":[9]},
+        "土": {"colors":["土黄","咖"],   "directions":["中","西南"], "numbers":[5]},
+        "金": {"colors":["白金","银"],   "directions":["西","西北"], "numbers":[4,7]},
+        "水": {"colors":["黛蓝","玄黑"], "directions":["北"],     "numbers":[1,6]},
     }
     lucky = lucky_map[day_master_element]
 
-    # 结构与宜忌（示例）
-    structure = "木火通明" if fe_count["木"]+fe_count["火"] >= 3 else "均衡格局"
-    tips = "多用火土气场，利南方发展；少涉过寒之地与长夜熬灯。"
+    # —— 结构与提示（避免深入流年/择日，留给 VIP）——
+    structure = "木火通明" if fe_count["木"] + fe_count["火"] >= 3 else "均衡格局"
+    tips = "多用火土气场，利南方发展；减少阴寒与久坐熬夜。"
 
-    # 元素比例文本
-    elements_balance = f"木:{fe_count['木']} 火:{fe_count['火']} 土:{fe_count['土']} 金:{fe_count['金']} 水:{fe_count['水']}"
+    elements_balance = "木:{木} 火:{火} 土:{土} 金:{金} 水:{水}".format(**fe_count)
 
     return {
-        # —— 你前端期望的字段 —— #
-        "pillars": pillars,                                    # 数组：年/月/日/时
+        # 前端期望字段（全面但不深）
+        "pillars": pillars,                       # 数组：年/月/日/时（含 element）
         "solar_date": dt.strftime("%Y-%m-%d"),
         "birth_time": dt.strftime("%H:%M"),
         "day_master": day_stem,
@@ -116,16 +119,28 @@ def summarize_free(birth_date, birth_time, gender):
         "strength_level": strength_level,
         "strength_description": strength_description,
         "personality_traits": personality,
-        "career_suggestions": career,
+        "career_suggestions": career_basic,
         "relationships_advice": relationships,
-        # 也保留你之前显示的：
+
+        # 新增：协调 + 三大趋势（不会与 VIP 冲突）
+        "coordination_advice": coordination_advice,       # 五行协调方法（方向性）
+        "love_summary": "姻缘趋势：{}".format(
+            {"木":"重成长与沟通","火":"重热度与共情","土":"重承诺与稳定","金":"重原则与边界","水":"重安全感与流动"}[day_master_element]
+        ),
+        "career_summary_basic": "事业趋势：{}".format(
+            {"木":"长期积累型","火":"快速推广型","土":"稳健运营型","金":"制度团队型","水":"灵活多元型"}[day_master_element]
+        ),
+        "wealth_summary": "财运趋势：{}".format(
+            {"木":"稳健积累为宜","火":"顺势快进快出","土":"稳中求进","金":"专业规则获利","水":"多元流动布局"}[day_master_element]
+        ),
+
+        # 兼容旧字段 + 易用信息
         "structure": structure,
-        "useful_god": lucky["colors"][0] if lucky["colors"] else "火",  # 兼容旧字段名
+        "useful_god": lucky["colors"][0] if lucky["colors"] else "火",
         "tips": tips,
-        # Lucky 拆分给前端用
         "lucky_colors": "、".join(lucky["colors"]),
         "lucky_directions": "、".join(lucky["directions"]),
-        "lucky_numbers": "、".join(map(str, lucky["numbers"]))
+        "lucky_numbers": "、".join(map(str, lucky["numbers"])),
     }
 
 @app.route("/")
@@ -137,7 +152,7 @@ def bazi():
     data = request.get_json(force=True, silent=True) or {}
     birth_date = data.get("birth_date")
     birth_time = data.get("birth_time")
-    gender     = data.get("gender")  # 目前未用，可用于文案分流
+    gender     = data.get("gender")
 
     if not (birth_date and birth_time and gender):
         return jsonify({"error":"Missing required fields"}), 400
