@@ -52,6 +52,32 @@
       margin: 10px auto;
       line-height: 1.6;
     }
+    .bazi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      margin: 20px 0;
+    }
+    .bazi-pillar {
+      padding: 10px;
+      border: 1px solid #d4af37;
+      border-radius: 5px;
+    }
+    .bazi-title {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+    .element {
+      color: #fff;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-size: 0.9rem;
+    }
+    .wood { background-color: #2e8b57; }
+    .fire { background-color: #ff4500; }
+    .earth { background-color: #cd853f; }
+    .metal { background-color: #4682b4; }
+    .water { background-color: #4169e1; }
   </style>
 </head>
 <body>
@@ -68,25 +94,44 @@
       <option value="gregorian">阳历 / Gregorian</option>
       <option value="lunar">农历 / Lunar</option>
     </select>
-    <p class="note">说明：若您只知道农历生日，请选择“农历”；系统将自动转换为阳历后进行排盘。</p>
+    <p class="note">说明：若您只知道农历生日，请选择"农历"；系统将自动转换为阳历后进行排盘。</p>
     <button onclick="showReport()">生成八字</button>
   </div>
 
   <div id="result" style="display:none;">
     <div class="section">
       <h2>八字命理排盘</h2>
-      <p id="bazi-structure"></p>
+      <div class="bazi-grid" id="bazi-pillars">
+        <!-- 将由JS动态生成 -->
+      </div>
+      <p id="bazi-date"></p>
       <p id="bazi-day-master"></p>
+      <p id="bazi-element"></p>
+    </div>
+
+    <div class="section">
+      <h2>五行分析</h2>
+      <p id="bazi-elements-balance"></p>
+      <div id="bazi-strengths" style="margin-top: 15px;"></div>
     </div>
 
     <div class="section">
       <h2>命格简评</h2>
       <p id="bazi-advice"></p>
+      <p id="bazi-career"></p>
+      <p id="bazi-relationships"></p>
     </div>
 
     <div class="section">
       <h2>提升建议</h2>
-      <p>可考虑加入年费会员，解锁婚姻、事业、财运、宝宝命名等完整报告。</p>
+      <p>可考虑加入年费会员，解锁以下深度内容：</p>
+      <ul style="text-align: left; max-width: 500px; margin: 10px auto;">
+        <li>详细十年大运分析</li>
+        <li>流年运势预测</li>
+        <li>婚姻感情深度解析</li>
+        <li>事业财运详细报告</li>
+        <li>宝宝命名建议</li>
+      </ul>
     </div>
   </div>
 
@@ -115,9 +160,9 @@
       const data = await res.json();
       console.log("API 返回：", data);
 
-      document.getElementById("bazi-structure").textContent = "命格结构：" + (data.structure ?? "—");
-      document.getElementById("bazi-day-master").textContent = "日主：" + (data.day_master ?? "—");
-      document.getElementById("bazi-advice").textContent    = "建议：" + (data.advice ?? "—");
+      // 更新八字排盘显示
+      updateBaziDisplay(data);
+      
       document.getElementById("result").style.display = "block";
     } catch (err) {
       console.error(err);
@@ -125,6 +170,52 @@
     } finally {
       btn.disabled = false; btn.textContent = old;
     }
+  }
+
+  function updateBaziDisplay(data) {
+    // 更新八字四柱显示
+    const pillarsContainer = document.getElementById("bazi-pillars");
+    pillarsContainer.innerHTML = '';
+    
+    const pillarTitles = ['年柱', '月柱', '日柱', '时柱'];
+    const elements = {
+      '木': 'wood', '火': 'fire', '土': 'earth', 
+      '金': 'metal', '水': 'water'
+    };
+    
+    data.pillars.forEach((pillar, index) => {
+      const elementClass = elements[pillar.element] || '';
+      const pillarDiv = document.createElement('div');
+      pillarDiv.className = 'bazi-pillar';
+      pillarDiv.innerHTML = `
+        <div class="bazi-title">${pillarTitles[index]}</div>
+        <div>${pillar.heavenly_stem}${pillar.earthly_branch}</div>
+        <div><span class="element ${elementClass}">${pillar.element}</span></div>
+      `;
+      pillarsContainer.appendChild(pillarDiv);
+    });
+
+    // 更新其他信息
+    document.getElementById("bazi-date").textContent = `出生时间：${data.solar_date} ${data.birth_time}`;
+    document.getElementById("bazi-day-master").textContent = `日主（代表自己）：${data.day_master} ${data.day_master_element}`;
+    document.getElementById("bazi-element").textContent = `五行属性：${data.day_master_element}命`;
+    
+    // 五行分析
+    document.getElementById("bazi-elements-balance").textContent = 
+      `五行分布：${data.elements_balance || "—"}`;
+    
+    const strengthsContainer = document.getElementById("bazi-strengths");
+    strengthsContainer.innerHTML = `
+      <p>命局${data.strength_level}：${data.strength_description || "—"}</p>
+    `;
+    
+    // 命格简评
+    document.getElementById("bazi-advice").textContent = 
+      `性格特点：${data.personality_traits || "—"}`;
+    document.getElementById("bazi-career").textContent = 
+      `适合领域：${data.career_suggestions || "—"}`;
+    document.getElementById("bazi-relationships").textContent = 
+      `人际建议：${data.relationships_advice || "—"}`;
   }
 </script>
 
