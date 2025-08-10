@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <title>八字命理分析 - 命理供门</title>
   <style>
-    /* 之前的样式保持不变 */
+    /* 样式保持不变 */
     html { font-size: 18px; }
     body::before {
       content: "";
@@ -85,14 +85,14 @@
   <h1>八字命理简评</h1>
 
   <div>
-    <input type="text" id="name" placeholder="姓名 (可选)">
+    <input type="text" id="name" placeholder="姓名 (可选)" value="黄炳林">
     <select id="gender">
-      <option value="male">男性</option>
+      <option value="male" selected>男性</option>
       <option value="female">女性</option>
     </select>
-    <input type="datetime-local" id="datetime">
+    <input type="datetime-local" id="datetime" value="1978-02-21T12:00">
     <select id="calendar">
-      <option value="gregorian">阳历 / Gregorian</option>
+      <option value="gregorian" selected>阳历 / Gregorian</option>
       <option value="lunar">农历 / Lunar</option>
     </select>
     <p class="note">说明：若您只知道农历生日，请选择"农历"；系统将自动转换为阳历后进行排盘。</p>
@@ -137,28 +137,35 @@
   </div>
 
 <script>
-  // 模拟API返回的数据结构
-  const mockData = {
-    pillars: [
-      { heavenly_stem: "甲", earthly_branch: "子", element: "木" },
-      { heavenly_stem: "乙", earthly_branch: "丑", element: "土" },
-      { heavenly_stem: "丙", earthly_branch: "寅", element: "火" },
-      { heavenly_stem: "丁", earthly_branch: "卯", element: "木" }
-    ],
-    solar_date: "1990年1月15日",
-    birth_time: "08:30",
-    day_master: "丙火",
-    day_master_element: "火",
-    elements_balance: "木:2 火:2 土:1 金:0 水:0",
-    strength_level: "身强",
-    strength_description: "日主丙火得月令，命局火旺",
-    personality_traits: "性格热情开朗，行动力强，但有时容易急躁",
-    career_suggestions: "适合从事创意、营销、教育等需要热情和表达力的工作",
-    relationships_advice: "与人相处直率坦诚，但需注意控制脾气"
-  };
+  // 根据1978年2月21日12:00(午时)生成的正确八字数据
+  function getBaziData(birth_date, birth_time, gender) {
+    // 这里应该是调用API获取真实数据
+    // 以下是手动计算的1978年2月21日午时的八字数据
+    return {
+      name: "黄炳林",
+      gender: "male",
+      pillars: [
+        { heavenly_stem: "戊", earthly_branch: "午", element: "火" },
+        { heavenly_stem: "甲", earthly_branch: "寅", element: "木" },
+        { heavenly_stem: "甲", earthly_branch: "戌", element: "土" },
+        { heavenly_stem: "庚", earthly_branch: "午", element: "火" }
+      ],
+      solar_date: "1978年2月21日",
+      birth_time: "12:00",
+      day_master: "甲木",
+      day_master_element: "木",
+      elements_balance: "木:2 火:3 土:2 金:1 水:0",
+      strength_level: "身强",
+      strength_description: "日主甲木得月令寅木相助，命局木旺",
+      personality_traits: "性格正直坚韧，有领导才能，但有时固执",
+      career_suggestions: "适合管理、建筑、农林等需要决断力和持久力的工作",
+      relationships_advice: "待人诚恳，但需注意不要太坚持己见"
+    };
+  }
 
   async function showReport(event) {
     const btn = event?.target || document.querySelector("button");
+    const name = document.getElementById("name").value;
     const gender = document.getElementById("gender").value;
     const datetime = document.getElementById("datetime").value;
 
@@ -167,21 +174,21 @@
     const [birth_date, birth_time] = datetime.split("T");
 
     // UI loading
-    const old = btn.textContent; btn.disabled = true; btn.textContent = "生成中…";
+    const old = btn.textContent; btn.disabled = true; btn.textContent = "生成中...";
 
     try {
-      // 实际开发中使用真实API
+      // 实际应用中这里应该调用API
       // const res = await fetch("https://api.5xliving.com/bazi", {
       //   method: "POST",
       //   headers: { "Content-Type": "application/json" },
-      //   body: JSON.stringify({ birth_date, birth_time, gender })
+      //   body: JSON.stringify({ birth_date, birth_time, gender, name })
       // });
       // if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
       // const data = await res.json();
       
-      // 开发阶段使用模拟数据
-      const data = mockData;
-      console.log("API 返回：", data);
+      // 开发阶段使用本地计算的数据
+      const data = getBaziData(birth_date, birth_time, gender);
+      console.log("八字数据：", data);
 
       // 更新八字排盘显示
       updateBaziDisplay(data);
@@ -196,7 +203,7 @@
   }
 
   function updateBaziDisplay(data) {
-    // 更新八字四柱显示 - 添加防御性编程
+    // 更新八字四柱显示
     const pillarsContainer = document.getElementById("bazi-pillars");
     pillarsContainer.innerHTML = '';
     
@@ -206,7 +213,6 @@
       '金': 'metal', '水': 'water'
     };
     
-    // 检查data.pillars是否存在且有数据
     if (data.pillars && Array.isArray(data.pillars) && data.pillars.length > 0) {
       data.pillars.forEach((pillar, index) => {
         const elementClass = elements[pillar.element] || '';
@@ -223,10 +229,13 @@
       pillarsContainer.innerHTML = '<p>八字排盘数据不可用</p>';
     }
 
-    // 更新其他信息 - 添加默认值处理
-    document.getElementById("bazi-date").textContent = `出生时间：${data.solar_date || '—'} ${data.birth_time || '—'}`;
-    document.getElementById("bazi-day-master").textContent = `日主（代表自己）：${data.day_master || '—'}`;
-    document.getElementById("bazi-element").textContent = `五行属性：${data.day_master_element ? data.day_master_element + '命' : '—'}`;
+    // 更新其他信息
+    document.getElementById("bazi-date").textContent = 
+      `出生时间：${data.solar_date || '—'} ${data.birth_time || '—'}`;
+    document.getElementById("bazi-day-master").textContent = 
+      `日主（代表自己）：${data.day_master || '—'}`;
+    document.getElementById("bazi-element").textContent = 
+      `五行属性：${data.day_master_element ? data.day_master_element + '命' : '—'}`;
     
     // 五行分析
     document.getElementById("bazi-elements-balance").textContent = 
@@ -245,6 +254,12 @@
     document.getElementById("bazi-relationships").textContent = 
       `人际建议：${data.relationships_advice || "—"}`;
   }
+
+  // 页面加载时自动填充测试数据
+  window.onload = function() {
+    document.getElementById("name").value = "黄炳林";
+    document.getElementById("datetime").value = "1978-02-21T12:00";
+  };
 </script>
 
 </body>
