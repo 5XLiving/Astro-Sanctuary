@@ -1,13 +1,14 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import os
 from datetime import datetime
+from lunar_python import Solar  # ✅ 精确排盘
+import os
 
 app = Flask(__name__)
-# 生产时可改为：CORS(app, resources={r"/*": {"origins": "https://astro.5xliving.com"}})
+# 生产可改成只允许你的前端域名：
+# CORS(app, resources={r"/*": {"origins": "https://astro.5xliving.com"}})
 CORS(app)
 
-# ——— 简单五行映射（示例）：天干/地支 → 五行，用于免费版概述 —— #
 STEM_ELEMENTS = {
     "甲":"木","乙":"木","丙":"火","丁":"火","戊":"土",
     "己":"土","庚":"金","辛":"金","壬":"水","癸":"水"
@@ -16,49 +17,55 @@ BRANCH_ELEMENTS = {
     "子":"水","丑":"土","寅":"木","卯":"木","辰":"土","巳":"火",
     "午":"火","未":"土","申":"金","酉":"金","戌":"土","亥":"水"
 }
-STEMS = ["甲","乙","丙","丁","戊","己","庚","辛","壬","癸"]
-BRANCHES = ["子","丑","寅","卯","辰","巳","午","未","申","酉","戌","亥"]
 
-def quick_pillars(birth_date: str, birth_time: str):
+def split_ganzhi(gz: str):
+    # lunar-python 返回如 "甲子"，拆成天干/地支
+    return gz[:1], gz[1:]
+
+def accurate_pillars(birth_date: str, birth_time: str):
     """
-    轻量“示例级”推演：按年月日时做简单索引，供免费版概述展示。
-    不是正式排盘，仅用于占位 & 前端展示全面信息。
+    ✅ 使用 lunar-python 精确计算 年/月/日/时 的干支（含节气切换，非简化算法）
+    说明：默认把传入时间当作本地时区时间（建议使用 +08:00 地区的本地时间）
     """
     dt = datetime.strptime(f"{birth_date} {birth_time}", "%Y-%m-%d %H:%M")
-    y = (dt.year - 4) % 10;   yb = (dt.year - 4) % 12
-    m = (dt.month) % 10;      mb = (dt.month) % 12
-    d = (dt.day) % 10;        db = (dt.day) % 12
-    h = (dt.hour) % 10;       hb = (dt.hour) % 12
+    solar = Solar.fromYmdHms(dt.year, dt.month, dt.day, dt.hour, dt.minute, 0)
+    lunar = solar.getLunar()
+
+    y_stem, y_branch = split_ganzhi(lunar.getYearInGanZhi())
+    m_stem, m_branch = split_ganzhi(lunar.getMonthInGanZhi())
+    d_stem, d_branch = split_ganzhi(lunar.getDayInGanZhi())
+    h_stem, h_branch = split_ganzhi(lunar.getTimeInGanZhi())
 
     pillars = [
-        {"heavenly_stem": STEMS[y], "earthly_branch": BRANCHES[yb]},
-        {"heavenly_stem": STEMS[m], "earthly_branch": BRANCHES[mb]},
-        {"heavenly_stem": STEMS[d], "earthly_branch": BRANCHES[db]},
-        {"heavenly_stem": STEMS[h], "earthly_branch": BRANCHES[hb]},
+        {"heavenly_stem": y_stem, "earthly_branch": y_branch},
+        {"heavenly_stem": m_stem, "earthly_branch": m_branch},
+        {"heavenly_stem": d_stem, "earthly_branch": d_branch},
+        {"heavenly_stem": h_stem, "earthly_branch": h_branch},
     ]
-    # 给每柱补 element（天干为主，缺则用地支）
+    # 标注每柱五行（以天干为主，缺则取地支）
     for p in pillars:
         p["element"] = STEM_ELEMENTS.get(p["heavenly_stem"]) or BRANCH_ELEMENTS.get(p["earthly_branch"]) or "木"
+
     return pillars, dt
 
 def summarize_free(birth_date, birth_time, gender):
-    pillars, dt = quick_pillars(birth_date, birth_time)
+    pillars, dt = accurate_pillars(birth_date, birth_time)  # ✅ 用精确排盘
 
     # 五行计数
     fe_count = {"木":0,"火":0,"土":0,"金":0,"水":0}
     for p in pillars:
         fe_count[p["element"]] += 1
 
-    # 日主（用日柱天干）
+    # 日主 = 日柱天干
     day_stem = pillars[2]["heavenly_stem"]
     day_master_element = STEM_ELEMENTS.get(day_stem, "木")
 
-    # 强弱（示例规则，仅免费概述）
+    # 强弱（免费概述规则）
     max_ele = max(fe_count, key=fe_count.get)
     strength_level = "中强" if fe_count[max_ele] >= 2 else "中平"
     strength_description = f"命局{max_ele}较旺，整体为{strength_level}，需协调其它五行。"
 
-    # —— 性格 / 事业 / 感情（免费版概述）——
+    # 基础性格/事业/感情
     personality = {
         "木":"理想感强，向上生发，重原则与成长",
         "火":"外向主动，表达力强，重热情与速度",
@@ -83,7 +90,7 @@ def summarize_free(birth_date, birth_time, gender):
         "水":"温和机智但易摇摆，宜定节奏与稳定性。"
     }[day_master_element]
 
-    # —— 五行协调（免费版方向性指导）——
+    # 五行协调
     coordination_advice = {
         "木":"多接触绿色植物/林地与阅读学习；少辛辣油炸；用木质家具与东方气场。",
         "火":"多阳光/暖色/社交；少去阴寒环境与长夜熬灯；午时动、子时眠。",
@@ -92,7 +99,7 @@ def summarize_free(birth_date, birth_time, gender):
         "水":"多亲水旅行与思考流动；少过劳；用蓝黑色系与北方气场安神。"
     }[day_master_element]
 
-    # —— 幸运（免费版易用信息）——
+    # 幸运
     lucky_map = {
         "木": {"colors":["青绿","木青"], "directions":["东","东南"], "numbers":[3,8]},
         "火": {"colors":["朱红","绛紫"], "directions":["南"],     "numbers":[9]},
@@ -102,15 +109,14 @@ def summarize_free(birth_date, birth_time, gender):
     }
     lucky = lucky_map[day_master_element]
 
-    # —— 结构与提示（避免深入流年/择日，留给 VIP）——
+    # 结构与提示（免费不做流年/择日）
     structure = "木火通明" if fe_count["木"] + fe_count["火"] >= 3 else "均衡格局"
     tips = "多用火土气场，利南方发展；减少阴寒与久坐熬夜。"
 
     elements_balance = "木:{木} 火:{火} 土:{土} 金:{金} 水:{水}".format(**fe_count)
 
     return {
-        # 前端期望字段（全面但不深）
-        "pillars": pillars,                       # 数组：年/月/日/时（含 element）
+        "pillars": pillars,                       # 年/月/日/时（含 element）
         "solar_date": dt.strftime("%Y-%m-%d"),
         "birth_time": dt.strftime("%H:%M"),
         "day_master": day_stem,
@@ -122,19 +128,12 @@ def summarize_free(birth_date, birth_time, gender):
         "career_suggestions": career_basic,
         "relationships_advice": relationships,
 
-        # 新增：协调 + 三大趋势（不会与 VIP 冲突）
-        "coordination_advice": coordination_advice,       # 五行协调方法（方向性）
-        "love_summary": "姻缘趋势：{}".format(
-            {"木":"重成长与沟通","火":"重热度与共情","土":"重承诺与稳定","金":"重原则与边界","水":"重安全感与流动"}[day_master_element]
-        ),
-        "career_summary_basic": "事业趋势：{}".format(
-            {"木":"长期积累型","火":"快速推广型","土":"稳健运营型","金":"制度团队型","水":"灵活多元型"}[day_master_element]
-        ),
-        "wealth_summary": "财运趋势：{}".format(
-            {"木":"稳健积累为宜","火":"顺势快进快出","土":"稳中求进","金":"专业规则获利","水":"多元流动布局"}[day_master_element]
-        ),
+        # 免费扩展：协调 + 三大趋势（不与 VIP 冲突）
+        "coordination_advice": coordination_advice,
+        "love_summary": f"姻缘趋势：{ {'木':'重成长与沟通','火':'重热度与共情','土':'重承诺与稳定','金':'重原则与边界','水':'重安全感与流动'}[day_master_element] }",
+        "career_summary_basic": f"事业趋势：{ {'木':'长期积累型','火':'快速推广型','土':'稳健运营型','金':'制度团队型','水':'灵活多元型'}[day_master_element] }",
+        "wealth_summary": f"财运趋势：{ {'木':'稳健积累为宜','火':'顺势快进快出','土':'稳中求进','金':'专业规则获利','水':'多元流动布局'}[day_master_element] }",
 
-        # 兼容旧字段 + 易用信息
         "structure": structure,
         "useful_god": lucky["colors"][0] if lucky["colors"] else "火",
         "tips": tips,
