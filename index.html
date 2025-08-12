@@ -129,15 +129,22 @@
         <input id="password" placeholder="密码 Password（至少8位，含大小写数字符号）" type="password" />
         <button class="btn" id="registerBtn" onclick="register()">注册账户</button>
       </div>
-      <div class="row" style="margin-top:8px">
-        <button class="btn" id="loginBtn" onclick="login()">登入账户</button>
-        <a class="btn btn-gold" href="https://yourshopifyshop.com/products/monthly-vip" style="display:grid; place-items:center; text-decoration:none;">💎 升级为 VIP（月费）</a>
-        <a class="btn" href="https://yourshopifyshop.myshopify.com" style="display:grid; place-items:center; text-decoration:none;">← 返回命理商城</a>
-      </div>
-      <div class="muted" style="margin-top:6px">
-        $9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程） · 注册账号赠送一次免费体验
-      </div>
-      <div class="error" id="error" style="display:none"></div>
+<!-- 登入/注册按钮区 -->
+<div class="row" style="margin-top:8px">
+  <button class="btn" id="loginBtn" onclick="login()">登入账户</button>
+  <a class="btn btn-gold" href="https://yourshopifyshop.com/products/monthly-vip" style="display:grid; place-items:center; text-decoration:none;">💎 升级为 VIP（月费）</a>
+  <a class="btn" href="https://yourshopifyshop.myshopify.com" style="display:grid; place-items:center; text-decoration:none;">← 返回命理商城</a>
+</div>
+
+<!-- 新增：重设密码按钮 -->
+<div class="row" style="margin-top:8px">
+  <button class="btn" onclick="resetPassword()">🔑 重设密码</button>
+</div>
+<div class="muted" style="margin-top:6px">
+  $9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程） · 注册账号赠送一次免费体验
+</div>
+<div class="error" id="error" style="display:none"></div>
+
     </section>
   </main>
 
@@ -218,6 +225,38 @@
         console.error(e);
       }
     }
+    async function resetPassword(){
+  hideErr();
+  const email = prompt("请输入注册邮箱：").trim();
+  if (!email) return showErr("邮箱不能为空");
+
+  const newPassword = prompt("请输入新密码（至少8位，含大小写、数字、符号）：").trim();
+  if (!newPassword) return showErr("密码不能为空");
+  if (!strongPwd(newPassword)) return showErr("密码至少8位，需包含大写/小写/数字/特殊符号");
+
+  // 检查用户是否存在
+  const filter = encodeURIComponent(`{Email} = '${email}'`);
+  const url = `https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}?filterByFormula=${filter}`;
+  const res = await fetch(url, { headers:{ Authorization:`Bearer ${TOKEN}` }});
+  const data = await res.json();
+  if (!data.records || data.records.length === 0) return showErr("邮箱不存在");
+
+  const recordId = data.records[0].id;
+
+  // 更新密码
+  const updating = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${TABLE_NAME}/${recordId}`, {
+    method: "PATCH",
+    headers: { Authorization:`Bearer ${TOKEN}`, "Content-Type":"application/json" },
+    body: JSON.stringify({ fields: { Password: newPassword } })
+  });
+
+  if (updating.ok){
+    alert("密码已成功更新，请重新登入");
+  } else {
+    const t = await updating.text();
+    showErr("密码更新失败：" + t);
+  }
+}
   </script>
 </body>
 </html>
