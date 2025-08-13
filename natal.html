@@ -1,70 +1,314 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <title>本命星盘 | Natal Chart</title>
+  <meta charset="UTF-8" />
+  <title data-i18n="page_title">本命星盘 · Natal Chart</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style>
-    body::before {
-      content: "";
-      position: fixed;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.6);
-      background-image: url('assets/images/gate.jpg');
-      background-size: cover;
-      background-position: center;
-      background-attachment: fixed;
-      z-index: -1;
-      pointer-events: none;
+    :root{
+      --bg:#0b0f14; --card:#11161dCC; --line:#1f2a36; --text:#e8edf3; --muted:#98a7b7;
+      --brand:#d4af37; --accent:#58b9ff; --radius:14px; --shadow:0 8px 30px rgba(0,0,0,.35); --blur:10px;
+    }
+    html,body{height:100%} html{font-size:16px}
+    @media(min-width:768px){ html{font-size:17px} } @media(min-width:1200px){ html{font-size:18px} }
+    body{
+      margin:0; color:var(--text);
+      background: radial-gradient(1200px 600px at 70% -10%, #16202b 10%, transparent 60%) no-repeat,
+                  linear-gradient(180deg,#0b0f14,#0b0f14);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans SC", Arial, sans-serif;
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+    }
+    body::before{
+      content:""; position:fixed; inset:0; z-index:-2;
+      background:url('assets/images/gate.jpg') center/cover no-repeat;
+      filter:brightness(.45) saturate(.9) blur(2px);
+    }
+    .glow{position:fixed; inset:auto auto 10% -10%; width:45vw; height:45vw; max-width:700px; max-height:700px;
+      background:radial-gradient(closest-side, #2a98ff33, transparent 70%); filter:blur(30px); z-index:-1; pointer-events:none;}
+    .container{width:100%; max-width:1000px; padding:24px 16px 80px; margin:0 auto;}
+    header{position:sticky; top:0; z-index:10; backdrop-filter:saturate(140%) blur(12px);
+      background:#0b0f14cc; border-bottom:1px solid #0f1622;}
+    .head-inner{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:16px}
+    .brand{display:flex; align-items:center; gap:12px}
+    .brand-badge{width:36px; height:36px; border-radius:10px; background:linear-gradient(145deg,#273243,#0e141c);
+      display:grid; place-items:center; color:var(--brand); font-weight:700; box-shadow:var(--shadow)}
+    .title{font-family:"Noto Serif SC","Noto Serif",serif; font-weight:600; letter-spacing:.02em; font-size:1.1rem}
+    .subtitle{color:var(--muted); font-size:.9rem}
+
+    /* 语言选择器 */
+    .lang{display:flex; align-items:center; gap:8px}
+    .lang label{color:var(--muted); font-size:.9rem}
+    .lang select{
+      appearance:none; border-radius:10px; border:1px solid #243244; background:#0e1520; color:var(--text);
+      padding:10px 34px 10px 12px; font-size:.95rem;
+      background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2398a7b7' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+      background-repeat:no-repeat; background-position:calc(100% - 12px) 50%;
     }
 
-    body {
-      margin: 0;
-      padding: 0;
-      overflow-x: hidden;
-      color: #d4af37;
-      font-family: 'Noto Serif', serif;
-      text-align: center;
+    .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+      box-shadow:var(--shadow); backdrop-filter: blur(var(--blur)); padding:18px;}
+    .stack{display:grid; gap:12px}
+    .row{display:grid; gap:10px}
+    @media(min-width:640px){ .row{grid-template-columns:1fr 1fr} }
+    @media(min-width:920px){ .row-3{grid-template-columns:1fr 1fr 1fr} }
+
+    input,select,button{
+      width:100%; box-sizing:border-box; border-radius:12px; border:1px solid #243244;
+      background:#0e1520; color:var(--text); padding:14px 13px; font-size:1rem; outline:none;
     }
-    
-    h1 {
-      font-size: 2.5em;
-      margin-bottom: 20px;
+    input::placeholder{color:#6f8092}
+    select{appearance:none; background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2398a7b7' stroke-width='2' fill='none'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:calc(100% - 12px) 50%}
+    .btn{background:linear-gradient(180deg,#1d2a3a,#101723); border:1px solid #28364a; font-weight:600; letter-spacing:.02em; cursor:pointer}
+    .btn:hover{box-shadow:0 6px 18px rgba(88,185,255,.15), inset 0 1px 0 #2e3c50}
+    .btn[disabled]{opacity:.6; cursor:not-allowed}
+
+    .section{margin-top:18px}
+    .section h2{
+      font-family:"Noto Serif SC","Noto Serif",serif; font-weight:600; font-size:1.2rem; margin:0 0 12px;
+      display:flex; align-items:center; gap:10px
     }
-    input, select {
-      padding: 10px;
-      margin: 10px;
-      border-radius: 5px;
-      border: none;
-      font-size: 1em;
+    .section h2::before{
+      content:""; width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 4px #58b9ff22
     }
-    button {
-      padding: 12px 20px;
-      font-size: 1em;
-      background-color: #e0c878;
-      border: none;
-      border-radius: 6px;
-      color: #000;
-      cursor: pointer;
-    }
+
+    .muted{color:var(--muted)}
+    .error{color:#ff8f8f; margin-top:8px}
+    footer{color:#6c7b8c; font-size:.85rem; text-align:center; padding:30px 0}
   </style>
 </head>
 <body>
-  <h1>本命星盘解析<br>Natal Birth Chart</h1>
+  <div class="glow"></div>
+  <header>
+    <div class="head-inner container">
+      <div class="brand">
+        <div class="brand-badge">5X</div>
+        <div>
+          <div class="title" data-i18n="site_title">本命星盘 · Natal Chart</div>
+          <div class="subtitle" data-i18n="site_subtitle">免费版 · 绘制你的个人本命星图</div>
+        </div>
+      </div>
+      <div class="lang">
+        <label for="langSelect" data-i18n="lang_label">语言</label>
+        <select id="langSelect" aria-label="Language">
+          <option value="zh-CN">简体中文</option>
+          <option value="zh-TW">繁體中文</option>
+          <option value="en">English</option>
+          <option value="ja">日本語</option>
+          <option value="th">ไทย</option>
+          <option value="ms">Bahasa Melayu</option>
+        </select>
+      </div>
+    </div>
+  </header>
 
-  <p>请输入出生资料，我们将为你绘制专属的本命星图。</p>
+  <main class="container">
+    <section class="card stack">
+      <h2 data-i18n="form_title">填写出生资料</h2>
+      <div class="row row-3">
+        <input id="name" data-i18n-ph="ph_name" placeholder="姓名（可选）">
+        <select id="gender">
+          <option value="male" data-i18n="opt_male">男性 / Male</option>
+          <option value="female" data-i18n="opt_female">女性 / Female</option>
+        </select>
+        <input id="place" data-i18n-ph="ph_place" placeholder="出生地点 / Place of Birth">
+      </div>
+      <div class="row">
+        <input type="date" id="birthdate" data-i18n-ph="ph_date" placeholder="出生日期 / Birth Date">
+        <input type="time" id="birthtime" data-i18n-ph="ph_time" placeholder="出生时间 / Time of Birth">
+      </div>
+      <button class="btn" onclick="generateNatal()" data-i18n="btn_generate">生成星盘</button>
+      <div class="muted" data-i18n="tip_tz">提示：默认东八区（UTC+8）。后续将支持自动时区/经纬度换算。</div>
+      <div class="error" id="error" style="display:none"></div>
+    </section>
 
-  <div>
-    <input type="text" placeholder="姓名 / Name (optional)">
-    <select>
-      <option>男性 / Male</option>
-      <option>女性 / Female</option>
-    </select>
-    <br>
-    <input type="date" placeholder="出生日期 / Birth Date">
-    <input type="time" placeholder="出生时间 / Time of Birth">
-    <input type="text" placeholder="出生地点 / Place of Birth">
-    <br>
-    <button onclick="alert('本命星盘尚未接入系统')">生成星盘 Generate Chart</button>
-  </div>
+    <section id="result" class="card section" style="display:none">
+      <h2 data-i18n="res_title">星盘结果</h2>
+      <div id="chart" class="muted" style="min-height:120px; display:grid; place-items:center">
+        <span data-i18n="res_placeholder">（这里将显示星盘图与解读）</span>
+      </div>
+    </section>
+  </main>
+
+  <footer>© 5XLiving • Astro Sanctuary</footer>
+
+  <!-- 轻量 i18n，与 index/bazi 同模式 -->
+  <script>
+    const translations = {
+      "zh-CN": {
+        page_title:"本命星盘 · Natal Chart",
+        site_title:"本命星盘 · Natal Chart",
+        site_subtitle:"免费版 · 绘制你的个人本命星图",
+        lang_label:"语言",
+        form_title:"填写出生资料",
+        ph_name:"姓名（可选）",
+        ph_place:"出生地点 / Place of Birth",
+        ph_date:"出生日期 / Birth Date",
+        ph_time:"出生时间 / Time of Birth",
+        opt_male:"男性 / Male",
+        opt_female:"女性 / Female",
+        btn_generate:"生成星盘",
+        tip_tz:"提示：默认东八区（UTC+8）。后续将支持自动时区/经纬度换算。",
+        res_title:"星盘结果",
+        res_placeholder:"（这里将显示星盘图与解读）",
+        err_need_dt:"请填写出生日期与时间",
+        err_generate:"生成失败："
+      },
+      "zh-TW": {
+        page_title:"本命星盤 · Natal Chart",
+        site_title:"本命星盤 · Natal Chart",
+        site_subtitle:"免費版 · 繪製你的個人本命星圖",
+        lang_label:"語言",
+        form_title:"填寫出生資料",
+        ph_name:"姓名（可選）",
+        ph_place:"出生地點 / Place of Birth",
+        ph_date:"出生日期 / Birth Date",
+        ph_time:"出生時間 / Time of Birth",
+        opt_male:"男性 / Male",
+        opt_female:"女性 / Female",
+        btn_generate:"生成星盤",
+        tip_tz:"提示：預設東八區（UTC+8）。後續將支援自動時區/經緯度換算。",
+        res_title:"星盤結果",
+        res_placeholder:"（此處將顯示星盤圖與解讀）",
+        err_need_dt:"請填寫出生日期與時間",
+        err_generate:"生成失敗："
+      },
+      "en": {
+        page_title:"Natal Chart · Birth Chart",
+        site_title:"Natal Chart · Birth Chart",
+        site_subtitle:"Free · Draw your personal natal chart",
+        lang_label:"Language",
+        form_title:"Enter Birth Details",
+        ph_name:"Name (optional)",
+        ph_place:"Place of Birth",
+        ph_date:"Birth Date",
+        ph_time:"Time of Birth",
+        opt_male:"Male",
+        opt_female:"Female",
+        btn_generate:"Generate Chart",
+        tip_tz:"Note: default UTC+8. Auto timezone/geo support coming soon.",
+        res_title:"Chart Result",
+        res_placeholder:"(Your chart and reading will appear here)",
+        err_need_dt:"Please enter birth date & time",
+        err_generate:"Failed to generate: "
+      },
+      "ja": {
+        page_title:"ネイタルチャート",
+        site_title:"ネイタルチャート",
+        site_subtitle:"無料版 · 個人の星図を作成",
+        lang_label:"言語",
+        form_title:"出生情報を入力",
+        ph_name:"名前（任意）",
+        ph_place:"出生地",
+        ph_date:"生年月日",
+        ph_time:"出生時刻",
+        opt_male:"男性",
+        opt_female:"女性",
+        btn_generate:"チャートを生成",
+        tip_tz:"注：既定は UTC+8。自動タイムゾーン/緯経度は今後対応予定。",
+        res_title:"結果",
+        res_placeholder:"（ここに星図とリーディングが表示されます）",
+        err_need_dt:"生年月日と時刻を入力してください",
+        err_generate:"生成に失敗："
+      },
+      "th": {
+        page_title:"ดวงกำเนิด · Natal Chart",
+        site_title:"ดวงกำเนิด · Natal Chart",
+        site_subtitle:"ฟรี · วาดแผนผังดวงกำเนิดส่วนตัว",
+        lang_label:"ภาษา",
+        form_title:"กรอกรายละเอียดการเกิด",
+        ph_name:"ชื่อ (ไม่บังคับ)",
+        ph_place:"สถานที่เกิด",
+        ph_date:"วันเกิด",
+        ph_time:"เวลาเกิด",
+        opt_male:"ชาย",
+        opt_female:"หญิง",
+        btn_generate:"สร้างผังดวง",
+        tip_tz:"หมายเหตุ: ค่าเริ่มต้น UTC+8 จะมีการรองรับโซนเวลาอัตโนมัติเร็วๆ นี้",
+        res_title:"ผลลัพธ์",
+        res_placeholder:"(จะแสดงผังดวงและคำอ่านที่นี่)",
+        err_need_dt:"กรอกวันและเวลาเกิด",
+        err_generate:"สร้างไม่สำเร็จ: "
+      },
+      "ms": {
+        page_title:"Carta Kelahiran · Natal Chart",
+        site_title:"Carta Kelahiran · Natal Chart",
+        site_subtitle:"Percuma · Lukis carta kelahiran peribadi anda",
+        lang_label:"Bahasa",
+        form_title:"Isi Butiran Kelahiran",
+        ph_name:"Nama (pilihan)",
+        ph_place:"Tempat Lahir",
+        ph_date:"Tarikh Lahir",
+        ph_time:"Masa Lahir",
+        opt_male:"Lelaki",
+        opt_female:"Perempuan",
+        btn_generate:"Jana Carta",
+        tip_tz:"Nota: lalai UTC+8. Sokongan zon masa/geo automatik akan datang.",
+        res_title:"Keputusan Carta",
+        res_placeholder:"(Carta dan bacaan akan dipaparkan di sini)",
+        err_need_dt:"Sila isi tarikh & masa lahir",
+        err_generate:"Gagal menjana: "
+      }
+    };
+
+    const LANG_KEY="site_lang";
+    function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
+    function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
+    function t(key){
+      const L = translations[getLang()] || translations["zh-CN"];
+      return L[key] || (translations["zh-CN"][key] || key);
+    }
+    function applyI18n(){
+      document.querySelectorAll("[data-i18n]").forEach(el=>{
+        el.textContent = t(el.getAttribute("data-i18n"));
+      });
+      document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
+        el.setAttribute("placeholder", t(el.getAttribute("data-i18n-ph")));
+      });
+      const titleEl = document.querySelector("title[data-i18n]");
+      if (titleEl) titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
+    }
+    (function initLang(){
+      const select = document.getElementById("langSelect");
+      const current = getLang();
+      select.value = current; applyI18n();
+      select.addEventListener("change", ()=>{ setLang(select.value); applyI18n(); });
+    })();
+  </script>
+
+  <!-- 生成逻辑（占位，可接入你的后端或第三方 API） -->
+  <script>
+    const $ = id => document.getElementById(id);
+    function showErr(msg){ const e=$("error"); e.textContent=msg; e.style.display="block"; }
+
+    async function generateNatal(){
+      $("error").style.display="none";
+      const birthdate = $("birthdate").value;
+      const birthtime = $("birthtime").value;
+
+      if (!birthdate || !birthtime){
+        showErr(t("err_need_dt"));
+        return;
+      }
+
+      // === 在这里接入你的星盘 API ===
+      // 例如：const res = await fetch('/api/natal', { method:'POST', body: JSON.stringify({...}) })
+      // const data = await res.json(); 然后把结果绘制到 #chart
+      // 目前先做占位演示：
+      try{
+        const el = $("chart");
+        el.innerHTML = `<div style="text-align:center;line-height:1.8">
+          <div>🌌 <b>${$("name").value || "Guest"}</b></div>
+          <div>${birthdate} ${birthtime} @ ${$("place").value || "—"}</div>
+          <div style="opacity:.8;margin-top:6px">（Demo）你的星盘图将显示在此处。</div>
+        </div>`;
+        document.getElementById("result").style.display="block";
+        window.scrollTo({ top: document.getElementById("result").offsetTop - 12, behavior: "smooth" });
+      }catch(e){
+        showErr(t("err_generate") + e.message);
+      }
+    }
+  </script>
 </body>
 </html>
