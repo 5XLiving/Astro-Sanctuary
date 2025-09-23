@@ -632,31 +632,34 @@
   });
 
   // ============== 登录流程（集中处理 exists / expired 等） ==============
-  async function loginFlow(email, password){
-    const res = await (await fetch(`${API_BASE}/api/login`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    })).json();
+async function loginFlow(email, password){
+  const res = await (await fetch(`${API_BASE}/api/login`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password })
+  })).json();
 
-    if (res.ok){
-      localStorage.setItem("vipEmail", res.email || email);
-      location.href = "https://astro.5xliving.com/vip_soul_sanctuary.html";
-      return;
-    }
+  const msg = (res.msg || "").toString();
 
-    // 错误分支
-    const code = (res.msg || "").toString();
-    if (code === 'expired'){
-      const go = confirm(t('err_expired') + "。是否前往续费？");
-      if (go){
-        window.open("https://yourshopifyshop.com/products/monthly-vip", "_blank");
-      }
-      return;
-    }
-    if (code === 'no_account') return showErr(t('err_no_account'));
-    if (code === 'wrong_pwd')  return showErr(t('err_wrong_pwd'));
-    return showErr(t('err_login_fail') + (res.msg ? ` ${res.msg}` : ''));
+  // ✅ 先拦截“过期”信号（无论 ok 是 true 还是 false）
+  if (msg === 'expired' || res.expired === true) {
+    const go = confirm(t('err_expired') + "。是否前往续费？");
+    if (go) window.open("https://yourshopifyshop.com/products/monthly-vip", "_blank");
+    return; // 不跳 VIP
   }
+
+  // ✅ 正常通过才跳 VIP
+  if (res.ok) {
+    localStorage.setItem("vipEmail", res.email || email);
+    location.href = "https://astro.5xliving.com/vip_soul_sanctuary.html";
+    return;
+  }
+
+  // 其它错误码
+  if (msg === 'no_account') return showErr(t('err_no_account'));
+  if (msg === 'wrong_pwd')  return showErr(t('err_wrong_pwd'));
+  return showErr(t('err_login_fail') + (res.msg ? ` ${res.msg}` : ''));
+}
+
 
   // ======== 表单事件（注册 / 登录 / 重设） ========
   document.getElementById("registerForm").addEventListener("submit", async (e)=>{
