@@ -222,7 +222,7 @@
   <!-- 功能脚本：后端代理 + 多语言 + Chat 浮窗 -->
 <script>
   // ============== 统一配置（你的 Worker 域名） ==============
-  const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev'; // ← 你的 Workers.dev
+  const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev'; // ← 改成你的 Workers.dev
 
   // 工具函数
   const $ = id => document.getElementById(id);
@@ -237,8 +237,7 @@
   const LANG_KEY = "site_lang";
   function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
 
-  // 你的原始 translations 很完整，这里只补充 chat 的三个文案键（已包含在你上版里）。
-  // 如果你已保留完整 translations，可直接复用；为避免冲突，这里仍提供一份完整字典（与上一版一致，只新增 chat_fab/chat_placeholder/chat_send）。
+  // （保留你原来的翻译表，我这里是完整一份，包含 chat_fab/chat_placeholder/chat_send）
   const translations = {
     "zh-CN": {
       page_title:"命理心怜空间 · Index",
@@ -549,7 +548,7 @@
   }
 
   document.addEventListener('DOMContentLoaded', ()=>{
-    // 创建 Chat 按钮与面板
+    // Chat 按钮与面板
     const chatFab = document.createElement('div');
     chatFab.className = 'ss-chat-fab'; chatFab.id = 'ssChatFab'; chatFab.title = '心怜管家';
 
@@ -569,7 +568,7 @@
     document.body.appendChild(chatFab);
     document.body.appendChild(chatPanel);
 
-    // 初始语言渲染（页面 + chat）
+    // 初始语言（页面 + chat）
     const select = document.getElementById("langSelect");
     const current = getLang();
     if (select) select.value = current;
@@ -609,9 +608,9 @@
             ]
           })
         });
-        const data = await r.json();
-        // 兼容你的 Worker: {text:"..."}，或其它形态
-        const reply = data.reply ?? data.text ?? data?.choices?.[0]?.message?.content ?? "";
+        let data, reply = '';
+        try { data = await r.json(); } catch { data = {}; }
+        reply = data.reply ?? data.text ?? data?.choices?.[0]?.message?.content ?? "";
         if (!reply) return addMsg('抱歉，服务暂时繁忙，请稍后重试。');
         addMsg(reply);
       }catch(e){
@@ -621,7 +620,7 @@
     $send.addEventListener('click', ()=>{ const v=$input.value.trim(); if(v) askChat(v); });
     $input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
 
-    // 语言切换时，同步更新页面与 Chat 文案
+    // 语言切换时，同步更新
     if (select) {
       select.addEventListener("change", ()=>{
         setLang(select.value);
@@ -631,35 +630,47 @@
     }
   });
 
-  // ============== 登录流程（集中处理 exists / expired 等） ==============
-async function loginFlow(email, password){
-  const res = await (await fetch(`${API_BASE}/api/login`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, password })
-  })).json();
-
-  const msg = (res.msg || "").toString();
-
-  // ✅ 先拦截“过期”信号（无论 ok 是 true 还是 false）
-  if (msg === 'expired' || res.expired === true) {
-    const go = confirm(t('err_expired') + "。是否前往续费？");
-    if (go) window.open("https://yourshopifyshop.com/products/monthly-vip", "_blank");
-    return; // 不跳 VIP
+  // ============== 登录流程（集中处理 exists / expired / expiresAt） ==============
+  async function safeJson(resp){
+    try { return await resp.json(); } catch { return { ok:false, msg:'upstream_error' }; }
   }
 
-  // ✅ 正常通过才跳 VIP
-  if (res.ok) {
-    localStorage.setItem("vipEmail", res.email || email);
-    location.href = "https://astro.5xliving.com/vip_soul_sanctuary.html";
-    return;
+  async function loginFlow(email, password){
+    const res = await safeJson(await fetch(`${API_BASE}/api/login`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    }));
+
+    const msg = (res.msg || "").toString().toLowerCase();
+
+    // ✅ 统一判断是否过期（兼容 msg/flag/时间戳）
+    let expired = false;
+    if (res.expired === true) expired = true;
+    else if (msg === 'expired') expired = true;
+    else if (res.expiresAt) {
+      const ts = Date.parse(res.expiresAt);
+      if (!Number.isNaN(ts) && ts < Date.now()) expired = true;
+    }
+
+    if (expired) {
+      // 只提示，不跳转；可一键引导续费
+      const go = confirm(t('err_expired') + "。是否前往续费？");
+      if (go) window.open("https://yourshopifyshop.com/products/monthly-vip", "_blank");
+      return;
+    }
+
+    // ✅ 正常通过才跳 VIP
+    if (res.ok === true) {
+      localStorage.setItem("vipEmail", res.email || email);
+      location.href = "https://astro.5xliving.com/vip_soul_sanctuary.html";
+      return;
+    }
+
+    // 常见错误
+    if (msg === 'no_account') return showErr(t('err_no_account'));
+    if (msg === 'wrong_pwd')  return showErr(t('err_wrong_pwd'));
+    return showErr(t('err_login_fail') + (res.msg ? ` ${res.msg}` : ''));
   }
-
-  // 其它错误码
-  if (msg === 'no_account') return showErr(t('err_no_account'));
-  if (msg === 'wrong_pwd')  return showErr(t('err_wrong_pwd'));
-  return showErr(t('err_login_fail') + (res.msg ? ` ${res.msg}` : ''));
-}
-
 
   // ======== 表单事件（注册 / 登录 / 重设） ========
   document.getElementById("registerForm").addEventListener("submit", async (e)=>{
@@ -672,12 +683,12 @@ async function loginFlow(email, password){
 
     lock($("registerBtn"), true);
     try{
-      const res = await (await fetch(`${API_BASE}/api/register`, {
+      const res = await safeJson(await fetch(`${API_BASE}/api/register`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
-      })).json();
+      }));
 
-      if (res.ok){
+      if (res.ok === true){
         localStorage.setItem("vipEmail", email);
         location.href = "vip_trial.html";
         return;
@@ -726,10 +737,10 @@ async function loginFlow(email, password){
 
     lock($("resetBtn"), true);
     try{
-      const res = await (await fetch(`${API_BASE}/api/reset`, {
+      const res = await safeJson(await fetch(`${API_BASE}/api/reset`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, newPassword })
-      })).json();
+      }));
       if (!res.ok) return showErr((res.msg && (res.msg+'')) || t('err_reset_fail'));
       alert(t('msg_reset_ok'));
     } catch(err){
