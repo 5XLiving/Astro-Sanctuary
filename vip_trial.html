@@ -838,17 +838,112 @@
       const titleEl = document.querySelector("title[data-i18n]"); if(titleEl) titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
     }
 
-    (function initLang(){
-      const select = document.getElementById("langSelect");
-      select.value = getLang();
-      applyI18n();
-      select.addEventListener("change", ()=>{ setLang(select.value); applyI18n(); });
-    })();
-  <!-- 功能脚本：后端代理 + 多语言 + Chat 浮窗 -->
+<!-- 多语言初始化（这段已有，最后必须闭合） -->
 <script>
-  // ============== 统一配置（你的 Worker 域名） ==============
-  const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev'; // ← 改成你的 Workers.dev
+  (function initLang(){
+    const select = document.getElementById("langSelect");
+    select.value = getLang();
+    applyI18n();
+    select.addEventListener("change", ()=>{ setLang(select.value); applyI18n(); });
+  })();
+</script> <!-- ✅ 这里关闭第一个 <script> -->
 
+<!-- 功能脚本：后端代理 + Chat 浮窗 + 登录流程 -->
+<script>
+  // ===== 统一配置 =====
+  const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+
+  // ===== 工具函数（全部要放在 <script> 里）=====
+  const $ = id => document.getElementById(id);
+  function showErr(msg){ const e=$("error"); e.textContent=msg; e.style.display="block"; setTimeout(()=>{e.style.display='none'},5000); }
+  function hideErr(){ const e=$("error"); e.style.display="none"; e.textContent=""; }
+  function lock(el, v){ if(el) el.disabled = v; }
+  function strongPwd(pw){
+    return pw.length>=8 && /[A-Z]/.test(pw) && /[a-z]/.test(pw) && /[0-9]/.test(pw) && /[^A-Za-z0-9]/.test(pw);
+  }
+
+  // ===== 多语言（⚠️ 只保留一份）=====
+  // 如果页面上方已经有 translations/LANG_KEY/getLang/t/applyI18n，这里不要再重复定义！
+  // ► 若上方没有，那就在这里保留；若上方已经有，就把这里的整块删除。
+
+  // ===== Chat 浮窗 =====
+  function applyChatI18n(){
+    const fab = document.getElementById('ssChatFab');
+    const inp = document.getElementById('ssChatInput');
+    const btn = document.getElementById('ssChatSend');
+    if (fab) fab.textContent = t('chat_fab');
+    if (inp) inp.placeholder = t('chat_placeholder');
+    if (btn) btn.textContent = t('chat_send');
+  }
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    // 浮窗 DOM
+    const chatFab = document.createElement('div');
+    chatFab.className = 'ss-chat-fab'; chatFab.id = 'ssChatFab'; chatFab.title = '心怜管家';
+
+    const chatPanel = document.createElement('div');
+    chatPanel.className = 'ss-chat-panel'; chatPanel.id = 'ssChatPanel'; chatPanel.setAttribute('role','dialog'); chatPanel.setAttribute('aria-label','心怜管家');
+    chatPanel.innerHTML = `
+      <div class="ss-chat-head">
+        <div class="ss-chat-title">心怜管家 · Chat</div>
+        <div class="ss-close" id="ssChatClose">✕</div>
+      </div>
+      <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
+      <div class="ss-chat-input">
+        <input id="ssChatInput" type="text" />
+        <button id="ssChatSend"></button>
+      </div>`;
+
+    document.body.appendChild(chatFab);
+    document.body.appendChild(chatPanel);
+
+    // i18n
+    applyI18n();
+    applyChatI18n();
+
+    const $body  = document.getElementById('ssChatBody');
+    const $input = document.getElementById('ssChatInput');
+    const $send  = document.getElementById('ssChatSend');
+    const $close = document.getElementById('ssChatClose');
+
+    const openPanel  = () => { chatPanel.style.display = 'flex'; $input.focus(); };
+    const closePanel = () => { chatPanel.style.display = 'none'; };
+    chatFab.addEventListener('click', openPanel);
+    $close.addEventListener('click', closePanel);
+
+    function addMsg(text, me=false){
+      const div = document.createElement('div');
+      div.className = 'ss-msg' + (me ? ' me' : '');
+      div.textContent = text;
+      $body.appendChild(div);
+      $body.scrollTop = $body.scrollHeight;
+    }
+
+    async function askChat(prompt){
+      addMsg(prompt, true);
+      $input.value = '';
+      try{
+        const r = await fetch(`${API_BASE}/api/chat`, {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            messages:[
+              { role:'system', content:'你是“心怜管家”，帮助访客了解命理心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。' },
+              { role:'user', content: prompt }
+            ]
+          })
+        });
+        const data = await r.json().catch(()=> ({}));
+        const reply = data.reply ?? data.text ?? data?.choices?.[0]?.message?.content ?? '';
+        addMsg(reply || '抱歉，服务暂时繁忙，请稍后重试。');
+      }catch{ addMsg('网络异常，请稍后再试。'); }
+    }
+
+    $send.addEventListener('click', ()=>{ const v=$input.value.trim(); if(v) askChat(v); });
+    $input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
+  });
+
+  // ===== 登录流程、注册、重设（保持你原来的代码即可）=====
+  // loginFlow(...) / registerForm / loginForm / resetBtn 的事件处理代码放这里（都在同一个 <script> 里
   // 工具函数
   const $ = id => document.getElementById(id);
   function showErr(msg){ const e=$("error"); e.textContent=msg; e.style.display="block"; setTimeout(()=>{e.style.display='none'},5000); }
