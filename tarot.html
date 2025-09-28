@@ -72,21 +72,23 @@
   </div>
 
 <script>
-/** ---------- 维基图片：统一转缩略图，超稳 ---------- **/
-function toThumb(url, w=300){
-  // 将 https://upload.wikimedia.org/wikipedia/commons/A/B/File.jpg
-  // 转为 https://upload.wikimedia.org/wikipedia/commons/thumb/A/B/File.jpg/300px-File.jpg
+/* ------------------ 图片地址：缩略图 + 失败自动代理 ------------------ */
+function toThumb(url, w = 360){
   try{
     const u = new URL(url);
-    const parts = u.pathname.split('/');
-    const file = parts.pop();
-    parts.push('thumb', file, `${w}px-${file}`);
-    u.pathname = parts.join('/');
+    const ps = u.pathname.split('/');
+    const file = ps.pop();
+    ps.push('thumb', file, `${w}px-${file}`);
+    u.pathname = ps.join('/');
     return u.toString();
-  }catch{ return url; }
+  }catch{return url;}
 }
-
-/** ---------- 牌库（78张 Rider–Waite） ---------- **/
+function viaProxy(url, w=360){
+  // 统一 https，并走图片代理（适配某些地区或 CSP）
+  const noProto = url.replace(/^https?:\/\//,'');
+  return `https://images.weserv.nl/?url=${encodeURIComponent(noProto)}&w=${w}`;
+}
+/* ------------------ 78 张牌（维基原图） ------------------ */
 const WIKI_CARDS = {
   // 大阿尔克那
   "00_愚者 Fool":"https://upload.wikimedia.org/wikipedia/commons/5/53/RWS_Tarot_00_Fool.jpg",
@@ -172,79 +174,112 @@ const WIKI_CARDS = {
   "钱币皇后":"https://upload.wikimedia.org/wikipedia/commons/8/88/Pents13.jpg",
   "钱币国王":"https://upload.wikimedia.org/wikipedia/commons/4/42/Pents14.jpg"
 };
-
 const DECK = Object.entries(WIKI_CARDS);
 
-/** ---------- 抽牌 ---------- **/
+/* ------------------ 牌义（简明） ------------------ */
+// 大阿尔克那关键词
+const MAJOR_MEAN = {
+  0:"新的开始/自由/潜能",1:"意志/行动/显化",2:"直觉/神秘/内在智慧",
+  3:"滋养/丰盛/创造",4:"秩序/权威/结构",5:"传统/信念/导师",
+  6:"选择/关系/吸引",7:"前进/掌控/胜利",8:"勇气/温柔的力量",
+  9:"独处/寻找答案",10:"周期/转折/命运",11:"公平/因果/平衡",
+  12:"暂停/换位/臣服",13:"结束与重生",14:"调和/节制/中道",
+  15:"诱惑/束缚/阴影",16:"突变/瓦解/醒悟",17:"希望/疗愈/启发",
+  18:"不安/潜意识/迷雾",19:"喜悦/成功/清晰",20:"觉醒/召唤/赦免",
+  21:"完成/整合/世界"
+};
+// 小阿尔克那花色 & 点数关键词（自动组合）
+const SUIT = {
+  "圣杯":"情感/关系","权杖":"行动/热情","宝剑":"思维/挑战","钱币":"物质/事业"
+};
+const RANK = {
+  "Ace":"开始/机遇","2":"平衡/对立","3":"成长/协作","4":"稳定/停滞","5":"冲突/压力",
+  "6":"给予/和谐","7":"考验/选择","8":"行动/进展","9":"成果/负担","10":"阶段结束/丰收",
+  "侍从":"讯息/起步","骑士":"推动/追求","皇后":"成熟/吸引","国王":"掌控/负责"
+};
+function parseMeaning(name, reversed){
+  // 大阿尔克那：以编号开头
+  if (/^\d{2}_/.test(name)){
+    const n = parseInt(name.slice(0,2),10);
+    const base = MAJOR_MEAN[n] || "";
+    return (reversed ? "逆位：" : "正位：") + (reversed ?
+      base.replace(/\/[^/]+/g,"/阻滞") : base);
+  }
+  // 小阿尔克那：花色+点数
+  const m = name.match(/^(圣杯|权杖|宝剑|钱币)(Ace|[2-9]|10|侍从|骑士|皇后|国王)/);
+  if (m){
+    const suit = m[1], rank = m[2];
+    const base = `${SUIT[suit]} · ${RANK[rank]||""}`;
+    return (reversed ? "逆位：" : "正位：") + (reversed ? `${base}（阻滞/反向）` : base);
+  }
+  return reversed ? "逆位" : "正位";
+}
+
+/* ------------------ 抽牌 ＋ 布局 ＋ 解读 ------------------ */
 function draw(){
-  const spreadN = +document.getElementById('spread').value;
+  const n = +document.getElementById('spread').value;
   const q = document.getElementById('question').value.trim();
-  const qel = document.getElementById('qdisplay');
-  qel.textContent = q ? `问题：${q}` : '（提示：输入问题会让解读更聚焦）';
+  document.getElementById('qdisplay').textContent = q ? `问题：${q}` : '（提示：输入问题会让解读更聚焦）';
 
   const board = document.getElementById('board');
   board.innerHTML = '';
-  board.className = 'board ' + (
-    spreadN===1 ? 'spread-1' :
-    spreadN===3 ? 'spread-3' :
-    spreadN===5 ? 'spread-5' : 'spread-10'
-  );
+  board.className = 'board ' + (n===1?'spread-1':n===3?'spread-3':n===5?'spread-5':'spread-10');
 
   const pool = [...DECK];
-  const take = n => {
-    const idx = Math.floor(Math.random()*pool.length);
-    return pool.splice(idx,1)[0];
-  };
+  const take = ()=> pool.splice(Math.floor(Math.random()*pool.length),1)[0];
 
-  const place = (name, url, label, extraClass='')=>{
+  const labels10 = ['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望','结果'];
+
+  const place = (pair,label,extraClass='')=>{
+    const [name, url] = pair;
+    const reversed = Math.random() < 0.5;
+
     const wrap = document.createElement('div');
     wrap.className = `card ${extraClass}`;
 
     const imgw = document.createElement('div');
     imgw.className = 'imgwrap';
+
     const img = new Image();
-    img.loading = 'eager';
     img.className = 'card-img';
-    img.src = toThumb(url, 300);
-    // 50% 逆位
-    if (Math.random() < 0.5) img.style.transform = 'rotate(180deg)';
-    img.onerror = ()=> {
-      imgw.innerHTML = '<div class="err">图片加载失败</div>';
-    };
-    imgw.appendChild(img);
+    img.loading = 'eager';
+    img.src = toThumb(url, 360);
+    if (reversed) img.style.transform = 'rotate(180deg)';
+    img.onerror = ()=>{ img.onerror=null; img.src = viaProxy(url, 360); };
 
     const cap = document.createElement('div');
     cap.className = 'cap';
     cap.textContent = label ? `${name} · ${label}` : name;
 
+    const expl = document.createElement('div');
+    expl.style.fontSize='12px'; expl.style.opacity='.9'; expl.style.marginTop='4px';
+    expl.textContent = parseMeaning(name, reversed);
+
+    imgw.appendChild(img);
     wrap.appendChild(imgw);
     wrap.appendChild(cap);
+    wrap.appendChild(expl);
     board.appendChild(wrap);
   };
 
-  if (spreadN===1){
-    const [name,url] = take(1);
-    place(name,url,'当下');
-  } else if (spreadN===3){
-    const A = take(1), B = take(1), C = take(1);
-    place(...A,'过去');
-    place(...B,'现在');
-    place(...C,'未来');
-  } else if (spreadN===5){
-    const c = take(1), t = take(1), l = take(1), r = take(1), b = take(1);
-    place(...t,'过去','pos-top');
-    place(...l,'潜意识','pos-left');
-    place(...c,'当下','pos-center');
-    place(...r,'外在影响','pos-right');
-    place(...b,'未来趋势','pos-bottom');
-  } else { // 10 凯尔特十字
-    const p = Array.from({length:10}, ()=>take(1));
-    const labels = ['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望','结果'];
-    p.forEach((pair,i)=>place(...pair, labels[i], `c${i+1}`));
+  if (n===1){
+    place(take(), '当下');
+  }else if(n===3){
+    place(take(), '过去');
+    place(take(), '现在');
+    place(take(), '未来');
+  }else if(n===5){
+    place(take(), '过去','pos-top');
+    place(take(), '潜意识','pos-left');
+    place(take(), '当下','pos-center');
+    place(take(), '外在影响','pos-right');
+    place(take(), '未来趋势','pos-bottom');
+  }else{ // 10张：凯尔特十字
+    for(let i=0;i<10;i++) place(take(), labels10[i], `c${i+1}`);
   }
 }
-
 document.getElementById('go').addEventListener('click', draw);
 </script>
+
 </body>
 </html>
