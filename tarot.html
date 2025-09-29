@@ -48,17 +48,6 @@
   .panel{margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
   .panel h3{margin:0 0 8px;font-size:1.05rem;color:#ffe084}
   .muted{color:#98a7b7}
-  
-    /* Chat 浮窗按钮也换成亮金 */
-  .ss-chat-fab{
-    position: fixed; right: 18px; bottom: 18px; z-index: 50;
-    width: 56px; height: 56px; border-radius: 50%;
-    background: linear-gradient(180deg,#fff9e6,#e6c76e);
-    color:#191919;
-    display:grid; place-items:center; font-weight:800;
-    box-shadow:0 8px 30px rgba(0,0,0,.35); cursor:pointer;
-    border:1px solid #e6c76e;
-  }
 </style>
 </head>
 <body>
@@ -66,45 +55,90 @@
   <div class="head-inner">
     <div class="brand">
       <div class="brand-badge">5X</div>
-      <div class="title">命理心怜空间 · Soul Sanctuary</div>
+      <div class="title" data-i18n="brand_title">命理心怜空间 · Soul Sanctuary</div>
     </div>
     <div class="lang">
-      <select>
-        <option>简体中文</option><option>繁體中文</option><option>English</option>
-        <option>日本語</option><option>ไทย</option><option>Bahasa Melayu</option>
+      <select id="langSel">
+        <option value="zh">简体中文</option>
+        <option value="en">English</option>
       </select>
     </div>
-  </div><!-- 关闭 .head-inner -->
+  </div>
 </header>
 
 <div class="app">
-  <h1>塔罗牌占卜</h1>
+  <h1 data-i18n="page_title">塔罗牌占卜</h1>
   <div class="controls">
-    <input id="question" placeholder="请输入你的问题（必填，决定解读方向）" />
+    <input id="question" placeholder="请输入你的问题（必填，决定解读方向）" data-i18n-placeholder="q_ph" />
     <select id="spread">
-      <option value="1">单张</option>
-      <option value="3">三张（过去 / 现在 / 未来）</option>
-      <option value="5">十字排法（5张）</option>
-      <option value="10">凯尔特十字（10张）</option>
+      <option value="1" data-i18n="s1">单张</option>
+      <option value="3" data-i18n="s3">三张（过去 / 现在 / 未来）</option>
+      <option value="5" data-i18n="s5">十字排法（5张）</option>
+      <option value="10" data-i18n="s10">凯尔特十字（10张）</option>
     </select>
-    <button id="go">抽牌</button>
+    <button id="go" data-i18n="draw_btn">抽牌</button>
   </div>
-  <div id="qdisplay" class="q muted">（提示：输入问题会让解读更聚焦）</div>
+
+  <div id="qdisplay" class="q muted" data-i18n="tip_focus">（提示：输入问题会让解读更聚焦）</div>
   <div id="board" class="board"></div>
 
-  <!-- 只保留一个解读面板（带朗读按钮） -->
   <div id="reading" class="panel" style="display:none">
     <h3 style="display:flex;align-items:center;gap:10px">
-      解读与建议
-      <button id="ttsBtn" class="btn" style="padding:6px 10px;border-radius:10px;border:1px solid #273245;background:#0f1420;color:#ffe084;cursor:pointer">🔊 朗读</button>
+      <span data-i18n="reading_title">解读与建议</span>
+      <button id="ttsBtn" class="btn" style="padding:6px 10px;border-radius:10px;border:1px solid #273245;background:#0f1420;color:#ffe084;cursor:pointer">🔊 <span data-i18n="tts_btn">朗读</span></button>
     </h3>
     <div id="readingText"></div>
   </div>
 
-  <div class="panel muted">说明：塔罗为指引工具，非医学/法律/金融建议，请以理性判断与自我意愿为先。</div>
+  <div class="panel muted" data-i18n="disclaimer">
+    说明：塔罗为指引工具，非医学/法律/金融建议，请以理性判断与自我意愿为先。
+  </div>
 </div>
 
 <script>
+/* ============ 简易 i18n ============ */
+const I18N = {
+  zh: {
+    brand_title: "命理心怜空间 · Soul Sanctuary",
+    page_title: "塔罗牌占卜",
+    q_ph: "请输入你的问题（必填，决定解读方向）",
+    s1: "单张",
+    s3: "三张（过去 / 现在 / 未来）",
+    s5: "十字排法（5张）",
+    s10: "凯尔特十字（10张）",
+    draw_btn: "抽牌",
+    tip_focus: "（提示：输入问题会让解读更聚焦）",
+    reading_title: "解读与建议",
+    tts_btn: "朗读",
+    disclaimer: "说明：塔罗为指引工具，非医学/法律/金融建议，请以理性判断与自我意愿为先。"
+  },
+  en: {
+    brand_title: "Soul Sanctuary · 5X",
+    page_title: "Tarot Reading",
+    q_ph: "Type your question (required, focuses the reading)",
+    s1: "Single card",
+    s3: "Three cards (Past / Present / Future)",
+    s5: "Cross Spread (5)",
+    s10: "Celtic Cross (10)",
+    draw_btn: "Draw",
+    tip_focus: "(Tip: entering a question helps focus the reading.)",
+    reading_title: "Reading & Advice",
+    tts_btn: "Read Aloud",
+    disclaimer: "Note: Tarot offers guidance only. Not medical/legal/financial advice—use your judgment and free will."
+  }
+};
+function applyI18N(lang){
+  const dict = I18N[lang] || I18N.zh;
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const k = el.getAttribute("data-i18n");
+    if (dict[k] != null) el.textContent = dict[k];
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach(el=>{
+    const k = el.getAttribute("data-i18n-placeholder");
+    if (dict[k] != null) el.setAttribute("placeholder", dict[k]);
+  });
+}
+
 /* --- 工具：图片代理 --- */
 function viaProxy(url,w=360){const noProto=url.replace(/^https?:\/\//,'');return `https://images.weserv.nl/?url=${encodeURIComponent(noProto)}&w=${w}`}
 
@@ -132,10 +166,62 @@ const WIKI_CARDS={
   "19_太阳 Sun":"https://upload.wikimedia.org/wikipedia/commons/1/17/TheSunTarotCard.jpg",
   "20_审判 Judgement":"https://upload.wikimedia.org/wikipedia/commons/d/dd/JudgementTarot.jpg",
   "21_世界 World":"https://upload.wikimedia.org/wikipedia/commons/f/ff/TheWorldTarotCard.jpg",
-  "圣杯Ace":"https://upload.wikimedia.org/wikipedia/commons/3/36/Cups01.jpg","圣杯2":"https://upload.wikimedia.org/wikipedia/commons/f/f8/Cups02.jpg","圣杯3":"https://upload.wikimedia.org/wikipedia/commons/7/7d/Cups03.jpg","圣杯4":"https://upload.wikimedia.org/wikipedia/commons/3/35/Cups04.jpg","圣杯5":"https://upload.wikimedia.org/wikipedia/commons/0/06/Cups05.jpg","圣杯6":"https://upload.wikimedia.org/wikipedia/commons/1/17/Cups06.jpg","圣杯7":"https://upload.wikimedia.org/wikipedia/commons/a/ab/Cups07.jpg","圣杯8":"https://upload.wikimedia.org/wikipedia/commons/6/60/Cups08.jpg","圣杯9":"https://upload.wikimedia.org/wikipedia/commons/2/24/Cups09.jpg","圣杯10":"https://upload.wikimedia.org/wikipedia/commons/8/84/Cups10.jpg","圣杯侍从":"https://upload.wikimedia.org/wikipedia/commons/6/6d/Cups11.jpg","圣杯骑士":"https://upload.wikimedia.org/wikipedia/commons/f/f0/Cups12.jpg","圣杯皇后":"https://upload.wikimedia.org/wikipedia/commons/6/62/Cups13.jpg","圣杯国王":"https://upload.wikimedia.org/wikipedia/commons/0/04/Cups14.jpg",
-  "权杖Ace":"https://upload.wikimedia.org/wikipedia/commons/1/11/Wands01.jpg","权杖2":"https://upload.wikimedia.org/wikipedia/commons/0/0f/Wands02.jpg","权杖3":"https://upload.wikimedia.org/wikipedia/commons/f/ff/Wands03.jpg","权杖4":"https://upload.wikimedia.org/wikipedia/commons/a/a4/Wands04.jpg","权杖5":"https://upload.wikimedia.org/wikipedia/commons/9/9d/Wands05.jpg","权杖6":"https://upload.wikimedia.org/wikipedia/commons/3/3b/Wands06.jpg","权杖7":"https://upload.wikimedia.org/wikipedia/commons/e/e4/Wands07.jpg","权杖8":"https://upload.wikimedia.org/wikipedia/commons/6/6b/Wands08.jpg","权杖9":"https://upload.wikimedia.org/wikipedia/commons/0/0b/Wands09.jpg","权杖10":"https://upload.wikimedia.org/wikipedia/commons/4/4d/Wands10.jpg","权杖侍从":"https://upload.wikimedia.org/wikipedia/commons/0/0a/Wands11.jpg","权杖骑士":"https://upload.wikimedia.org/wikipedia/commons/6/6b/Wands12.jpg","权杖皇后":"https://upload.wikimedia.org/wikipedia/commons/1/1c/Wands13.jpg","权杖国王":"https://upload.wikimedia.org/wikipedia/commons/0/0d/Wands14.jpg",
-  "宝剑Ace":"https://upload.wikimedia.org/wikipedia/commons/1/1a/Swords01.jpg","宝剑2":"https://upload.wikimedia.org/wikipedia/commons/9/9e/Swords02.jpg","宝剑3":"https://upload.wikimedia.org/wikipedia/commons/0/02/Swords03.jpg","宝剑4":"https://upload.wikimedia.org/wikipedia/commons/b/bf/Swords04.jpg","宝剑5":"https://upload.wikimedia.org/wikipedia/commons/2/23/Swords05.jpg","宝剑6":"https://upload.wikimedia.org/wikipedia/commons/2/29/Swords06.jpg","宝剑7":"https://upload.wikimedia.org/wikipedia/commons/3/34/Swords07.jpg","宝剑8":"https://upload.wikimedia.org/wikipedia/commons/b/b8/Swords08.jpg","宝剑9":"https://upload.wikimedia.org/wikipedia/commons/2/2f/Swords09.jpg","宝剑10":"https://upload.wikimedia.org/wikipedia/commons/d/d4/Swords10.jpg","宝剑侍从":"https://upload.wikimedia.org/wikipedia/commons/4/4c/Swords11.jpg","宝剑骑士":"https://upload.wikimedia.org/wikipedia/commons/4/4c/Swords12.jpg","宝剑皇后":"https://upload.wikimedia.org/wikipedia/commons/d/d4/Swords13.jpg","宝剑国王":"https://upload.wikimedia.org/wikipedia/commons/3/31/Swords14.jpg",
-  "钱币Ace":"https://upload.wikimedia.org/wikipedia/commons/f/fd/Pents01.jpg","钱币2":"https://upload.wikimedia.org/wikipedia/commons/9/9f/Pents02.jpg","钱币3":"https://upload.wikimedia.org/wikipedia/commons/4/42/Pents03.jpg","钱币4":"https://upload.wikimedia.org/wikipedia/commons/3/35/Pents04.jpg","钱币5":"https://upload.wikimedia.org/wikipedia/commons/5/50/Pents05.jpg","钱币6":"https://upload.wikimedia.org/wikipedia/commons/4/42/Pents06.jpg","钱币7":"https://upload.wikimedia.org/wikipedia/commons/f/f0/Pents07.jpg","钱币8":"https://upload.wikimedia.org/wikipedia/commons/e/e7/Pents08.jpg","钱币9":"https://upload.wikimedia.org/wikipedia/commons/6/6a/Pents09.jpg","钱币10":"https://upload.wikimedia.org/wikipedia/commons/4/42/Pents10.jpg","钱币侍从":"https://upload.wikimedia.org/wikipedia/commons/7/78/Pents11.jpg","钱币骑士":"https://upload.wikimedia.org/wikipedia/commons/2/2d/Pents12.jpg","钱币皇后":"https://upload.wikimedia.org/wikipedia/commons/8/88/Pents13.jpg","钱币国王":"https://upload.wikimedia.org/wikipedia/commons/4/42/Pents14.jpg"
+  "圣杯Ace":"https://upload.wikimedia.org/wikipedia/commons/3/36/Cups01.jpg",
+  "圣杯2":"https://upload.wikimedia.org/wikipedia/commons/f/f8/Cups02.jpg",
+  "圣杯3":"https://upload.wikimedia.org/wikipedia/commons/7/7d/Cups03.jpg",
+  "圣杯4":"https://upload.wikimedia.org/wikipedia/commons/3/35/Cups04.jpg",
+  "圣杯5":"https://upload.wikimedia.org/wikipedia/commons/0/06/Cups05.jpg",
+  "圣杯6":"https://upload.wikimedia.org/wikipedia/commons/1/17/Cups06.jpg",
+  "圣杯7":"https://upload.wikimedia.org/wikipedia/commons/a/ab/Cups07.jpg",
+  "圣杯8":"https://upload.wikimedia.org/wikipedia/commons/6/60/Cups08.jpg",
+  "圣杯9":"https://upload.wikimedia.org/wikipedia/commons/2/24/Cups09.jpg",
+  "圣杯10":"https://upload.wikimedia.org/wikipedia/commons/8/84/Cups10.jpg",
+  "圣杯侍从":"https://upload.wikimedia.org/wikipedia/commons/6/6d/Cups11.jpg",
+  "圣杯骑士":"https://upload.wikimedia.org/wikipedia/commons/f/f0/Cups12.jpg",
+  "圣杯皇后":"https://upload.wikimedia.org/wikipedia/commons/6/62/Cups13.jpg",
+  "圣杯国王":"https://upload.wikimedia.org/wikipedia/commons/0/04/Cups14.jpg",
+  "权杖Ace":"https://upload.wikimedia.org/wikipedia/commons/1/11/Wands01.jpg",
+  "权杖2":"https://upload.wikimedia.org/wikipedia/commons/0/0f/Wands02.jpg",
+  "权杖3":"https://upload.wikimedia.org/wikipedia/commons/f/ff/Wands03.jpg",
+  "权杖4":"https://upload.wikimedia.org/wikipedia/commons/a/a4/Wands04.jpg",
+  "权杖5":"https://upload.wikimedia.org/wikipedia/commons/9/9d/Wands05.jpg",
+  "权杖6":"https://upload.wikimedia.org/wikipedia/commons/3/3b/Wands06.jpg",
+  "权杖7":"https://upload.wikimedia.org/wikipedia/commons/e/e4/Wands07.jpg",
+  "权杖8":"https://upload.wikimedia.org/wikipedia/commons/6/6b/Wands08.jpg",
+  "权杖9":"https://upload.wikimedia.org/wikipedia/commons/0/0b/Wands09.jpg",
+  "权杖10":"https://upload.wikimedia.org/wikipedia/commons/4/4d/Wands10.jpg",
+  "权杖侍从":"https://upload.wikimedia.org/wikipedia/commons/0/0a/Wands11.jpg",
+  "权杖骑士":"https://upload.wikimedia.org/wikipedia/commons/6/6b/Wands12.jpg",
+  "权杖皇后":"https://upload.wikimedia.org/wikipedia/commons/1/1c/Wands13.jpg",
+  "权杖国王":"https://upload.wikimedia.org/wikipedia/commons/0/0d/Wands14.jpg",
+  "宝剑Ace":"https://upload.wikimedia.org/wikipedia/commons/1/1a/Swords01.jpg",
+  "宝剑2":"https://upload.wikimedia.org/wikipedia/commons/9/9e/Swords02.jpg",
+  "宝剑3":"https://upload.wikimedia.org/wikipedia/commons/0/02/Swords03.jpg",
+  "宝剑4":"https://upload.wikimedia.org/wikipedia/commons/b/bf/Swords04.jpg",
+  "宝剑5":"https://upload.wikimedia.org/wikipedia/commons/2/23/Swords05.jpg",
+  "宝剑6":"https://upload.wikimedia.org/wikipedia/commons/2/29/Swords06.jpg",
+  "宝剑7":"https://upload.wikimedia.org/wikipedia/commons/3/34/Swords07.jpg",
+  "宝剑8":"https://upload.wikimedia.org/wikipedia/commons/b/b8/Swords08.jpg",
+  "宝剑9":"https://upload.wikimedia.org/wikipedia/commons/2/2f/Swords09.jpg",
+  "宝剑10":"https://upload.wikimedia.org/wikipedia/commons/d/d4/Swords10.jpg",
+  "宝剑侍从":"https://upload.wikimedia.org/wikipedia/commons/4/4c/Swords11.jpg",
+  "宝剑骑士":"https://upload.wikimedia.org/wikipedia/commons/4/4c/Swords12.jpg",
+  "宝剑皇后":"https://upload.wikimedia.org/wikipedia/commons/d/d4/Swords13.jpg",
+  "宝剑国王":"https://upload.wikimedia.org/wikipedia/commons/3/31/Swords14.jpg",
+  "钱币Ace":"https://upload.wikimedia.org/wikipedia/commons/f/fd/Pents01.jpg",
+  "钱币2":"https://upload.wikimedia.org/wikipedia/commons/9/9f/Pents02.jpg",
+  "钱币3":"https://upload.wikimedia.org/wikipedia/commons/4/42/Pents03.jpg",
+  "钱币4":"https://upload.wikimedia.org/wikipedia/commons/3/35/Pents04.jpg",
+  "钱币5":"https://upload.wikimedia.org/wikipedia/commons/5/50/Pents05.jpg",
+  "钱币6":"https://upload.wikimedia.org/wikipedia/commons/4/42/Pents06.jpg",
+  "钱币7":"https://upload.wikimedia.org/wikipedia/commons/f/f0/Pents07.jpg",
+  "钱币8":"https://upload.wikimedia.org/wikipedia/commons/e/e7/Pents08.jpg",
+  "钱币9":"https://upload.wikimedia.org/wikipedia/commons/6/6a/Pents09.jpg",
+  "钱币10":"https://upload.wikimedia.org/wikipedia/commons/4/42/Pents10.jpg",
+  "钱币侍从":"https://upload.wikimedia.org/wikipedia/commons/7/78/Pents11.jpg",
+  "钱币骑士":"https://upload.wikimedia.org/wikipedia/commons/2/2d/Pents12.jpg",
+  "钱币皇后":"https://upload.wikimedia.org/wikipedia/commons/8/88/Pents13.jpg",
+  "钱币国王":"https://upload.wikimedia.org/wikipedia/commons/4/42/Pents14.jpg"
 };
 const DECK=Object.entries(WIKI_CARDS);
 
@@ -145,77 +231,108 @@ const SUIT={"圣杯":"情感/关系","权杖":"行动/热情","宝剑":"思维/�
 const RANK={"Ace":"开始/机遇","2":"平衡/对立","3":"成长/协作","4":"稳定/停滞","5":"冲突/压力","6":"给予/和谐","7":"考验/选择","8":"行动/进展","9":"成果/负担","10":"阶段结束/丰收","侍从":"讯息/起步","骑士":"推动/追求","皇后":"成熟/吸引","国王":"掌控/负责"};
 
 function parseMeaning(name,reversed){
-  if(/^\d{2}_/.test(name)){const n=+name.slice(0,2),base=MAJOR_MEAN[n]||"";return (reversed?"逆位：":"正位：")+(reversed?base.replaceAll("/","/阻滞·"):base)}
+  if(/^\d{2}_/.test(name)){
+    const n=+name.slice(0,2),base=MAJOR_MEAN[n]||"";
+    return (reversed?"逆位：":"正位：")+(reversed?base.replaceAll("/","/阻滞·"):base);
+  }
   const m=name.match(/^(圣杯|权杖|宝剑|钱币)(Ace|[2-9]|10|侍从|骑士|皇后|国王)/);
-  if(m){const suit=m[1],rank=m[2],base=`${SUIT[suit]} · ${RANK[rank]||""}`;return (reversed?"逆位：":"正位：")+(reversed?`${base}（阻滞/反向）`:base)}
+  if(m){
+    const suit=m[1],rank=m[2],base=`${SUIT[suit]} · ${RANK[rank]||""}`;
+    return (reversed?"逆位：":"正位：")+(reversed?`${base}（阻滞/反向）`:base);
+  }
   return reversed?"逆位":"正位";
 }
 
-function buildReading(q, picks, spread){
-  const stats = suitStats(picks);
-  const total = picks.length;
-  const majorRate = Math.round(stats.major / total * 100);
-  const revRate   = Math.round(stats.rev   / total * 100);
+/* --- 主题与统计/建议 --- */
+function detectTopic(q){q=(q||"").toLowerCase();if(/[爱恋情感婚]/.test(q))return"love";if(/[工职事业升职跳槽面试]/.test(q))return"career";if(/[财钱收入投资借贷股票房]/.test(q))return"wealth";if(/[学业考试录取论文]/.test(q))return"study";return"general"}
+function suitStats(picks){const s={圣杯:0,权杖:0,宝剑:0,钱币:0,major:0,rev:0};for(const {name,reversed} of picks){if(/^\d{2}_/.test(name))s.major++;else{const m=name.match(/^(圣杯|权杖|宝剑|钱币)/);if(m)s[m[1]]++}if(reversed)s.rev++}return s}
+function topicAdvice(t){switch(t){case"love":return"感情层面要真诚沟通、给彼此空间；关注感受与节奏，而不是结论。";case"career":return"先明确目标与边界，拆解任务稳步推进；避免情绪化决策，保留 Plan B。";case"wealth":return"以稳健为先，控制支出、分散风险；避免追高，基于数据制定节奏。";case"study":return"制定可执行的计划，先补薄弱环节，利用番茄钟保持专注。";default:return"把精力放在可控的下一步，允许不确定，持续微调会看到进展。"}}
 
-  const focus = Object.entries({圣杯:stats.圣杯, 权杖:stats.权杖, 宝剑:stats.宝剑, 钱币:stats.钱币})
-    .sort((a,b)=>b[1]-a[1])[0];
-
-  const suitHint = (focus && focus[1] > 0)
-    ? `本次抽牌以【${focus[0]}】为主（${SUIT[focus[0]]}），说明这件事当前更侧重该维度。`
-    : '本次抽牌以大阿尔克那为主，提示这是阶段性的关键课题。';
-
-  const pos10 = ['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望/恐惧','结果'];
-  const pos5  = ['过去','潜意识','当下','外在影响','未来趋势'];
-
-  const list = picks.map((c,i)=>{
-    const label = spread===10 ? pos10[i] : spread===5 ? pos5[i] : spread===3 ? ['过去','现在','未来'][i] : '当下';
-    return `• 【${label}】${c.name}（${c.reversed?'逆位':'正位'}）— ${parseMeaning(c.name,c.reversed).replace(/^正位：|^逆位：/,'')}`;
-  }).join('<br>');
-
+function buildReading(q,picks,spread){
+  const stats=suitStats(picks), total=picks.length, majorRate=Math.round(stats.major/total*100), revRate=Math.round(stats.rev/total*100);
+  const focus=Object.entries({圣杯:stats.圣杯,权杖:stats.权杖,宝剑:stats.宝剑,钱币:stats.钱币}).sort((a,b)=>b[1]-a[1])[0];
+  const suitHint=focus&&focus[1]>0?`本次抽牌以【${focus[0]}】为主（${SUIT[focus[0]]}），说明这件事当前更侧重该维度。`:"本次抽牌以大阿尔克那为主，提示这是阶段性的关键课题。";
+  const pos10=['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望/恐惧','结果'];
+  const pos5 =['过去','潜意识','当下','外在影响','未来趋势'];
+  const list=picks.map((c,i)=>{const label=spread===10?pos10[i]:spread===5?pos5[i]:spread===3?['过去','现在','未来'][i]:'当下';return `• 【${label}】${c.name}（${c.reversed?'逆位':'正位'}）— ${parseMeaning(c.name,c.reversed).replace(/^正位：|^逆位：/,'')}`}).join('<br>');
   return `
-    <p><b>问题：</b>${q || '（未填写）'}</p>
+    <p><b>问题：</b>${q||'（未填写）'}</p>
     <p>${suitHint} 大阿尔克那占比约 <b>${majorRate}%</b>；逆位约 <b>${revRate}%</b>。</p>
     <p><b>逐位置解读：</b><br>${list}</p>
     <p><b>综合建议：</b>${topicAdvice(detectTopic(q))}</p>
   `;
 }
 
-function buildStory(q, picks, spread){
-  const topicMap = {1:'单张指引',3:'三张（过去/现在/未来）',5:'十字排法',10:'凯尔特十字'};
-  const pos10 = ['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望/恐惧','结果'];
-  const pos5  = ['过去','潜意识','当下','外在影响','未来趋势'];
-  const pos3  = ['过去','现在','未来'];
-
-  const head = `你问的是「${q || '（未填写）'}」。本次使用${topicMap[spread]}。我会按位置逐张说明牌面含义与彼此的影响。`;
-
-  const lines = picks.map((c,i)=>{
-    const label = spread===10 ? pos10[i] : spread===5 ? pos5[i] : spread===3 ? pos3[i] : '当下';
-    const dir   = c.reversed ? '逆位' : '正位';
-    const mean  = parseMeaning(c.name, c.reversed).replace(/^正位：|^逆位：/,'');
-    return `【${label}】抽到「${c.name}」${dir}。这张牌提示：${mean}。`;
-  });
-
-  const getSuit = n => (n.match(/^(圣杯|权杖|宝剑|钱币)/)||[])[1] || '大阿尔克那';
-  const hooks = [];
-  for (let i=0;i<picks.length-1;i++){
-    if (getSuit(picks[i].name) === getSuit(picks[i+1].name)){
-      hooks.push(`第${i+1}与第${i+2}张同属「${getSuit(picks[i].name)}」，主题有连续性。`);
-    }
-    if (picks[i].reversed !== picks[i+1].reversed){
-      hooks.push(`第${i+1}与第${i+2}张一正一逆，意味着此环节既有机会也有阻滞。`);
-    }
+function buildStory(q,picks,spread){
+  const topicMap={1:'单张指引',3:'三张（过去/现在/未来）',5:'十字排法',10:'凯尔特十字'};
+  const pos10=['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望/恐惧','结果'];
+  const pos5 =['过去','潜意识','当下','外在影响','未来趋势'];
+  const pos3 =['过去','现在','未来'];
+  const head=`你问的是「${q||'（未填写）'}」。本次使用${topicMap[spread]}。我会按位置逐张说明牌面含义与彼此的影响。`;
+  const lines=picks.map((c,i)=>{const label=spread===10?pos10[i]:spread===5?pos5[i]:spread===3?pos3[i]:'当下';const dir=c.reversed?'逆位':'正位';const mean=parseMeaning(c.name,c.reversed).replace(/^正位：|^逆位：/,'');return `【${label}】抽到「${c.name}」${dir}。这张牌提示：${mean}。`});
+  const suitOf=n=>(n.match(/^(圣杯|权杖|宝剑|钱币)/)||[])[1]||'大阿尔克那';
+  const hooks=[];
+  for(let i=0;i<picks.length-1;i++){
+    if (suitOf(picks[i].name)===suitOf(picks[i+1].name)) hooks.push(`第${i+1}与第${i+2}张同属「${suitOf(picks[i].name)}」，主题有连续性。`);
+    if (picks[i].reversed!==picks[i+1].reversed) hooks.push(`第${i+1}与第${i+2}张一正一逆，意味着此环节既有机会也有阻滞。`);
   }
-
-  const tail = `综合来看，${topicAdvice(detectTopic(q))}`;
-  return [head, ...lines, (hooks.length ? ('补充：' + hooks.join(' ')) : ''), tail]
-    .filter(Boolean)
-    .join('\n');
+  const tail=`综合来看，${topicAdvice(detectTopic(q))}`;
+  return [head,...lines,(hooks.length?('补充：'+hooks.join(' ')):''),tail].filter(Boolean).join('\n');
 }
-      // —— Chat 浮窗文案 ——
-    chat_fab:"Chat",
-    chat_placeholder:"有什么想咨询的？",
-    chat_send:"发送"
+
+/* --- TTS --- */
+let lastSpoken='',speaking=false;
+function pickZhVoice(){const vs=speechSynthesis.getVoices();return vs.find(v=>/zh|cmn/i.test(v.lang))||vs[0]}
+function speak(text){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);const v=pickZhVoice();if(v)u.voice=v;u.rate=1;u.pitch=1;u.volume=1;u.onend=()=>{speaking=false;document.getElementById('ttsBtn').innerHTML='🔊 <span data-i18n="tts_btn">'+(I18N[currentLang].tts_btn)+'</span>'};speaking=true;document.getElementById('ttsBtn').textContent='⏸ 暂停';speechSynthesis.speak(u)}
+function toggleTTS(){if(!('speechSynthesis'in window))return alert('当前浏览器不支持语音朗读');if(speaking){speechSynthesis.cancel();speaking=false;document.getElementById('ttsBtn').innerHTML='🔊 <span data-i18n="tts_btn">'+(I18N[currentLang].tts_btn)+'</span>'}else{ speak(lastSpoken||'暂无可朗读内容。') }}
+
+/* --- 抽牌与渲染 --- */
+function draw(){
+  const n=+document.getElementById('spread').value;
+  const q=document.getElementById('question').value.trim();
+  document.getElementById('qdisplay').textContent=q? (currentLang==='en' ? `Question: ${q}` : `问题：${q}`) : (I18N[currentLang].tip_focus);
+
+  const board=document.getElementById('board'); board.innerHTML=''; board.className='board '+(n===1?'spread-1':n===3?'spread-3':n===5?'spread-5':'spread-10');
+
+  const pool=[...DECK], take=()=>pool.splice(Math.floor(Math.random()*pool.length),1)[0], picks=[];
+  function place(pair,label,extra=''){
+    const [name,url]=pair, reversed=Math.random()<0.5; picks.push({name,reversed});
+    const wrap=document.createElement('div'); wrap.className='card '+extra;
+    const imgw=document.createElement('div'); imgw.className='imgwrap';
+    const img=new Image(); img.className='card-img'; img.loading='eager';
+    img.src=viaProxy(url,400); img.onerror=()=>{img.onerror=null;img.src=url}; if(reversed) img.style.transform='rotate(180deg)';
+    const cap=document.createElement('div'); cap.className='cap'; cap.textContent=label?`${name} · ${label}`:name;
+    const mean=document.createElement('div'); mean.className='mean'; mean.textContent=parseMeaning(name,reversed);
+    imgw.appendChild(img); wrap.appendChild(imgw); wrap.appendChild(cap); wrap.appendChild(mean); board.appendChild(wrap);
   }
+  if(n===1){place(take(),'当下')}
+  else if(n===3){place(take(),'过去');place(take(),'现在');place(take(),'未来')}
+  else if(n===5){place(take(),'过去','pos-top');place(take(),'潜意识','pos-left');place(take(),'当下','pos-center');place(take(),'外在影响','pos-right');place(take(),'未来趋势','pos-bottom')}
+  else{const labels10=['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望/恐惧','结果'];for(let i=0;i<10;i++) place(take(),labels10[i],`c${i+1}`)}
+
+  // 文本解读 + 串讲 + 朗读缓存
+  const summary=buildReading(q,picks,n);
+  const story=buildStory(q,picks,n).split('\n').map(p=>`<p>${p}</p>`).join('');
+  document.getElementById('readingText').innerHTML=summary+`<hr style="border:0;border-top:1px solid #273245;margin:12px 0">`+story;
+  document.getElementById('reading').style.display='block';
+  lastSpoken=buildStory(q,picks,n);
+}
+
+/* --- 事件绑定 & 语言切换 --- */
+let currentLang='zh';
+document.getElementById('go').addEventListener('click', draw);
+document.getElementById('ttsBtn').addEventListener('click', toggleTTS);
+document.getElementById('langSel').addEventListener('change', e=>{
+  currentLang = e.target.value;
+  applyI18N(currentLang);
+});
+applyI18N(currentLang);
+
+// 某些浏览器需要触发一次载入语音
+if ('speechSynthesis' in window) {
+  speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = ()=>{};
+}
 </script>
 </body>
 </html>
