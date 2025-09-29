@@ -140,68 +140,66 @@ function parseMeaning(name,reversed){
   return reversed?"逆位":"正位";
 }
 
-/* --- 生成解读 --- */
-function detectTopic(q){q=(q||"").toLowerCase();if(/[爱恋情感婚]/.test(q))return"love";if(/[工职事业升职跳槽面试]/.test(q))return"career";if(/[财钱收入投资借贷股票房]/.test(q))return"wealth";if(/[学业考试录取论文]/.test(q))return"study";return"general"}
-function suitStats(picks){const s={圣杯:0,权杖:0,宝剑:0,钱币:0,major:0,rev:0};for(const {name,reversed} of picks){if(/^\d{2}_/.test(name))s.major++;else{const m=name.match(/^(圣杯|权杖|宝剑|钱币)/);if(m)s[m[1]]++}if(reversed)s.rev++}return s}
-function topicAdvice(t){switch(t){case"love":return"感情层面要真诚沟通、给彼此空间；关注感受与节奏，而不是结论。";case"career":return"先明确目标与边界，拆解任务稳步推进；避免情绪化决策，保留 Plan B。";case"wealth":return"以稳健为先，控制支出、分散风险；避免追高，基于数据制定节奏。";case"study":return"制定可执行的计划，先补薄弱环节，利用番茄钟保持专注。";default:return"把精力放在可控的下一步，允许不确定，持续微调会看到进展。"}}
-function buildReading(q,picks,spread){
-  const stats=suitStats(picks),total=picks.length,majorRate=Math.round(stats.major/total*100),revRate=Math.round(stats.rev/total*100);
-  const focus=Object.entries({圣杯:stats.圣杯,权杖:stats.权杖,宝剑:stats.宝剑,钱币:stats.钱币}).sort((a,b)=>b[1]-a[1])[0];
-  const suitHint=focus&&focus[1]>0?`本次抽牌以【${focus[0]}】为主（${SUIT[focus[0]]}），说明这件事当前更侧重该维度。`:"本次抽牌以大阿尔克那为主，提示这是阶段性的关键课题。";
-  const pos10=['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望/恐惧','结果'],pos5=['过去','潜意识','当下','外在影响','未来趋势'];
-  const list=picks.map((c,i)=>{const label=spread===10?pos10[i]:spread===5?pos5[i]:spread===3?['过去','现在','未来'][i]:'当下';return `• 【${label}】${c.name}（${c.reversed?'逆位':'正位'}）— ${parseMeaning(c.name,c.reversed).replace(/^正位：|^逆位：/,'')}`}).join('<br>');
-  return `<p><b>问题：</b>${q||'（未填写）'}</p><p>${suitHint} 大阿尔克那占比约 <b>${majorRate}%</b>；逆位约 <b>${revRate}%</b>.
+function buildReading(q, picks, spread){
+  const stats = suitStats(picks);
+  const total = picks.length;
+  const majorRate = Math.round(stats.major / total * 100);
+  const revRate   = Math.round(stats.rev   / total * 100);
+
+  const focus = Object.entries({圣杯:stats.圣杯, 权杖:stats.权杖, 宝剑:stats.宝剑, 钱币:stats.钱币})
+    .sort((a,b)=>b[1]-a[1])[0];
+
+  const suitHint = (focus && focus[1] > 0)
+    ? `本次抽牌以【${focus[0]}】为主（${SUIT[focus[0]]}），说明这件事当前更侧重该维度。`
+    : '本次抽牌以大阿尔克那为主，提示这是阶段性的关键课题。';
+
+  const pos10 = ['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望/恐惧','结果'];
+  const pos5  = ['过去','潜意识','当下','外在影响','未来趋势'];
+
+  const list = picks.map((c,i)=>{
+    const label = spread===10 ? pos10[i] : spread===5 ? pos5[i] : spread===3 ? ['过去','现在','未来'][i] : '当下';
+    return `• 【${label}】${c.name}（${c.reversed?'逆位':'正位'}）— ${parseMeaning(c.name,c.reversed).replace(/^正位：|^逆位：/,'')}`;
+  }).join('<br>');
+
+  return `
+    <p><b>问题：</b>${q || '（未填写）'}</p>
+    <p>${suitHint} 大阿尔克那占比约 <b>${majorRate}%</b>；逆位约 <b>${revRate}%</b>。</p>
+    <p><b>逐位置解读：</b><br>${list}</p>
+    <p><b>综合建议：</b>${topicAdvice(detectTopic(q))}</p>
+  `;
 }
-  const topicMap={1:'单张指引',3:'三张（过去/现在/未来）',5:'十字排法',10:'凯尔特十字'};
-  const pos10=['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望/恐惧','结果'],pos5=['过去','潜意识','当下','外在影响','未来趋势'],pos3=['过去','现在','未来'];
-  const head=`你问的是「${q||'（未填写）'}」。本次使用${topicMap[spread]}。我会按位置逐张说明牌面含义与彼此的影响。`;
-  const lines=picks.map((c,i)=>{const label=spread===10?pos10[i]:spread===5?pos5[i]:spread===3?pos3[i]:'当下';const dir=c.reversed?'逆位':'正位';const mean=parseMeaning(c.name,c.reversed).replace(/^正位：|^逆位：/,'');return `【${label}】抽到「${c.name}」${dir}。这张牌提示：${mean}。`});
-  const suit=n=>(n.match(/^(圣杯|权杖|宝剑|钱币)/)||[])[1]||'大阿尔克那',hooks=[];
-  for(let i=0;i<picks.length-1;i++){
-    if(suit(picks[i].name)===suit(picks[i+1].name)) hooks.push(`第${i+1}与第${i+2}张同属「${suit(picks[i].name)}」，主题有连续性。`);
-    if(picks[i].reversed!==picks[i+1].reversed) hooks.push(`第${i+1}与第${i+2}张一正一逆，意味着此环节既有机会也有阻滞。`);
+
+function buildStory(q, picks, spread){
+  const topicMap = {1:'单张指引',3:'三张（过去/现在/未来）',5:'十字排法',10:'凯尔特十字'};
+  const pos10 = ['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望/恐惧','结果'];
+  const pos5  = ['过去','潜意识','当下','外在影响','未来趋势'];
+  const pos3  = ['过去','现在','未来'];
+
+  const head = `你问的是「${q || '（未填写）'}」。本次使用${topicMap[spread]}。我会按位置逐张说明牌面含义与彼此的影响。`;
+
+  const lines = picks.map((c,i)=>{
+    const label = spread===10 ? pos10[i] : spread===5 ? pos5[i] : spread===3 ? pos3[i] : '当下';
+    const dir   = c.reversed ? '逆位' : '正位';
+    const mean  = parseMeaning(c.name, c.reversed).replace(/^正位：|^逆位：/,'');
+    return `【${label}】抽到「${c.name}」${dir}。这张牌提示：${mean}。`;
+  });
+
+  const getSuit = n => (n.match(/^(圣杯|权杖|宝剑|钱币)/)||[])[1] || '大阿尔克那';
+  const hooks = [];
+  for (let i=0;i<picks.length-1;i++){
+    if (getSuit(picks[i].name) === getSuit(picks[i+1].name)){
+      hooks.push(`第${i+1}与第${i+2}张同属「${getSuit(picks[i].name)}」，主题有连续性。`);
+    }
+    if (picks[i].reversed !== picks[i+1].reversed){
+      hooks.push(`第${i+1}与第${i+2}张一正一逆，意味着此环节既有机会也有阻滞。`);
+    }
   }
-  const tail=`综合来看，${topicAdvice(detectTopic(q))}`;
-  return [head,...lines,(hooks.length?('补充：'+hooks.join(' ')):''),tail].filter(Boolean).join('\n');
+
+  const tail = `综合来看，${topicAdvice(detectTopic(q))}`;
+  return [head, ...lines, (hooks.length ? ('补充：' + hooks.join(' ')) : ''), tail]
+    .filter(Boolean)
+    .join('\n');
 }
-
-/* --- TTS --- */
-let lastSpoken='',speaking=false;
-function pickZhVoice(){const vs=speechSynthesis.getVoices();return vs.find(v=>/zh|cmn/i.test(v.lang))||vs[0]}
-function speak(text){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);const v=pickZhVoice();if(v)u.voice=v;u.rate=1;u.pitch=1;u.volume=1;u.onend=()=>{speaking=false;document.getElementById('ttsBtn').textContent='🔊 朗读'};speaking=true;document.getElementById('ttsBtn').textContent='⏸ 暂停';speechSynthesis.speak(u)}
-function toggleTTS(){if(!('speechSynthesis'in window))return alert('当前浏览器不支持语音朗读');if(speaking){speechSynthesis.cancel();speaking=false;document.getElementById('ttsBtn').textContent='🔊 朗读'}else{ speak(lastSpoken||'暂无可朗读内容。') }}
-document.getElementById('ttsBtn').addEventListener('click',toggleTTS);
-
-/* --- 抽牌与渲染 --- */
-function draw(){
-  const n=+document.getElementById('spread').value;
-  const q=document.getElementById('question').value.trim();
-  document.getElementById('qdisplay').textContent=q?`问题：${q}`:'（提示：输入问题会让解读更聚焦）';
-
-  const board=document.getElementById('board'); board.innerHTML=''; board.className='board '+(n===1?'spread-1':n===3?'spread-3':n===5?'spread-5':'spread-10');
-
-  const pool=[...DECK], take=()=>pool.splice(Math.floor(Math.random()*pool.length),1)[0], picks=[];
-  function place(pair,label,extra=''){
-    const [name,url]=pair, reversed=Math.random()<0.5; picks.push({name,reversed});
-    const wrap=document.createElement('div'); wrap.className='card '+extra;
-    const imgw=document.createElement('div'); imgw.className='imgwrap';
-    const img=new Image(); img.className='card-img'; img.loading='eager'; img.src=viaProxy(url,400); img.onerror=()=>{img.onerror=null;img.src=url}; if(reversed) img.style.transform='rotate(180deg)';
-    const cap=document.createElement('div'); cap.className='cap'; cap.textContent=label?`${name} · ${label}`:name;
-    const mean=document.createElement('div'); mean.className='mean'; mean.textContent=parseMeaning(name,reversed);
-    imgw.appendChild(img); wrap.appendChild(imgw); wrap.appendChild(cap); wrap.appendChild(mean); board.appendChild(wrap);
-  }
-  if(n===1){place(take(),'当下')}
-  else if(n===3){place(take(),'过去');place(take(),'现在');place(take(),'未来')}
-  else if(n===5){place(take(),'过去','pos-top');place(take(),'潜意识','pos-left');place(take(),'当下','pos-center');place(take(),'外在影响','pos-right');place(take(),'未来趋势','pos-bottom')}
-  else{const labels10=['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望/恐惧','结果'];for(let i=0;i<10;i++) place(take(),labels10[i],`c${i+1}`)}
-
-  const summary=buildReading(q,picks,n);
-  const story=buildStory(q,picks,n).split('\n').map(p=>`<p>${p}</p>`).join('');
-  document.getElementById('readingText').innerHTML=summary+`<hr style="border:0;border-top:1px solid #273245;margin:12px 0">`+story;
-  document.getElementById('reading').style.display='block';
-  lastSpoken=buildStory(q,picks,n);
-}
-document.getElementById('go').addEventListener('click',draw);
 </script>
 </body>
 </html>
