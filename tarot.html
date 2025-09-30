@@ -17,7 +17,7 @@
   .app{max-width:1100px;margin:0 auto;padding:18px}
   h1{margin:6px 0 14px;color:var(--brand);font-weight:800}
   .controls{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:12px}
-  .controls input,.controls select,.controls button{padding:12px;border-radius:12px;border:1px solid #273245;background:#0f1420;color:var(--text)}
+  .controls input,.controls select,.controls button{padding:12px;border-radius:12px;border:1px solid #273245;background:#0f1420;color:#var(--text)}
   .controls input{flex:1;min-width:220px}
   .controls button{cursor:pointer;background:linear-gradient(180deg,#fff9e6,var(--gold));color:#121212;border-color:var(--gold);font-weight:800}
   .q{margin:6px 0 12px;font-weight:600}
@@ -31,6 +31,7 @@
   .spread-3{grid-template-columns:repeat(3,128px)}
   .spread-5{grid-template-areas:"top top top" "left center right" ". bottom .";grid-template-columns:128px 128px 128px}
   .pos-top{grid-area:top}.pos-left{grid-area:left}.pos-center{grid-area:center}.pos-right{grid-area:right}.pos-bottom{grid-area:bottom}
+  /* 10张：桌面 3-3-4 */
   .spread-10{display:grid;grid-template-columns:repeat(4,128px);grid-auto-rows:auto;gap:14px}
   .spread-10 .c1{grid-column:1;grid-row:1}.spread-10 .c2{grid-column:2;grid-row:1}.spread-10 .c3{grid-column:3;grid-row:1}
   .spread-10 .c4{grid-column:1;grid-row:2}.spread-10 .c5{grid-column:2;grid-row:2}.spread-10 .c6{grid-column:3;grid-row:2}
@@ -243,26 +244,81 @@ function parseMeaning(name,reversed){
   return reversed?"逆位":"正位";
 }
 
-/* --- 主题与统计/建议 --- */
-function detectTopic(q){q=(q||"").toLowerCase();if(/[爱恋情感婚]/.test(q))return"love";if(/[工职事业升职跳槽面试]/.test(q))return"career";if(/[财钱收入投资借贷股票房]/.test(q))return"wealth";if(/[学业考试录取论文]/.test(q))return"study";return"general"}
-function suitStats(picks){const s={圣杯:0,权杖:0,宝剑:0,钱币:0,major:0,rev:0};for(const {name,reversed} of picks){if(/^\d{2}_/.test(name))s.major++;else{const m=name.match(/^(圣杯|权杖|宝剑|钱币)/);if(m)s[m[1]]++}if(reversed)s.rev++}return s}
-function topicAdvice(t){switch(t){case"love":return"感情层面要真诚沟通、给彼此空间；关注感受与节奏，而不是结论。";case"career":return"先明确目标与边界，拆解任务稳步推进；避免情绪化决策，保留 Plan B。";case"wealth":return"以稳健为先，控制支出、分散风险；避免追高，基于数据制定节奏。";case"study":return"制定可执行的计划，先补薄弱环节，利用番茄钟保持专注。";default:return"把精力放在可控的下一步，允许不确定，持续微调会看到进展。"}}
+/* --- 主题推断与建议 --- */
+// 统计花色/大牌/逆位
+function suitStats(picks){
+  const s={圣杯:0,权杖:0,宝剑:0,钱币:0,major:0,rev:0};
+  for(const {name,reversed} of picks){
+    if(/^\d{2}_/.test(name)) s.major++;
+    else{
+      const m=name.match(/^(圣杯|权杖|宝剑|钱币)/);
+      if(m) s[m[1]]++;
+    }
+    if(reversed) s.rev++;
+  }
+  return s;
+}
 
+// 根据问题(中英)+牌面统计 推断主题；问题缺失时用花色兜底
+function inferTopic(q, picks, stats){
+  const text = (q || '').toLowerCase();
+
+  const isLove   = /(爱|恋|感情|婚|复合|暧昧|桃花)/.test(q||'') || /(love|relationship|crush|ex|marriage)/i.test(text);
+  const isCareer = /(工作|职|事业|面试|升职|跳槽|合作|老板|团队|项目)/.test(q||'') || /(career|job|work|interview|promotion|boss|project|startup)/i.test(text);
+  const isWealth = /(财|钱|收入|投资|借贷|股票|基金|房|车|薪|报酬)/.test(q||'') || /(money|finance|wealth|investment|stock|crypto|salary|pay|house)/i.test(text);
+  const isStudy  = /(学业|考试|录取|论文|成绩|考研|学校)/.test(q||'') || /(study|exam|test|school|grade|admission|thesis)/i.test(text);
+
+  let topic = isLove ? 'love' : isCareer ? 'career' : isWealth ? 'wealth' : isStudy ? 'study' : 'general';
+
+  if (topic === 'general'){
+    const suitCount = { '圣杯':'love', '权杖':'career', '钱币':'wealth', '宝剑':'study' };
+    const entries = Object.entries(suitCount).map(([suit,t])=>({ suit, t, n: stats[suit] || 0 }));
+    entries.sort((a,b)=>b.n - a.n);
+    if (entries[0].n > 0) topic = entries[0].t;
+  }
+  return topic;
+}
+
+// 专业建议：结合主题 + 逆位/大牌占比微调语气
+function topicAdvice(topic, stats, spreadName){
+  const total = (stats.圣杯 + stats.权杖 + stats.宝剑 + stats.钱币 + stats.major) || 1;
+  const revRate   = Math.round(stats.rev / total * 100);
+  const majorRate = Math.round(stats.major / total * 100);
+
+  const caution = revRate >= 50 ? '当前阻滞较多，宜先排雷后行动。' :
+                  revRate >= 30 ? '存在分歧或延迟，节奏放慢、先做校准。' : '机遇大于阻碍，保持节奏即可。';
+  const phase    = majorRate >= 50 ? '这是阶段性的关键课题，建议设定里程碑并复盘。' : '';
+
+  const base = {
+    love:   `感情主题${spreadName ? `（${spreadName}）` : ''}：优先「真诚沟通 + 边界感」。若进展卡住，先同步期待值与节奏，再谈结论。`,
+    career: `事业/工作${spreadName ? `（${spreadName}）` : ''}：把目标拆成本周可交付，关键任务先行；对不确定项做预案与对齐。`,
+    wealth: `金钱/投资${spreadName ? `（${spreadName}）` : ''}：以稳健为先，控制支出、分散风险；任何加仓前先确认数据与止损位。`,
+    study:  `学习/考试${spreadName ? `（${spreadName}）` : ''}：先补弱项，建立每日固定时段；用番茄钟与阶段小测验证进度。`,
+    general:`当前议题${spreadName ? `（${spreadName}）` : ''}：先明确下一步可控动作，保持小步快跑与复盘。`
+  }[topic];
+
+  return `${base} ${caution} ${phase}`.trim();
+}
+
+/* --- 文本解读（统一口径） --- */
 function buildReading(q, picks, spread){
   const pos10=['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望/恐惧','结果'];
   const pos5 =['过去','潜意识','当下','外在影响','未来趋势'];
   const pos3 =['过去','现在','未来'];
   const spreadName = ({1:'单张',3:'三张（过去/现在/未来）',5:'十字排法（5张）',10:'凯尔特十字（10张）'})[spread];
 
+  // 统计
   const stats = suitStats(picks);
-  const total = picks.length;
+  const total = picks.length || 1;
   const majorRate = Math.round(stats.major/total*100);
   const revRate   = Math.round(stats.rev/total*100);
-  const focus = Object.entries({圣杯:stats.圣杯,权杖:stats.权杖,宝剑:stats.宝剑,钱币:stats.钱币}).sort((a,b)=>b[1]-a[1])[0];
-  const suitHint = focus && focus[1] > 0
+  const focus = Object.entries({圣杯:stats.圣杯,权杖:stats.权杖,宝剑:stats.宝剑,钱币:stats.钱币})
+                      .sort((a,b)=>b[1]-a[1])[0];
+  const suitHint = (focus && focus[1] > 0)
     ? `本次抽牌以【${focus[0]}】为主（${SUIT[focus[0]]}），说明这件事当前更侧重该维度。`
     : `本次抽牌以大阿尔克那为主，提示这是阶段性的关键课题。`;
 
+  // 逐位置解读
   const list = picks.map((c,i)=>{
     const label = spread===10 ? pos10[i] : spread===5 ? pos5[i] : spread===3 ? pos3[i] : '当下';
     const dir = c.reversed ? '逆位' : '正位';
@@ -270,12 +326,16 @@ function buildReading(q, picks, spread){
     return `• 【${label}】${c.name}（${dir}）— ${mean}`;
   }).join('<br>');
 
+  // 核心：主题推断 + 综合建议
+  const topic  = inferTopic(q, picks, stats);
+  const advice = topicAdvice(topic, stats, spreadName);
+
   return `
     <p><b>问题：</b>${q||'（未填写）'}</p>
     <p><b>牌阵：</b>${spreadName}</p>
     <p>${suitHint} 大阿尔克那占比约 <b>${majorRate}%</b>；逆位约 <b>${revRate}%</b>。</p>
     <p><b>逐位置解读：</b><br>${list}</p>
-    <p><b>综合建议：</b>${topicAdvice(detectTopic(q))}</p>
+    <p><b>综合建议：</b>${advice}</p>
   `;
 }
 
@@ -302,7 +362,7 @@ function toggleTTS(){
   }
 }
 
-/* --- 小工具：去标签供朗读 --- */
+/* --- 去标签供朗读 --- */
 function stripTags(html){
   const tmp = document.createElement('div');
   tmp.innerHTML = html;
@@ -346,13 +406,13 @@ function draw(){
     for(let i=0;i<10;i++) place(take(),labels10[i],`c${i+1}`);
   }
 
-  const unified = buildReading(q,picks,n);
+  const unified = buildReading(q, picks, n);
   document.getElementById('readingText').innerHTML = unified;
   document.getElementById('reading').style.display = 'block';
   lastSpoken = stripTags(unified);
 }
 
-/* --- 事件绑定 & 语言切换 --- */
+/* --- 事件绑定 & 初始化 --- */
 document.getElementById('go').addEventListener('click', draw);
 document.getElementById('ttsBtn').addEventListener('click', toggleTTS);
 document.getElementById('langSel').addEventListener('change', e=>{
@@ -361,7 +421,7 @@ document.getElementById('langSel').addEventListener('change', e=>{
 });
 applyI18N(currentLang);
 
-// 预热语音（有些浏览器需要）
+// 语音预热（部分浏览器需要）
 if ('speechSynthesis' in window) {
   speechSynthesis.getVoices();
   window.speechSynthesis.onvoiceschanged = ()=>{};
