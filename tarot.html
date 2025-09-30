@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -249,6 +250,21 @@ function suitStats(picks){const s={圣杯:0,权杖:0,宝剑:0,钱币:0,major:0,r
 function topicAdvice(t){switch(t){case"love":return"感情层面要真诚沟通、给彼此空间；关注感受与节奏，而不是结论。";case"career":return"先明确目标与边界，拆解任务稳步推进；避免情绪化决策，保留 Plan B。";case"wealth":return"以稳健为先，控制支出、分散风险；避免追高，基于数据制定节奏。";case"study":return"制定可执行的计划，先补薄弱环节，利用番茄钟保持专注。";default:return"把精力放在可控的下一步，允许不确定，持续微调会看到进展。"}}
 
 function buildReading(q,picks,spread){
+  const stats=suitStats(picks), total=picks.length, majorRate=Math.round(stats.major/total*100), revRate=Math.round(stats.rev/total*100);
+  const focus=Object.entries({圣杯:stats.圣杯,权杖:stats.权杖,宝剑:stats.宝剑,钱币:stats.钱币}).sort((a,b)=>b[1]-a[1])[0];
+  const suitHint=focus&&focus[1]>0?`本次抽牌以【${focus[0]}】为主（${SUIT[focus[0]]}），说明这件事当前更侧重该维度。`:"本次抽牌以大阿尔克那为主，提示这是阶段性的关键课题。";
+  const pos10=['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望/恐惧','结果'];
+  const pos5 =['过去','潜意识','当下','外在影响','未来趋势'];
+  const list=picks.map((c,i)=>{const label=spread===10?pos10[i]:spread===5?pos5[i]:spread===3?['过去','现在','未来'][i]:'当下';return `• 【${label}】${c.name}（${c.reversed?'逆位':'正位'}）— ${parseMeaning(c.name,c.reversed).replace(/^正位：|^逆位：/,'')}`}).join('<br>');
+  return `
+    <p><b>问题：</b>${q||'（未填写）'}</p>
+    <p>${suitHint} 大阿尔克那占比约 <b>${majorRate}%</b>；逆位约 <b>${revRate}%</b>。</p>
+    <p><b>逐位置解读：</b><br>${list}</p>
+    <p><b>综合建议：</b>${topicAdvice(detectTopic(q))}</p>
+  `;
+}
+
+function buildStory(q,picks,spread){
   const topicMap={1:'单张指引',3:'三张（过去/现在/未来）',5:'十字排法',10:'凯尔特十字'};
   const pos10=['当下','阻碍','潜意识','显意识','过去','未来','自我','环境','希望/恐惧','结果'];
   const pos5 =['过去','潜意识','当下','外在影响','未来趋势'];
@@ -264,6 +280,12 @@ function buildReading(q,picks,spread){
   const tail=`综合来看，${topicAdvice(detectTopic(q))}`;
   return [head,...lines,(hooks.length?('补充：'+hooks.join(' ')):''),tail].filter(Boolean).join('\n');
 }
+
+/* --- TTS --- */
+let lastSpoken='',speaking=false;
+function pickZhVoice(){const vs=speechSynthesis.getVoices();return vs.find(v=>/zh|cmn/i.test(v.lang))||vs[0]}
+function speak(text){speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);const v=pickZhVoice();if(v)u.voice=v;u.rate=1;u.pitch=1;u.volume=1;u.onend=()=>{speaking=false;document.getElementById('ttsBtn').innerHTML='🔊 <span data-i18n="tts_btn">'+(I18N[currentLang].tts_btn)+'</span>'};speaking=true;document.getElementById('ttsBtn').textContent='⏸ 暂停';speechSynthesis.speak(u)}
+function toggleTTS(){if(!('speechSynthesis'in window))return alert('当前浏览器不支持语音朗读');if(speaking){speechSynthesis.cancel();speaking=false;document.getElementById('ttsBtn').innerHTML='🔊 <span data-i18n="tts_btn">'+(I18N[currentLang].tts_btn)+'</span>'}else{ speak(lastSpoken||'暂无可朗读内容。') }}
 
 /* --- 抽牌与渲染 --- */
 function draw(){
@@ -295,6 +317,22 @@ function draw(){
   document.getElementById('readingText').innerHTML=summary+`<hr style="border:0;border-top:1px solid #273245;margin:12px 0">`+story;
   document.getElementById('reading').style.display='block';
   lastSpoken=buildStory(q,picks,n);
+}
+
+/* --- 事件绑定 & 语言切换 --- */
+let currentLang='zh';
+document.getElementById('go').addEventListener('click', draw);
+document.getElementById('ttsBtn').addEventListener('click', toggleTTS);
+document.getElementById('langSel').addEventListener('change', e=>{
+  currentLang = e.target.value;
+  applyI18N(currentLang);
+});
+applyI18N(currentLang);
+
+// 某些浏览器需要触发一次载入语音
+if ('speechSynthesis' in window) {
+  speechSynthesis.getVoices();
+  window.speechSynthesis.onvoiceschanged = ()=>{};
 }
 </script>
 </body>
