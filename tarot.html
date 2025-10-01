@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh">
 <head>
@@ -221,34 +222,84 @@ pre code{padding:0; border:0; background:transparent; color:#e8edf3}
   /* 10张小屏：按两列流式排布，避免拥挤 */
   .spread-10{display:grid}
   .spread-10 .row{grid-template-columns:repeat(2,var(--card-w))}
-}<script>
-/** TarotApp v1.0 (integrated) — 抽完牌再解读 + 多语言支持 **/
+}
+</style>
+
+</head>
+<body>
+<header>
+  <div class="head-inner">
+    <div class="brand">
+      <div class="brand-badge">5X</div>
+      <div class="title" data-i18n="brand_title">命理心怜空间 · Soul Sanctuary</div>
+    </div>
+    <div class="lang">
+      <select id="langSel">
+        <option value="zh">简体中文</option>
+        <option value="en">English</option>
+      </select>
+    </div>
+  </div>
+</header>
+
+<div class="app">
+  <h1 data-i18n="page_title">塔罗牌占卜</h1>
+  <div class="controls">
+    <input id="question" placeholder="请输入你的问题（必填，决定解读方向）" data-i18n-placeholder="q_ph" />
+    <select id="spread">
+      <option value="1" data-i18n="s1">单张</option>
+      <option value="3" data-i18n="s3">三张（过去 / 现在 / 未来）</option>
+      <option value="5" data-i18n="s5">十字排法（5张）</option>
+      <option value="10" data-i18n="s10">凯尔特十字（10张）</option>
+    </select>
+    <button id="go" data-i18n="draw_btn">抽牌</button>
+  </div>
+
+  <div id="qdisplay" class="q muted" data-i18n="tip_focus">（提示：输入问题会让解读更聚焦）</div>
+  <div id="board" class="board"></div>
+
+  <div id="reading" class="panel" style="display:none">
+    <h3 style="display:flex;align-items:center;gap:10px">
+      <span data-i18n="reading_title">解读与建议</span>
+      <button id="ttsBtn" class="btn" style="padding:6px 10px;border-radius:10px;border:1px solid #273245;background:#0f1420;color:#ffe084;cursor:pointer">🔊 <span data-i18n="tts_btn">朗读</span></button>
+    </h3>
+    <div id="readingText"></div>
+  </div>
+
+  <div class="panel muted" data-i18n="disclaimer">
+    说明：塔罗为指引工具，非医学/法律/金融建议，请以理性判断与自我意愿为先。
+  </div>
+</div>
+
+<script>
+/** TarotApp v1.0 — 抽完牌再解读（与现有 HTML/CSS 对接） **/
 (function(){
   // ---------- 工具 ----------
   const $ = s => document.querySelector(s);
   const $$ = s => Array.from(document.querySelectorAll(s));
   const rnd = n => Math.floor(Math.random()*n);
+  const choice = arr => arr[rnd(arr.length)];
 
   // ---------- 问题分类 ----------
   function classifyQuestion(q){
     q = (q||'').toLowerCase();
-    const love   = ['恋','爱','喜欢','感情','暧昧','结婚','分手','复合','她会不会','他会不会','will she','will he','relationship','love'];
+    const love = ['恋','爱','喜欢','感情','暧昧','结婚','分手','复合','她会不会','他会不会','will she','will he','relationship','love'];
     const career = ['工作','升职','跳槽','offer','事业','老板','同事','项目','甲方','投标','career','job'];
-    const money  = ['钱','财','收入','投资','生意','顾客','销售','回款','花店','盈利','亏','预算','roas','财务','money'];
+    const money = ['钱','财','收入','投资','生意','顾客','销售','回款','花店','盈利','亏','预算','roas','财务','money'];
     const health = ['健康','身体','疾病','复健','睡眠','头痛','焦虑','抑郁','体检','health'];
-    if(love.some(k=>q.includes(k)))   return 'love';
+    if(love.some(k=>q.includes(k))) return 'love';
     if(career.some(k=>q.includes(k))) return 'career';
-    if(money.some(k=>q.includes(k)))  return 'money';
+    if(money.some(k=>q.includes(k))) return 'money';
     if(health.some(k=>q.includes(k))) return 'health';
     return 'general';
   }
 
   // ---------- 牌库（程序生成 78 张） ----------
   const SUITS = [
-    {key:'wands',    zh:'权杖', domain:'行动/热情'},
-    {key:'cups',     zh:'圣杯', domain:'情感/关系'},
-    {key:'swords',   zh:'宝剑', domain:'思维/沟通'},
-    {key:'pentacles',zh:'钱币', domain:'现实/资源'}
+    {key:'wands',    zh:'权杖', domain:'行动/热情', axis:['行动','拓展','驱动力']},
+    {key:'cups',     zh:'圣杯', domain:'情感/关系', axis:['情感','连结','共鸣']},
+    {key:'swords',   zh:'宝剑', domain:'思维/沟通', axis:['思考','洞察','表达']},
+    {key:'pentacles',zh:'钱币', domain:'现实/资源', axis:['物质','稳定','执行']}
   ];
   const RANKS = [
     {id:'ace', zh:'一',  tone:'起点/潜能'},
@@ -261,475 +312,947 @@ pre code{padding:0; border:0; background:transparent; color:#e8edf3}
     {id:'8',   zh:'八',  tone:'推进/效率'},
     {id:'9',   zh:'九',  tone:'成果/负担'},
     {id:'10',  zh:'十',  tone:'阶段完成'},
-    {id:'page',  zh:'侍从',  tone:'讯息/学习'},
-    {id:'knight',zh:'骑士',  tone:'行动/推动'},
-    {id:'queen', zh:'皇后',  tone:'成熟/滋养'},
-    {id:'king',  zh:'国王',  tone:'掌控/定调'},
+    {id:'page',zh:'侍从',tone:'讯息/学习'},
+    {id:'knight', zh:'骑士',tone:'行动/推动'},
+    {id:'queen', zh:'皇后',tone:'成熟/滋养'},
+    {id:'king',  zh:'国王',tone:'掌控/定调'},
   ];
   const MAJORS = [
     '愚者','魔术师','女祭司','女皇','皇帝','教皇','恋人','战车','力量','隐者','命运之轮','正义','倒吊人','死神','节制','恶魔','高塔','星星','月亮','太阳','审判','世界'
   ];
   function buildDeck(){
     const deck = [];
-    MAJORS.forEach((name,i)=>deck.push({id:`major_${String(i).padStart(2,'0')}`, name, group:'major', idx:i}));
-    SUITS.forEach(s=>RANKS.forEach(r=>{
-      deck.push({id:`${s.key}_${r.id}`, name:`${s.zh}${r.zh}`, group:'minor', suit:s, rank:r});
-    }));
+    // 大阿尔卡那 0-21
+    MAJORS.forEach((name,i)=>{
+      deck.push({id:`major_${String(i).padStart(2,'0')}`, name:name, group:'major', idx:i});
+    });
+    // 小阿尔卡那 4×14
+    SUITS.forEach(s=>{
+      RANKS.forEach(r=>{
+        deck.push({id:`${s.key}_${r.id}`, name:`${s.zh}${r.zh}`, group:'minor', suit:s, rank:r});
+      });
+    });
     return deck;
   }
   const DECK = buildDeck();
 
-  // 如需图片：按你的素材规则修改
-  function imgFor(card){ return `/img/tarot/${card.id}.webp`; }
+  // 图片路径（按你素材命名规则改写即可）
+  function imgFor(card){
+    // 示例：/img/tarot/{id}.webp ；若没有图片，用占位
+    return `/img/tarot/${card.id}.webp`;
+  }
 
-  // ---------- 牌阵 ----------
+  // ---------- 牌阵定义（位置标签 & 语义角色） ----------
   const SPREADS = {
-    1:  { layout:'spread-1', positions:[{key:'single',label:'当下核心'}]},
-    3:  { layout:'spread-3', positions:[
-          {key:'past',label:'过去'},{key:'present',label:'现在'},{key:'future',label:'未来'}]},
-    5:  { layout:'spread-5', positions:[
-          {key:'top',label:'指引/主题',cls:'pos-top'},
-          {key:'left',label:'过去根源',cls:'pos-left'},
-          {key:'center',label:'当下核心',cls:'pos-center'},
-          {key:'right',label:'外在影响',cls:'pos-right'},
-          {key:'bottom',label:'未来发展',cls:'pos-bottom'}]},
+    1:  { layout:'spread-1',  positions:[{key:'single', label:'当下核心'}]},
+    3:  { layout:'spread-3',  positions:[
+          {key:'past', label:'过去'},
+          {key:'present', label:'现在'},
+          {key:'future', label:'未来'},
+        ]},
+    5:  { layout:'spread-5',  positions:[
+          {key:'top', label:'指引/主题',   cls:'pos-top'},
+          {key:'left',label:'过去根源',     cls:'pos-left'},
+          {key:'center',label:'当下核心',   cls:'pos-center'},
+          {key:'right',label:'外在影响',    cls:'pos-right'},
+          {key:'bottom',label:'未来发展',   cls:'pos-bottom'},
+        ]},
     10: { layout:'spread-10', positions:[
-          {key:'p1',label:'当下'},{key:'p2',label:'阻碍'},{key:'p3',label:'潜意识'},
-          {key:'p4',label:'过去'},{key:'p5',label:'显意识'},{key:'p6',label:'未来'},
-          {key:'p7',label:'自我'},{key:'p8',label:'环境'},{key:'p9',label:'希望/恐惧'},{key:'p10',label:'结果'}]}
+          {key:'p1',label:'当下'}, {key:'p2',label:'阻碍'}, {key:'p3',label:'潜意识'},
+          {key:'p4',label:'过去'}, {key:'p5',label:'显意识'}, {key:'p6',label:'未来'},
+          {key:'p7',label:'自我'}, {key:'p8',label:'环境'},   {key:'p9',label:'希望/恐惧'},
+          {key:'p10',label:'结果'},
+        ]}
   };
 
   // ---------- 抽牌 ----------
   function draw(n){
-    const pool=[...DECK], picks=[];
+    const pool = [...DECK];
+    const picks = [];
     for(let i=0;i<n;i++){
-      const idx=rnd(pool.length);
-      const c=pool.splice(idx,1)[0];
-      picks.push({...c, reversed: Math.random()<0.5});
+      const idx = rnd(pool.length);
+      const card = pool.splice(idx,1)[0];
+      // 50% 逆位
+      card.reversed = Math.random()<0.5;
+      picks.push(card);
     }
     return picks;
   }
 
-  // ---------- 渲染卡片 ----------
-  function cardNode(card, cls, posLabel){
-    const div=document.createElement('div'); div.className=`card ${cls||''}`;
-    div.setAttribute('data-card-id', card.id);
-    div.setAttribute('data-reversed', card.reversed?'true':'false');
-
-    const wrap=document.createElement('div'); wrap.className='imgwrap';
-    const img=document.createElement('img'); img.className='card-img'; img.src=imgFor(card); img.alt=card.name;
-    if(card.reversed) wrap.style.transform='rotate(180deg)';
-    wrap.appendChild(img);
-
-    const cap=document.createElement('div');  cap.className='cap';  cap.textContent=`【${posLabel}】${card.name} ${card.reversed?'(逆位)':'(正位)'}`;
-    const mean=document.createElement('div'); mean.className='mean'; mean.textContent=previewLine(card);
-
-    div.appendChild(wrap); div.appendChild(cap); div.appendChild(mean);
-    return div;
-  }
-
+  // ---------- 渲染棋盘 ----------
   function renderBoard(n, cards){
-    const board = $('#board'); board.className='board';
-    const conf = SPREADS[n]; if(!conf){ board.innerHTML=''; return; }
+    const board = $('#board');
+    board.className = 'board'; // reset
+    const conf = SPREADS[n];
+    if(!conf){ board.innerHTML=''; return; }
+
     board.classList.add(conf.layout);
 
-    if(n===10){
-      board.innerHTML = `<div class="row row-1"></div><div class="row row-2"></div><div class="row row-3"></div>`;
-      const rows = $$('#board .row'); const slots=[3,3,4]; let k=0;
-      slots.forEach((cnt,rowi)=>{
-        for(let j=0;j<cnt;j++){
-          const c=cards[k++]; rows[rowi].appendChild(cardNode(c, `c${k}`, conf.positions[k-1]?.label||`第${k}位`));
+    if(n === 10){
+      // 3-3-4 居中：三行容器
+      board.innerHTML = `
+        <div class="row row-1"></div>
+        <div class="row row-2"></div>
+        <div class="row row-3"></div>
+      `;
+      const rows = $$('#board .row');
+      const slots = [3,3,4];
+      let k=0;
+      slots.forEach((count,rowi)=>{
+        for(let j=0;j<count;j++){
+          const c = cards[k++];
+          rows[rowi].appendChild(cardNode(c, `c${k}`, conf.positions[k-1]?.label || `第${k}位`));
         }
       });
     }else{
-      board.innerHTML='';
+      // 1/3/5：直排或十字
+      board.innerHTML = '';
       cards.forEach((c,i)=>{
-        const pos=conf.positions[i];
-        board.appendChild(cardNode(c, `c${i+1} ${pos?.cls||''}`, pos?.label||`第${i+1}位`));
+        const pos = conf.positions[i];
+        const node = cardNode(c, `c${i+1} ${pos?.cls||''}`, pos?.label || `第${i+1}位`);
+        board.appendChild(node);
       });
     }
   }
 
-  // ---------- 解读模板 ----------
+  function cardNode(card, cls, posLabel){
+    const div = document.createElement('div');
+    div.className = `card ${cls||''}`;
+    div.setAttribute('data-card-id', card.id);
+    div.setAttribute('data-reversed', card.reversed?'true':'false');
+
+    const img = document.createElement('img');
+    img.className = 'card-img';
+    img.src = imgFor(card);
+    img.alt = card.name;
+    const wrap = document.createElement('div');
+    wrap.className = 'imgwrap';
+    if(card.reversed) wrap.style.transform = 'rotate(180deg)';
+
+    const cap  = document.createElement('div'); cap.className='cap';
+    cap.textContent = `【${posLabel}】${card.name} ${card.reversed?'(逆位)':'(正位)'}`;
+
+    const mean = document.createElement('div'); mean.className='mean';
+    mean.textContent = previewLine(card);
+
+    wrap.appendChild(img);
+    div.appendChild(wrap);
+    div.appendChild(cap);
+    div.appendChild(mean);
+    return div;
+  }
+
+  // ---------- 解读引擎（模板组合） ----------
   const MAJOR_ARCH = [
-    ['愚者','自由/跃迁','拥抱未知，轻装启程'],['魔术师','意志/显化','集中资源，立即行动'],
-    ['女祭司','直觉/潜意识','先观察，后表态'],['女皇','滋养/丰盛','以温柔与照料促进成长'],
-    ['皇帝','秩序/结构','定规则、立边界、给安全感'],['教皇','规范/传承','遵循制度与长辈建议'],
-    ['恋人','选择/连结','对齐价值观再承诺'],['战车','推进/胜负','定目标，强势推进'],
-    ['力量','勇气/温柔','以柔克刚，稳定耐心'],['隐者','内省/独处','收心审视，独立判断'],
-    ['命运之轮','周期/机缘','顺势而为，抓时机'],['正义','衡量/公平','以事实与边界解决'],
-    ['倒吊人','停止/换角','暂缓推进，换位思考'],['死神','结束/重生','果断止损，迎接新生'],
-    ['节制','调和/节律','降强度，稳节奏'],['恶魔','执著/诱惑','辨依赖，断不良循环'],
-    ['高塔','突变/瓦解','接纳变化，快速重组'],['星星','希望/复原','重建信任，温柔修复'],
-    ['月亮','迷雾/不安','推迟重大决定，先查明'],['太阳','清晰/喜悦','公开透明，庆祝成果'],
-    ['审判','觉醒/召回','回应召唤，纠偏复盘'],['世界','完成/整合','闭环与升级，开启新篇']
+    ['愚者','自由/跃迁','拥抱未知，轻装启程'],
+    ['魔术师','意志/显化','集中资源，立即行动'],
+    ['女祭司','直觉/潜意识','先观察，后表态'],
+    ['女皇','滋养/丰盛','以温柔与照料促进成长'],
+    ['皇帝','秩序/结构','定规则、立边界、给安全感'],
+    ['教皇','规范/传承','遵循制度与长辈建议'],
+    ['恋人','选择/连结','对齐价值观再承诺'],
+    ['战车','推进/胜负','定目标，强势推进'],
+    ['力量','勇气/温柔','以柔克刚，稳定耐心'],
+    ['隐者','内省/独处','收心审视，独立判断'],
+    ['命运之轮','周期/机缘','顺势而为，抓时机'],
+    ['正义','衡量/公平','以事实与边界解决'],
+    ['倒吊人','停止/换角','暂缓推进，换位思考'],
+    ['死神','结束/重生','果断止损，迎接新生'],
+    ['节制','调和/节律','降强度，稳节奏'],
+    ['恶魔','执著/诱惑','辨依赖，断不良循环'],
+    ['高塔','突变/瓦解','接纳变化，快速重组'],
+    ['星星','希望/复原','重建信任，温柔修复'],
+    ['月亮','迷雾/不安','推迟重大决定，先查明'],
+    ['太阳','清晰/喜悦','公开透明，庆祝成果'],
+    ['审判','觉醒/召回','回应召唤，纠偏复盘'],
+    ['世界','完成/整合','闭环与升级，开启新篇']
   ];
+
   function previewLine(card){
-    return card.group==='major'
-      ? `${MAJOR_ARCH[card.idx][1]} · ${MAJOR_ARCH[card.idx][2]}`
-      : `${card.suit.zh}（${card.suit.domain}）· ${card.rank.tone}`;
+    if(card.group==='major'){
+      const row = MAJOR_ARCH[card.idx];
+      return `${row[1]} · ${row[2]}`;
+    }else{
+      return `${card.suit.zh}（${card.suit.domain}）· ${card.rank.tone}`;
+    }
   }
 
   const POS_HINT = {
-    past:['回顾过去经验，找可复用或需放下的部分'], present:['描述当前核心矛盾与关键变量'],
-    future:['给出两步以内可执行动作，避免空谈愿景'], top:['以“主题/原则”定调当下选择'],
-    left:['识别历史惯性与旧信念的影响'], center:['聚焦此刻真正要解决的一件事'],
-    right:['评估外部因素/他人立场'], bottom:['规划接下来 1-3 周的路径'],
-    p1:['描述当下状态与主要张力'], p2:['指出阻碍与对策'], p3:['点破潜意识动机/恐惧'],
-    p4:['回顾成因与既往模式'], p5:['眼前认知与显性目标'], p6:['未来 1-6 周的趋势'],
-    p7:['自我定位与角色选择'], p8:['环境/他人/情境影响'], p9:['希望与恐惧的两面'],
-    p10:['阶段性结果与调整建议'], single:['提炼本次占卜的唯一关键行动']
+    past:['回顾过去经验，找可复用或需放下的部分'],
+    present:['描述当前核心矛盾与关键变量'],
+    future:['给出两步以内可执行动作，避免空谈愿景'],
+    top:['以“主题/原则”定调当下选择'],
+    left:['识别历史惯性与旧信念的影响'],
+    center:['聚焦此刻真正要解决的一件事'],
+    right:['评估外部因素/他人立场'],
+    bottom:['规划接下来 1-3 周的路径'],
+    p1:['描述当下状态与主要张力'],
+    p2:['指出阻碍与对策'],
+    p3:['点破潜意识动机/恐惧'],
+    p4:['回顾成因与既往模式'],
+    p5:['眼前认知与显性目标'],
+    p6:['未来 1-6 周的趋势'],
+    p7:['自我定位与角色选择'],
+    p8:['环境/他人/情境影响'],
+    p9:['希望与恐惧的两面'],
+    p10:['阶段性结果与调整建议'],
+    single:['提炼本次占卜的唯一关键行动']
   };
 
   const DOMAIN_ADV = {
-    love:{ major:(row,rev)=> rev?'先放慢表达强度，尊重对方边界与节奏':'以真诚与稳定行动建立安全感',
-           wands:()=> '避免情绪化推进，先确认彼此意愿',
-           cups: ()=> '先自稳情绪，才谈需求与亲密',
-           swords:()=> '减少质问，多用澄清式提问',
-           pentacles:()=> '少物质对冲，多高质量相处' },
-    career:{ major:(row,rev)=> rev?'修正方向与分工，别硬推':'制定里程碑与负责矩阵',
-             wands:()=> '控制节奏，拆小步',
-             cups: ()=> '凝聚团队情绪，提高协作',
-             swords:()=> '用数据与事实避免内耗',
-             pentacles:()=> '先补资源与流程后再扩张' },
-    money:{ major:(row,rev)=> rev?'收缩风险，现金流优先':'谨慎扩张，指标驱动',
-            wands:()=> '降成本/提效并行',
-            cups: ()=> '慎选合作，明确分账',
-            swords:()=> '复盘模型与假设',
-            pentacles:()=> '库存/预算/费用三表联动' },
-    health:{ major:(row,rev)=> rev?'先休息与就医评估':'建立作息与轻运动',
-             wands:()=> '避免过量训练',
-             cups: ()=> '情绪护理与支持',
-             swords:()=> '减压与睡眠优先',
-             pentacles:()=> '规律饮食与体检' },
-    general:{ major:(row,rev)=> rev?'先稳住再决策':'小步验证，逐步推进',
-              wands:()=> '放缓节奏，聚焦一件事',
-              cups: ()=> '优先关系质量',
-              swords:()=> '先信息对齐',
-              pentacles:()=> '先做可落地资源配置' }
+    love:{
+      major: (row,rev)=> rev? '先放慢表达强度，尊重对方边界与节奏' : '以真诚与稳定行动建立安全感',
+      wands: rev=>'避免情绪化推进，先确认彼此意愿',
+      cups:  rev=>'先自稳情绪，才谈需求与亲密',
+      swords:rev=>'减少质问，多用澄清式提问',
+      pentacles:rev=>'少物质对冲，多高质量相处'
+    },
+    career:{
+      major: (row,rev)=> rev? '修正方向与分工，别硬推' : '制定里程碑与负责矩阵',
+      wands: rev=>'控制节奏，拆小步',
+      cups:  rev=>'凝聚团队情绪，提高协作',
+      swords:rev=>'用数据与事实避免内耗',
+      pentacles:rev=>'先补资源与流程后再扩张'
+    },
+    money:{
+      major: (row,rev)=> rev? '收缩风险，现金流优先' : '谨慎扩张，指标驱动',
+      wands: rev=>'降成本/提效并行',
+      cups:  rev=>'慎选合作，明确分账',
+      swords:rev=>'复盘模型与假设',
+      pentacles:rev=>'库存/预算/费用三表联动'
+    },
+    health:{
+      major: (row,rev)=> rev? '先休息与就医评估' : '建立作息与轻运动',
+      wands: rev=>'避免过量训练',
+      cups:  rev=>'情绪护理与支持',
+      swords:rev=>'减压与睡眠优先',
+      pentacles:rev=>'规律饮食与体检'
+    },
+    general:{
+      major: (row,rev)=> rev? '先稳住再决策' : '小步验证，逐步推进',
+      wands: rev=>'放缓节奏，聚焦一件事',
+      cups:  rev=>'优先关系质量',
+      swords:rev=>'先信息对齐',
+      pentacles:rev=>'先做可落地资源配置'
+    }
   };
 
   function cardAdviceByDomain(card, qtype){
     const dom = DOMAIN_ADV[qtype] || DOMAIN_ADV.general;
     if(card.group==='major'){
-      return [dom.major(MAJOR_ARCH[card.idx], card.reversed)];
+      const row = MAJOR_ARCH[card.idx];
+      const a = typeof dom.major==='function' ? dom.major(row, card.reversed) : dom.major;
+      return [a];
     }
-    const key = card.suit.key;
-    const a = (dom[key]||dom.wands)();
-    return [a, `围绕“${card.rank.tone}”制定一条本周可执行的行动`];
+    const key = card.suit.key; // wands/cups/swords/pentacles
+    const fn = dom[key] || dom.general;
+    const a = typeof fn==='function' ? fn(card.reversed) : fn;
+    // 结合点数语义微调
+    const note = card.rank.tone;
+    return [a, `围绕“${note}”制定一条本周可执行的行动`];
   }
 
-  function positionNudge(posKey){ return POS_HINT[posKey] ? `（位置提示：${POS_HINT[posKey][0]}）` : ''; }
+  function positionNudge(posKey){
+    return POS_HINT[posKey] ? `（位置提示：${POS_HINT[posKey][0]}）` : '';
+  }
 
-  function escapeHTML(s){return (s||'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));}
+  function buildReading(question, spreadN, cards){
+    const qtype = classifyQuestion(question);
+    const conf = SPREADS[spreadN];
+    let out = [];
+    out.push(`<div class="chat">`);
+    out.push(`<div class="msg user"><div class="meta">你</div>${escapeHTML(question||'（未填写问题）')}</div>`);
+    out.push(`<div class="msg assistant"><div class="meta">解读</div>`);
+
+    const blocks = [];
+    if(spreadN===10){
+      const posKeys = ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10'];
+      cards.forEach((c,i)=>{
+        const pk = posKeys[i];
+        blocks.push(sectionLine(conf.positions[i].label, c, pk, qtype));
+      });
+    }else if(spreadN===5){
+      const posKeys = ['top','left','center','right','bottom'];
+      cards.forEach((c,i)=> blocks.push(sectionLine(conf.positions[i].label, c, posKeys[i], qtype)));
+    }else if(spreadN===3){
+      const posKeys = ['past','present','future'];
+      cards.forEach((c,i)=> blocks.push(sectionLine(conf.positions[i].label, c, posKeys[i], qtype)));
+    }else{
+      const posKeys = ['single'];
+      blocks.push(sectionLine('当下核心', cards[0], posKeys[0], qtype));
+    }
+
+    out.push(blocks.join(''));
+    // 总结 & 下一步
+    out.push(`<hr style="border:0;border-top:1px solid #273245;margin:12px 0">`);
+    out.push(`<b>下一步（48 小时内）：</b><br>① 写下 1 条与问题最相关的“小目标”；② 安排 1 个具体行动（可在日历上）；③ 用 3 个客观指标衡量效果（例如：回复频率、面谈时长、实际成交/预约）。`);
+    out.push(`</div>`);
+    out.push(`</div>`);
+    return out.join('');
+  }
 
   function sectionLine(label, card, posKey, qtype){
     const title = `【${label}】${card.name}${card.reversed?'（逆位）':'（正位）'}`;
-    const arch  = card.group==='major'
+    const arch = (card.group==='major')
       ? `${MAJOR_ARCH[card.idx][1]} · ${MAJOR_ARCH[card.idx][2]}`
       : `${card.suit.zh}（${card.suit.domain}）· ${card.rank.tone}`;
     const tips = cardAdviceByDomain(card, qtype);
-    const pos  = positionNudge(posKey);
+    const pos = positionNudge(posKey);
     const list = tips.map(t=>`<li>${t}</li>`).join('');
     return `
       <div style="margin:8px 0 12px">
         <div style="font-weight:700">${title}</div>
         <div class="muted" style="margin:4px 0">${arch} ${pos}</div>
         <ul style="margin:6px 0 0 18px">${list}</ul>
-      </div>`;
+      </div>
+    `;
   }
 
-  function buildReading(question, spreadN, cards){
-    const qtype = classifyQuestion(question);
-    const conf  = SPREADS[spreadN];
-    const out = [];
-    out.push(`<div class="chat">`);
-    out.push(`<div class="msg user"><div class="meta">你</div>${escapeHTML(question||'（未填写问题）')}</div>`);
-    out.push(`<div class="msg assistant"><div class="meta">解读</div>`);
-
-    if(spreadN===10){
-      const pos = ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10'];
-      cards.forEach((c,i)=> out.push(sectionLine(conf.positions[i].label, c, pos[i], qtype)));
-    }else if(spreadN===5){
-      const pos = ['top','left','center','right','bottom'];
-      cards.forEach((c,i)=> out.push(sectionLine(conf.positions[i].label, c, pos[i], qtype)));
-    }else if(spreadN===3){
-      const pos = ['past','present','future'];
-      cards.forEach((c,i)=> out.push(sectionLine(conf.positions[i].label, c, pos[i], qtype)));
-    }else{
-      out.push(sectionLine('当下核心', cards[0], 'single', qtype));
-    }
-
-    out.push(`<hr style="border:0;border-top:1px solid #273245;margin:12px 0">`);
-    out.push(`<b>下一步（48 小时内）：</b><br>① 写下 1 条与问题最相关的“小目标”；② 安排 1 个具体行动（可在日历上）；③ 用 3 个客观指标衡量效果（例如：回复频率、面谈时长、实际成交/预约）。`);
-    out.push(`</div></div>`);
-    return out.join('');
-  }
+  function escapeHTML(s){return (s||'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));}
 
   // ---------- TTS ----------
   function speak(html){
-    const s = window.speechSynthesis; if(!s){ alert('当前浏览器不支持语音朗读'); return; }
-    const u = new SpeechSynthesisUtterance((()=>{const d=document.createElement('div'); d.innerHTML=html; return d.textContent||d.innerText||'';})());
-    u.lang = window.__TTS_LANG || 'zh-CN'; u.rate=1.0;
+    const s = window.speechSynthesis;
+    if(!s) return alert('当前浏览器不支持语音朗读');
+    const u = new SpeechSynthesisUtterance(strip(html));
+    u.lang = 'zh-CN';
+    u.rate = 1.0;
     s.cancel(); s.speak(u);
+    function strip(h){const d=document.createElement('div'); d.innerHTML=h; return d.textContent||d.innerText||'';}
   }
 
   // ---------- 事件 ----------
-  const goBtn = $('#go'), spreadSel = $('#spread'), qInput = $('#question');
-  const qDisplay = $('#qdisplay'), readingPanel = $('#reading'), readingText = $('#readingText'), ttsBtn = $('#ttsBtn');
+  const goBtn = $('#go');
+  const spreadSel = $('#spread');
+  const qInput = $('#question');
+  const qDisplay = $('#qdisplay');
+  const readingPanel = $('#reading');
+  const readingText = $('#readingText');
+  const ttsBtn = $('#ttsBtn');
 
-  qInput.addEventListener('input', ()=>{
-    qDisplay.textContent = qInput.value ? `问题：${qInput.value}` : '（提示：输入问题会让解读更聚焦）';
-  });
+  qInput.addEventListener('input', ()=>{ qDisplay.textContent = qInput.value ? `问题：${qInput.value}` : '（提示：输入问题会让解读更聚焦）'; });
 
   goBtn.addEventListener('click', ()=>{
     const n = parseInt(spreadSel.value,10);
     const picks = draw(n);
     renderBoard(n, picks);
-
-    // 缓存抽到的牌，供多语言层使用
-    window.__LAST_PICKS = picks;
-
-    // 如存在本地化渲染函数，优先使用
-    const q = qInput.value;
-    if (window.renderReadingLocalized) {
-      readingText.innerHTML = window.renderReadingLocalized(q, n, picks);
-    } else {
-      readingText.innerHTML = buildReading(q, n, picks);
-    }
+    // 抽完再解读
+    const html = buildReading(qInput.value, n, picks);
+    readingText.innerHTML = html;
     readingPanel.style.display = 'block';
-
-    if (window.__I18N_REFRESH) window.__I18N_REFRESH();
   });
 
   ttsBtn.addEventListener('click', ()=>{
     const txt = readingText.innerText || readingText.textContent || '';
     if(!txt.trim()) return;
-    speak(readingText.innerHTML);
+    speak(txt);
   });
-
-  // 导出给多语言层使用
-  window.buildReading = buildReading;
-  window.classifyQuestion = classifyQuestion;
-  window.escapeHTML = escapeHTML;
 })();
-</script>
-
-<script>
-/** Tarot I18N Addon v1.1 — UI & 动态解读多语言（zh/en/th/ja/ms/hi） **/
+/** Tarot I18N Addon v1.0 — UI & 动态解读多语言（zh/en/th/ja/ms/hi） **/
 (function(){
   // --------- 语言包（UI + 模板） ---------
   const I18N = {
-    /* ---- 仅展示 zh-CN 与 en-US 头部；其它语言包完整保留（与你上条消息一致） ---- */
-    'zh-CN': { /* ...与之前一致，已省略以压缩消息体... */ },
-    'en-US': { /* ...与之前一致，已省略以压缩消息体... */ },
-    'th-TH': { /* ...与之前一致，已省略以压缩消息体... */ },
-    'ja-JP': { /* ...与之前一致，已省略以压缩消息体... */ },
-    'ms-MY': { /* ...与之前一致，已省略以压缩消息体... */ },
-    'hi-IN': { /* ...与之前一致，已省略以压缩消息体... */ }
+    'zh-CN': {
+      ui: {
+        page_title: '塔罗牌占卜',
+        s1: '单张', s3: '三张（过去/现在/未来）', s5: '十字排法（5张）', s10: '凯尔特十字（10张）',
+        draw_btn: '抽牌',
+        tip_focus: '（提示：输入问题会让解读更聚焦）',
+        reading_title: '解读与建议',
+        tts_btn: '朗读',
+        disclaimer: '说明：塔罗为指引工具，非医学/法律/金融建议，请以理性判断与自我意愿为先。'
+      },
+      pos: {
+        single:'当下核心', past:'过去', present:'现在', future:'未来',
+        top:'指引/主题', left:'过去根源', center:'当下核心', right:'外在影响', bottom:'未来发展',
+        p1:'当下', p2:'阻碍', p3:'潜意识', p4:'过去', p5:'显意识', p6:'未来', p7:'自我', p8:'环境', p9:'希望/恐惧', p10:'结果'
+      },
+      suits: {
+        wands:{name:'权杖', domain:'行动/热情'},
+        cups:{name:'圣杯', domain:'情感/关系'},
+        swords:{name:'宝剑', domain:'思维/沟通'},
+        pentacles:{name:'钱币', domain:'现实/资源'}
+      },
+      ranks: {
+        ace:'一', '2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九','10':'十',
+        page:'侍从', knight:'骑士', queen:'皇后', king:'国王',
+        tone:{ ace:'起点/潜能','2':'对话/选择','3':'协作/成长','4':'结构/稳定','5':'挑战/波动','6':'交流/支持','7':'评估/耐心','8':'推进/效率','9':'成果/负担','10':'阶段完成', page:'讯息/学习', knight:'行动/推动', queen:'成熟/滋养', king:'掌控/定调'}
+      },
+      majors: [
+        ['愚者','自由/跃迁','拥抱未知，轻装启程'],
+        ['魔术师','意志/显化','集中资源，立即行动'],
+        ['女祭司','直觉/潜意识','先观察，后表态'],
+        ['女皇','滋养/丰盛','以温柔与照料促进成长'],
+        ['皇帝','秩序/结构','定规则、立边界、给安全感'],
+        ['教皇','规范/传承','遵循制度与长辈建议'],
+        ['恋人','选择/连结','对齐价值观再承诺'],
+        ['战车','推进/胜负','定目标，强势推进'],
+        ['力量','勇气/温柔','以柔克刚，稳定耐心'],
+        ['隐者','内省/独处','收心审视，独立判断'],
+        ['命运之轮','周期/机缘','顺势而为，抓时机'],
+        ['正义','衡量/公平','以事实与边界解决'],
+        ['倒吊人','停止/换角','暂缓推进，换位思考'],
+        ['死神','结束/重生','果断止损，迎接新生'],
+        ['节制','调和/节律','降强度，稳节奏'],
+        ['恶魔','执著/诱惑','辨依赖，断不良循环'],
+        ['高塔','突变/瓦解','接纳变化，快速重组'],
+        ['星星','希望/复原','重建信任，温柔修复'],
+        ['月亮','迷雾/不安','推迟重大决定，先查明'],
+        ['太阳','清晰/喜悦','公开透明，庆祝成果'],
+        ['审判','觉醒/召回','回应召唤，纠偏复盘'],
+        ['世界','完成/整合','闭环与升级，开启新篇']
+      ],
+      tags:{upright:'正位', reversed:'逆位'},
+      nextSteps:'下一步（48 小时内）：① 写下 1 条最相关的小目标；② 安排 1 个具体行动（加到日历）；③ 用 3 个客观指标衡量（如回复频率、面谈时长、实际成交/预约）。',
+      posHint:{
+        past:'回顾过去经验，找可复用或需放下的部分',
+        present:'描述当前核心矛盾与关键变量',
+        future:'给出两步以内可执行动作，避免空谈愿景',
+        top:'以“主题/原则”定调当下选择',
+        left:'识别历史惯性与旧信念的影响',
+        center:'聚焦此刻真正要解决的一件事',
+        right:'评估外部因素/他人立场',
+        bottom:'规划接下来 1–3 周路径',
+        p1:'描述当下状态与主要张力',
+        p2:'指出阻碍与对策',
+        p3:'点破潜意识动机/恐惧',
+        p4:'回顾成因与既往模式',
+        p5:'眼前认知与显性目标',
+        p6:'未来 1–6 周的趋势',
+        p7:'自我定位与角色选择',
+        p8:'环境/他人/情境影响',
+        p9:'希望与恐惧的两面',
+        p10:'阶段性结果与调整建议',
+        single:'提炼本次占卜的唯一关键行动'
+      },
+      domainAdvice:{
+        love:{majorRev:'先放慢表达强度，尊重对方边界与节奏', majorOk:'以真诚与稳定行动建立安全感',
+          wands:'避免情绪化推进，先确认彼此意愿',
+          cups:'先自稳情绪，再谈需求与亲密',
+          swords:'减少质问，多用澄清式提问',
+          pentacles:'少物质对冲，多高质量相处'},
+        career:{majorRev:'修正方向与分工，别硬推', majorOk:'制定里程碑与负责矩阵',
+          wands:'控制节奏，拆小步',
+          cups:'凝聚团队情绪，提高协作',
+          swords:'用数据与事实避免内耗',
+          pentacles:'先补资源/流程再扩张'},
+        money:{majorRev:'收缩风险，现金流优先', majorOk:'谨慎扩张，指标驱动',
+          wands:'降成本/提效并行',
+          cups:'慎选合作，明确分账',
+          swords:'复盘模型与假设',
+          pentacles:'库存/预算/费用三表联动'},
+        health:{majorRev:'先休息与就医评估', majorOk:'建立作息与轻运动',
+          wands:'避免过量训练',
+          cups:'情绪护理与支持',
+          swords:'减压与睡眠优先',
+          pentacles:'规律饮食与体检'},
+        general:{majorRev:'先稳住再决策', majorOk:'小步验证，逐步推进',
+          wands:'放缓节奏，聚焦一件事',
+          cups:'优先关系质量',
+          swords:'先信息对齐',
+          pentacles:'先做可落地资源配置'}
+      }
+    },
+
+    // ----- English -----
+    'en-US': {
+      ui:{page_title:'Tarot Reading', s1:'Single', s3:'Three (Past / Present / Future)', s5:'Cross (5)', s10:'Celtic Cross (10)',
+          draw_btn:'Draw', tip_focus:'(Tip: a clear question focuses the reading)',
+          reading_title:'Insights & Advice', tts_btn:'Read Aloud',
+          disclaimer:'Tarot offers guidance, not medical/legal/financial advice. Use your judgment.'},
+      pos:{single:'Core Now', past:'Past', present:'Present', future:'Future',
+           top:'Theme/Guidance', left:'Roots', center:'Core Now', right:'External', bottom:'Development',
+           p1:'Present', p2:'Obstacle', p3:'Subconscious', p4:'Past', p5:'Conscious', p6:'Future', p7:'Self', p8:'Environment', p9:'Hopes/Fears', p10:'Outcome'},
+      suits:{
+        wands:{name:'Wands', domain:'Action/Passion'},
+        cups:{name:'Cups', domain:'Emotion/Relations'},
+        swords:{name:'Swords', domain:'Mind/Communication'},
+        pentacles:{name:'Pentacles', domain:'Material/Resources'}
+      },
+      ranks:{
+        ace:'Ace','2':'Two','3':'Three','4':'Four','5':'Five','6':'Six','7':'Seven','8':'Eight','9':'Nine','10':'Ten',
+        page:'Page', knight:'Knight', queen:'Queen', king:'King',
+        tone:{ace:'Seed/Potential','2':'Duality/Choice','3':'Collab/Growth','4':'Structure/Stability','5':'Challenge/Flux','6':'Exchange/Support','7':'Evaluate/Patience','8':'Momentum/Efficiency','9':'Result/Burden','10':'Completion',
+              page:'Message/Learning', knight:'Action/Drive', queen:'Maturity/Nurture', king:'Authority/Setting Tone'}
+      },
+      majors:[
+        ['The Fool','Freedom/Leap','Embrace the unknown; travel light'],
+        ['The Magician','Will/Manifest','Align resources; act now'],
+        ['The High Priestess','Intuition/Subconscious','Observe first, speak later'],
+        ['The Empress','Nurture/Abundance','Gentle care grows results'],
+        ['The Emperor','Order/Structure','Set rules and safety'],
+        ['The Hierophant','Norms/Tradition','Follow guidance and standards'],
+        ['The Lovers','Choice/Union','Align values before commitment'],
+        ['The Chariot','Push/Win','Pick a target; drive forward'],
+        ['Strength','Courage/Gentleness','Soft power, steady patience'],
+        ['The Hermit','Introspect/Alone','Withdraw to assess'],
+        ['Wheel of Fortune','Cycle/Timing','Ride the turn; seize timing'],
+        ['Justice','Measure/Fairness','Facts and boundaries solve it'],
+        ['The Hanged Man','Pause/Reframe','Wait; see from another angle'],
+        ['Death','Ending/Rebirth','Cut losses; welcome renewal'],
+        ['Temperance','Blend/Rhythm','Lower intensity; steady cadence'],
+        ['The Devil','Attachment/Temptation','Name the bind; break the loop'],
+        ['The Tower','Shock/Collapse','Accept change; rebuild swiftly'],
+        ['The Star','Hope/Recovery','Restore trust; heal gently'],
+        ['The Moon','Fog/Anxiety','Delay big moves; verify facts'],
+        ['The Sun','Clarity/Joy','Be open; celebrate wins'],
+        ['Judgement','Awakening/Call','Answer the call; correct course'],
+        ['The World','Completion/Integration','Close the loop; level up']
+      ],
+      tags:{upright:'Upright', reversed:'Reversed'},
+      nextSteps:'Next 48h: (1) Write one small goal; (2) Schedule one concrete action; (3) Track 3 objective metrics (e.g., reply cadence, meeting time, actual bookings).',
+      posHint:{
+        past:'Extract reusable lessons or what to release',
+        present:'Name the core tension and variables',
+        future:'Give 1–2 actionable next steps',
+        top:'Set principles to guide choices',
+        left:'Spot legacy patterns/beliefs',
+        center:'Focus on the one real problem',
+        right:'Weigh external factors/others',
+        bottom:'Plan next 1–3 weeks',
+        p1:'Describe current state and tension',
+        p2:'Point out obstacle and counter-move',
+        p3:'Expose hidden motives/fears',
+        p4:'Review causes and patterns',
+        p5:'Conscious goal and frame',
+        p6:'Trend for next 1–6 weeks',
+        p7:'Your role/stance',
+        p8:'Context and stakeholders',
+        p9:'Hope vs fear twin view',
+        p10:'Likely outcome & adjustment',
+        single:'One key action for this session'
+      },
+      domainAdvice:{
+        love:{majorRev:'Slow intensity; honor boundaries', majorOk:'Build safety with steady acts',
+          wands:'Curb impulsive pushes; confirm consent',
+          cups:'Regulate emotion before needs talk',
+          swords:'Use clarifying questions over grilling',
+          pentacles:'Less gifting; more quality time'},
+        career:{majorRev:'Fix direction/roles before pushing', majorOk:'Milestones and RACI',
+          wands:'Control pace; break into sprints',
+          cups:'Rally morale; improve collaboration',
+          swords:'Use data to avoid churn',
+          pentacles:'Secure resources/process first'},
+        money:{majorRev:'De-risk; protect cashflow', majorOk:'Cautious growth; KPI-led',
+          wands:'Cut cost + raise efficiency',
+          cups:'Choose partners carefully; clear split',
+          swords:'Audit assumptions and model',
+          pentacles:'Tie inventory/budget/expenses'},
+        health:{majorRev:'Rest & seek evaluation', majorOk:'Routines + light exercise',
+          wands:'Avoid over-training',
+          cups:'Emotional support',
+          swords:'Reduce stress; prioritize sleep',
+          pentacles:'Diet regularity; check-ups'},
+        general:{majorRev:'Stabilize before deciding', majorOk:'Validate in small steps',
+          wands:'Slow down; single-task',
+          cups:'Prioritize relationship quality',
+          swords:'Align information first',
+          pentacles:'Resource a concrete plan first'}
+      }
+    },
+
+    // ----- Thai -----
+    'th-TH': {
+      ui:{page_title:'ไพ่ทาโรต์', s1:'ใบเดียว', s3:'สามใบ (อดีต/ปัจจุบัน/อนาคต)', s5:'กางเขน 5 ใบ', s10:'Celtic Cross 10 ใบ',
+          draw_btn:'จับไพ่', tip_focus:'(เคล็ดลับ: คำถามชัด ทำให้คำทำนายชัด)',
+          reading_title:'คำอธิบาย & คำแนะนำ', tts_btn:'อ่านออกเสียง',
+          disclaimer:'ไพ่ทาโรต์เป็นเพียงแนวทาง ไม่ใช่คำแนะนำทางการแพทย์/กฎหมาย/การเงิน ใช้วิจารณญาณของคุณ'},
+      pos:{single:'แก่นตอนนี้', past:'อดีต', present:'ปัจจุบัน', future:'อนาคต',
+           top:'ธีม/แนวทาง', left:'รากเหตุ', center:'แก่นปัจจุบัน', right:'ปัจจัยภายนอก', bottom:'พัฒนา',
+           p1:'ปัจจุบัน', p2:'อุปสรรค', p3:'จิตใต้สำนึก', p4:'อดีต', p5:'จิตสำนึก', p6:'อนาคต', p7:'ตนเอง', p8:'สิ่งแวดล้อม', p9:'ความหวัง/ความกลัว', p10:'ผลลัพธ์'},
+      suits:{wands:{name:'คทา',domain:'การกระทำ/ไฟ'}, cups:{name:'ถ้วย',domain:'อารมณ์/ความสัมพันธ์'}, swords:{name:'ดาบ',domain:'ความคิด/สื่อสาร'}, pentacles:{name:'เหรียญ',domain:'วัตถุ/ทรัพยากร'}},
+      ranks:{ace:'หนึ่ง','2':'สอง','3':'สาม','4':'สี่','5':'ห้า','6':'หก','7':'เจ็ด','8':'แปด','9':'เก้า','10':'สิบ', page:'เด็กฝึก', knight:'อัศวิน', queen:'ราชินี', king:'ราชา',
+             tone:{ace:'จุดเริ่ม/ศักยภาพ','2':'คู่/ทางเลือก','3':'ร่วมมือ/เติบโต','4':'โครงสร้าง/มั่นคง','5':'ท้าทาย/ผันผวน','6':'แลกเปลี่ยน/สนับสนุน','7':'ประเมิน/อดทน','8':'เดินหน้า/ประสิทธิภาพ','9':'ผล/ภาระ','10':'จบช่วง', page:'ข่าว/เรียนรู้', knight:'ลงมือผลักดัน', queen:'สุกงอม/โอบอุ้ม', king:'กำกับ/กำหนดทิศ'}},
+      majors:[['The Fool','อิสรภาพ/ก้าวกระโดด','กอดความไม่รู้ ลุยเบาๆ'],['The Magician','เจตจำนง/เนรมิต','รวมทรัพยากร ลงมือทันที'],['The High Priestess','สัญชาตญาณ/จิตไร้สำนึก','สังเกตก่อน พูดทีหลัง'],['The Empress','โอบอุ้ม/อุดมสมบูรณ์','ความอ่อนโยนทำให้เติบโต'],['The Emperor','ระเบียบ/โครงสร้าง','ตั้งกฎและความปลอดภัย'],['The Hierophant','จารีต/มาตรฐาน','ฟังคำแนะนำและระบบ'],['The Lovers','ตัวเลือก/ผสาน','ค่านิยมตรงกันก่อนผูกพัน'],['The Chariot','รุก/ชนะ','ตั้งเป้าแล้วพุ่งไป'],['Strength','กล้า/อ่อนโยน','พลังนุ่มนวล อดทน'],['The Hermit','พิจารณา/ลำพัง','ถอยเพื่อตรวจสอบ'],['Wheel of Fortune','วัฏจักร/จังหวะ','ไปกับกระแส จับจังหวะ'],['Justice','ชั่งตวง/ยุติธรรม','ข้อเท็จจริงและขอบเขต'],['The Hanged Man','หยุด/มุมใหม่','รอ เปลี่ยนมุมมอง'],['Death','จบ/เกิดใหม่','ตัดขาดเพื่อเริ่มใหม่'],['Temperance','ผสม/จังหวะ','ลดความแรง รักษาจังหวะ'],['The Devil','พันธนาการ/ยั่วยวน','รู้เท่าทันและตัดวงจร'],['The Tower','ช็อก/พังทลาย','ยอมรับการเปลี่ยน รีบสร้างใหม่'],['The Star','หวัง/เยียวยา','กู้ความเชื่อใจ ค่อยๆ รักษา'],['The Moon','หมอก/กังวล','ชะลอเรื่องใหญ่ ตรวจสอบข้อเท็จจริง'],['The Sun','กระจ่าง/ยินดี','เปิดเผย ฉลองความสำเร็จ'],['Judgement','ตื่นรู้/เรียกหา','ตอบเสียงเรียก ปรับทิศ'],['The World','สำเร็จ/บูรณาการ','ปิดลูป ยกระดับ']],
+      tags:{upright:'ปกติ', reversed:'กลับหัว'},
+      nextSteps:'48 ชม. ต่อไป: (1) ตั้งเป้าหมายเล็กหนึ่งข้อ (2) นัดหมายการลงมือหนึ่งอย่าง (3) วัด 3 ตัวชี้วัดจริง เช่น ความถี่การตอบ เวลาเจอ นัดหมายจริง',
+      posHint:{
+        past:'ดึงบทเรียนจากอดีต หรือสิ่งที่ควรวางลง', present:'ระบุความตึงหลักและตัวแปร', future:'ให้ขั้นถัดไปที่ทำได้ 1–2 ข้อ',
+        top:'กำหนดหลักการชี้นำ', left:'เห็นรูปแบบ/ความเชื่อเดิม', center:'โฟกัสปัญหาจริงข้อเดียว', right:'ชั่งปัจจัยภายนอก/ผู้อื่น',
+        bottom:'วางแผน 1–3 สัปดาห์', p1:'สภาพปัจจุบันและแรงตึง', p2:'อุปสรรคและทางแก้', p3:'แรงขับลึก/ความกลัว', p4:'สาเหตุและรูปแบบที่เคยมี',
+        p5:'เป้าหมายรับรู้', p6:'แนวโน้ม 1–6 สัปดาห์', p7:'บทบาทของคุณ', p8:'บริบท/ผู้เกี่ยวข้อง', p9:'ความหวังกับความกลัว', p10:'ผลลัพธ์และการปรับ'},
+      domainAdvice:{ /* 简化：直接借用英文模式 */ 
+        love:{majorRev:'ลดความเข้ม เคารพขอบเขต', majorOk:'สร้างความปลอดภัยด้วยการกระทำสม่ำเสมอ',
+          wands:'ชะลอแรงผลักก่อน ยืนยันความยินยอม',
+          cups:'ดูแลอารมณ์ก่อนคุยความต้องการ',
+          swords:'ถามเพื่อความเข้าใจ ไม่ซักไซ้',
+          pentacles:'ของขวัญให้น้อย เวลาอย่างมีคุณภาพให้มาก'},
+        career:{majorRev:'แก้ทิศและบทบาทก่อนดัน', majorOk:'วาง Milestone และ RACI',
+          wands:'ควบคุมจังหวะ แตก Sprint',
+          cups:'ปลุกใจทีม เพิ่มความร่วมมือ',
+          swords:'ใช้ข้อมูลเลี่ยงความวุ่นวาย',
+          pentacles:'ล็อกทรัพยากรก่อนขยาย'},
+        money:{majorRev:'ลดเสี่ยง รักษาเงินสด', majorOk:'โตอย่างระวัง ตาม KPI',
+          wands:'ลดต้นทุน+เพิ่มประสิทธิภาพ',
+          cups:'คัดพาร์ทเนอร์ แบ่งสัดส่วนชัด',
+          swords:'ตรวจสมมติฐานและโมเดล',
+          pentacles:'เชื่อมสต็อก/งบ/ค่าใช้จ่าย'},
+        health:{majorRev:'พักและประเมินสุขภาพ', majorOk:'วินัยชีวิต + ออกกำลังกายเบา',
+          wands:'เลี่ยงซ้อมหนักเกิน',
+          cups:'ดูแลอารมณ์/การสนับสนุน',
+          swords:'ลดเครียด เน้นการนอน',
+          pentacles:'อาหารเป็นเวลา ตรวจสุขภาพ'},
+        general:{majorRev:'ตั้งหลักก่อนตัดสินใจ', majorOk:'ทดสอบทีละก้าว',
+          wands:'ช้าลง ทำทีละเรื่อง',
+          cups:'ให้ความสำคัญคุณภาพความสัมพันธ์',
+          swords:'เทียบข้อมูลให้ตรงกัน',
+          pentacles:'จัดทรัพยากรให้แผนลงได้จริง'}
+      }
+    },
+
+    // ----- Japanese -----
+    'ja-JP': {
+      ui:{page_title:'タロット占い', s1:'一枚', s3:'三枚（過去/現在/未来）', s5:'十字（5枚）', s10:'ケルト十字（10枚）',
+          draw_btn:'引く', tip_focus:'（ヒント：質問が明確だとリーディングも明確に）',
+          reading_title:'洞察とアドバイス', tts_btn:'読み上げ',
+          disclaimer:'タロットは指針です。医療/法律/金融の助言ではありません。自己判断でご利用ください。'},
+      pos:{single:'現在の核心', past:'過去', present:'現在', future:'未来',
+           top:'テーマ/指針', left:'根源', center:'中心', right:'外的要因', bottom:'展開',
+           p1:'現在', p2:'障害', p3:'潜在意識', p4:'過去', p5:'顕在意識', p6:'未来', p7:'自己', p8:'環境', p9:'希望/恐れ', p10:'結果'},
+      suits:{wands:{name:'ワンド',domain:'行動/情熱'}, cups:{name:'カップ',domain:'感情/関係'}, swords:{name:'ソード',domain:'思考/コミュ'}, pentacles:{name:'ペンタクル',domain:'物質/資源'}},
+      ranks:{ace:'エース','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九','10':'十', page:'ペイジ', knight:'ナイト', queen:'クイーン', king:'キング',
+             tone:{ace:'起点/可能性','2':'二者/選択','3':'協働/成長','4':'構造/安定','5':'試練/変動','6':'交流/支援','7':'見直し/忍耐','8':'前進/効率','9':'成果/負担','10':'完了', page:'メッセ/学び', knight:'推進/行動', queen:'成熟/育み', king:'統率/基調'}},
+      majors:[['愚者','自由/跳躍','未知を抱きしめ、軽やかに進む'],['魔術師','意志/具現','資源を整え、今動く'],['女教皇','直感/潜在','まず観察、発言は後で'],['女帝','滋養/豊かさ','優しさが育てる'],['皇帝','秩序/構造','ルールと安心感を'],['法王','規範/伝統','ガイダンスと制度に従う'],['恋人','選択/結び','価値観を合わせてから'],['戦車','推進/勝利','目標を定め突き進む'],['力','勇気/柔らかさ','ソフトパワーと忍耐'],['隠者','内省/独歩','距離を取り見極める'],['運命の輪','循環/機運','流れに乗り機を掴む'],['正義','均衡/公正','事実と境界で解く'],['吊るされた男','停止/転換','待ち、視点を変える'],['死神','終焉/再生','断ち切り新生へ'],['節制','調和/リズム','強度を下げリズム安定'],['悪魔','執着/誘惑','依存を見抜き断つ'],['塔','激変/崩壊','変化を受け迅速に再構築'],['星','希望/回復','信頼を回復し優しく修復'],['月','霧/不安','大事は延期し確認'],['太陽','明晰/喜び','オープンに祝福する'],['審判','覚醒/召喚','呼びかけに応え修正'],['世界','完了/統合','ループを閉じて次段へ']],
+      tags:{upright:'正位置', reversed:'逆位置'},
+      nextSteps:'次の48時間：① 小さな目標を1つ書く ② 具体的行動を1つ予定に入れる ③ 客観指標を3つで追跡（返信頻度・対面時間・実予約など）',
+      posHint:{past:'再利用か手放すべきを見極める', present:'中核の緊張と変数を特定', future:'実行可能な1–2ステップ', top:'原則で舵取り', left:'過去のパターンを認識', center:'本当に解くべき一点', right:'外部/他者を勘案', bottom:'1–3週間計画', p1:'現状と緊張', p2:'障害と対策', p3:'無意識の動機/恐れ', p4:'原因と既往パターン', p5:'顕在目標', p6:'1–6週の傾向', p7:'自分の役割', p8:'環境/関係者', p9:'希望と恐れの両面', p10:'帰結と調整', single:'本件の唯一の行動'},
+      domainAdvice:{
+        love:{majorRev:'強度を下げ境界を尊重', majorOk:'小さな行為で安心感を積む',
+          wands:'衝動を抑え同意を確認',
+          cups:'感情を整えてから要望を',
+          swords:'詰問でなく確認質問を',
+          pentacles:'贈り物より質の高い時間'},
+        career:{majorRev:'推進前に方向/役割を補正', majorOk:'マイルストーンとRACI',
+          wands:'ペース管理・小刻み推進',
+          cups:'士気を上げ協働を改善',
+          swords:'データで空転を抑制',
+          pentacles:'資源/プロセスを固める'},
+        money:{majorRev:'リスク圧縮・キャッシュ最優先', majorOk:'慎重にKPIで拡大',
+          wands:'コスト減＋効率化',
+          cups:'相手選びと分配を明確化',
+          swords:'仮説とモデルを監査',
+          pentacles:'在庫/予算/経費を連動'},
+        health:{majorRev:'休息と専門評価', majorOk:'生活リズム＋軽運動',
+          wands:'過負荷トレ回避',
+          cups:'情緒的サポート',
+          swords:'ストレス軽減・睡眠重視',
+          pentacles:'食事規則・健診'},
+        general:{majorRev:'まず安定化', majorOk:'小さく検証して進む',
+          wands:'減速し単一課題に集中',
+          cups:'関係の質を優先',
+          swords:'情報を整合',
+          pentacles:'実行可能な資源配分を先に'}
+      }
+    },
+
+    // ----- Bahasa Melayu -----
+    'ms-MY': {
+      ui:{page_title:'Bacaan Tarot', s1:'Satu Keping', s3:'Tiga (Lalu/Kini/Akan Datang)', s5:'Salib (5)', s10:'Celtic Cross (10)',
+          draw_btn:'Tarik Kad', tip_focus:'(Tip: Soalan jelas → bacaan lebih fokus)',
+          reading_title:'Wawasan & Nasihat', tts_btn:'Bacakan',
+          disclaimer:'Tarot ialah panduan, bukan nasihat perubatan/undang-undang/kewangan. Guna pertimbangan sendiri.'},
+      pos:{single:'Inti Kini', past:'Lalu', present:'Kini', future:'Akan Datang',
+           top:'Tema/Panduan', left:'Asal', center:'Inti', right:'Luaran', bottom:'Perkembangan',
+           p1:'Kini', p2:'Halangan', p3:'Bawah Sedar', p4:'Lalu', p5:'Sedaran', p6:'Akan Datang', p7:'Diri', p8:'Persekitaran', p9:'Harapan/Ketakutan', p10:'Hasil'},
+      suits:{wands:{name:'Wands',domain:'Tindakan/Minat'}, cups:{name:'Cups',domain:'Emosi/Hubungan'}, swords:{name:'Swords',domain:'Minda/Komunikasi'}, pentacles:{name:'Pentacles',domain:'Material/Sumber'}},
+      ranks:{ace:'Ace','2':'Dua','3':'Tiga','4':'Empat','5':'Lima','6':'Enam','7':'Tujuh','8':'Lapan','9':'Sembilan','10':'Sepuluh', page:'Page', knight:'Knight', queen:'Queen', king:'King',
+             tone:{ace:'Benih/Potensi','2':'Dualitas/Pilihan','3':'Kerjasama/Pertumbuhan','4':'Struktur/Stabil','5':'Cabaran/Turun naik','6':'Pertukaran/Sokongan','7':'Nilai/ Sabar','8':'Momentum/Kecekapan','9':'Hasil/Beban','10':'Lengkap', page:'Mesej/Pembelajaran', knight:'Tindakan/Pacu', queen:'Matang/Pemeliharaan', king:'Kuasai/Tetapkan Nada'}},
+      majors:[['The Fool','Kebebasan/Lompatan','Rangkul yang tidak pasti; bergerak ringan'],['The Magician','Tekad/Manifest','Selaraskan sumber; bertindak sekarang'],['The High Priestess','Intuisi/Bawah sedar','Perhati dahulu, bercakap kemudian'],['The Empress','Asuh/Kesuburan','Lembut membuahkan hasil'],['The Emperor','Tertib/Struktur','Tetapkan peraturan & keselamatan'],['The Hierophant','Norma/Tradisi','Ikuti panduan & sistem'],['The Lovers','Pilihan/Ikatan','Selaraskan nilai sebelum komitmen'],['The Chariot','Dorong/Menang','Tetapkan sasaran; maju'],['Strength','Berani/Lunak','Kekuatan lembut & sabar'],['The Hermit','Introspeksi/Sendirian','Berundur untuk menilai'],['Wheel of Fortune','Kitaran/Masa','Ikut arus; tangkap masa'],['Justice','Timbang/Adil','Fakta & sempadan menyelesai'],['The Hanged Man','Henti/ Perspektif','Tunggu; tukar sudut pandang'],['Death','Tamat/Lahir semula','Henti rugi; sambut baharu'],['Temperance','Serasi/Irama','Turun intensiti; stabilkan rentak'],['The Devil','Lekat/Godaan','Kenal pasti dan putuskan gelung'],['The Tower','Kejutan/Runtuh','Terima perubahan; bina semula'],['The Star','Harapan/Pemulihan','Pulih kepercayaan; rawat perlahan'],['The Moon','Kabur/Gelisah','Tunda keputusan besar; sahkan fakta'],['The Sun','Jelas/Gembira','Terbuka; raikan kejayaan'],['Judgement','Sedarkan/Panggilan','Sahut panggilan; betulkan haluan'],['The World','Lengkap/Integrasi','Tutup gelung; naik tahap']],
+      tags:{upright:'Tegak', reversed:'Songsang'},
+      nextSteps:'48 jam seterusnya: (1) Tetapkan 1 matlamat kecil (2) Jadual 1 tindakan konkrit (3) Jejak 3 metrik objektif (kekerapan balas, masa temu, tempahan sebenar).',
+      posHint:{past:'Ambil iktibar atau lepaskan', present:'Namakan ketegangan & pembolehubah', future:'2 langkah boleh laksana', top:'Tetapkan prinsip panduan', left:'Corak/kepercayaan lama', center:'Fokus satu isu sebenar', right:'Timbang faktor luar', bottom:'Rancang 1–3 minggu', p1:'Keadaan & ketegangan', p2:'Halangan & tindak balas', p3:'Motif/ketakutan tersembunyi', p4:'Punca & corak lampau', p5:'Matlamat sedar', p6:'Trend 1–6 minggu', p7:'Peranan anda', p8:'Konteks/pihak berkepentingan', p9:'Harapan vs ketakutan', p10:'Hasil & pelarasan'},
+      domainAdvice:{
+        love:{majorRev:'Perlahankan intensiti; hormati sempadan', majorOk:'Bina rasa selamat dgn tindakan stabil',
+          wands:'Kawal impuls; sahkan persetujuan',
+          cups:'Urus emosi dahulu baru berbicara',
+          swords:'Soalan penjelas, bukan menyoal siasat',
+          pentacles:'Kurang hadiah; lebih masa berkualiti'},
+        career:{majorRev:'Betulkan arah/peranan dahulu', majorOk:'Milestone & RACI',
+          wands:'Kawal kadar; pecahkan sprint',
+          cups:'Bangkitkan moral, tambah kerjasama',
+          swords:'Guna data elak putaran kosong',
+          pentacles:'Pastikan sumber/proses sebelum skala'},
+        money:{majorRev:'Kurangkan risiko; aliran tunai utama', majorOk:'Pertumbuhan berhati-hati; KPI',
+          wands:'Potong kos + tingkat cekap',
+          cups:'Pilih rakan niaga yang tepat',
+          swords:'Audit andaian & model',
+          pentacles:'Paut inventori/bajet/perbelanjaan'},
+        health:{majorRev:'Rehat & nilai perubatan', majorOk:'Rutin + senaman ringan',
+          wands:'Elak latihan berlebihan',
+          cups:'Sokongan emosi',
+          swords:'Kurang stres; utamakan tidur',
+          pentacles:'Diet teratur; pemeriksaan'},
+        general:{majorRev:'Stabilkan dulu', majorOk:'Sahkan langkah kecil',
+          wands:'Perlahankan; fokus satu perkara',
+          cups:'Utamakan kualiti hubungan',
+          swords:'Selaraskan maklumat',
+          pentacles:'Peruntuk sumber yang boleh laksana'}
+      }
+    },
+
+    // ----- Hindi -----
+    'hi-IN': {
+      ui:{page_title:'टैरो रीडिंग', s1:'एक कार्ड', s3:'तीन (भूत/वर्तमान/भविष्य)', s5:'क्रॉस (5)', s10:'सेल्टिक क्रॉस (10)',
+          draw_btn:'कार्ड खींचें', tip_focus:'(टिप: साफ़ सवाल → साफ़ रीडिंग)',
+          reading_title:'इनसाइट्स व सलाह', tts_btn:'आवाज़ में पढ़ें',
+          disclaimer:'टैरो मार्गदर्शन है; चिकित्सकीय/कानूनी/वित्तीय सलाह नहीं। विवेक से उपयोग करें।'},
+      pos:{single:'मुख्य-अब', past:'भूत', present:'वर्तमान', future:'भविष्य',
+           top:'थीम/मार्गदर्शन', left:'जड़ें', center:'केंद्र', right:'बाहरी कारक', bottom:'विकास',
+           p1:'वर्तमान', p2:'बाधा', p3:'अवचेतन', p4:'भूत', p5:'चेतन', p6:'भविष्य', p7:'स्व', p8:'पर्यावरण', p9:'आशा/भय', p10:'परिणाम'},
+      suits:{wands:{name:'Wands',domain:'क्रिया/जुनून'}, cups:{name:'Cups',domain:'भाव/संबंध'}, swords:{name:'Swords',domain:'विचार/संवाद'}, pentacles:{name:'Pentacles',domain:'भौतिक/संसाधन'}},
+      ranks:{ace:'ऐस','2':'दो','3':'तीन','4':'चार','5':'पाँच','6':'छह','7':'सात','8':'आठ','9':'नौ','10':'दस', page:'पेज', knight:'नाइट', queen:'क्वीन', king:'किंग',
+             tone:{ace:'आरंभ/संभावना','2':'द्वैत/चयन','3':'सहयोग/वृद्धि','4':'संरचना/स्थिरता','5':'चुनौती/हिलावट','6':'विनिमय/सहारा','7':'समीक्षा/धैर्य','8':'गति/कुशलता','9':'परिणाम/भार','10':'समापन', page:'संदेश/सीख', knight:'क्रिया/प्रेरणा', queen:'परिपक्व/पालन', king:'नेतृत्व/ध्वनि'}},
+      majors:[['The Fool','स्वतंत्रता/कूद','अज्ञात को अपनाएँ; हल्का चलें'],['The Magician','इच्छाशक्ति/具現','संसाधन जोड़ें; अभी करें'],['The High Priestess','सहज/अवचेतन','पहले देखें, फिर बोलें'],['The Empress','पालन-पोषण/समृद्धि','कोमल देखभाल से बढ़त'],['The Emperor','विन्यास/संरचना','नियम और सुरक्षा'],['The Hierophant','मानदंड/परंपरा','मार्गदर्शन व प्रणाली'],['The Lovers','चयन/बंधन','मूल्यों का संरेखण'],['The Chariot','आगे बढ़ना/विजय','लक्ष्य तय; आगे बढ़ें'],['Strength','साहस/कोमलता','सॉफ्ट पावर, धैर्य'],['The Hermit','मनन/एकांत','दूर से परखें'],['Wheel of Fortune','चक्र/समय','लय पकड़ें'],['Justice','न्याय/संतुलन','तथ्य और सीमाएँ'],['The Hanged Man','ठहराव/दृष्टिकोण','रुकें; नज़र बदलें'],['Death','समाप्ति/पुनर्जन्म','हानी रोकें; नया आरंभ'],['Temperance','मिश्रण/लय','तीव्रता घटाएँ; लय स्थिर'],['The Devil','आसक्ति/प्रलोभन','लत पहचानें; चक्र तोड़ें'],['The Tower','आघात/ध्वंस','परिवर्तन स्वीकार; शीघ्र पुनर्गठन'],['The Star','आशा/उपचार','विश्वास बहाल; कोमल सुधार'],['The Moon','धुंध/चिंता','बड़े फैसले टालें; सत्यापित करें'],['The Sun','स्पष्टता/हर्ष','खुलापन; सफलता का उत्सव'],['Judgement','जागरण/बुलावा','आह्वान का उत्तर; सुधार'],['The World','पूर्णता/एकीकरण','लूप बंद; स्तर उन्नत']],
+      tags:{upright:'सीधा', reversed:'उल्टा'},
+      nextSteps:'अगले 48 घंटे: (1) एक छोटा लक्ष्य लिखें (2) एक ठोस काम शेड्यूल करें (3) 3 वस्तुनिष्ठ मीट्रिक ट्रैक करें (जवाब की आवृत्ति, मीटिंग समय, वास्तविक बुकिंग)।',
+      posHint:{past:'कौन-सी सीख दुबारा काम आए/क्या छोड़ना है', present:'मुख्य तनाव व चर पहचानें', future:'1–2 क्रियात्मक कदम दें', top:'सिद्धांत से दिशा तय करें', left:'पुराने पैटर्न/विश्वास', center:'एक असली समस्या पर फोकस', right:'बाहरी कारक/दूसरे लोग', bottom:'अगले 1–3 हफ्तों की योजना', p1:'स्थिति व तनाव', p2:'बाधा व प्रतिविधान', p3:'अवचेतन प्रेरक/भय', p4:'कारण व पुराने पैटर्न', p5:'सचेत लक्ष्य', p6:'1–6 हफ्तों का रुझान', p7:'आपकी भूमिका', p8:'परिप्रेक्ष्य/हितधारक', p9:'आशा बनाम भय', p10:'परिणाम व समायोजन'},
+      domainAdvice:{
+        love:{majorRev:'तीव्रता घटाएँ; सीमाओं का सम्मान', majorOk:'स्थिर कर्मों से सुरक्षा-भावना बनाएँ',
+          wands:'उतावलापन रोकें; सहमति सुनिश्चित करें',
+          cups:'भाव पहले स्थिर, फिर आवश्यकता',
+          swords:'पूछताछ नहीं, स्पष्टता प्रश्न',
+          pentacles:'उपहार कम; गुणवत्तापूर्ण समय अधिक'},
+        career:{majorRev:'दिशा/भूमिकाएँ ठीक कर फिर आगे', majorOk:'Milestone और RACI',
+          wands:'गति नियंत्रित; छोटे चरण',
+          cups:'टीम मनोबल व सहयोग बढ़ाएँ',
+          swords:'डेटा से अनावश्यक churn रोकेँ',
+          pentacles:'संसाधन/प्रक्रिया पहले सुनिश्चित'},
+        money:{majorRev:'जोखिम घटाएँ; कैशफ्लो पहले', majorOk:'सावधानीपूर्वक वृद्धि; KPI',
+          wands:'लागत कट + दक्षता',
+          cups:'सही पार्टनर; स्पष्ट बँटवारा',
+          swords:'असंप्शन्स/मॉडल की जाँच',
+          pentacles:'इंवेंटरी/बजट/खर्च जोड़ें'},
+        health:{majorRev:'आराम और चिकित्सकीय आकलन', majorOk:'दिनचर्या + हल्का व्यायाम',
+          wands:'ओवर-ट्रेनिंग से बचें',
+          cups:'भावनात्मक सहारा',
+          swords:'तनाव घटाएँ; नींद प्राथमिकता',
+          pentacles:'नियमित भोजन; जाँच-पड़ताल'},
+        general:{majorRev:'पहले स्थिर करें', majorOk:'छोटे कदमों में सत्यापित',
+          wands:'धीमे; एक-कार्य फोकस',
+          cups:'रिश्ते की गुणवत्ता प्राथमिक',
+          swords:'जानकारी संरेखित करें',
+          pentacles:'कार्यान्वयन योग्य संसाधन आवंटन'}
+      }
+    }
   };
 
-  // === 请将上面六个语言对象用你上一条消息里的完整内容替换到这里（为节省本回复长度，我在此做了折叠说明）。===
-
-  // --------- 语言首选项 ---------
+  // --------- 简单语言首选项 ---------
   const FALLBACK = 'zh-CN';
   function detectLang(){
-    const nav=(navigator.language||'').toLowerCase();
+    const nav = (navigator.language || navigator.userLanguage || '').toLowerCase();
     if(nav.startsWith('zh')) return 'zh-CN';
     if(nav.startsWith('en')) return 'en-US';
     if(nav.startsWith('th')) return 'th-TH';
     if(nav.startsWith('ja')) return 'ja-JP';
-    if(nav.startsWith('ms')||nav.startsWith('id')) return 'ms-MY';
+    if(nav.startsWith('ms') || nav.startsWith('id')) return 'ms-MY';
     if(nav.startsWith('hi')) return 'hi-IN';
     return FALLBACK;
   }
 
-  // --------- 选择器（优先复用你已有的 #langSel） ---------
-  let langSel = document.querySelector('#lang') || document.querySelector('#langSel');
+  // --------- DOM: 语言下拉（若不存在则注入） ---------
+  let langSel = document.querySelector('#lang');
   if(!langSel){
-    langSel=document.createElement('select'); langSel.id='lang';
-    ['zh-CN','en-US','th-TH','ja-JP','ms-MY','hi-IN'].forEach(v=>{
-      const o=document.createElement('option'); o.value=v; o.textContent=v;
-      langSel.appendChild(o);
-    });
-    document.querySelector('.controls')?.appendChild(langSel);
+    langSel = document.createElement('select');
+    langSel.id = 'lang';
+    langSel.style.padding = '12px';
+    langSel.style.borderRadius = '12px';
+    langSel.style.border = '1px solid #273245';
+    langSel.style.background = '#0f1420';
+    langSel.style.color = 'var(--text)';
+    const opt = (v,t)=>{ const o=document.createElement('option'); o.value=v; o.textContent=t; return o; };
+    langSel.append(
+      opt('zh-CN','中文'), opt('en-US','English'),
+      opt('th-TH','ไทย'), opt('ja-JP','日本語'),
+      opt('ms-MY','Bahasa Melayu'), opt('hi-IN','हिन्दी')
+    );
+    const controls = document.querySelector('.controls');
+    controls && controls.appendChild(langSel);
   }
 
+  // 当前语言
   let CUR = I18N[detectLang()] ? detectLang() : FALLBACK;
-  langSel.value = (['zh','en','th','ja','ms','hi'].includes(langSel.value) ? (
-    {zh:'zh-CN',en:'en-US',th:'th-TH',ja:'ja-JP',ms:'ms-MY',hi:'hi-IN'}[langSel.value]
-  ) : langSel.value) || CUR;
+  langSel.value = CUR;
 
-  // --------- 文案应用 ----------
+  // --------- 钩子：把原来函数的文本输出改为按语言渲染 ---------
+  // 如果你的主脚本里有全局 DECK/MAJOR_ARCH/SUITS/RANKS/previewLine/sectionLine 等，
+  // 我们不去重建数据，只在展示时改文案。
   function t(path, dflt=''){
-    const parts=path.split('.'); let node=I18N[CUR]; for(const p of parts){ if(!node) break; node=node[p]; }
-    return node==null?dflt:node;
+    const parts = path.split('.');
+    let node = I18N[CUR]; for(const p of parts){ if(!node) break; node = node[p]; }
+    return (node==null ? dflt : node);
   }
+
+  // 替换 UI 静态文案（利用 data-i18n / data-i18n-placeholder）
   function applyStaticUI(){
     document.querySelectorAll('[data-i18n]').forEach(el=>{
-      const k=el.getAttribute('data-i18n'); const val=t(`ui.${k}`, el.textContent); if(val!=null) el.textContent=val;
+      const k = el.getAttribute('data-i18n');
+      const val = t(`ui.${k}`, el.textContent);
+      if(val!=null) el.textContent = val;
     });
     document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
-      const k=el.getAttribute('data-i18n-placeholder'); const val=t(`ui.${k}`, el.getAttribute('placeholder')); if(val!=null) el.setAttribute('placeholder', val);
+      const k = el.getAttribute('data-i18n-placeholder');
+      const val = t(`ui.${k}`, el.getAttribute('placeholder'));
+      if(val!=null) el.setAttribute('placeholder', val);
     });
   }
 
-  // 名称映射
+  // 名称映射：牌名/花色/点数/大阿尔卡那
   function cardName(card){
-    if(card.group==='major'){ const row=I18N[CUR].majors[card.idx]; return row?row[0]:'Major'; }
-    const s=I18N[CUR].suits[card.suit.key]; const r=I18N[CUR].ranks[card.rank.id]||card.rank.id;
-    return `${s.name}${r}`;
+    if(card.group==='major'){
+      const row = I18N[CUR].majors[card.idx];
+      return row ? row[0] : 'Major';
+    }else{
+      const s = I18N[CUR].suits[card.suit.key];
+      const r = I18N[CUR].ranks[card.rank.id] || card.rank.id;
+      return `${s.name}${r}`;
+    }
   }
   function previewLineLocalized(card){
-    if(card.group==='major'){ const row=I18N[CUR].majors[card.idx]; return `${row[1]} · ${row[2]}`; }
-    const s=I18N[CUR].suits[card.suit.key]; const tone=I18N[CUR].ranks.tone[card.rank.id];
-    return `${s.name}（${s.domain}）· ${tone}`;
+    if(card.group==='major'){
+      const row = I18N[CUR].majors[card.idx];
+      return `${row[1]} · ${row[2]}`;
+    }else{
+      const s = I18N[CUR].suits[card.suit.key];
+      const tone = I18N[CUR].ranks.tone[card.rank.id];
+      return `${s.name}（${s.domain}）· ${tone}`;
+    }
   }
   function posLabel(key){ return I18N[CUR].pos[key] || key; }
   function tagFor(rev){ return rev ? I18N[CUR].tags.reversed : I18N[CUR].tags.upright; }
 
-  // 导出给 shim 使用/外部调用
-  window.applyStaticUI = applyStaticUI;
-  window.cardName = cardName;
-  window.previewLineLocalized = previewLineLocalized;
-  window.posLabel = posLabel;
-  window.tagFor = tagFor;
+  // —— 重绘已抽出的牌（不影响布局）——
+  function relabelBoard(){
+    document.querySelectorAll('#board .card').forEach((node,i)=>{
+      const imgwrap = node.querySelector('.imgwrap');
+      const id = node.getAttribute('data-card-id');
+      const rev = node.getAttribute('data-reversed') === 'true';
+      // 从你的主脚本里可读回卡数据；这里简化：利用顺序与页面已有 captions
+      const cap = node.querySelector('.cap');
+      const mean= node.querySelector('.mean');
+
+      // 我们把位置文本从原始行容器得出
+      const posKey = (function(){
+        const n = document.querySelector('#spread').value;
+        if(n==='10'){ return ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10'][i]; }
+        if(n==='5'){ return ['top','left','center','right','bottom'][i]; }
+        if(n==='3'){ return ['past','present','future'][i]; }
+        return 'single';
+      })();
+
+      // 尝试从全局缓存把 card 对象取回来（主脚本可以在 window.__LAST_PICKS 暴露）
+      const picks = window.__LAST_PICKS || [];
+      const card = picks[i];
+      if(!card) return;
+
+      cap.textContent = `【${posLabel(posKey)}】${cardName(card)}（${tagFor(rev)}）`;
+      mean.textContent = previewLineLocalized(card);
+    });
+  }
+
+  // —— 替换解读构造（hook 你的 buildReading）——
+  const _buildReading = window.buildReading; // 主脚本应把 buildReading 暴露到 window
+  if(_buildReading){
+    window.buildReading = function(question, spreadN, cards){
+      // 把当前抽到的牌缓存，供 relabelBoard 使用
+      window.__LAST_PICKS = cards;
+      // 先调用原函数拿 HTML，再做语言替换
+      const html = _buildReading(question, spreadN, cards);
+
+      // 将其中固定中文段落替换为当前语言（nextSteps、位置提示、牌名/preview 在原函数里已多为变量）
+      // 为了稳健，我们重建一份“只改语言的版本”：
+      const wrap = document.createElement('div');
+      wrap.innerHTML = html;
+
+      // 顶部“你 / 解读”元信息不改；内容块我们逐段重绘标题和提示行
+      const blocks = wrap.querySelectorAll('.msg.assistant div'); // 简化查找
+      // 更简单做法：直接不逐段替换，返回原 html；语言切换靠重算一遍：
+      return renderReadingLocalized(question, spreadN, cards);
+    }
+  }
 
   function renderReadingLocalized(question, spreadN, cards){
-    const esc = window.escapeHTML || ((s)=>s);
-    const domain = (window.classifyQuestion? window.classifyQuestion(question||'') : 'general') || 'general';
-    const posKeys = (spreadN===10)? ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10']
-                 : (spreadN===5)?  ['top','left','center','right','bottom']
-                 : (spreadN===3)?  ['past','present','future'] : ['single'];
+    const domain = (window.classifyQuestion ? window.classifyQuestion(question||'') : 'general') || 'general';
+    const posKeys = (function(n){
+      if(n===10) return ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10'];
+      if(n===5)  return ['top','left','center','right','bottom'];
+      if(n===3)  return ['past','present','future'];
+      return ['single'];
+    })(spreadN);
 
     const domAdv = I18N[CUR].domainAdvice[domain] || I18N[CUR].domainAdvice.general;
 
-    const segments = cards.map((card,i)=>{
+    // 构造每张的段落
+    const segments = cards.map((card, i)=>{
       const title = `【${posLabel(posKeys[i])}】${cardName(card)}（${tagFor(card.reversed)}）`;
       const arch  = previewLineLocalized(card);
       const hint  = I18N[CUR].posHint[posKeys[i]] ? `（${I18N[CUR].posHint[posKeys[i]]}）` : '';
+
+      // 领域建议
       let adv1='';
-      if(card.group==='major'){ adv1 = card.reversed ? domAdv.majorRev : domAdv.majorOk; }
-      else { adv1 = domAdv[card.suit.key] || domAdv.general; }
+      if(card.group==='major'){
+        adv1 = card.reversed ? domAdv.majorRev : domAdv.majorOk;
+      }else{
+        const mapKey = card.suit.key; // wands/cups/swords/pentacles
+        adv1 = domAdv[mapKey] || domAdv.general;
+      }
+      // 点数语义补充
       let adv2='';
       if(card.group!=='major'){
-        const tone=I18N[CUR].ranks.tone[card.rank.id];
-        adv2 = CUR==='en-US' ? `Plan one actionable step around “${tone}”.`
-            : CUR==='ja-JP' ? `「${tone}」に沿った実行可能な一歩を計画する。`
-            : CUR==='th-TH' ? `วางขั้นตอนที่ทำได้จริงรอบ “${tone}”`
-            : CUR==='ms-MY' ? `Rancang satu langkah boleh laksana sekitar “${tone}”.`
-            : CUR==='hi-IN' ? `“${tone}” के इर्द-गिर्द एक क्रियात्मक कदम तय करें।`
-            : `围绕“${tone}”制定一条可执行的小行动。`;
+        const tone = I18N[CUR].ranks.tone[card.rank.id];
+        adv2 = CUR==='en-US' ? `Plan one actionable step around “${tone}”.` :
+              CUR==='ja-JP' ? `「${tone}」に沿った実行可能な一歩を計画する。` :
+              CUR==='th-TH' ? `วางขั้นตอนที่ทำได้จริงรอบ “${tone}”` :
+              CUR==='ms-MY' ? `Rancang satu langkah boleh laksana sekitar “${tone}”.` :
+              CUR==='hi-IN' ? `“${tone}” के इर्द-गिर्द एक क्रियात्मक कदम तय करें।` :
+              `围绕“${tone}”制定一条可执行的小行动。`;
       }
+
       return `
         <div style="margin:8px 0 12px">
           <div style="font-weight:700">${title}</div>
           <div class="muted" style="margin:4px 0">${arch} ${hint}</div>
-          <ul style="margin:6px 0 0 18px"><li>${adv1}</li>${adv2?`<li>${adv2}</li>`:''}</ul>
+          <ul style="margin:6px 0 0 18px">
+            <li>${adv1}</li>${adv2?`<li>${adv2}</li>`:''}
+          </ul>
         </div>`;
     }).join('');
 
-    const you = (CUR==='en-US')?'You':(CUR==='ja-JP'?'あなた':(CUR==='th-TH'?'คุณ':(CUR==='ms-MY'?'Anda':(CUR==='hi-IN'?'आप':'你'))));
-    const head = (CUR==='en-US')?'Reading':(CUR==='ja-JP'?'解読':(CUR==='th-TH'?'คำทำนาย':(CUR==='ms-MY'?'Bacaan':(CUR==='hi-IN'?'रीडिंग':'解读'))));
-    const next = I18N[CUR].nextSteps;
-
-    return `<div class="chat">
-      <div class="msg user"><div class="meta">${you}</div>${esc(question||'')}</div>
-      <div class="msg assistant"><div class="meta">${head}</div>${segments}
-        <hr style="border:0;border-top:1px solid #273245;margin:12px 0">${next}
-      </div>
+    // 汇总
+    const topUser = `<div class="msg user"><div class="meta">${CUR==='en-US'?'You':'你'}</div>${escapeHTML(question||'')}</div>`;
+    const topAI   = `<div class="msg assistant"><div class="meta">${CUR==='en-US'?'Reading':'解读'}</div>${segments}
+      <hr style="border:0;border-top:1px solid #273245;margin:12px 0">
+      ${I18N[CUR].nextSteps}
     </div>`;
-  }
-  window.renderReadingLocalized = renderReadingLocalized;
 
-  // 刷新一次（应用静态 UI）
+    return `<div class="chat">${topUser}${topAI}</div>`;
+  }
+
+  // —— 绑定语言切换：更新 UI、重绘牌、重算解读、切换 TTS 语言 —— 
   function refreshAll(){
     applyStaticUI();
-    // 牌面重标
-    if (window.__LAST_PICKS){
+    relabelBoard();
+    const readingText = document.querySelector('#readingText');
+    if(window.__LAST_PICKS && readingText){
+      const q = (document.querySelector('#question')?.value || '');
       const n = parseInt(document.querySelector('#spread')?.value||'1',10);
-      const picks = window.__LAST_PICKS;
-      document.querySelectorAll('#board .card').forEach((node,i)=>{
-        const cap  = node.querySelector('.cap');
-        const mean = node.querySelector('.mean');
-        const posKey = (n===10)? ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10'][i]
-                     : (n===5)?  ['top','left','center','right','bottom'][i]
-                     : (n===3)?  ['past','present','future'][i] : 'single';
-        const card = picks[i]; if(!card) return;
-        if (cap)  cap.textContent  = `【${posLabel(posKey)}】${cardName(card)}（${tagFor(card.reversed)}）`;
-        if (mean) mean.textContent = previewLineLocalized(card);
-      });
-      // 重算解读
-      const q=document.querySelector('#question')?.value||'';
-      const readingText=document.querySelector('#readingText');
-      if(readingText) readingText.innerHTML = renderReadingLocalized(q, n, picks);
+      readingText.innerHTML = renderReadingLocalized(q, n, window.__LAST_PICKS);
     }
-    window.__TTS_LANG = CUR;
+    // TTS 语言切换（使用浏览器语音）
+    window.__TTS_LANG = CUR; // 你的 speak() 可读取这个 lang
   }
-  window.__I18N_REFRESH = refreshAll;
 
-  // 对外提供设置语言的方法
-  window.__I18N_SETLANG = function(lang){
-    CUR = I18N[lang] ? lang : FALLBACK;
-    if (langSel) langSel.value = langSel.value || CUR;
-    refreshAll();
-  };
-
-  // 下拉改变
   langSel.addEventListener('change', ()=>{
-    const v = langSel.value;
-    // 兼容 zh/en 等缩写
-    const map = { zh:'zh-CN', en:'en-US', th:'th-TH', ja:'ja-JP', ms:'ms-MY', hi:'hi-IN' };
-    const code = map[v] || v;
-    window.__I18N_SETLANG(code);
+    CUR = langSel.value in I18N ? langSel.value : FALLBACK;
+    refreshAll();
   });
 
-  // 初始
-  (function init(){
-    const map = { zh:'zh-CN', en:'en-US', th:'th-TH', ja:'ja-JP', ms:'ms-MY', hi:'hi-IN' };
-    if (map[langSel.value]) langSel.value = map[langSel.value];
-    window.__I18N_SETLANG(langSel.value || CUR);
-  })();
-})();
-</script>
+  // 页面初始：套用一次
+  refreshAll();
 
-<script>
-/* I18N shim: ensure board/reading re-render in selected language (fallback utilities) */
-(function(){
-  function relabelBoard(){
-    if (!window.__LAST_PICKS) return;
-    const picks = window.__LAST_PICKS;
-    const n = parseInt(document.querySelector('#spread')?.value || '1', 10);
-    const posOrder = (n===10)? ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10']
-                 : (n===5)? ['top','left','center','right','bottom']
-                 : (n===3)? ['past','present','future'] : ['single'];
-
-    document.querySelectorAll('#board .card').forEach((node,i)=>{
-      const cap=node.querySelector('.cap'), mean=node.querySelector('.mean');
-      const card=picks[i]; if(!card) return;
-      const posKey=posOrder[i]||'single';
-      const posText=(window.posLabel?window.posLabel(posKey):posKey);
-      const nameText=(window.cardName?window.cardName(card):card.name);
-      const tagText=(window.tagFor?window.tagFor(card.reversed):(card.reversed?'逆位':'正位'));
-      const prevText=(window.previewLineLocalized?window.previewLineLocalized(card):(mean?.textContent||''));
-      if (cap)  cap.textContent  = `【${posText}】${nameText}（${tagText}）`;
-      if (mean) mean.textContent = prevText;
-    });
-  }
-
-  function rebuildReading(){
-    if (!window.__LAST_PICKS) return;
-    const q=document.querySelector('#question')?.value||'';
-    const n=parseInt(document.querySelector('#spread')?.value||'1',10);
-    const el=document.querySelector('#readingText'); if(!el) return;
-    if (window.renderReadingLocalized) el.innerHTML = window.renderReadingLocalized(q, n, window.__LAST_PICKS);
-  }
-
-  window.__I18N_REFRESH = function(){
-    if (window.applyStaticUI) window.applyStaticUI();
-    relabelBoard(); rebuildReading();
-  };
-})();
+  // 如果你的“抽牌”按钮会更新 #readingText，请在点击时也缓存 picks：window.__LAST_PICKS = picks;
+  // 我已经在上面覆盖 buildReading 时做了缓存；若你没暴露 buildReading，就在你的 goBtn 处理里加：
+  // window.__LAST_PICKS = picks;
+})();   
 </script>
 </body>
 </html>
