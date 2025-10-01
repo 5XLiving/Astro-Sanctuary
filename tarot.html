@@ -708,19 +708,33 @@ function escapeHTML(s){return (s||'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'
 /* ==============
    TTS（朗读切换，含多语言提示）
 ================ */
-function speakFromHTML(html){
-  const synth = window.speechSynthesis;
-  if (!synth) { alert(CUR==='en-US'?'Speech is not supported in this browser.':'当前浏览器不支持语音朗读'); return; }
-  const tmp = document.createElement('div'); tmp.innerHTML = html;
-  const text = tmp.textContent || tmp.innerText || '';
-  const u = new SpeechSynthesisUtterance(text);
-  u.lang = (CUR==='en-US'?'en-US':'zh-CN');
-  u.rate = 1.0;
-  u.onend = u.onpause = u.onerror = () => setTTSState(false);
-  synth.cancel();
-  synth.speak(u);
-  setTTSState(true);
+  // 放在旧 speakFromHTML 的位置（或覆盖旧版）
+function cleanForTTS(text){
+  if(!text) return '';
+  // 1) 去括号/书名号/尖括号
+  let s = text.replace(/[【】\[\]（）()《》<>]/g, '');
+  // 2) 合并重复标点与多空格
+  s = s.replace(/[，。！？、；：,.!?;:]{2,}/g, m => m[0])
+       .replace(/\s{2,}/g, ' ')
+       .trim();
+  return s;
 }
+
+  function speakFromHTML(html){
+    const synth = window.speechSynthesis;
+    if (!synth) { alert('当前浏览器不支持语音朗读'); return; }
+    const tmp = document.createElement('div'); tmp.innerHTML = html;
+    const raw = tmp.textContent || tmp.innerText || '';
+    const text = cleanForTTS(raw); // 去符号再朗读
+
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = window.__TTS_LANG || 'zh-CN'; // 继续沿用你现有的语言变量
+    u.rate = 1.0;
+    u.onend = u.onpause = u.onerror = () => setTTSState(false);
+    synth.cancel();
+    synth.speak(u);
+    setTTSState(true);
+  }
 let __isReading = false;
 function setTTSState(on){
   __isReading = !!on;
