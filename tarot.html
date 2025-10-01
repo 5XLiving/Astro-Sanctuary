@@ -248,12 +248,16 @@ pre code{padding:0; border:0; background:transparent; color:#e8edf3}
   <div id="board" class="board"></div>
 
   <div id="reading" class="panel" style="display:none">
-    <h3 style="display:flex;align-items:center;gap:10px">
-      <span data-i18n="reading_title">解读与建议</span>
-      <button id="ttsBtn" class="btn" style="padding:6px 10px;border-radius:10px;border:1px solid #273245;background:#0f1420;color:#ffe084;cursor:pointer">🔊 <span data-i18n="tts_btn">朗读</span></button>
-    </h3>
-    <div id="readingText"></div>
-  </div>
+<h3 style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+  <span data-i18n="reading_title">解读与建议</span>
+  <button id="ttsBtn" class="btn" style="padding:6px 10px;border-radius:10px;border:1px solid #273245;background:#0f1420;color:#ffe084;cursor:pointer">🔊 <span data-i18n="tts_btn">朗读</span></button>
+  <label class="muted" style="display:inline-flex;align-items:center;gap:8px">
+    <span>语速</span>
+    <input id="rateCtrl" type="range" min="0.70" max="1.30" step="0.05" value="0.90" style="width:120px">
+    <span id="rateVal">0.90×</span>
+  </label>
+</h3>
+<div id="readingText"></div>
 
   <div class="panel muted" data-i18n="disclaimer">
     说明：塔罗为指引工具，非医学/法律/金融建议，请以理性判断与自我意愿为先。
@@ -708,64 +712,78 @@ function escapeHTML(s){return (s||'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'
 /* ==============
    TTS（朗读切换，含多语言提示）
 ================ */
-  // 放在旧 speakFromHTML 的位置（或覆盖旧版）
+// ---- TTS: 清理符号 + 语速可调 ----
+window.__TTS_LANG  = window.__TTS_LANG || 'zh-CN';
+window.__TTS_RATE  = Number(localStorage.getItem('__TTS_RATE')||'0.90') || 0.90;
+
 function cleanForTTS(text){
   if(!text) return '';
-  // 1) 去括号/书名号/尖括号
-  let s = text.replace(/[【】\[\]（）()《》<>]/g, '');
-  // 2) 合并重复标点与多空格
-  s = s.replace(/[，。！？、；：,.!?;:]{2,}/g, m => m[0])
-       .replace(/\s{2,}/g, ' ')
-       .trim();
+  let s = text.replace(/[【】\[\]（）()《》<>]/g, '');     // 去括号符号
+  s = s.replace(/[，。！？、；：,.!?;:]{2,}/g, m=>m[0]);   // 合并重复标点
+  s = s.replace(/\s{2,}/g, ' ').trim();                   // 合并空格
   return s;
 }
 
-  function speakFromHTML(html){
-    const synth = window.speechSynthesis;
-    if (!synth) { alert('当前浏览器不支持语音朗读'); return; }
-    const tmp = document.createElement('div'); tmp.innerHTML = html;
-    const raw = tmp.textContent || tmp.innerText || '';
-    const text = cleanForTTS(raw); // 去符号再朗读
+function speakFromHTML(html){
+  const synth = window.speechSynthesis;
+  if (!synth) { alert('当前浏览器不支持语音朗读'); return; }
+  const tmp = document.createElement('div'); tmp.innerHTML = html;
+  const text = cleanForTTS(tmp.textContent || tmp.innerText || '');
 
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = window.__TTS_LANG || 'zh-CN'; // 继续沿用你现有的语言变量
-    u.rate = 1.0;
-    u.onend = u.onpause = u.onerror = () => setTTSState(false);
-    synth.cancel();
-    synth.speak(u);
-    setTTSState(true);
-  }
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = window.__TTS_LANG || 'zh-CN';
+  u.rate = window.__TTS_RATE;               // ← 使用可调语速
+  u.onend = u.onpause = u.onerror = () => setTTSState(false);
+
+  synth.cancel();
+  synth.speak(u);
+  setTTSState(true);
+}
+
 let __isReading = false;
 function setTTSState(on){
   __isReading = !!on;
   const btn = document.getElementById('ttsBtn'); if(!btn) return;
-  const base = (btn.dataset.baseLabel) || (btn.querySelector('span')?.textContent || (CUR==='en-US'?'Read Aloud':'朗读'));
-  const tipStart = t('ui.tts_tip_start', 'Press to read aloud');
-  const tipStop  = t('ui.tts_tip_stop',  'Press again to stop reading');
+  const base = (btn.dataset.baseLabel) || (btn.querySelector('span')?.textContent || '朗读');
   btn.setAttribute('aria-pressed', on ? 'true' : 'false');
-  btn.title = on ? tipStop : tipStart;
+  btn.title = on ? '再次点击停止' : '点击开始朗读';
   btn.innerHTML = (on ? '⏹ ' : '🔊 ') + '<span>' + base + '</span>';
 }
+
 (function initTTS(){
   const btn = document.getElementById('ttsBtn'); if(!btn) return;
-  const labelSpan = btn.querySelector('span');
-  btn.dataset.baseLabel = labelSpan ? labelSpan.textContent : (CUR==='en-US'?'Read Aloud':'朗读');
+  btn.dataset.baseLabel = btn.querySelector('span')?.textContent || '朗读';
   setTTSState(false);
+
+  // 朗读按钮
   btn.addEventListener('click', ()=>{
     const synth = window.speechSynthesis;
-    if (!synth) return alert(CUR==='en-US'?'Speech is not supported in this browser.':'当前浏览器不支持语音朗读');
+    if (!synth) return alert('当前浏览器不支持语音朗读');
     if (__isReading || synth.speaking) { synth.cancel(); setTTSState(false); return; }
     const readingText = document.getElementById('readingText');
     const html = (readingText && (readingText.innerHTML || '')).trim();
     if (!html) return;
     speakFromHTML(html);
   });
-  // 语言刷新钩子
+
+  // 语速滑杆
+  const rate = document.getElementById('rateCtrl');
+  const rateVal = document.getElementById('rateVal');
+  if(rate && rateVal){
+    rate.value = String(window.__TTS_RATE.toFixed(2));
+    rateVal.textContent = rate.value + '×';
+    rate.addEventListener('input', ()=>{
+      window.__TTS_RATE = Number(rate.value) || 1.0;
+      rateVal.textContent = rate.value + '×';
+      localStorage.setItem('__TTS_RATE', String(window.__TTS_RATE));
+    });
+  }
+
+  // i18n 刷新钩子保持按钮文字
   const orig = window.__I18N_REFRESH;
   window.__I18N_REFRESH = function(){
     if (typeof orig==='function') orig();
-    const span = btn.querySelector('span');
-    btn.dataset.baseLabel = span ? span.textContent : btn.dataset.baseLabel || (CUR==='en-US'?'Read Aloud':'朗读');
+    btn.dataset.baseLabel = btn.querySelector('span')?.textContent || btn.dataset.baseLabel || '朗读';
     setTTSState(__isReading);
   };
 })();
