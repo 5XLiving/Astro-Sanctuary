@@ -41,63 +41,33 @@ footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0;margin-to
 .bar i{display:block;height:100%;background:linear-gradient(90deg,#ffe084,#f2d27a)}
 .ul{margin:.4rem 0 0 .9rem;line-height:1.8}
 
-/* ========== 心怜管家：放大 + 多行输入 + 可调整尺寸 ========== */
+/* 强制把心怜管家固定在右下角，避免被父容器布局影响 */
+.ss-chat-fab{
+  position: fixed; right: 18px; bottom: 18px; z-index: 9999;
+  width: 56px; height: 56px; border-radius: 9999px;
+  display: grid; place-items: center; font-weight: 800;
+  border: 1px solid #e6c76e; background: linear-gradient(180deg,#fff9e6,#e6c76e); color:#191919;
+  box-shadow: 0 8px 30px rgba(0,0,0,.35); cursor: pointer;
+}
 .ss-chat-panel{
-  width: 420px;                /* 面板更宽 */
-  max-height: 72vh;
-  font-size: 16.5px;           /* 面板整体字号 */
+  position: fixed; right: 18px; bottom: 86px; z-index: 9999;
+  width: 360px; max-width: calc(100vw - 28px); max-height: 70vh;
+  display: none; flex-direction: column; overflow: hidden;
+  background:#0e1520; border:1px solid #243244; border-radius:14px; box-shadow: 0 8px 30px rgba(0,0,0,.35);
 }
 @media (max-width: 480px){
-  .ss-chat-panel{ width: 92vw; font-size: 17px; }
+  .ss-chat-panel{ right: 10px; left: 10px; width: auto; }
 }
-
-.ss-chat-body{
-  padding: 12px;
-  gap: 12px;
-}
-
-.ss-msg, .ss-msg.me{
-  font-size: 16px;             /* 气泡字号 */
-  line-height: 1.75;
-  padding: 12px 14px;
-  border-radius: 12px;
-}
-
-.ss-chat-input{
-  display: grid;
-  grid-template-columns: 1fr 100px;  /* 输入区 + 发送按钮 */
-  gap: 10px;
-  padding: 12px;
-  border-top: 1px solid #243244;
-  align-items: end;
-}
-
-.ss-chat-input textarea{
-  width: 100%;
-  box-sizing: border-box;
-  font-size: 16px;             /* 输入字号 */
-  line-height: 1.6;
-  color: #eaf0ff;
-  background: #0f1522;
-  border: 1px solid #243244;
-  border-radius: 10px;
-  padding: 10px 12px;
-  min-height: 52px;            /* 默认更高 */
-  max-height: 180px;           /* 自动增高上限 */
-  resize: vertical;            /* 允许手动拉高 */
-}
-
-.ss-chat-input button{
-  height: 48px;                /* 按钮更高更好点按 */
-  font-size: 16px;
-  font-weight: 700;
-  padding: 0 16px;
-  border-radius: 12px;
-  border: 1px solid #e6c76e;
-  background: linear-gradient(180deg,#fff9e6,#e6c76e);
-  color: #191919;
-  cursor: pointer;
-}
+.ss-chat-head{ display:flex; align-items:center; justify-content:space-between;
+  padding:10px 12px; border-bottom:1px solid #243244; color:#ffe084; font-weight:700; }
+.ss-chat-body{ padding:10px; overflow:auto; display:flex; flex-direction:column; gap:8px; min-height:120px; }
+.ss-msg{ background:#101a28; border:1px solid #223047; padding:8px 10px; border-radius:10px; max-width:95%; font-size:14px; line-height:1.5; }
+.ss-msg.me{ margin-left:auto; background:#1a2433; border-color:#2b3a51; }
+.ss-chat-input{ display:flex; gap:8px; padding:10px; border-top:1px solid #243244; }
+.ss-chat-input textarea{ flex:1; resize:none; min-height:44px; max-height:180px; font-size:14px;
+  padding:10px 12px; border-radius:10px; border:1px solid #243244; background:#0f1522; color:#eaf0ff; }
+.ss-chat-input button{ padding:10px 12px; border-radius:10px; border:1px solid #e6c76e;
+  background:linear-gradient(180deg,#fff9e6,#e6c76e); color:#191919; font-weight:700; }
 </style>
 </head>
 
@@ -467,16 +437,30 @@ function setupChat(){
   }
 }
 
-
 /* ==================== 绑定 ==================== */
-document.addEventListener('DOMContentLoaded', ()=>{
+document.addEventListener('DOMContentLoaded', () => {
   LoadUI.mount();
+
+  // 先把 Chat 节点挂到 <body>，避免被父级布局影响
+  (function relocateChatToBody(){
+    const fab   = document.getElementById('ssChatFab');
+    const panel = document.getElementById('ssChatPanel');
+    if (fab   && fab.parentNode   !== document.body) document.body.appendChild(fab);
+    if (panel && panel.parentNode !== document.body) document.body.appendChild(panel);
+  })();
+
+  setupChat();                           // 再初始化聊天（事件依然有效）
   $('genBtn')?.addEventListener('click', genChart);
-  setupChat();
+
   // 历法提示显隐
-  const cal=$('calendar'), leap=$('leapWrap'), hint=bySel('#calendarHint');
-  const toggle=()=>{ const isLunar=cal?.value==='lunar'; if(leap) leap.style.display=isLunar?'inline-flex':'none'; if(hint) hint.style.display=isLunar?'block':'none'; };
-  cal?.addEventListener('change',toggle); toggle();
+  const cal = $('calendar'), leap = $('leapWrap'), hint = bySel('#calendarHint');
+  const toggle = () => {
+    const isLunar = cal?.value === 'lunar';
+    if (leap) leap.style.display = isLunar ? 'inline-flex' : 'none';
+    if (hint) hint.style.display = isLunar ? 'block'      : 'none';
+  };
+  cal?.addEventListener('change', toggle);
+  toggle();
 });
 </script>
 </body>
