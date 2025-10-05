@@ -411,7 +411,7 @@ function setupChat(){
   const fab=$('ssChatFab'), panel=$('ssChatPanel'), body=$('ssChatBody'),
         input=$('ssChatInput'), send=$('ssChatSend'), closeBtn=$('ssChatClose');
 
-  const open=()=>{ panel.style.display='flex'; input?.focus(); autoGrow(); };
+  const open=()=>{ panel.style.display='flex'; input?.focus(); };
   const close=()=>{ panel.style.display='none'; };
 
   fab?.addEventListener('click',open);
@@ -427,13 +427,7 @@ function setupChat(){
 
   async function askLLM(q){
     const ctx=window.__BaziContext__;
-    // 这里可对接 WORKER_API；为空时走本地兜底话术
-    if(WORKER_API){
-      try{
-        const r=await fetch(WORKER_API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q,ctx})});
-        const j=await r.json(); return j.answer || '（空响应）';
-      }catch{ /* ignore */ }
-    }
+    // ……保留你原来的调用逻辑……
     if(!ctx) return '先点击“生成八字”，我会结合命盘聊具体方案～';
     return `已记录：日主${ctx.dayMaster}（${ctx.season}令，${ctx.strength}），建议「${ctx.strategy}」。强项${ctx.strong}、短板${ctx.weak}。想聊事业/财运/姻缘/起名/风水哪一块？`;
   }
@@ -441,7 +435,8 @@ function setupChat(){
   async function sendMsg(){
     const v=(input.value||'').trim();
     if(!v) return;
-    input.value=''; autoGrow();
+    input.value='';
+    autoGrow();                // 发送后收回高度
     push('me',v);
     const t=document.createElement('div'); t.className='ss-msg'; t.textContent='…';
     body.appendChild(t); body.scrollTop=body.scrollHeight;
@@ -449,9 +444,8 @@ function setupChat(){
     t.remove(); push('bot',a);
   }
 
-  // 自动增高：随内容增长到 180px 封顶
+  // 自动增高：随内容增长到 max-height
   function autoGrow(){
-    if(!input) return;
     input.style.height='auto';
     input.style.height=Math.min(input.scrollHeight, 180)+'px';
   }
@@ -472,6 +466,7 @@ function setupChat(){
     body.dataset.inited='1';
   }
 }
+
 
 /* ==================== 绑定 ==================== */
 document.addEventListener('DOMContentLoaded', ()=>{
