@@ -6,6 +6,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+<!-- 农历 <-> 阳历 可靠转换（成熟库） -->
+<script src="https://unpkg.com/solarlunar@2.0.6/solarlunar.min.js"></script>
+
 <style>
 :root{
   --bg:#0b0f14; --card:#11161dcc; --line:#1f2a36; --text:#e8edf3; --muted:#9aa3b2;
@@ -27,7 +31,7 @@ header{position:sticky;top:0;z-index:10;background:#0b0f14cc;border-bottom:1px s
 .lang{display:flex;align-items:center;gap:8px}
 .lang label{color:var(--muted);font-size:.9rem}
 .lang select{appearance:none;border-radius:10px;border:1px solid #243244;background:#0e1520;color:var(--text);padding:10px 34px 10px 12px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
+.card{background:var(--card);border:1px solid:#1f2a36;border-radius:var(--radius);box-shadow:var(--shadow);padding:18px}
 .section{margin-top:18px}
 .row{display:grid;gap:12px}
 @media(min-width:760px){.row.cols-3{grid-template-columns:1fr 1fr 1fr}.row.cols-2{grid-template-columns:1fr 1fr}}
@@ -60,17 +64,15 @@ footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0;margin-to
 .ss-msg.me{margin-left:auto;background:#1a2433;border-color:#2b3a51}
 
 /* Chat 字号微调 */
-.ss-chat-panel { font-size: 15.5px; }
-.ss-chat-head  { font-size: 16.5px; }
-.ss-chat-body { gap: 10px; }
-.ss-msg{ font-size: 15.5px; line-height: 1.65; padding: 10px 12px; border-radius: 12px; max-width: 95%; }
-.ss-msg.me{ font-size: 15.5px; line-height: 1.65; padding: 10px 12px; border-radius: 12px; }
-.ss-chat-input input{ font-size: 15.5px; height: 44px; padding: 10px 12px; }
-.ss-chat-input button{ font-size: 15.5px; height: 44px; padding: 0 14px; }
+.ss-chat-panel{font-size:15.5px}.ss-chat-head{font-size:16.5px}.ss-chat-body{gap:10px}
+.ss-msg{font-size:15.5px;line-height:1.65;padding:10px 12px;border-radius:12px;max-width:95%}
+.ss-msg.me{font-size:15.5px;line-height:1.65;padding:10px 12px;border-radius:12px}
+.ss-chat-input input{font-size:15.5px;height:44px;padding:10px 12px}
+.ss-chat-input button{font-size:15.5px;height:44px;padding:0 14px}
 @media (max-width: 480px){
-  .ss-chat-panel { font-size: 16px; }
-  .ss-msg, .ss-msg.me { font-size: 16px; line-height: 1.7; }
-  .ss-chat-input input, .ss-chat-input button { height: 46px; font-size: 16px; }
+  .ss-chat-panel{font-size:16px}
+  .ss-msg,.ss-msg.me{font-size:16px;line-height:1.7}
+  .ss-chat-input input,.ss-chat-input button{height:46px;font-size:16px}
 }
 </style>
 </head>
@@ -115,18 +117,29 @@ footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0;margin-to
           <option value="other" data-i18n="gender_other">其他</option>
         </select>
       </div>
+
+      <!-- 历法 + 闰月 -->
       <div>
         <label class="muted" data-i18n="calendar_label">历法</label>
-        <select id="calendar">
-          <option value="gregorian" data-i18n="opt_gregorian">阳历 / Gregorian</option>
-          <option value="lunar" disabled data-i18n="opt_lunar">农历（即将支持）</option>
-        </select>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <select id="calendar">
+            <option value="gregorian" data-i18n="opt_gregorian">阳历 / Gregorian</option>
+            <option value="lunar" data-i18n="opt_lunar">农历 / Lunar</option>
+          </select>
+          <label id="leapWrap" style="display:none;font-size:.9rem;color:#cbd6e2;">
+            <input type="checkbox" id="isLeap" /> 闰月
+          </label>
+        </div>
       </div>
     </div>
+
     <div class="row cols-3" style="margin-top:10px">
       <div>
         <label class="muted" data-i18n="birth_label">出生日期</label>
         <input type="date" id="birthdate">
+        <div class="muted" id="calendarHint" style="display:none;margin-top:6px">
+          当前为农历输入。若遇闰月请勾选“闰月”。系统将自动转换为阳历再计算。
+        </div>
       </div>
       <div>
         <label class="muted" data-i18n="birth_time_label">出生时间</label>
@@ -204,12 +217,12 @@ const i18n = {
     form_title:"八字命理 · 快速排盘",
     name_label:"姓名（可选）", ph_name:"你的称呼（用于个性化）",
     gender_label:"性别", gender_unknown:"不透露", gender_male:"男性", gender_female:"女性", gender_other:"其他",
-    calendar_label:"历法", opt_gregorian:"阳历 / Gregorian", opt_lunar:"农历（即将支持）",
+    calendar_label:"历法", opt_gregorian:"阳历 / Gregorian", opt_lunar:"农历 / Lunar",
     birth_label:"出生日期", birth_time_label:"出生时间",
     btn_generate:"生成八字",
     tip_tz:"提示：临时默认东八区（UTC+8）。后续将支持按出生地换算。",
     sec_bazi:"八字命理排盘", sec_wuxing:"五行分析", sec_summary:"命格简评",
-    need_birth:"请完善出生日期与时间（阳历）。",
+    need_birth:"请完善出生日期与时间（若选农历，将自动换算为阳历）。",
     generating:"正在生成排盘与简评…",
     neterr:"网络异常，请稍后再试。", retry:"抱歉，暂时无法生成，请稍后再试。"
   },
@@ -219,12 +232,12 @@ const i18n = {
     form_title:"BaZi · Quick Chart",
     name_label:"Name (optional)", ph_name:"How to address you",
     gender_label:"Gender", gender_unknown:"Prefer not to say", gender_male:"Male", gender_female:"Female", gender_other:"Other",
-    calendar_label:"Calendar", opt_gregorian:"Gregorian (Solar)", opt_lunar:"Lunar (coming soon)",
+    calendar_label:"Calendar", opt_gregorian:"Gregorian (Solar)", opt_lunar:"Lunar",
     birth_label:"Birthdate", birth_time_label:"Birth time",
     btn_generate:"Generate",
     tip_tz:"Note: temporarily assumes UTC+8.",
     sec_bazi:"BaZi Chart", sec_wuxing:"Five-Elements Balance", sec_summary:"Reading",
-    need_birth:"Please provide both date and time (solar).",
+    need_birth:"Please provide both date and time. If Lunar is chosen, it will be converted to Solar first.",
     generating:"Generating chart & summary…",
     neterr:"Network error. Try again."
   },
@@ -234,12 +247,12 @@ const i18n = {
     form_title:"BaZi · Carta Pantas",
     name_label:"Nama (pilihan)", ph_name:"Cara memanggil anda",
     gender_label:"Jantina", gender_unknown:"Rahsiakan", gender_male:"Lelaki", gender_female:"Perempuan", gender_other:"Lain",
-    calendar_label:"Kalendar", opt_gregorian:"Gregorian (Suria)", opt_lunar:"Lunar (akan datang)",
+    calendar_label:"Kalendar", opt_gregorian:"Gregorian (Suria)", opt_lunar:"Lunar",
     birth_label:"Tarikh lahir", birth_time_label:"Masa lahir",
     btn_generate:"Jana",
     tip_tz:"Nota: buat masa ini menganggap UTC+8.",
     sec_bazi:"Carta BaZi", sec_wuxing:"Keseimbangan Lima Unsur", sec_summary:"Ringkasan",
-    need_birth:"Sila isi tarikh & masa (suria).",
+    need_birth:"Sila isi tarikh & masa. Jika Lunar dipilih, akan ditukar kepada Suria dahulu.",
     generating:"Menjana carta & ringkasan…",
     neterr:"Ralat rangkaian."
   }
@@ -251,7 +264,7 @@ function applyI18n(){
   const titleEl=document.querySelector("title[data-i18n], title[data-i18n='title']"); if(titleEl){ titleEl.textContent=t("title"); }
 }
 
-/* ===== Chat 浮窗 ===== */
+/* ===== Chat 浮窗（原样） ===== */
 (function(){
   const fab=$('ssChatFab'), panel=$('ssChatPanel'), body=$('ssChatBody'), input=$('ssChatInput'), send=$('ssChatSend'), closeBtn=$('ssChatClose');
   function addMsg(text,me=false){const d=document.createElement('div');d.className='ss-msg'+(me?' me':'');d.textContent=text;body.appendChild(d);body.scrollTop=body.scrollHeight;}
@@ -300,6 +313,36 @@ function renderPillars(p){
   });
 }
 
+/* ===== 输入规范化 & 农历<->阳历 交叉校验 ===== */
+function normalizeDate(str){
+  if(!str) return '';
+  if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str; // yyyy-mm-dd
+  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); // dd/mm/yyyy
+  if(m){ const [_, d, mo, y] = m; return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+  return str;
+}
+function normalizeTimeTo24h(t){
+  if(!t) return '00:00';
+  const s = t.trim().toLowerCase().replace(/\s+/g,'');
+  const m = s.match(/^(\d{1,2})(?::?(\d{2}))?(am|pm)?$/);
+  if(!m) return t; // 原生 <input type="time"> 已是 HH:MM
+  let hh = parseInt(m[1],10), mm = parseInt(m[2]||'0',10);
+  const ap = m[3];
+  if(ap === 'am'){ if(hh===12) hh=0; }
+  else if(ap === 'pm'){ if(hh!==12) hh+=12; }
+  return String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+}
+function lunarToSolarChecked(y, m, d, isLeap){
+  const s = solarlunar.lunar2solar(y, m, d, !!isLeap);
+  const Y = s.cYear || s.gregorianYear || s.year;
+  const M = s.cMonth || s.gregorianMonth || s.month;
+  const D = s.cDay || s.gregorianDay || s.day;
+  const back = solarlunar.solar2lunar(Y, M, D);
+  const ok = back.lYear===y && back.lMonth===m && back.lDay===d && (!!back.isLeap)===!!isLeap;
+  if(!ok) throw new Error('农历/阳历交叉校验失败：请确认闰月是否正确、日期是否有效。');
+  return `${Y}-${String(M).padStart(2,'0')}-${String(D).padStart(2,'0')}`;
+}
+
 /* ===== 组装提示（请求后端算盘并返回结构化） ===== */
 function buildPromptBaZi({langName, name, gender, birthdate, birthtime}){
   const dt = `${birthdate} ${birthtime}:00`;
@@ -310,7 +353,7 @@ function buildPromptBaZi({langName, name, gender, birthdate, birthtime}){
 - 出生：${dt}
 - 姓名：${name||'（未填）'}；性别：${gender||'（未填）'}
 
-请先计算四柱（年、月、日、时）天干地支与日主，然后评估五行占比。严格按下方 JSON 结构返回（数值 0–100 之间，代表相对占比；可按简化模型近似）：
+请先计算四柱（年、月、日、时）天干地支与日主，然后评估五行占比。严格按下方 JSON 结构返回（0–100 为相对占比）：
 {
   "pillars":{
     "year":{"gz":"甲子"},
@@ -338,14 +381,11 @@ async function askAI(prompt){
   let data={}; try{data=await resp.json()}catch{}
   return data.reply ?? data.text ?? data?.choices?.[0]?.message?.content ?? '';
 }
-
 function safeParseJSONFromText(txt){
-  // 提取首个 { ... } JSON 段
   const m = txt.match(/\{[\s\S]*\}/);
   if(!m) return null;
   try{ return JSON.parse(m[0]); }catch{ return null; }
 }
-
 function renderFromJSON(j){
   $('result').style.display='block';
   renderPillars(j.pillars||{});
@@ -367,30 +407,68 @@ function renderFromJSON(j){
 
   adviceEl.textContent = j.advice || '';
 }
-
 function renderFallbackText(txt){
   $('result').style.display='block';
-  pillarsEl.innerHTML='';
-  dmEl.textContent='';
+  pillarsEl.innerHTML=''; dmEl.textContent='';
   adviceEl.textContent = txt;
   $('bazi-elements-balance').textContent = '';
   $('bazi-strengths').textContent = '';
   Object.values(bars).forEach(el=>setBar(el,0));
-
-  // 从文本中抓要点
   const lines = txt.split('\n').map(s=>s.trim()).filter(Boolean).slice(0,6);
   pointsEl.innerHTML = lines.map(s=>`<li>${s}</li>`).join('');
 }
 
-/* ===== 交互 ===== */
+/* ===== 历法切换：显示/隐藏 闰月 & 提示 ===== */
+const calendarSel = $('calendar');
+const leapWrap = $('leapWrap');
+const leapChk = $('isLeap');
+const calendarHint = $('calendarHint');
+calendarSel.addEventListener('change', ()=>{
+  const isLunar = calendarSel.value==='lunar';
+  leapWrap.style.display = isLunar ? 'inline-flex' : 'none';
+  calendarHint.style.display = isLunar ? 'block' : 'none';
+});
+
+/* ===== 交互：生成八字 ===== */
 $('genBtn').addEventListener('click', async ()=>{
-  const birthdate = $('birthdate').value.trim();
-  const birthtime = $('birthtime').value.trim();
-  const err = $('error');
-  if(!birthdate || !birthtime){
+  const err = $('error'); err.style.display='none'; err.textContent='';
+  const cal = calendarSel.value;                      // 'gregorian' | 'lunar'
+  const rawDate = $('birthdate').value.trim();
+  const rawTime = $('birthtime').value.trim();
+
+  if(!rawDate || !rawTime){
     err.textContent = t('need_birth'); err.style.display='block'; return;
   }
-  err.style.display='none';
+
+  // 规范化时间（容错 12:00 pm 等）
+  const time24 = normalizeTimeTo24h(rawTime);
+
+  // 统一得到“阳历 yyyy-mm-dd”
+  let solarDateStr = '';
+  try{
+    if(cal==='gregorian'){
+      const d = normalizeDate(rawDate);
+      // 基础合法性（转数字以备显示）
+      const [Y,M,D] = d.split('-').map(Number);
+      if(!Y || !M || !D) throw new Error('日期无效');
+      // 加一道交叉：阳->农->阳（不要求完全一致的字符串，但确保能往返）
+      const l = solarlunar.solar2lunar(Y,M,D);
+      const check = solarlunar.lunar2solar(l.lYear, l.lMonth, l.lDay, !!l.isLeap);
+      const Y2 = check.cYear || check.year, M2 = (check.cMonth||check.month), D2 = (check.cDay||check.day);
+      if(!(Y===Y2 && M===M2 && D===D2)) throw new Error('阳历往返校验失败');
+      solarDateStr = d;
+    }else{
+      // 农历输入 -> 阳历 + 反向校验
+      const d = normalizeDate(rawDate); // yyyy-mm-dd（这里 date input 已经是这个格式）
+      const [y,m,day] = d.split('-').map(Number);
+      const isLeap = !!leapChk.checked;
+      solarDateStr = lunarToSolarChecked(y,m,day,isLeap);
+    }
+  }catch(e){
+    err.textContent = (e && e.message) ? e.message : '日期换算失败，请检查输入（闰月/大小月）。';
+    err.style.display='block';
+    return;
+  }
 
   // 清场
   $('result').style.display='none';
@@ -402,8 +480,8 @@ $('genBtn').addEventListener('click', async ()=>{
     langName,
     name: $('name').value.trim(),
     gender: $('gender').value,
-    birthdate,
-    birthtime
+    birthdate: solarDateStr, // 统一给后端阳历
+    birthtime: time24
   });
 
   // 进度提示
@@ -412,10 +490,9 @@ $('genBtn').addEventListener('click', async ()=>{
   try{
     const txt = await askAI(prompt);
     const json = safeParseJSONFromText(txt);
-    $('bazi-date').textContent = `输入（UTC+8）：${birthdate} ${birthtime}`;
+    $('bazi-date').textContent = `用于计算（UTC+8，阳历）：${solarDateStr} ${time24}`;
     if(json){
       renderFromJSON(json);
-      // JSON 后面的要点（如果有）
       const rest = txt.replace(/\{[\s\S]*\}/,'').trim();
       const bullets = rest.split('\n').map(s=>s.replace(/^[-•\s]+/,'').trim()).filter(Boolean).slice(0,6);
       pointsEl.innerHTML = bullets.map(s=>`<li>${s}</li>`).join('');
