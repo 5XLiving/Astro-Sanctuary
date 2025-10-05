@@ -158,7 +158,11 @@ footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0;margin-to
         </div>
       </div>
     </div>
-
+    <div id="depsRow" class="muted" style="display:flex;align-items:center;gap:10px;margin-top:8px">
+       <span>依赖状态：</span>
+       <span id="depsStatus" style="color:#ffdf8a">未加载</span>
+       <button id="depsReload" class="btn" style="padding:6px 10px;border-radius:10px">重新加载</button>
+    </div>
     <div class="row cols-3" style="margin-top:10px">
       <div>
         <label class="muted">出生日期</label>
@@ -168,6 +172,7 @@ footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0;margin-to
         <label class="muted">出生时间</label>
         <input type="time" id="birthtime">
       </div>
+      
       <div style="display:flex;align-items:flex-end">
         <button class="btn" id="genBtn">生成八字</button>
       </div>
@@ -226,7 +231,7 @@ footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0;margin-to
   
 <!-- 只需要这个库：本地 + 多CDN 回退 -->
 <script>
-/* ==================== 可选：你的后端地址（留空则本地兜底） ==================== */
+/* ==================== 可选：后端地址（留空则本地兜底） ==================== */
 const WORKER_API = ""; // 例如 "https://xxx.workers.dev/chat"
 
 /* ==================== DOM & 小工具 ==================== */
@@ -251,8 +256,8 @@ function normalizeTime24(t){
 function setBar(el,pct){ if(el) el.style.width=Math.max(0,Math.min(100,pct))+'%'; }
 function el(tag, attrs={}, html=""){ const d=document.createElement(tag); Object.entries(attrs).forEach(([k,v])=>d.setAttribute(k,v)); d.innerHTML=html; return d; }
 
-/* ==================== 依赖加载（超强镜像 + ESM 兜底） ==================== */
-// 我们只依赖 lunar-javascript（本地算四柱），不再强依赖 solarlunar
+/* ==================== 依赖加载（多镜像 + ESM 兜底） ==================== */
+// 仅依赖 lunar-javascript（本地算四柱）
 const LoadUI = {
   mount(){
     if ($('depStatus')) return;
@@ -274,7 +279,6 @@ async function loadScript(src, timeout=15000){
     document.head.appendChild(s);
   });
 }
-
 async function ensureLunarJS(){
   if (window.Solar && window.Lunar) return true;
   LoadUI.set('加载中…', true);
@@ -299,7 +303,7 @@ async function ensureLunarJS(){
       }
     }catch(e){}
   }
-  // ESM 兜底（几乎必达）
+  // ESM 兜底（网络限制下通常可达）
   try{
     const mod = await import('https://esm.sh/lunar-javascript@1.6.15?bundle');
     const ns = mod?.default || mod;
@@ -315,7 +319,6 @@ const STEM_ELEM={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚
 const BRANCH_ELEM={子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'};
 const SEASON_BY_MONTH_BRANCH={寅:'春',卯:'春',辰:'春',巳:'夏',午:'夏',未:'夏',申:'秋',酉:'秋',戌:'秋',亥:'冬',子:'冬',丑:'冬'};
 const YANG={甲:1,丙:1,戊:1,庚:1,壬:1};
-
 function tenGod(dm, other){
   const order=['木','火','土','金','水'], i=order.indexOf(STEM_ELEM[dm]), j=order.indexOf(STEM_ELEM[other]);
   const s = YANG[dm]===YANG[other];
@@ -389,7 +392,7 @@ async function genChart(){
     $('bazi-elements-balance').textContent=`五行占比：木${Math.round(pct.wood)} 火${Math.round(pct.fire)} 土${Math.round(pct.earth)} 金${Math.round(pct.metal)} 水${Math.round(pct.water)}`;
 
     const st=judgeStrength(dayGan, pillars.month.zhi, cnt);
-    const adv=elemAdvice({wood:pct.wood,fire:pct.fire,earth:pct.earth,metal:pct.metal,water:pct.water},{stem:dayGan,elem:dmElem});
+    const adv=elemAdvice({wood:pct.wood,fire:pct.fire,earth:pct.earth,metal:pct.metal,water:pct.water)},{stem:dayGan,elem:dmElem});
     const tgY=tenGod(dayGan,pillars.year.gan), tgM=tenGod(dayGan,pillars.month.gan), tgH=tenGod(dayGan,pillars.hour.gan);
     $('bazi-strengths').textContent=`亮点：${[tgY,tgM,tgH].filter(Boolean).join('、')||'均衡'}；强项：${adv.hi}；短板：${adv.lo}`;
     $('bazi-advice').textContent=`核心判断：${st.mark}；季节：${st.season}；策略：${st.focus}。${adv.summary}`;
@@ -403,12 +406,12 @@ async function genChart(){
   }
 }
 
-/* ==================== 心怜管家（简单兜底） ==================== */
+/* ==================== 心怜管家（输入框自适应 + Enter 发送） ==================== */
 function setupChat(){
   const fab=$('ssChatFab'), panel=$('ssChatPanel'), body=$('ssChatBody'),
         input=$('ssChatInput'), send=$('ssChatSend'), closeBtn=$('ssChatClose');
 
-  const open=()=>{ panel.style.display='flex'; input?.focus(); };
+  const open=()=>{ panel.style.display='flex'; input?.focus(); autoGrow(); };
   const close=()=>{ panel.style.display='none'; };
 
   fab?.addEventListener('click',open);
@@ -424,7 +427,13 @@ function setupChat(){
 
   async function askLLM(q){
     const ctx=window.__BaziContext__;
-    // ……保留你原来的调用逻辑……
+    // 这里可对接 WORKER_API；为空时走本地兜底话术
+    if(WORKER_API){
+      try{
+        const r=await fetch(WORKER_API,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q,ctx})});
+        const j=await r.json(); return j.answer || '（空响应）';
+      }catch{ /* ignore */ }
+    }
     if(!ctx) return '先点击“生成八字”，我会结合命盘聊具体方案～';
     return `已记录：日主${ctx.dayMaster}（${ctx.season}令，${ctx.strength}），建议「${ctx.strategy}」。强项${ctx.strong}、短板${ctx.weak}。想聊事业/财运/姻缘/起名/风水哪一块？`;
   }
@@ -432,8 +441,7 @@ function setupChat(){
   async function sendMsg(){
     const v=(input.value||'').trim();
     if(!v) return;
-    input.value='';
-    autoGrow();                // 发送后收回高度
+    input.value=''; autoGrow();
     push('me',v);
     const t=document.createElement('div'); t.className='ss-msg'; t.textContent='…';
     body.appendChild(t); body.scrollTop=body.scrollHeight;
@@ -441,8 +449,9 @@ function setupChat(){
     t.remove(); push('bot',a);
   }
 
-  // 自动增高：随内容增长到 max-height
+  // 自动增高：随内容增长到 180px 封顶
   function autoGrow(){
+    if(!input) return;
     input.style.height='auto';
     input.style.height=Math.min(input.scrollHeight, 180)+'px';
   }
@@ -462,7 +471,6 @@ function setupChat(){
     push('bot','嗨～我是心怜管家。先在上面生成你的八字，我会结合命盘聊具体方案。');
     body.dataset.inited='1';
   }
-}(body && !body.dataset.inited){ push('bot','嗨～我是心怜管家。先在上面生成你的八字，我会结合命盘聊具体方案。'); body.dataset.inited='1'; }
 }
 
 /* ==================== 绑定 ==================== */
@@ -470,7 +478,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   LoadUI.mount();
   $('genBtn')?.addEventListener('click', genChart);
   setupChat();
-  // 历法提示显隐（你页面里已经有下拉；这里只做提示显隐）
+  // 历法提示显隐
   const cal=$('calendar'), leap=$('leapWrap'), hint=bySel('#calendarHint');
   const toggle=()=>{ const isLunar=cal?.value==='lunar'; if(leap) leap.style.display=isLunar?'inline-flex':'none'; if(hint) hint.style.display=isLunar?'block':'none'; };
   cal?.addEventListener('change',toggle); toggle();
