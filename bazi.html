@@ -176,215 +176,319 @@ footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0;margin-to
   
 <!-- 只需要这个库：本地 + 多CDN 回退 -->
 <script>
-/** ========= 轻量 i18n ========= */
-const LANG_KEY="site_lang";
-const $=id=>document.getElementById(id);
-const getLang=()=>localStorage.getItem(LANG_KEY)||document.documentElement.lang||"zh-CN";
-const I18N={
-  "zh-CN":{need_birth:"请完善出生日期与时间（若选农历，将自动换算为阳历）。",neterr:"网络异常，请稍后再试。",used_solar:(d,t)=>`用于计算（UTC+8，阳历）：${d} ${t}`},
-  "en":{need_birth:"Please provide both date and time. If Lunar is chosen, it will be converted to Solar first.",neterr:"Network error. Try again later.",used_solar:(d,t)=>`Used for calculation (UTC+8, Solar): ${d} ${t}`}
-};
-const t=(k,...a)=>{const L=I18N[getLang()]||I18N["zh-CN"];const v=L[k];return typeof v==="function"?v(...a):(v||k);};
+/* ========== 轻量工具 ========== */
+const $ = id => document.getElementById(id);
 
-/** ========= 稳健 loader（本地优先 + 多镜像回退 + ESM 兜底） ========= */
-function loadScriptOnce(src,timeoutMs=12000){
-  return new Promise((resolve,reject)=>{
-    if([...document.scripts].some(s=>(s.src||"").indexOf(src)>-1)) return resolve("cached");
-    const s=document.createElement("script"); s.src=src; s.async=true; s.crossOrigin="anonymous";
-    const timer=setTimeout(()=>reject(new Error("timeout:"+src)),timeoutMs);
-    s.onload=()=>{clearTimeout(timer);resolve(src);};
-    s.onerror=()=>{clearTimeout(timer);reject(new Error("load failed:"+src));};
+/* ========== 五行/十神基础 ========== */
+const STEMS = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+const BRANCHES = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+const STEM_ELEM = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
+const BRANCH_ELEM = {子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'};
+const SEASON_BY_MONTH_BRANCH = {
+  寅:'春', 卯:'春', 辰:'春',
+  巳:'夏', 午:'夏', 未:'夏',
+  申:'秋', 酉:'秋', 戌:'秋',
+  亥:'冬', 子:'冬', 丑:'冬'
+};
+const DM_TEN_GODS = (()=> {
+  // 十神矩阵：按“日主五行”相对他干五行 → 十神
+  // 同我=比肩/劫财；我生=食神/伤官；我克=偏财/正财；克我=七杀/正官；生我=偏印/正印（阴阳配合）
+  const order = ['木','火','土','金','水'];        // 相生循环：木→火→土→金→水→木
+  const yang = {甲:1,丙:1,戊:1,庚:1,壬:1};         // 阳干
+  function idx(el){ return order.indexOf(el); }
+  function rel(dmEl, otherEl){
+    const i=idx(dmEl), j=idx(otherEl);
+    if(i===j) return 'same';                         // 同我
+    if((i+1)%5===j) return 'output';                 // 我生
+    if((i+2)%5===j) return 'overcome';               // 我克
+    if((i+3)%5===j) return 'be_overcome';            // 克我
+    if((i+4)%5===j) return 'input';                  // 生我
+    return 'other';
+  }
+  function tenGod(dmStem, otherStem){
+    const dmEl = STEM_ELEM[dmStem], oEl = STEM_ELEM[otherStem];
+    const dmYang = !!yang[dmStem], oYang = !!yang[otherStem];
+    const r = rel(dmEl, oEl);
+    const yinSame = (dmYang===oYang); // 阴阳同/异决定正偏
+    if(r==='same')       return yinSame?'比肩':'劫财';
+    if(r==='output')     return yinSame?'食神':'伤官';
+    if(r==='overcome')   return yinSame?'偏财':'正财';
+    if(r==='be_overcome')return yinSame?'七杀':'正官';
+    if(r==='input')      return yinSame?'偏印':'正印';
+    return '';
+  }
+  return tenGod;
+})();
+
+/* ========== 组件加载（简洁版） ========== */
+async function loadScript(src, timeout=12000){
+  if ([...document.scripts].some(s => (s.src||'').includes(src))) return;
+  await new Promise((res, rej)=>{
+    const s=document.createElement('script');
+    s.src=src; s.async=true; s.crossOrigin='anonymous';
+    const t=setTimeout(()=>rej(new Error('timeout '+src)), timeout);
+    s.onload=()=>{clearTimeout(t);res();};
+    s.onerror=()=>{clearTimeout(t);rej(new Error('load failed '+src));};
     document.head.appendChild(s);
   });
 }
-async function ensureSolarlunar(strict){
-  if(window.solarlunar) return true;
-  const sources=[
-    "/assets/vendor/solarlunar.min.js",
-    "https://registry.npmmirror.com/solarlunar/2.0.6/files/solarlunar.min.js",
-    "https://unpkg.zhimg.com/solarlunar@2.0.6/solarlunar.min.js",
-    "https://unpkg.com/solarlunar@2.0.6/solarlunar.min.js",
-    "https://cdn.jsdelivr.net/npm/solarlunar@2.0.6/solarlunar.min.js",
-    "https://fastly.jsdelivr.net/npm/solarlunar@2.0.6/solarlunar.min.js",
-  ];
-  for(const u of sources){
-    try{ await loadScriptOnce(u,10000); if(window.solarlunar){ console.info("[solarlunar] loaded:",u); return true; } }catch(e){}
-  }
-  // ESM 兜底（把模块挂到 window.solarlunar）
+async function ensureLunarJS(){
+  if (window.Solar && window.Lunar) return true;
   try{
-    const mod = await import("https://esm.sh/solarlunar@2.0.6?bundle");
-    window.solarlunar = mod?.default || mod;
-    if(window.solarlunar){ console.info("[solarlunar] loaded via esm.sh"); return true; }
-  }catch(e){}
-  if(strict) throw new Error("农历换算组件加载失败。");
-  return false;
-}
-async function ensureLunarJS(strict){
-  // 可能导出为 window.Solar/Lunar 或 window.lunar.Solar/Lunar
-  const okLocal = !!(window.Solar && window.Lunar) || !!(window.lunar && window.lunar.Solar && window.lunar.Lunar);
-  if(okLocal){ if(window.lunar){ window.Solar=window.lunar.Solar; window.Lunar=window.lunar.Lunar; } return true; }
-  const sources=[
-    "/assets/vendor/lunar.min.js",
-    "https://registry.npmmirror.com/lunar-javascript/1.6.15/files/lunar.min.js",
-    "https://unpkg.zhimg.com/lunar-javascript@1.6.15/lunar.min.js",
-    "https://unpkg.com/lunar-javascript@1.6.15/lunar.min.js",
-    "https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.15/lunar.min.js",
-    "https://fastly.jsdelivr.net/npm/lunar-javascript@1.6.15/lunar.min.js",
-  ];
-  for(const u of sources){
-    try{
-      await loadScriptOnce(u,12000);
-      if(window.Solar && window.Lunar) { console.info("[lunar-js] loaded:",u); return true; }
-      if(window.lunar && window.lunar.Solar && window.lunar.Lunar){ window.Solar=window.lunar.Solar; window.Lunar=window.lunar.Lunar; console.info("[lunar-js] loaded (namespace lunar):",u); return true; }
-    }catch(e){}
+    await loadScript('https://unpkg.zhimg.com/lunar-javascript@1.6.15/lunar.min.js', 15000);
+  }catch{}
+  if(!(window.Solar && window.Lunar)){
+    await loadScript('https://fastly.jsdelivr.net/npm/lunar-javascript@1.6.15/lunar.min.js', 15000);
   }
-  // ESM 兜底
-  try{
-    const mod = await import("https://esm.sh/lunar-javascript@1.6.15?bundle");
-    const ns = mod?.default || mod;
-    window.Solar = ns.Solar; window.Lunar = ns.Lunar;
-    if(window.Solar && window.Lunar){ console.info("[lunar-js] loaded via esm.sh"); return true; }
-  }catch(e){}
-  if(strict) throw new Error("命理计算组件加载失败。");
-  return false;
+  if(window.lunar && window.lunar.Solar && window.lunar.Lunar){
+    window.Solar = window.lunar.Solar; window.Lunar = window.lunar.Lunar;
+  }
+  if(!(window.Solar && window.Lunar)) throw new Error('命理计算组件加载失败。');
 }
 
-/** ========= 输入 & 校验 ========= */
+/* ========== 输入规范化 ========== */
 function normalizeDate(str){
-  if(!str) return "";
+  if(!str) return '';
   if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
   const m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if(m){ const[_,d,mo,y]=m; return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+  if(m){ const [_, d, mo, y] = m; return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`; }
   return str;
 }
 function normalizeTimeTo24h(t){
-  if(!t) return "00:00";
-  const s=t.trim().toLowerCase().replace(/\s+/g,"");
+  if(!t) return '00:00';
+  const s=t.trim().toLowerCase().replace(/\s+/g,'');
   const m=s.match(/^(\d{1,2})(?::?(\d{2}))?(am|pm)?$/);
   if(!m) return t;
-  let hh=parseInt(m[1],10), mm=parseInt(m[2]||"0",10), ap=m[3];
-  if(ap==="am"){ if(hh===12) hh=0; } else if(ap==="pm"){ if(hh!==12) hh+=12; }
-  return String(hh).padStart(2,"0")+":"+String(mm).padStart(2,"0");
-}
-function lunarToSolarChecked(y,m,d,isLeap){
-  const s=window.solarlunar.lunar2solar(y,m,d,!!isLeap);
-  const Y=s.cYear||s.year, M=s.cMonth||s.month, D=s.cDay||s.day;
-  const back=window.solarlunar.solar2lunar(Y,M,D);
-  const pass=back.lYear===y && back.lMonth===m && back.lDay===d && (!!back.isLeap)===!!isLeap;
-  if(!pass) throw new Error("农历/阳历交叉校验失败：请核对闰月与日期。");
-  return `${Y}-${String(M).padStart(2,"0")}-${String(D).padStart(2,"0")}`;
-}
-function solarRoundtripOrSkip(y,m,d){
-  try{
-    if(!window.solarlunar) return true;
-    const l=window.solarlunar.solar2lunar(y,m,d);
-    const r=window.solarlunar.lunar2solar(l.lYear,l.lMonth,l.lDay,!!l.isLeap);
-    const Y2=r.cYear||r.year, M2=r.cMonth||r.month, D2=r.cDay||r.day;
-    return (y===Y2 && m===M2 && d===D2);
-  }catch{ return true; }
+  let hh=parseInt(m[1],10), mm=parseInt(m[2]||'0',10), ap=m[3];
+  if(ap==='am'){ if(hh===12) hh=0; } else if(ap==='pm'){ if(hh!==12) hh+=12; }
+  return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
 }
 
-/** ========= 五行简化 ========= */
-const STEM_ELEM={甲:"木",乙:"木",丙:"火",丁:"火",戊:"土",己:"土",庚:"金",辛:"金",壬:"水",癸:"水"};
-const BRANCH_ELEM={子:"水",丑:"土",寅:"木",卯:"木",辰:"土",巳:"火",午:"火",未:"土",申:"金",酉:"金",戌:"土",亥:"水"};
-const DM_DESC={甲:"外向生发，重长期节奏。",乙:"柔和渗透，稳步推进。",丙:"明朗外放，重速度曝光。",丁:"定向内燃，重深耕口碑。",戊:"承载定盘，重规则壁垒。",己:"滋养落地，重整合服务。",庚:"果断执行，重标准效率。",辛:"精致审慎，重品质风控。",壬:"弹性适配，重信息势能。",癸:"润物无声，重耐力资源。"};
-function countElements(gzList){
-  const cnt={木:0,火:0,土:0,金:0,水:0};
-  gzList.forEach(gz=>{ if(!gz) return; const gan=gz[0], zhi=gz[1]; const e1=STEM_ELEM[gan], e2=BRANCH_ELEM[zhi];
-    if(e1) cnt[e1]+=1; if(e2) cnt[e2]+=1; });
-  const total=Object.values(cnt).reduce((a,b)=>a+b,0)||1;
-  return {pct:{wood:cnt["木"]/total*100, fire:cnt["火"]/total*100, earth:cnt["土"]/total*100, metal:cnt["金"]/total*100, water:cnt["水"]/total*100}};
-}
-
-/** ========= 渲染 ========= */
-function setBar(el,pct){ if(el) el.style.width=Math.max(0,Math.min(100,pct))+"%"; }
+/* ========== 计算与渲染 ========== */
+function setBar(el, pct){ if(el) el.style.width = Math.max(0,Math.min(100,pct))+'%'; }
 function renderPillars(root,p){
-  if(!root) return;
-  root.innerHTML="";
-  [["年柱",p.year],["月柱",p.month],["日柱",p.day],["时柱",p.hour]].forEach(([tit,v])=>{
-    const div=document.createElement("div");
-    div.className="pillar";
-    div.innerHTML=`<div class="tit">${tit}</div><div class="gz">${(v&&v.gz)||"--"}</div>`;
+  root.innerHTML='';
+  [['年柱',p.year],['月柱',p.month],['日柱',p.day],['时柱',p.hour]].forEach(([tit,v])=>{
+    const div=document.createElement('div');
+    div.className='pillar';
+    div.innerHTML=`<div class="tit">${tit}</div><div class="gz">${(v&&v.gz)||'--'}</div>`;
     root.appendChild(div);
   });
 }
-
-/** ========= 主流程 ========= */
-document.addEventListener("DOMContentLoaded", ()=>{
-  const calendarSel=$("calendar");
-  const leapWrap=$("leapWrap");
-  // 只取第一个 calendarHint（避免页面上重复 id）
-  const calendarHint=document.querySelector("#calendarHint");
-  const toggleLunarUI=()=>{
-    const isLunar = calendarSel && calendarSel.value==="lunar";
-    if(leapWrap)     leapWrap.style.display = isLunar?"inline-flex":"none";
-    if(calendarHint) calendarHint.style.display = isLunar?"block":"none";
+function countElementsFromGZ(gzList){
+  const cnt={木:0,火:0,土:0,金:0,水:0};
+  gzList.forEach(gz=>{
+    if(!gz) return;
+    const gan=gz[0], zhi=gz[1];
+    const e1=STEM_ELEM[gan], e2=BRANCH_ELEM[zhi];
+    if(e1) cnt[e1]+=1;
+    if(e2) cnt[e2]+=1;
+  });
+  const total = Object.values(cnt).reduce((a,b)=>a+b,0)||1;
+  const pct = {wood:cnt['木']/total*100, fire:cnt['火']/total*100, earth:cnt['土']/total*100, metal:cnt['金']/total*100, water:cnt['水']/total*100};
+  return {cnt, pct};
+}
+function judgeStrength(dayStem, monthBranch, elemCnt){
+  // 简化判断：月令为主，同气(同五行)与生我为助力；克我为压力。输出 “偏强/平衡/偏弱”
+  const dmEl = STEM_ELEM[dayStem];
+  const season = SEASON_BY_MONTH_BRANCH[monthBranch];
+  const favorBySeason = {
+    春:'木火', 夏:'火土', 秋:'金', 冬:'水', // 夏湿土亦旺
+  }[season] || '';
+  let score = 0;
+  // 月令偏好
+  if(favorBySeason.includes(dmEl)) score += 2;
+  // 同我、印星加分；财官减分（粗略）
+  const same = elemCnt[dmEl]||0;
+  const genEl = {木:'水',火:'木',土:'火',金:'土',水:'金'}[dmEl];   // 生我
+  const drainEl = {木:'火',火:'土',土:'金',金:'水',水:'木'}[dmEl]; // 我生
+  const overcomeEl = {木:'土',火:'金',土:'水',金:'木',水:'火'}[dmEl]; // 我克
+  const beOverEl = {木:'金',火:'水',土:'木',金:'火',水:'土'}[dmEl]; // 克我
+  score += (elemCnt[genEl]||0)*1.5 + (same)*1.2;
+  score -= (elemCnt[beOverEl]||0)*1.5 + (elemCnt[overcomeEl]||0)*0.8;
+  // 结论
+  const mark = score>=4 ? '偏强' : (score<=1 ? '偏弱':'平衡');
+  const focus = mark==='偏强' ? '泄秀/制化' : (mark==='偏弱' ? '补助/顺势' : '守中/调和');
+  return {season, mark, focus};
+}
+function tenGodSummary(dayStem, pillars){
+  const tg = {
+    year: DM_TEN_GODS(dayStem, pillars.year.gan),
+    month:DM_TEN_GODS(dayStem, pillars.month.gan),
+    day:  '日主',
+    hour: DM_TEN_GODS(dayStem, pillars.hour.gan)
   };
-  if(calendarSel) calendarSel.addEventListener("change",toggleLunarUI);
-  toggleLunarUI();
+  const cnt={比肩:0,劫财:0,食神:0,伤官:0,偏财:0,正财:0,七杀:0,正官:0,偏印:0,正印:0};
+  ['year','month','hour'].forEach(k=>{ const v=tg[k]; if(v && cnt[v]!=null) cnt[v]++; });
+  const top = Object.entries(cnt).sort((a,b)=>b[1]-a[1]).filter(([,n])=>n>0).slice(0,3).map(([k,n])=>`${k}×${n}`);
+  return {tg, cnt, top};
+}
+function elemAdvice(elemPct, dm){
+  const arr=[['木',elemPct.wood],['火',elemPct.fire],['土',elemPct.earth],['金',elemPct.metal],['水',elemPct.water]];
+  const hi=arr.slice().sort((a,b)=>b[1]-a[1])[0][0];
+  const lo=arr.slice().sort((a,b)=>a[1]-b[1])[0][0];
+  const idea = {
+    木:'成长/内容/教育/园林/供给链上游',
+    火:'传播/品牌/销售/餐饮/能源/文娱',
+    土:'项目/运营/服务/中台/基建/地产',
+    金:'标准/制造/金融/工具/法务/风控',
+    水:'信息/数据/出行/物流/国际/智库'
+  };
+  return {
+    hi, lo,
+    summary:`偏${hi}、${lo}偏弱。强项侧重「${idea[hi]}」，弱项宜引入外部/流程化；以日主「${dm.stem}（${dm.elem}）」为锚，先顺势再补位。`
+  };
+}
 
-  const genBtn=$("genBtn");
-  if(!genBtn) return;
+/* ========== VIP 七专题生成（可接付费逻辑） ========== */
+function buildVipCards(root, data, isVip=false){
+  const items = [
+    ['姻缘方向','恋爱缘分、婚姻走势', data.v_love],
+    ['事业方向','职场发展、创业潜力', data.v_career],
+    ['财运方向','财位分析、理财时机', data.v_wealth],
+    ['宠物命理','伴侣动物的性格与缘分', data.v_pet],
+    ['合盘分析','婚期择日、新生择时', data.v_match],
+    ['测名分析','公司名、宝宝名、命名改运', data.v_name],
+    ['财位合盘','住家 / 办公室动线配合', data.v_fengshui],
+  ];
+  const wrap = document.createElement('section');
+  wrap.className='card section';
+  wrap.innerHTML = `<div class="h2">VIP 命理空间</div><div id="vip-grid" style="display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));"></div>`;
+  const grid = wrap.querySelector('#vip-grid');
+  items.forEach(([title, sub, content])=>{
+    const el=document.createElement('div');
+    el.style.cssText='background:#0f1624;border:1px solid #253245;border-radius:12px;padding:12px;';
+    if(isVip){
+      el.innerHTML = `<div style="font-weight:700;margin-bottom:4px">${title}</div>
+      <div class="muted" style="margin-bottom:6px">${sub}</div>
+      <div style="white-space:pre-wrap;line-height:1.7">${content}</div>`;
+    }else{
+      el.innerHTML = `<div style="font-weight:700;margin-bottom:4px">${title}</div>
+      <div class="muted" style="margin-bottom:6px">${sub}</div>
+      <div class="muted">试读：${content.split('；')[0]}。<br/>…</div>`;
+    }
+    grid.appendChild(el);
+  });
+  root.appendChild(wrap);
+}
 
-  // 预热（不阻塞 UI）：先尝试加载，失败没关系，点击时会严格加载
-  ensureLunarJS(false).catch(()=>{});
-  ensureSolarlunar(false).catch(()=>{});
+/* ========== 主流程绑定 ========== */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const genBtn = $('genBtn'), calendarSel = $('calendar');
+  const bars={wood:$('bar-wood'),fire:$('bar-fire'),earth:$('bar-earth'),metal:$('bar-metal'),water:$('bar-water')};
+  const result = $('result');
 
-  genBtn.addEventListener("click", async ()=>{
-    const err=$("error"); if(err){ err.style.display="none"; err.textContent=""; }
-    const rawDate = ($("birthdate")&&$("birthdate").value||"").trim();
-    const rawTime = ($("birthtime")&&$("birthtime").value||"").trim();
-    const isLunar = calendarSel && calendarSel.value==="lunar";
-    const isLeap  = ($("isLeap")&&$("isLeap").checked)||false;
-
-    if(!rawDate||!rawTime){ if(err){err.textContent=t("need_birth");err.style.display="block";} return; }
+  genBtn.addEventListener('click', async ()=>{
+    const err=$('error'); err.style.display='none'; err.textContent='';
+    const rawDate = ($('birthdate').value||'').trim();
+    const rawTime = ($('birthtime').value||'').trim();
+    if(!rawDate || !rawTime){ err.textContent='请完善出生日期与时间。'; err.style.display='block'; return; }
 
     try{
-      // 严格加载：确保两大库都 ready
-      await ensureLunarJS(true);
-      if(isLunar) await ensureSolarlunar(true); else await ensureSolarlunar(false);
+      await ensureLunarJS();
+      const time24 = normalizeTimeTo24h(rawTime);
+      const [Y,M,D] = normalizeDate(rawDate).split('-').map(Number);
+      const [hh,mm] = time24.split(':').map(Number);
 
-      const time24=normalizeTimeTo24h(rawTime);
-      // 统一阳历
-      let solarDateStr="";
-      if(isLunar){
-        const [y,m,d]=normalizeDate(rawDate).split("-").map(Number);
-        solarDateStr=lunarToSolarChecked(y,m,d,isLeap);
-      }else{
-        const dstr=normalizeDate(rawDate); const [Y,M,D]=dstr.split("-").map(Number);
-        if(!solarRoundtripOrSkip(Y,M,D)) throw new Error("阳历往返校验失败：请检查日期。");
-        solarDateStr=dstr;
-      }
+      // 计算四柱
+      const solar = Solar.fromYmdHms(Y,M,D,hh,mm||0,0);
+      const lunar = solar.getLunar();
+      const ec = lunar.getEightChar();
 
-      // 计算四柱（lunar-javascript；默认 UTC+8）
-      const [Y,M,D] = solarDateStr.split("-").map(Number);
-      const [hh,mm] = time24.split(":").map(Number);
-      const SolarCls = window.Solar || (window.lunar && window.lunar.Solar);
-      const solar    = SolarCls.fromYmdHms(Y,M,D,hh,mm||0,0);
-      const lunar    = solar.getLunar();
-      const ec       = lunar.getEightChar();
+      const gzYear = ec.getYear(), gzMonth = ec.getMonth(), gzDay = ec.getDay(), gzHour = ec.getTime();
+      const dayGan = ec.getDayGan(), dayZhi = ec.getDayZhi();
 
-      const gzYear=ec.getYear(), gzMonth=ec.getMonth(), gzDay=ec.getDay(), gzHour=ec.getTime();
-      const dayGan=ec.getDayGan(), dmElem=STEM_ELEM[dayGan]||"", dmDesc=DM_DESC[dayGan]||"";
+      // 渲染基础
+      result.style.display='block';
+      $('bazi-date').textContent = `用于计算（UTC+8，阳历）：${Y}-${String(M).padStart(2,'0')}-${String(D).padStart(2,'0')} ${time24}`;
+      renderPillars($('bazi-pillars'), {
+        year:{gz:gzYear, gan:gzYear[0], zhi:gzYear[1]},
+        month:{gz:gzMonth,gan:gzMonth[0],zhi:gzMonth[1]},
+        day:{gz:gzDay,gan:gzDay[0],zhi:gzDay[1]},
+        hour:{gz:gzHour,gan:gzHour[0],zhi:gzHour[1]}
+      });
 
-      // 渲染
-      const resultWrap = $("result"); if(resultWrap) resultWrap.style.display="block";
-      const pillarsEl  = $("bazi-pillars"); renderPillars(pillarsEl,{year:{gz:gzYear},month:{gz:gzMonth},day:{gz:gzDay},hour:{gz:gzHour}});
-      const dmEl       = $("bazi-day-master"); if(dmEl) dmEl.textContent=`日主：${dayGan}（${dmElem}） ${dmDesc}`;
-      const dateEl     = $("bazi-date"); if(dateEl) dateEl.textContent=t("used_solar", solarDateStr, time24);
+      const dmElem = STEM_ELEM[dayGan];
+      $('bazi-day-master').textContent = `日主：${dayGan}（${dmElem}）`;
 
-      const bars={wood:$("bar-wood"),fire:$("bar-fire"),earth:$("bar-earth"),metal:$("bar-metal"),water:$("bar-water")};
-      const {pct}=countElements([gzYear,gzMonth,gzDay,gzHour]);
-      setBar(bars.wood,pct.wood); setBar(bars.fire,pct.fire); setBar(bars.earth,pct.earth); setBar(bars.metal,pct.metal); setBar(bars.water,pct.water);
-      const balEl=$("bazi-elements-balance");
-      if(balEl) balEl.textContent=`五行占比：木${Math.round(pct.wood)} 火${Math.round(pct.fire)} 土${Math.round(pct.earth)} 金${Math.round(pct.metal)} 水${Math.round(pct.water)}`;
+      // 五行占比
+      const pillars = {
+        year:{gz:gzYear, gan:gzYear[0], zhi:gzYear[1]},
+        month:{gz:gzMonth,gan:gzMonth[0],zhi:gzMonth[1]},
+        day:{gz:gzDay,gan:gzDay[0],zhi:gzDay[1]},
+        hour:{gz:gzHour,gan:gzHour[0],zhi:gzHour[1]}
+      };
+      const {cnt, pct} = countElementsFromGZ([gzYear,gzMonth,gzDay,gzHour]);
+      setBar(bars.wood, pct.wood); setBar(bars.fire, pct.fire); setBar(bars.earth, pct.earth); setBar(bars.metal, pct.metal); setBar(bars.water, pct.water);
+      $('bazi-elements-balance').textContent =
+        `五行占比：木${Math.round(pct.wood)} 火${Math.round(pct.fire)} 土${Math.round(pct.earth)} 金${Math.round(pct.metal)} 水${Math.round(pct.water)}`;
 
-      const adv=$("bazi-advice");
-      if(adv) adv.textContent="核心判断：围绕日主特性与五行偏向，先顺势再补位；强项快、弱项稳。";
+      // 日主强弱 & 用神方向
+      const season = SEASON_BY_MONTH_BRANCH[pillars.month.zhi];
+      const strength = judgeStrength(dayGan, pillars.month.zhi, cnt);
+      const elemAdv = elemAdvice({wood:pct.wood,fire:pct.fire,earth:pct.earth,metal:pct.metal,water:pct.water},{stem:dayGan,elem:dmElem});
+
+      // 十神分布
+      const tg = tenGodSummary(dayGan, pillars);
+
+      // —— 进阶解析：一段长文 + 要点
+      // 1) 清理旧的进阶/VIP块
+      document.querySelectorAll('#adv-section, #vip-section').forEach(n=>n.remove());
+
+      const adv = document.createElement('section');
+      adv.id = 'adv-section';
+      adv.className='card section';
+      const longText =
+`命盘速览：
+· 日主：${dayGan}（${dmElem}），月令${season}气象，整体呈「${strength.mark}」取向，宜「${strength.focus}」。
+· 四柱：${gzYear}｜${gzMonth}｜${gzDay}｜${gzHour}
+· 十神重心：${tg.top.join('、') || '分布均衡'}；（年/月/时干相对日主：${tg.tg.year||'-'}｜${tg.tg.month||'-'}｜${tg.tg.hour||'-'}）
+· 资源结构：${elemAdv.summary}
+
+用神/忌神（简化）：
+- 用神侧重：当日主「${strength.mark}」时，${strength.mark==='偏强'?'宜取「泄秀（食伤）/制化（财官）」':'宜取「印比/同气」为主'}；结合当下任务灵活取舍。
+- 场景策略：强项快推（${elemAdv.hi}类），弱项设边界（${elemAdv.lo}类）并引入外部协作。
+
+节奏建议：
+- 季节顺势：${season}令下宜${season==='春'?'生发启动、先铺内容与渠道':season==='夏'?'扩张曝光、定目标强推进':season==='秋'?'收敛打磨、确立标准与质控':'信息集结、沉淀体系、耐心蓄势'}。
+- 时间管理：强势时段多做决策与推进；弱势时段安排复盘与补位。`;
+
+      adv.innerHTML = `
+        <div class="h2">进阶解析</div>
+        <div style="white-space:pre-wrap;line-height:1.8">${longText}</div>
+        <ul class="ul" style="margin-top:6px">
+          <li>重点资源：${elemAdv.hi}；短板：${elemAdv.lo}</li>
+          <li>十神提示：${tg.top.join('、') || '均衡分布，注意根据任务切换角色'}</li>
+          <li>当前总评：${strength.mark}，建议「${strength.focus}」</li>
+        </ul>`;
+      result.parentNode.insertBefore(adv, result.nextSibling);
+
+      // —— VIP 命理空间：按你七专题生成要点文案（示例逻辑）
+      const isVip=false; // 你接入登录/支付后把它设为 true
+      const vdata = {
+        v_love:    `${strength.mark==='偏强'?'先事业后婚恋，择能量平衡型伴侣':'先稳定再推进，择互补型伴侣'}；留意${elemAdv.lo}类冲突，优先在${elemAdv.hi}场景结缘。`,
+        v_career:  `职业倾向：${elemAdv.hi}行业更顺；${elemAdv.lo}相关宜外包/搭档。${tg.cnt['正官']>0?'官星见，宜走标准化/管理线；':''}${tg.cnt['食神']+tg.cnt['伤官']>0?'食伤旺，内容/产品/创作有势；':''}`,
+        v_wealth:  `财气来源：${tg.cnt['正财']+tg.cnt['偏财']>0?'财星透，财路清晰；':''}${strength.mark==='偏强'?'注意分散风险、合理纳税':''}；理财节奏：强势期增配指数/工具，弱势期现金流为先。`,
+        v_pet:     `适配性格：${dmElem==='木'?'温顺聪明型（犬/鹦鹉）':dmElem==='火'?'活泼热情型（犬/小型猫）':dmElem==='土'?'稳定依恋型（猫/仓鼠）':dmElem==='金'?'安静守序型（猫/鱼）':'灵动灵性型（猫/鱼）'}；日常以${elemAdv.hi}元素色系与玩具增缘。`,
+        v_match:   `婚期/择日：用神当令（月度${season}相生之月/日）、避开${elemAdv.lo}过弱的时段；新生择时以${strength.mark==='偏强'?'印财调候':'印比护身'}为优先。`,
+        v_name:    `命名取象：补「${elemAdv.lo}」避「过旺${elemAdv.hi}」；公司名偏${elemAdv.hi}意象更利品牌势能；宝宝名以${strength.mark==='偏强'?'收敛/稳重':'明朗/阳刚'}为宜。`,
+        v_fengshui:`财位动线：${elemAdv.hi}方位布光/动线/绿植增强气场；${elemAdv.lo}方位以收纳/整洁化解；工位布局遵循“强项侧、入口亮、弱项静”。`
+      };
+      const vipWrap = document.createElement('div');
+      vipWrap.id='vip-section';
+      result.parentNode.insertBefore(vipWrap, adv.nextSibling);
+      buildVipCards(vipWrap, vdata, /* isVip */ false);
+
+      // —— 命格简评（沿用顶部卡）
+      $('bazi-advice').textContent = `核心判断：${strength.mark}；节奏：${season}令取「${strength.focus}」。${elemAdv.summary}`;
+
+      // —— 亮点行（可显示十神/强项）
+      $('bazi-strengths').textContent = `亮点：${tg.top.join('、') || '平衡协调'}；强项方向：${elemAdv.hi}；短板：${elemAdv.lo}`;
 
     }catch(e){
-      const errEl=$("error"); if(errEl){ errEl.textContent=(e&&e.message)||t("neterr"); errEl.style.display="block"; }
-      const resultWrap=$("result"); if(resultWrap) resultWrap.style.display="block";
+      const err=$('error'); err.textContent = e && e.message ? e.message : '网络异常，请稍后再试。';
+      err.style.display='block';
+      $('result').style.display='block';
     }
   });
 });
