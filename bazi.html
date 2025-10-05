@@ -200,493 +200,236 @@ footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0;margin-to
 </div>
 
 <script>
-/* ===== 配置 ===== */
-const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+/* ------------ 轻量 i18n ------------ */
 const LANG_KEY = "site_lang";
-
-/* ===== 工具 ===== */
 const $ = id => document.getElementById(id);
 const getLang = () => localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN";
-const setLang = v => { localStorage.setItem(LANG_KEY, v); document.documentElement.lang = v; };
-
-/* ===== i18n（精简） ===== */
 const i18n = {
   "zh-CN": {
-    title:"八字命理 · 5XLiving", brand:"Soul Sanctuary", lang_label:"语言",
-    site_title:"命理供门 · 八字简评", site_subtitle:"免费版 · 全面不深｜VIP 解锁流年/大运/择日/命名",
-    form_title:"八字命理 · 快速排盘",
-    name_label:"姓名（可选）", ph_name:"你的称呼（用于个性化）",
-    gender_label:"性别", gender_unknown:"不透露", gender_male:"男性", gender_female:"女性", gender_other:"其他",
-    calendar_label:"历法", opt_gregorian:"阳历 / Gregorian", opt_lunar:"农历 / Lunar",
-    birth_label:"出生日期", birth_time_label:"出生时间",
-    btn_generate:"生成八字",
-    tip_tz:"提示：临时默认东八区（UTC+8）。后续将支持按出生地换算。",
-    sec_bazi:"八字命理排盘", sec_wuxing:"五行分析", sec_summary:"命格简评",
     need_birth:"请完善出生日期与时间（若选农历，将自动换算为阳历）。",
-    generating:"正在生成排盘与简评…",
-    neterr:"网络异常，请稍后再试。", retry:"抱歉，暂时无法生成，请稍后再试。"
+    generating:"正在生成排盘…",
+    neterr:"网络异常，请稍后再试。",
+    used_solar:(d,t)=>`用于计算（UTC+8，阳历）：${d} ${t}`,
   },
   "en": {
-    title:"BaZi (Four Pillars) · 5XLiving", brand:"Soul Sanctuary", lang_label:"Language",
-    site_title:"Astro Gate · BaZi Snapshot", site_subtitle:"Free preview · Deeper with VIP",
-    form_title:"BaZi · Quick Chart",
-    name_label:"Name (optional)", ph_name:"How to address you",
-    gender_label:"Gender", gender_unknown:"Prefer not to say", gender_male:"Male", gender_female:"Female", gender_other:"Other",
-    calendar_label:"Calendar", opt_gregorian:"Gregorian (Solar)", opt_lunar:"Lunar",
-    birth_label:"Birthdate", birth_time_label:"Birth time",
-    btn_generate:"Generate",
-    tip_tz:"Note: temporarily assumes UTC+8.",
-    sec_bazi:"BaZi Chart", sec_wuxing:"Five-Elements Balance", sec_summary:"Reading",
     need_birth:"Please provide both date and time. If Lunar is chosen, it will be converted to Solar first.",
-    generating:"Generating chart & summary…",
-    neterr:"Network error. Try again."
-  },
-  "ms": {
-    title:"BaZi · 5XLiving", brand:"Soul Sanctuary", lang_label:"Bahasa",
-    site_title:"Gerbang Astro · Ringkasan BaZi", site_subtitle:"Percuma · Versi VIP lebih mendalam",
-    form_title:"BaZi · Carta Pantas",
-    name_label:"Nama (pilihan)", ph_name:"Cara memanggil anda",
-    gender_label:"Jantina", gender_unknown:"Rahsiakan", gender_male:"Lelaki", gender_female:"Perempuan", gender_other:"Lain",
-    calendar_label:"Kalendar", opt_gregorian:"Gregorian (Suria)", opt_lunar:"Lunar",
-    birth_label:"Tarikh lahir", birth_time_label:"Masa lahir",
-    btn_generate:"Jana",
-    tip_tz:"Nota: buat masa ini menganggap UTC+8.",
-    sec_bazi:"Carta BaZi", sec_wuxing:"Keseimbangan Lima Unsur", sec_summary:"Ringkasan",
-    need_birth:"Sila isi tarikh & masa. Jika Lunar dipilih, akan ditukar kepada Suria dahulu.",
-    generating:"Menjana carta & ringkasan…",
-    neterr:"Ralat rangkaian."
+    generating:"Generating chart…",
+    neterr:"Network error. Try again later.",
+    used_solar:(d,t)=>`Used for calculation (UTC+8, Solar): ${d} ${t}`,
   }
 };
-function t(key){ const L=i18n[getLang()]||i18n["zh-CN"]; return L[key] || (i18n["zh-CN"][key]||key); }
-function applyI18n(){
-  document.querySelectorAll("[data-i18n]").forEach(el=>{ const k=el.getAttribute("data-i18n"); el.textContent = t(k); });
-  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ const k=el.getAttribute("data-i18n-ph"); el.setAttribute("placeholder", t(k)); });
-  const titleEl=document.querySelector("title[data-i18n], title[data-i18n='title']"); if(titleEl){ titleEl.textContent=t("title"); }
-}
+const t = (k,...a) => { const L=i18n[getLang()]||i18n["zh-CN"]; const v=L[k]; return (typeof v==="function")?v(...a):(v||k); };
 
-/* ===== Chat 浮窗（原样） ===== */
-(function(){
-  const fab=$('ssChatFab'), panel=$('ssChatPanel'), body=$('ssChatBody'), input=$('ssChatInput'), send=$('ssChatSend'), closeBtn=$('ssChatClose');
-  function addMsg(text,me=false){const d=document.createElement('div');d.className='ss-msg'+(me?' me':'');d.textContent=text;body.appendChild(d);body.scrollTop=body.scrollHeight;}
-  async function askChat(prompt){
-    addMsg(prompt,true); input.value='';
+/* ------------ 动态加载依赖库（多 CDN 回退） ------------ */
+async function loadScriptOnce(urls){
+  for(const src of urls){
     try{
-      const r=await fetch(`${API_BASE}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[
-        {role:'system',content:'你是“心怜管家”，语气温暖专业、简洁有条理，提供网站导航与一般咨询。'},
-        {role:'user',content:prompt}
-      ]})});
-      let data={}; try{data=await r.json()}catch{}
-      const reply=data.reply??data.text??data?.choices?.[0]?.message?.content??'';
-      addMsg(reply||t('retry'));
-    }catch{ addMsg(t('neterr')); }
-  }
-  fab.addEventListener('click',()=>{panel.style.display='flex';input.focus()});
-  closeBtn.addEventListener('click',()=>panel.style.display='none');
-  send.addEventListener('click',()=>{const v=input.value.trim();if(v)askChat(v)});
-  input.addEventListener('keydown',e=>{if(e.key==='Enter'){const v=input.value.trim();if(v)askChat(v)}});
-})();
-
-/* ===== 渲染工具 ===== */
-const pillarsEl = $('bazi-pillars');
-const dateEl = $('bazi-date');
-const dmEl = $('bazi-day-master');
-const adviceEl = $('bazi-advice');
-const pointsEl = $('fate-points');
-const bars = {
-  wood: $('bar-wood'),
-  fire: $('bar-fire'),
-  earth: $('bar-earth'),
-  metal: $('bar-metal'),
-  water: $('bar-water')
-};
-function setBar(el, pct){ el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
-function renderPillars(p){
-  pillarsEl.innerHTML = '';
-  const map = [
-    ['年柱', p.year], ['月柱', p.month], ['日柱', p.day], ['时柱', p.hour]
-  ];
-  map.forEach(([tit, v])=>{
-    const div = document.createElement('div');
-    div.className='pillar';
-    div.innerHTML = `<div class="tit">${tit}</div><div class="gz">${(v && v.gz) || '--'}</div>`;
-    pillarsEl.appendChild(div);
-  });
-}
-
-/* ===== 输入规范化 & 农历<->阳历 交叉校验 ===== */
-function normalizeDate(str){
-  if(!str) return '';
-  if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str; // yyyy-mm-dd
-  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); // dd/mm/yyyy
-  if(m){ const [_, d, mo, y] = m; return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`; }
-  return str;
-}
-function normalizeTimeTo24h(t){
-  if(!t) return '00:00';
-  const s = t.trim().toLowerCase().replace(/\s+/g,'');
-  const m = s.match(/^(\d{1,2})(?::?(\d{2}))?(am|pm)?$/);
-  if(!m) return t; // 原生 <input type="time"> 已是 HH:MM
-  let hh = parseInt(m[1],10), mm = parseInt(m[2]||'0',10);
-  const ap = m[3];
-  if(ap === 'am'){ if(hh===12) hh=0; }
-  else if(ap === 'pm'){ if(hh!==12) hh+=12; }
-  return String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
-}
-function lunarToSolarChecked(y, m, d, isLeap){
-  const s = solarlunar.lunar2solar(y, m, d, !!isLeap);
-  const Y = s.cYear || s.gregorianYear || s.year;
-  const M = s.cMonth || s.gregorianMonth || s.month;
-  const D = s.cDay || s.gregorianDay || s.day;
-  const back = solarlunar.solar2lunar(Y, M, D);
-  const ok = back.lYear===y && back.lMonth===m && back.lDay===d && (!!back.isLeap)===!!isLeap;
-  if(!ok) throw new Error('农历/阳历交叉校验失败：请确认闰月是否正确、日期是否有效。');
-  return `${Y}-${String(M).padStart(2,'0')}-${String(D).padStart(2,'0')}`;
-}
-
-/* ===== 组装提示（请求后端算盘并返回结构化） ===== */
-function buildPromptBaZi({langName, name, gender, birthdate, birthtime}){
-  const dt = `${birthdate} ${birthtime}:00`;
-  return `你是 5XLiving 的“心怜管家”与专业命理助手。请以【${langName}】输出，并返回一个 JSON + 简短文字说明，用于前端渲染。
-输入：
-- 历法：阳历（Gregorian）
-- 时区：默认东八区（UTC+8）
-- 出生：${dt}
-- 姓名：${name||'（未填）'}；性别：${gender||'（未填）'}
-
-请先计算四柱（年、月、日、时）天干地支与日主，然后评估五行占比。严格按下方 JSON 结构返回（0–100 为相对占比）：
-{
-  "pillars":{
-    "year":{"gz":"甲子"},
-    "month":{"gz":"丙寅"},
-    "day":{"gz":"辛卯"},
-    "hour":{"gz":"癸亥"}
-  },
-  "dayMaster":{"stem":"辛","element":"金","desc":"…"},
-  "elements":{"wood":0,"fire":0,"earth":0,"metal":0,"water":0},
-  "strengths":["…","…"],
-  "advice":"（3-6 段短句，围绕节奏/取舍/合作/健康/财务）"
-}
-紧随 JSON 后，再输出 3-5 条要点（短句）。不要添加无关前后缀。`;
-}
-
-/* ===== 请求 AI（命理） ===== */
-async function askAI(prompt){
-  const resp = await fetch(`${API_BASE}/api/chat`,{
-    method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({messages:[
-      {role:'system',content:'你会计算八字四柱（可用简化近似），并生成结构化 JSON 供前端渲染；语言简洁、专业、可执行。'},
-      {role:'user',content:prompt}
-    ]})
-  });
-  let data={}; try{data=await resp.json()}catch{}
-  return data.reply ?? data.text ?? data?.choices?.[0]?.message?.content ?? '';
-}
-function safeParseJSONFromText(txt){
-  const m = txt.match(/\{[\s\S]*\}/);
-  if(!m) return null;
-  try{ return JSON.parse(m[0]); }catch{ return null; }
-}
-function renderFromJSON(j){
-  $('result').style.display='block';
-  renderPillars(j.pillars||{});
-
-  const dm = j.dayMaster||{};
-  dmEl.textContent = dm.stem ? `日主：${dm.stem}（${dm.element||''}） ${dm.desc||''}` : '';
-
-  const e = j.elements||{};
-  const sum = Math.max(1, (e.wood||0)+(e.fire||0)+(e.earth||0)+(e.metal||0)+(e.water||0));
-  setBar(bars.wood,  (e.wood||0)/sum*100);
-  setBar(bars.fire,  (e.fire||0)/sum*100);
-  setBar(bars.earth, (e.earth||0)/sum*100);
-  setBar(bars.metal, (e.metal||0)/sum*100);
-  setBar(bars.water, (e.water||0)/sum*100);
-
-  $('bazi-elements-balance').textContent =
-    `五行占比：木${e.wood||0} 火${e.fire||0} 土${e.earth||0} 金${e.metal||0} 水${e.water||0}`;
-  $('bazi-strengths').textContent = (j.strengths||[]).length ? `亮点：${j.strengths.join('；')}` : '';
-
-  adviceEl.textContent = j.advice || '';
-}
-function renderFallbackText(txt){
-  $('result').style.display='block';
-  pillarsEl.innerHTML=''; dmEl.textContent='';
-  adviceEl.textContent = txt;
-  $('bazi-elements-balance').textContent = '';
-  $('bazi-strengths').textContent = '';
-  Object.values(bars).forEach(el=>setBar(el,0));
-  const lines = txt.split('\n').map(s=>s.trim()).filter(Boolean).slice(0,6);
-  pointsEl.innerHTML = lines.map(s=>`<li>${s}</li>`).join('');
-}
-
-/* ===== 历法切换：显示/隐藏 闰月 & 提示 ===== */
-const calendarSel = $('calendar');
-const leapWrap = $('leapWrap');
-const leapChk = $('isLeap');
-const calendarHint = $('calendarHint');
-calendarSel.addEventListener('change', ()=>{
-  const isLunar = calendarSel.value==='lunar';
-  leapWrap.style.display = isLunar ? 'inline-flex' : 'none';
-  calendarHint.style.display = isLunar ? 'block' : 'none';
-});
-
-/* ===== 交互：生成八字 ===== */
-$('genBtn').addEventListener('click', async ()=>{
-  const err = $('error'); err.style.display='none'; err.textContent='';
-  const cal = calendarSel.value;                      // 'gregorian' | 'lunar'
-  const rawDate = $('birthdate').value.trim();
-  const rawTime = $('birthtime').value.trim();
-
-  if(!rawDate || !rawTime){
-    err.textContent = t('need_birth'); err.style.display='block'; return;
-  }
-
-  // 规范化时间（容错 12:00 pm 等）
-  const time24 = normalizeTimeTo24h(rawTime);
-
-  // 统一得到“阳历 yyyy-mm-dd”
-  let solarDateStr = '';
-  try{
-    if(cal==='gregorian'){
-      const d = normalizeDate(rawDate);
-      // 基础合法性（转数字以备显示）
-      const [Y,M,D] = d.split('-').map(Number);
-      if(!Y || !M || !D) throw new Error('日期无效');
-      // 加一道交叉：阳->农->阳（不要求完全一致的字符串，但确保能往返）
-      const l = solarlunar.solar2lunar(Y,M,D);
-      const check = solarlunar.lunar2solar(l.lYear, l.lMonth, l.lDay, !!l.isLeap);
-      const Y2 = check.cYear || check.year, M2 = (check.cMonth||check.month), D2 = (check.cDay||check.day);
-      if(!(Y===Y2 && M===M2 && D===D2)) throw new Error('阳历往返校验失败');
-      solarDateStr = d;
-    }else{
-      // 农历输入 -> 阳历 + 反向校验
-      const d = normalizeDate(rawDate); // yyyy-mm-dd（这里 date input 已经是这个格式）
-      const [y,m,day] = d.split('-').map(Number);
-      const isLeap = !!leapChk.checked;
-      solarDateStr = lunarToSolarChecked(y,m,day,isLeap);
-    }
-  }catch(e){
-    err.textContent = (e && e.message) ? e.message : '日期换算失败，请检查输入（闰月/大小月）。';
-    err.style.display='block';
-    return;
-  }
-
-  // 清场
-  $('result').style.display='none';
-  pillarsEl.innerHTML=''; adviceEl.textContent=''; pointsEl.innerHTML='';
-  Object.values(bars).forEach(el=>setBar(el,0));
-
-  const langName = ({'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ms':'Bahasa Melayu'})[getLang()] || '简体中文';
-  const prompt = buildPromptBaZi({
-    langName,
-    name: $('name').value.trim(),
-    gender: $('gender').value,
-    birthdate: solarDateStr, // 统一给后端阳历
-    birthtime: time24
-  });
-
-  // 进度提示
-  adviceEl.textContent = t('generating');
-
-  try{
-    const txt = await askAI(prompt);
-    const json = safeParseJSONFromText(txt);
-    $('bazi-date').textContent = `用于计算（UTC+8，阳历）：${solarDateStr} ${time24}`;
-    if(json){
-      renderFromJSON(json);
-      const rest = txt.replace(/\{[\s\S]*\}/,'').trim();
-      const bullets = rest.split('\n').map(s=>s.replace(/^[-•\s]+/,'').trim()).filter(Boolean).slice(0,6);
-      pointsEl.innerHTML = bullets.map(s=>`<li>${s}</li>`).join('');
-    }else{
-      renderFallbackText(txt || t('retry'));
-    }
-  }catch(e){
-    adviceEl.textContent = t('neterr');
-    $('result').style.display='block';
-  }
-});
-
-/* ===== 语言切换 ===== */
-const sel = $('langSelect');
-sel.value = getLang();
-applyI18n();
-sel.addEventListener('change', ()=>{ setLang(sel.value); applyI18n(); });
-
-document.documentElement.lang = getLang();
-applyI18n();
-
-/* ========= 多 CDN 动态加载 solarlunar，保证可用 ========= */
-async function ensureLunarLib(){
-  if (window.solarlunar) return true;
-  const cdns = [
-    'https://unpkg.com/solarlunar@2.0.6/solarlunar.min.js',
-    'https://cdn.jsdelivr.net/npm/solarlunar@2.0.6/solarlunar.min.js',
-    'https://fastly.jsdelivr.net/npm/solarlunar@2.0.6/solarlunar.min.js'
-  ];
-  for (const src of cdns){
-    try{
-      await new Promise((resolve, reject)=>{
-        const s = document.createElement('script');
-        s.src = src;
-        s.async = true;
-        s.crossOrigin = 'anonymous';
-        s.onload = ()=>resolve();
-        s.onerror = ()=>reject(new Error('load failed: '+src));
-        document.head.appendChild(s);
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script'); s.src=src; s.async=true; s.crossOrigin='anonymous';
+        s.onload=()=>res(); s.onerror=()=>rej(new Error('load failed '+src)); document.head.appendChild(s);
       });
-      if (window.solarlunar) return true;
+      return true;
     }catch(e){}
   }
   return false;
 }
+async function ensureDeps(){
+  // solarlunar：农历<->阳历互转（做交叉校验）
+  if(!window.solarlunar){
+    const ok = await loadScriptOnce([
+      'https://unpkg.com/solarlunar@2.0.6/solarlunar.min.js',
+      'https://cdn.jsdelivr.net/npm/solarlunar@2.0.6/solarlunar.min.js',
+      'https://fastly.jsdelivr.net/npm/solarlunar@2.0.6/solarlunar.min.js'
+    ]);
+    if(!ok) throw new Error('农历换算组件加载失败（网络/CDN）。');
+  }
+  // lunar-javascript：四柱/干支计算
+  if(!window.Lunar || !window.Solar){
+    const ok = await loadScriptOnce([
+      'https://unpkg.com/lunar-javascript@1.6.15/lunar.min.js',
+      'https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.15/lunar.min.js',
+      'https://fastly.jsdelivr.net/npm/lunar-javascript@1.6.15/lunar.min.js'
+    ]);
+    if(!ok) throw new Error('命理计算组件加载失败（网络/CDN）。');
+  }
+}
 
-/* ========= 你现有的工具函数（保留） ========= */
+/* ------------ 输入规范化 & 农历<->阳历 交叉校验 ------------ */
 function normalizeDate(str){
   if(!str) return '';
-  if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str; // yyyy-mm-dd
-  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); // dd/mm/yyyy
-  if(m){ const [_, d, mo, y] = m; return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`; }
+  if(/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;                // yyyy-mm-dd
+  const m=str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);          // dd/mm/yyyy
+  if(m){ const [_,d,mo,y]=m; return `${y}-${mo.padStart(2,'0')}-${d.padStart(2,'0')}`; }
   return str;
 }
 function normalizeTimeTo24h(t){
   if(!t) return '00:00';
-  const s = t.trim().toLowerCase().replace(/\s+/g,'');
-  const m = s.match(/^(\d{1,2})(?::?(\d{2}))?(am|pm)?$/);
-  if(!m) return t;
-  let hh = parseInt(m[1],10), mm = parseInt(m[2]||'0',10);
-  const ap = m[3];
-  if(ap === 'am'){ if(hh===12) hh=0; }
-  else if(ap === 'pm'){ if(hh!==12) hh+=12; }
-  return String(hh).padStart(2,'0') + ':' + String(mm).padStart(2,'0');
+  const s=t.trim().toLowerCase().replace(/\s+/g,'');
+  const m=s.match(/^(\d{1,2})(?::?(\d{2}))?(am|pm)?$/);
+  if(!m) return t; // 原生 <input type="time"> 已是 HH:MM
+  let hh=parseInt(m[1],10), mm=parseInt(m[2]||'0',10), ap=m[3];
+  if(ap==='am'){ if(hh===12) hh=0; } else if(ap==='pm'){ if(hh!==12) hh+=12; }
+  return String(hh).padStart(2,'0')+':'+String(mm).padStart(2,'0');
 }
-
-/* ========= 用库时统一走这两个函数 ========= */
-async function lunarToSolarChecked(y, m, d, isLeap){
-  const ok = await ensureLunarLib();
-  if(!ok) throw new Error('农历换算组件加载失败（网络/CDN）。请检查网络或稍后再试。');
-  const s = solarlunar.lunar2solar(y, m, d, !!isLeap);
+function lunarToSolarChecked(y,m,d,isLeap){
+  const s = solarlunar.lunar2solar(y,m,d,!!isLeap);
   const Y = s.cYear || s.gregorianYear || s.year;
-  const M = s.cMonth || s.gregorianMonth || s.month;
-  const D = s.cDay || s.gregorianDay || s.day;
+  const M = s.cMonth|| s.gregorianMonth|| s.month;
+  const D = s.cDay  || s.gregorianDay  || s.day;
   // 反向校验
-  const back = solarlunar.solar2lunar(Y, M, D);
-  const pass = back.lYear===y && back.lMonth===m && back.lDay===d && (!!back.isLeap)===!!isLeap;
-  if(!pass) throw new Error('农历/阳历交叉校验失败：请核对闰月与日期。');
+  const back = solarlunar.solar2lunar(Y,M,D);
+  const ok = back.lYear===y && back.lMonth===m && back.lDay===d && (!!back.isLeap)===!!isLeap;
+  if(!ok) throw new Error('农历/阳历交叉校验失败：请核对闰月与日期。');
   return `${Y}-${String(M).padStart(2,'0')}-${String(D).padStart(2,'0')}`;
 }
-
-// 阳历往返校验（若库不可用则温和跳过，不报错）
-async function solarRoundtripOrSkip(y, m, d){
-  const ok = await ensureLunarLib();
-  if(!ok) return true;  // 跳过，不阻塞
-  const l = solarlunar.solar2lunar(y,m,d);
-  const r = solarlunar.lunar2solar(l.lYear, l.lMonth, l.lDay, !!l.isLeap);
-  const Y2 = r.cYear || r.year, M2 = (r.cMonth||r.month), D2 = (r.cDay||r.day);
-  return (y===Y2 && m===M2 && d===D2);
+function solarRoundtripOrSkip(y,m,d){
+  try{
+    const l=solarlunar.solar2lunar(y,m,d);
+    const r=solarlunar.lunar2solar(l.lYear,l.lMonth,l.lDay,!!l.isLeap);
+    const Y2=r.cYear||r.year, M2=r.cMonth||r.month, D2=r.cDay||r.day;
+    return (y===Y2 && m===M2 && d===D2);
+  }catch{ return true; } // 库异常时不阻塞
 }
 
-/* ========= 接管“生成八字”按钮逻辑：稳健防错 ========= */
-(function(){
-  const err = document.getElementById('error');
-  const calendarSel = document.getElementById('calendar');
-  const leapChk = document.getElementById('isLeap');
-  const genBtn = document.getElementById('genBtn');
+/* ------------ 五行与描述（简化） ------------ */
+const STEMS = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+const STEM_ELEM = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
+const BRANCH_ELEM = {子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'};
+const ELEM_KEYS = ['木','火','土','金','水'];
+const DM_DESC = {
+  甲:'外向生发，宜先破土后固化；重长期与成长节奏。',
+  乙:'柔和渗透，善连结与修饰；宜稳步推进，重韧性。',
+  丙:'外放明朗，宜先声夺人；重曝光与速度，忌拖延。',
+  丁:'内燃定向，宜点到为止；重垂直深耕与口碑。',
+  戊:'定盘承载，宜构建规则与壁垒；重长期信誉。',
+  己:'滋养落地，宜做整合与服务；重复利与耐心。',
+  庚:'果断执行，宜定目标强推进；重标准与效率。',
+  辛:'精致审慎，宜做品质与风控；重细节与选择权。',
+  壬:'弹性适配，宜大框架与流动；重信息与势能。',
+  癸:'滋润渗透，宜暗线铺垫；重隐形资源与耐力。'
+};
 
-  genBtn.addEventListener('click', async ()=>{
-    err.style.display='none'; err.textContent='';
-    const cal = calendarSel.value; // 'gregorian' | 'lunar'
-    const rawDate = (document.getElementById('birthdate').value||'').trim();
-    const rawTime = (document.getElementById('birthtime').value||'').trim();
+/* ------------ 渲染工具（沿用你页面结构） ------------ */
+const pillarsEl = $('bazi-pillars');
+const dmEl = $('bazi-day-master');
+const bars = { wood:$('bar-wood'), fire:$('bar-fire'), earth:$('bar-earth'), metal:$('bar-metal'), water:$('bar-water') };
+function setBar(el, pct){ if(el) el.style.width = Math.max(0,Math.min(100,pct))+'%'; }
+function renderPillars(p){
+  pillarsEl.innerHTML='';
+  [['年柱',p.year],['月柱',p.month],['日柱',p.day],['时柱',p.hour]].forEach(([tit,v])=>{
+    const div=document.createElement('div');
+    div.className='pillar';
+    div.innerHTML=`<div class="tit">${tit}</div><div class="gz">${(v&&v.gz)||'--'}</div>`;
+    pillarsEl.appendChild(div);
+  });
+}
 
-    if(!rawDate || !rawTime){
-      err.textContent = (typeof t==='function'? t('need_birth') : '请完善出生日期与时间。');
-      err.style.display='block'; return;
-    }
+/* ------------ 核心：本地计算四柱 & 五行 ------------ */
+function countElementsFromGZ(gzList){
+  const cnt = {木:0,火:0,土:0,金:0,水:0};
+  gzList.forEach(gz=>{
+    if(!gz) return;
+    const gan=gz[0], zhi=gz[1];
+    const e1=STEM_ELEM[gan], e2=BRANCH_ELEM[zhi];
+    if(e1) cnt[e1]+=1;
+    if(e2) cnt[e2]+=1;
+  });
+  // 归一化成百分比
+  const total = Object.values(cnt).reduce((a,b)=>a+b,0) || 1;
+  const pct = { wood:cnt['木']/total*100, fire:cnt['火']/total*100, earth:cnt['土']/total*100, metal:cnt['金']/total*100, water:cnt['水']/total*100 };
+  return {cnt, pct};
+}
+function strengthsFromBalance(cnt, dmElem){
+  const tips=[];
+  const order=['木','火','土','金','水'];
+  const sorted=order.map(k=>[k,cnt[k]]).sort((a,b)=>b[1]-a[1]);
+  const top = sorted[0][0], low = sorted[4][0];
+  tips.push(`当前偏${top}，${low}偏弱；执行时优先用好「${top}」的资源与方法，补上「${low}」的短板。`);
+  tips.push(`以日主「${dmElem}」为锚：做事先顺势，再用相生帮扶，少做相克硬抗。`);
+  tips.push(`节奏建议：强项场景快进，弱项场景设边界与外包。`);
+  return tips;
+}
 
+/* ------------ 主流程：点击生成 ------------ */
+(async function main(){
+  // 历法切换时（若存在闰月 UI）做显隐
+  const calendarSel = $('calendar'), leapWrap=$('leapWrap'), calendarHint=$('calendarHint');
+  if(calendarSel){
+    const toggle=()=>{ const isLunar=calendarSel.value==='lunar'; if(leapWrap) leapWrap.style.display=isLunar?'inline-flex':'none'; if(calendarHint) calendarHint.style.display=isLunar?'block':'none'; };
+    calendarSel.addEventListener('change',toggle); toggle();
+  }
+
+  $('genBtn').addEventListener('click', async ()=>{
+    const err=$('error'); err.style.display='none'; err.textContent='';
+    const rawDate=($('birthdate').value||'').trim();
+    const rawTime=($('birthtime').value||'').trim();
+    const cal = (calendarSel&&calendarSel.value) || 'gregorian';
+    const isLeap = !!(($('isLeap')&&$('isLeap').checked));
+
+    if(!rawDate || !rawTime){ err.textContent=t('need_birth'); err.style.display='block'; return; }
     const time24 = normalizeTimeTo24h(rawTime);
-    let solarDateStr = '';
 
     try{
-      if(cal==='gregorian'){
-        const d = normalizeDate(rawDate);
-        const [Y,M,D] = d.split('-').map(Number);
-        if(!Y || !M || !D) throw new Error('日期无效');
-        // 尝试往返校验；库不可用时自动跳过
-        const ok = await solarRoundtripOrSkip(Y,M,D);
-        if(!ok) throw new Error('阳历往返校验失败：请检查日期是否有效。');
-        solarDateStr = d;
+      await ensureDeps();
+      // 统一得到阳历
+      let solarDateStr='';
+      if(cal==='lunar'){
+        const [y,m,d]=normalizeDate(rawDate).split('-').map(Number);
+        solarDateStr = lunarToSolarChecked(y,m,d,isLeap);
       }else{
-        const d = normalizeDate(rawDate); // yyyy-mm-dd
-        const [y,m,day] = d.split('-').map(Number);
-        const isLeap = !!(leapChk && leapChk.checked);
-        solarDateStr = await lunarToSolarChecked(y,m,day,isLeap);
+        const dstr=normalizeDate(rawDate); const [Y,M,D]=dstr.split('-').map(Number);
+        if(!solarRoundtripOrSkip(Y,M,D)) throw new Error('阳历往返校验失败：请检查日期是否有效。');
+        solarDateStr=dstr;
       }
+
+      // 用阳历 + 时间（默认 UTC+8）计算四柱
+      const [Y,M,D] = solarDateStr.split('-').map(Number);
+      const [hh,mm] = time24.split(':').map(Number);
+      const solar = Solar.fromYmdHms(Y,M,D,hh,mm||0,0);
+      const lunar = solar.getLunar();
+      const ec = lunar.getEightChar();
+
+      const gzYear = ec.getYear();   // 例：戊午
+      const gzMonth= ec.getMonth();  // 甲寅
+      const gzDay  = ec.getDay();    // 甲寅
+      const gzHour = ec.getTime();   // 庚午
+
+      // 日主
+      const dayGan = ec.getDayGan();         // 例：甲
+      const dmElem = STEM_ELEM[dayGan] || '';
+      const dmDesc = DM_DESC[dayGan] || '';
+
+      // 五行
+      const {cnt,pct} = countElementsFromGZ([gzYear,gzMonth,gzDay,gzHour]);
+
+      // 渲染
+      $('result').style.display='block';
+      $('bazi-date').textContent = t('used_solar', solarDateStr, time24);
+      renderPillars({year:{gz:gzYear}, month:{gz:gzMonth}, day:{gz:gzDay}, hour:{gz:gzHour}});
+      dmEl.textContent = `日主：${dayGan}（${dmElem}） ${dmDesc}`;
+
+      setBar(bars.wood, pct.wood); setBar(bars.fire, pct.fire); setBar(bars.earth, pct.earth);
+      setBar(bars.metal, pct.metal); setBar(bars.water, pct.water);
+      $('bazi-elements-balance').textContent =
+        `五行占比：木${Math.round(pct.wood)} 火${Math.round(pct.fire)} 土${Math.round(pct.earth)} 金${Math.round(pct.metal)} 水${Math.round(pct.water)}`;
+
+      const strengths = strengthsFromBalance(cnt, dmElem);
+      $('bazi-strengths').textContent = '亮点：' + strengths[0];
+      $('bazi-advice').textContent =
+        ['核心判断：围绕日主特性与五行偏向，先顺势再补位；强项就快、弱项就稳。',
+         '现在要做的事：聚焦 1 个强势场景定目标；把 1 个弱项交给外部/流程化；本周排 2 次复盘。'
+        ].join('\n');
+
+      $('fate-points').innerHTML = strengths.map(s=>`<li>${s}</li>`).join('');
+
     }catch(e){
-      err.textContent = e && e.message ? e.message : '日期换算失败，请检查输入（闰月/大小月）。';
-      err.style.display='block';
-      return;
-    }
-
-    /* ===== 以下保持你原来的调用逻辑不变 ===== */
-    // 清场
-    document.getElementById('result').style.display='none';
-    ['bazi-pillars','bazi-advice','fate-points'].forEach(id=>{
-      const el = document.getElementById(id);
-      if(!el) return;
-      if(id==='bazi-pillars') el.innerHTML='';
-      else el.textContent='';
-    });
-    ['bar-wood','bar-fire','bar-earth','bar-metal','bar-water'].forEach(id=>{
-      const el = document.getElementById(id);
-      if(el) el.style.width='0%';
-    });
-
-    const langName = ({'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ms':'Bahasa Melayu'})[
-      (window.localStorage && localStorage.getItem('site_lang')) || document.documentElement.lang || 'zh-CN'
-    ] || '简体中文';
-
-    const prompt = buildPromptBaZi({
-      langName,
-      name: (document.getElementById('name').value||'').trim(),
-      gender: document.getElementById('gender').value,
-      birthdate: solarDateStr,   // 统一传阳历
-      birthtime: time24
-    });
-
-    // 进度提示
-    const adviceEl = document.getElementById('bazi-advice');
-    adviceEl.textContent = (typeof t==='function'? t('generating') : '正在生成排盘与简评…');
-
-    try{
-      const txt = await askAI(prompt);
-      const jsonMatch = txt && txt.match(/\{[\s\S]*\}/);
-      const json = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
-
-      document.getElementById('bazi-date').textContent = `用于计算（UTC+8，阳历）：${solarDateStr} ${time24}`;
-      if(json && typeof renderFromJSON === 'function'){
-        renderFromJSON(json);
-        const rest = txt.replace(/\{[\s\S]*\}/,'').trim();
-        const bullets = rest.split('\n').map(s=>s.replace(/^[-•\s]+/,'').trim()).filter(Boolean).slice(0,6);
-        document.getElementById('fate-points').innerHTML = bullets.map(s=>`<li>${s}</li>`).join('');
-      }else if(typeof renderFallbackText === 'function'){
-        renderFallbackText(txt || (typeof t==='function' ? t('retry') : '暂时无法生成，请稍后再试。'));
-      }
-    }catch(e){
-      adviceEl.textContent = (typeof t==='function'? t('neterr') : '网络异常，请稍后再试。');
-      document.getElementById('result').style.display='block';
+      const msg = e && e.message ? e.message : t('neterr');
+      err.textContent = msg; err.style.display='block';
+      $('result').style.display='block';
     }
   });
-
-  // 历法切换时显示/隐藏“闰月”提示（如果你的页面里已有此逻辑，可不重复）
-  const leapWrap = document.getElementById('leapWrap');
-  const calendarHint = document.getElementById('calendarHint');
-  const toggleLunarUI = ()=>{
-    const isLunar = calendarSel.value==='lunar';
-    if(leapWrap) leapWrap.style.display = isLunar ? 'inline-flex' : 'none';
-    if(calendarHint) calendarHint.style.display = isLunar ? 'block' : 'none';
-  };
-  calendarSel.addEventListener('change', toggleLunarUI);
-  toggleLunarUI();
-})();  
+})();
 </script>
+
 </body>
 </html>
