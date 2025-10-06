@@ -68,6 +68,8 @@ footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0;margin-to
   padding:10px 12px; border-radius:10px; border:1px solid #243244; background:#0f1522; color:#eaf0ff; }
 .ss-chat-input button{ padding:10px 12px; border-radius:10px; border:1px solid #e6c76e;
   background:linear-gradient(180deg,#fff9e6,#e6c76e); color:#191919; font-weight:700; }
+  /* 放在样式表靠后位置，覆盖全局规则 */
+.btn, #depsReload { width: auto; display: inline-grid; }  
 </style>
 </head>
 
@@ -252,35 +254,36 @@ async function loadScript(src, timeout=15000){
 async function ensureLunarJS(){
   if (window.Solar && window.Lunar) return true;
   LoadUI.set('加载中…', true);
+
   const candidates = [
-    // 国内镜像（优先）
-    'https://unpkg.zhimg.com/lunar-javascript@1.6.15/lunar.min.js',
-    'https://registry.npmmirror.com/lunar-javascript/1.6.15/files/lunar.min.js',
-    // jsDelivr 多线路
-    'https://fastly.jsdelivr.net/npm/lunar-javascript@1.6.15/lunar.min.js',
-    'https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.15/lunar.min.js',
-    // UNPKG
-    'https://unpkg.com/lunar-javascript@1.6.15/lunar.min.js'
+    // 先本地（相对 & 绝对各试一次，避免部署子路径问题）
+    'assets/vendor/lunar.min.js',
+    '/assets/vendor/lunar.min.js',
+
+    // 如需兜底再开外链（你现在可关掉）
+    // 'https://fastly.jsdelivr.net/npm/lunar-javascript@1.6.15/lunar.min.js',
+    // 'https://cdn.jsdelivr.net/npm/lunar-javascript@1.6.15/lunar.min.js',
   ];
+
   for (const u of candidates){
     try{
-      await loadScript(u, 12000);
-      if (window.Solar && window.Lunar) { LoadUI.set('lunar-javascript 已就绪（'+u+'）', true); return true; }
+      await loadScript(u, 8000);
+      // 1) 直接全局
+      if (window.Solar && window.Lunar){
+        LoadUI.set('lunar 已就绪（本地）', true);
+        return true;
+      }
+      // 2) 命名空间 lunar.*
       if (window.lunar && window.lunar.Solar && window.lunar.Lunar){
-        window.Solar = window.lunar.Solar; window.Lunar = window.lunar.Lunar;
-        LoadUI.set('lunar-javascript 已就绪（命名空间 lunar）', true);
+        window.Solar = window.lunar.Solar;
+        window.Lunar = window.lunar.Lunar;
+        LoadUI.set('lunar 已就绪（本地命名空间 lunar）', true);
         return true;
       }
     }catch(e){}
   }
-  // ESM 兜底（网络限制下通常可达）
-  try{
-    const mod = await import('https://esm.sh/lunar-javascript@1.6.15?bundle');
-    const ns = mod?.default || mod;
-    window.Solar = ns.Solar; window.Lunar = ns.Lunar;
-    if (window.Solar && window.Lunar){ LoadUI.set('lunar-javascript 已就绪（esm.sh）', true); return true; }
-  }catch(e){}
-  LoadUI.set('命理计算组件加载失败（网络被墙/被拦截）', false);
+
+  LoadUI.set('命理计算组件加载失败', false);
   return false;
 }
 
@@ -362,10 +365,10 @@ async function genChart(){
     $('bazi-elements-balance').textContent=`五行占比：木${Math.round(pct.wood)} 火${Math.round(pct.fire)} 土${Math.round(pct.earth)} 金${Math.round(pct.metal)} 水${Math.round(pct.water)}`;
 
     const st=judgeStrength(dayGan, pillars.month.zhi, cnt);
-    const adv = elemAdvice(
-      { wood: pct.wood, fire: pct.fire, earth: pct.earth, metal: pct.metal, water: pct.water },
-      { stem: dayGan, elem: dmElem }
-    );
+const adv = elemAdvice(
+  { wood: pct.wood, fire: pct.fire, earth: pct.earth, metal: pct.metal, water: pct.water },
+  { stem: dayGan, elem: dmElem }
+);
     const tgY=tenGod(dayGan,pillars.year.gan), tgM=tenGod(dayGan,pillars.month.gan), tgH=tenGod(dayGan,pillars.hour.gan);
     $('bazi-strengths').textContent=`亮点：${[tgY,tgM,tgH].filter(Boolean).join('、')||'均衡'}；强项：${adv.hi}；短板：${adv.lo}`;
     $('bazi-advice').textContent=`核心判断：${st.mark}；季节：${st.season}；策略：${st.focus}。${adv.summary}`;
