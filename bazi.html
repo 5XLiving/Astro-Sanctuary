@@ -40,8 +40,8 @@ body::before {
   position: fixed;
   inset: 0;
   z-index: -2;
-  background: url('assets/images/gate.jpg') center/cover no-repeat;
-  filter: brightness(.45) saturate(.9) blur(2px);
+  background: linear-gradient(135deg, #0b0f14 0%, #1a2433 100%);
+  filter: brightness(.8);
 }
 
 .container {
@@ -474,9 +474,28 @@ footer {
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* 原有样式保持不变 */
-/* ... 其他原有样式 ... */
+.loading {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 3px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  border-top-color: var(--brand);
+  animation: spin 1s ease-in-out infinite;
+}
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.error-message {
+  background: rgba(255, 90, 95, 0.1);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  padding: 12px;
+  margin: 10px 0;
+  color: #ffb4b4;
+}
 </style>
 </head>
 
@@ -545,23 +564,26 @@ footer {
     <div class="row cols-3" style="margin-top:10px">
       <div>
         <label class="muted">出生日期</label>
-        <input type="date" id="birthdate">
+        <input type="date" id="birthdate" value="1990-01-01">
       </div>
       <div>
         <label class="muted">出生时间</label>
-        <input type="time" id="birthtime">
+        <input type="time" id="birthtime" value="12:00">
       </div>
       <div style="display:flex;align-items:flex-end">
-        <button class="btn" id="genBtn">生成八字</button>
+        <button class="btn" id="genBtn">
+          <span id="genBtnText">生成八字</span>
+          <span id="genBtnLoading" class="loading" style="display:none"></span>
+        </button>
       </div>
     </div>
 
     <div class="muted" style="margin-top:6px">提示：临时默认东八区（UTC+8）。后续将支持按出生地换算。</div>
-    <div class="muted" id="error" style="color:#ffb4b4;display:none"></div>
+    <div id="error" class="error-message" style="display:none"></div>
   </section>
 
   <section id="result" style="display:none;">
-    <!-- 原有的八字结果显示部分 -->
+    <!-- 八字结果显示部分 -->
     <div class="card section">
       <div class="h2">八字命理排盘</div>
       <div class="pillars" id="bazi-pillars"></div>
@@ -646,15 +668,113 @@ footer {
         <a href="#" class="vip-cta">了解VIP服务详情</a>
       </div>
     </div>
-
-    <!-- 原有的其他内容 -->
-    <!-- ... -->
   </section>
 </main>
 
 <footer>© 5XLiving • Astro Sanctuary</footer>
 
 <script>
+// 简化的八字计算函数 - 不依赖外部库
+class BaziCalculator {
+  constructor() {
+    this.HEAVENLY_STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+    this.EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+    this.STEM_ELEMENTS = { '甲': '木', '乙': '木', '丙': '火', '丁': '火', '戊': '土', '己': '土', '庚': '金', '辛': '金', '壬': '水', '癸': '水' };
+    this.BRANCH_ELEMENTS = { '子': '水', '丑': '土', '寅': '木', '卯': '木', '辰': '土', '巳': '火', '午': '火', '未': '土', '申': '金', '酉': '金', '戌': '土', '亥': '水' };
+  }
+
+  // 计算年柱
+  calculateYearPillar(year) {
+    const stemIndex = (year - 4) % 10;
+    const branchIndex = (year - 4) % 12;
+    return {
+      stem: this.HEAVENLY_STEMS[stemIndex],
+      branch: this.EARTHLY_BRANCHES[branchIndex],
+      element: this.STEM_ELEMENTS[this.HEAVENLY_STEMS[stemIndex]]
+    };
+  }
+
+  // 计算月柱（简化版）
+  calculateMonthPillar(year, month) {
+    // 月支固定对应月份
+    const branchMap = { 1: '寅', 2: '卯', 3: '辰', 4: '巳', 5: '午', 6: '未', 7: '申', 8: '酉', 9: '戌', 10: '亥', 11: '子', 12: '丑' };
+    const branch = branchMap[month];
+    
+    // 简化月干计算
+    const yearStem = this.calculateYearPillar(year).stem;
+    const stemStartMap = { '甲': 2, '乙': 2, '丙': 0, '丁': 0, '戊': 2, '己': 2, '庚': 0, '辛': 0, '壬': 2, '癸': 2 };
+    const startIndex = stemStartMap[yearStem];
+    const stemIndex = (startIndex + month - 1) % 10;
+    
+    return {
+      stem: this.HEAVENLY_STEMS[stemIndex],
+      branch: branch,
+      element: this.STEM_ELEMENTS[this.HEAVENLY_STEMS[stemIndex]]
+    };
+  }
+
+  // 计算日柱（简化版 - 使用固定算法）
+  calculateDayPillar(year, month, day) {
+    // 简化算法：基于基姆拉尔森计算公式计算星期，然后推算
+    if (month < 3) {
+      month += 12;
+      year--;
+    }
+    const K = year % 100;
+    const J = Math.floor(year / 100);
+    const h = (day + Math.floor(13 * (month + 1) / 5) + K + Math.floor(K / 4) + Math.floor(J / 4) + 5 * J) % 60;
+    
+    const stemIndex = h % 10;
+    const branchIndex = h % 12;
+    
+    return {
+      stem: this.HEAVENLY_STEMS[stemIndex],
+      branch: this.EARTHLY_BRANCHES[branchIndex],
+      element: this.STEM_ELEMENTS[this.HEAVENLY_STEMS[stemIndex]]
+    };
+  }
+
+  // 计算时柱
+  calculateHourPillar(dayStem, hour) {
+    // 时支固定对应时辰
+    const branchMap = { 
+      23: '子', 0: '子', 1: '丑', 2: '丑', 3: '寅', 4: '寅', 5: '卯', 6: '卯',
+      7: '辰', 8: '辰', 9: '巳', 10: '巳', 11: '午', 12: '午', 13: '未', 14: '未',
+      15: '申', 16: '申', 17: '酉', 18: '酉', 19: '戌', 20: '戌', 21: '亥', 22: '亥'
+    };
+    
+    const branch = branchMap[hour];
+    
+    // 时干计算
+    const dayStemIndex = this.HEAVENLY_STEMS.indexOf(dayStem);
+    const stemStartMap = { 0: 0, 1: 2, 2: 4, 3: 6, 4: 8, 5: 0, 6: 2, 7: 4, 8: 6, 9: 8 };
+    const startIndex = stemStartMap[dayStemIndex];
+    const hourIndex = Math.floor((hour + 1) / 2) % 12;
+    const stemIndex = (startIndex + hourIndex) % 10;
+    
+    return {
+      stem: this.HEAVENLY_STEMS[stemIndex],
+      branch: branch,
+      element: this.STEM_ELEMENTS[this.HEAVENLY_STEMS[stemIndex]]
+    };
+  }
+
+  // 计算八字
+  calculateBazi(year, month, day, hour) {
+    const yearPillar = this.calculateYearPillar(year);
+    const monthPillar = this.calculateMonthPillar(year, month);
+    const dayPillar = this.calculateDayPillar(year, month, day);
+    const hourPillar = this.calculateHourPillar(dayPillar.stem, hour);
+    
+    return {
+      year: yearPillar,
+      month: monthPillar,
+      day: dayPillar,
+      hour: hourPillar
+    };
+  }
+}
+
 // 心怜管家 AI 功能
 class XinLianAssistant {
   constructor() {
@@ -663,7 +783,6 @@ class XinLianAssistant {
   }
 
   initializeEventListeners() {
-    // 监听动作按钮
     document.addEventListener('click', (e) => {
       if (e.target.classList.contains('action-btn')) {
         const action = e.target.getAttribute('data-action');
@@ -672,7 +791,6 @@ class XinLianAssistant {
     });
   }
 
-  // 根据八字分析生成AI建议
   generateAnalysis(baziData) {
     this.currentContext = baziData;
     
@@ -681,9 +799,6 @@ class XinLianAssistant {
     
     document.getElementById('assistant-analysis').innerHTML = analysis;
     document.getElementById('assistant-advice').innerHTML = advice;
-    
-    // 显示VIP推荐（如果分析深度达到一定程度）
-    this.showVipRecommendation(baziData);
   }
 
   analyzeBazi(baziData) {
@@ -702,7 +817,7 @@ class XinLianAssistant {
   }
 
   generateAdvice(baziData) {
-    const { strength, elements, useful } = baziData;
+    const { strength, useful } = baziData;
     
     let advice = `
       <ul class="ul">
@@ -716,7 +831,6 @@ class XinLianAssistant {
     return advice;
   }
 
-  // 处理用户点击的不同动作
   handleAction(action) {
     if (!this.currentContext) return;
     
@@ -803,7 +917,6 @@ class XinLianAssistant {
   }
 
   showActionResponse(action, response) {
-    // 创建新的消息气泡
     const messageDiv = document.createElement('div');
     messageDiv.className = 'assistant-message';
     messageDiv.innerHTML = `
@@ -815,14 +928,6 @@ class XinLianAssistant {
     
     document.querySelector('.assistant-container').insertBefore(messageDiv, document.querySelector('.vip-promo'));
     messageDiv.scrollIntoView({ behavior: 'smooth' });
-  }
-
-  showVipRecommendation(baziData) {
-    // 根据分析复杂度决定是否显示VIP推荐
-    const complexity = this.calculateAnalysisComplexity(baziData);
-    if (complexity > 0.6) {
-      document.querySelector('.vip-promo').style.display = 'block';
-    }
   }
 
   // 辅助方法
@@ -904,44 +1009,151 @@ class XinLianAssistant {
     };
     return titles[action] || '专业建议';
   }
-
-  calculateAnalysisComplexity(baziData) {
-    // 简单的复杂度计算
-    let complexity = 0;
-    const { elements, strength } = baziData;
-    
-    // 元素分布越不均衡，复杂度越高
-    const values = Object.values(elements);
-    const max = Math.max(...values);
-    const min = Math.min(...values);
-    complexity += (max - min) / 100;
-    
-    // 命局强度影响复杂度
-    if (strength.mark === '偏强' || strength.mark === '偏弱') {
-      complexity += 0.3;
-    }
-    
-    return Math.min(complexity, 1);
-  }
 }
 
-// 初始化心怜管家
+// 初始化
+const baziCalculator = new BaziCalculator();
 const assistant = new XinLianAssistant();
 
-// 修改原有的 genChart 函数，在生成八字后调用AI分析
-async function genChart() {
-  // ... 原有的八字生成逻辑 ...
+// 工具函数
+function $(id) { return document.getElementById(id); }
+function setBar(el, pct) { if(el) el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
+function el(tag, attrs = {}, html = "") { 
+  const d = document.createElement(tag); 
+  Object.entries(attrs).forEach(([k, v]) => d.setAttribute(k, v)); 
+  d.innerHTML = html; 
+  return d; 
+}
+
+// 五行分析
+function countElements(pillars) {
+  const cnt = {木:0, 火:0, 土:0, 金:0, 水:0};
+  const STEM_ELEM = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
+  const BRANCH_ELEM = {子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'};
   
-  // 在成功生成八字后，添加AI分析
+  Object.values(pillars).forEach(pillar => {
+    if(pillar.stem && STEM_ELEM[pillar.stem]) cnt[STEM_ELEM[pillar.stem]] += 1;
+    if(pillar.branch && BRANCH_ELEM[pillar.branch]) cnt[BRANCH_ELEM[pillar.branch]] += 1;
+  });
+  
+  const total = Object.values(cnt).reduce((a, b) => a + b, 0) || 1;
+  return {
+    cnt, 
+    pct: {
+      wood: cnt['木'] / total * 100,
+      fire: cnt['火'] / total * 100,
+      earth: cnt['土'] / total * 100,
+      metal: cnt['金'] / total * 100,
+      water: cnt['水'] / total * 100
+    }
+  };
+}
+
+// 判断命局强弱
+function judgeStrength(dayGan, monthZhi, cnt) {
+  const STEM_ELEM = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
+  const SEASON_BY_MONTH_BRANCH = {寅:'春',卯:'春',辰:'春',巳:'夏',午:'夏',未:'夏',申:'秋',酉:'秋',戌:'秋',亥:'冬',子:'冬',丑:'冬'};
+  
+  const dmEl = STEM_ELEM[dayGan];
+  const season = SEASON_BY_MONTH_BRANCH[monthZhi] || '-';
+  
+  let score = 0;
+  if((season === '春' && '木火'.includes(dmEl)) || (season === '夏' && '火土'.includes(dmEl)) || 
+     (season === '秋' && dmEl === '金') || (season === '冬' && dmEl === '水')) score += 2;
+  
+  score += (cnt[dmEl] || 0) * 1.2;
+  
+  const mark = score >= 3 ? '偏强' : (score <= 1 ? '偏弱' : '平衡');
+  const focus = mark === '偏强' ? '泄秀/制化' : (mark === '偏弱' ? '补助/顺势' : '守中/调和');
+  
+  return {season, mark, focus};
+}
+
+// 选择喜用神
+function chooseUseful(strength, dmElem) {
+  if (strength === '偏强') {
+    const useful = ({木:['火','土','金'], 火:['土','金','水'], 土:['金','水','木'], 金:['水','木','火'], 水:['木','火','土']})[dmElem];
+    return {strategy:'泄秀/制化', useful, avoid:[dmElem]};
+  } else if (strength === '偏弱') {
+    const helper = ({木:['木','水'], 火:['火','木'], 土:['土','火'], 金:['金','土'], 水:['水','金']})[dmElem];
+    return {strategy:'生扶/补助', useful:helper, avoid:[]};
+  }
+  return {strategy:'守中/调和', useful:['木','火','土','金','水'], avoid:[]};
+}
+
+// 渲染四柱
+function renderPillars(root, p) {
+  root.innerHTML = '';
+  [['年柱', p.year], ['月柱', p.month], ['日柱', p.day], ['时柱', p.hour]].forEach(([tit, v]) => {
+    const div = el('div', {class: 'pillar'}, `
+      <div class="tit">${tit}</div>
+      <div class="gz">${v.stem}${v.branch}</div>
+    `);
+    root.appendChild(div);
+  });
+}
+
+// 生成八字
+async function genChart() {
+  const err = $('error');
+  err.style.display = 'none';
+  err.textContent = '';
+  
+  const birth = ($('birthdate').value || '').trim();
+  const time = ($('birthtime').value || '').trim();
+  
+  if(!birth || !time) {
+    err.textContent = '请完善出生日期与时间。';
+    err.style.display = 'block';
+    return;
+  }
+
+  // 显示加载状态
+  $('genBtnText').style.display = 'none';
+  $('genBtnLoading').style.display = 'inline-block';
+  $('genBtn').disabled = true;
+
   try {
-    // ... 八字计算逻辑 ...
+    const [Y, M, D] = birth.split('-').map(Number);
+    const [hh, mm] = time.split(':').map(Number);
     
-    // 准备数据给AI助手
+    // 使用内置计算器
+    const pillars = baziCalculator.calculateBazi(Y, M, D, hh);
+    
+    // 显示结果区域
+    $('result').style.display = 'block';
+    $('bazi-date').textContent = `用于计算（UTC+8，阳历）：${birth} ${time}`;
+    
+    // 渲染四柱
+    renderPillars($('bazi-pillars'), pillars);
+    $('bazi-day-master').textContent = `日主：${pillars.day.stem}（${pillars.day.element}）`;
+    
+    // 五行分析
+    const {cnt, pct} = countElements(pillars);
+    setBar($('bar-wood'), pct.wood);
+    setBar($('bar-fire'), pct.fire);
+    setBar($('bar-earth'), pct.earth);
+    setBar($('bar-metal'), pct.metal);
+    setBar($('bar-water'), pct.water);
+    
+    // 更新百分比显示
+    $('pct-wood').textContent = Math.round(pct.wood) + '%';
+    $('pct-fire').textContent = Math.round(pct.fire) + '%';
+    $('pct-earth').textContent = Math.round(pct.earth) + '%';
+    $('pct-metal').textContent = Math.round(pct.metal) + '%';
+    $('pct-water').textContent = Math.round(pct.water) + '%';
+    
+    $('bazi-elements-balance').textContent = `五行占比：木${Math.round(pct.wood)}% 火${Math.round(pct.fire)}% 土${Math.round(pct.earth)}% 金${Math.round(pct.metal)}% 水${Math.round(pct.water)}%`;
+    
+    // 命局分析
+    const st = judgeStrength(pillars.day.stem, pillars.month.branch, cnt);
+    const adv = chooseUseful(st.mark, pillars.day.element);
+    
+    $('bazi-strengths').textContent = `命局${st.mark}，建议策略：${st.focus}`;
+    
+    // 调用AI助手
     const baziData = {
-      dayMaster: {
-        stem: dayGan,
-        element: dmElem
-      },
+      dayMaster: pillars.day,
       elements: {
         wood: pct.wood,
         fire: pct.fire,
@@ -954,20 +1166,44 @@ async function genChart() {
       useful: adv
     };
     
-    // 调用AI助手生成分析
     assistant.generateAnalysis(baziData);
     
   } catch(e) {
-    // 错误处理
+    err.textContent = '计算失败：' + (e?.message || '请检查输入数据');
+    err.style.display = 'block';
+    console.error('八字计算错误:', e);
+  } finally {
+    // 恢复按钮状态
+    $('genBtnText').style.display = 'inline-block';
+    $('genBtnLoading').style.display = 'none';
+    $('genBtn').disabled = false;
   }
 }
 
-// 页面加载完成后初始化
+// 页面加载
 document.addEventListener('DOMContentLoaded', function() {
-  // ... 其他初始化代码 ...
+  // 设置默认日期为今天
+  const today = new Date();
+  const formattedDate = today.toISOString().split('T')[0];
+  $('birthdate').value = formattedDate;
   
-  // 确保心怜管家功能可用
-  console.log('心怜管家 AI 助手已就绪');
+  // 绑定事件
+  $('genBtn').addEventListener('click', genChart);
+  
+  // 历法提示显隐
+  const cal = $('calendar'), leap = $('leapWrap'), hint = document.querySelector('#calendarHint');
+  const toggle = () => {
+    const isLunar = cal?.value === 'lunar';
+    if (leap) leap.style.display = isLunar ? 'inline-flex' : 'none';
+    if (hint) hint.style.display = isLunar ? 'block' : 'none';
+  };
+  cal?.addEventListener('change', toggle);
+  
+  // 依赖状态设置为就绪（使用内置计算器）
+  $('depsStatus').textContent = '内置计算器已就绪';
+  $('depsStatus').style.color = '#9aa3b2';
+  
+  console.log('八字命理系统已初始化');
 });
 </script>
 </body>
