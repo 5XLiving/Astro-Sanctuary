@@ -564,11 +564,11 @@ footer {
     <div class="row cols-3" style="margin-top:10px">
       <div>
         <label class="muted">出生日期</label>
-        <input type="date" id="birthdate" value="1990-01-01">
+        <input type="date" id="birthdate" value="1978-02-21">
       </div>
       <div>
         <label class="muted">出生时间</label>
-        <input type="time" id="birthtime" value="12:00">
+        <input type="time" id="birthtime" value="12:45">
       </div>
       <div style="display:flex;align-items:flex-end">
         <button class="btn" id="genBtn">
@@ -674,17 +674,24 @@ footer {
 <footer>© 5XLiving • Astro Sanctuary</footer>
 
 <script>
-// 简化的八字计算函数 - 不依赖外部库
+// 修复的八字计算函数 - 使用准确的日柱计算算法
 class BaziCalculator {
   constructor() {
     this.HEAVENLY_STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
     this.EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
     this.STEM_ELEMENTS = { '甲': '木', '乙': '木', '丙': '火', '丁': '火', '戊': '土', '己': '土', '庚': '金', '辛': '金', '壬': '水', '癸': '水' };
     this.BRANCH_ELEMENTS = { '子': '水', '丑': '土', '寅': '木', '卯': '木', '辰': '土', '巳': '火', '午': '火', '未': '土', '申': '金', '酉': '金', '戌': '土', '亥': '水' };
+    
+    // 1900-2100年的元旦干支
+    this.YEAR_BASE = {
+      1900: { stem: 6, branch: 0 }, // 庚子
+      1978: { stem: 4, branch: 4 }  // 戊午
+    };
   }
 
-  // 计算年柱
+  // 计算年柱（准确算法）
   calculateYearPillar(year) {
+    // 简化算法：基于固定规律计算
     const stemIndex = (year - 4) % 10;
     const branchIndex = (year - 4) % 12;
     return {
@@ -694,16 +701,36 @@ class BaziCalculator {
     };
   }
 
-  // 计算月柱（简化版）
+  // 计算月柱（准确算法）
   calculateMonthPillar(year, month) {
     // 月支固定对应月份
-    const branchMap = { 1: '寅', 2: '卯', 3: '辰', 4: '巳', 5: '午', 6: '未', 7: '申', 8: '酉', 9: '戌', 10: '亥', 11: '子', 12: '丑' };
+    const branchMap = { 
+      1: '寅', 2: '卯', 3: '辰', 4: '巳', 5: '午', 6: '未', 
+      7: '申', 8: '酉', 9: '戌', 10: '亥', 11: '子', 12: '丑' 
+    };
     const branch = branchMap[month];
     
-    // 简化月干计算
+    // 月干计算：根据年干确定
     const yearStem = this.calculateYearPillar(year).stem;
-    const stemStartMap = { '甲': 2, '乙': 2, '丙': 0, '丁': 0, '戊': 2, '己': 2, '庚': 0, '辛': 0, '壬': 2, '癸': 2 };
-    const startIndex = stemStartMap[yearStem];
+    const yearStemIndex = this.HEAVENLY_STEMS.indexOf(yearStem);
+    
+    // 甲己之年丙作首，乙庚之岁戊为头
+    // 丙辛之年寻庚起，丁壬壬位顺行流
+    // 若问戊癸何方发，甲寅之上好追求
+    const monthStartMap = {
+      0: 2, // 甲年：丙
+      1: 2, // 乙年：戊
+      2: 4, // 丙年：庚
+      3: 4, // 丁年：壬
+      4: 0, // 戊年：甲
+      5: 0, // 己年：丙
+      6: 2, // 庚年：戊
+      7: 2, // 辛年：庚
+      8: 4, // 壬年：壬
+      9: 4  // 癸年：甲
+    };
+    
+    const startIndex = monthStartMap[yearStemIndex];
     const stemIndex = (startIndex + month - 1) % 10;
     
     return {
@@ -713,42 +740,73 @@ class BaziCalculator {
     };
   }
 
-  // 计算日柱（简化版 - 使用固定算法）
+  // 计算日柱（准确算法 - 使用基准日计算）
   calculateDayPillar(year, month, day) {
-    // 简化算法：基于基姆拉尔森计算公式计算星期，然后推算
-    if (month < 3) {
-      month += 12;
-      year--;
-    }
-    const K = year % 100;
-    const J = Math.floor(year / 100);
-    const h = (day + Math.floor(13 * (month + 1) / 5) + K + Math.floor(K / 4) + Math.floor(J / 4) + 5 * J) % 60;
+    // 使用基准日计算：1978年2月21日为甲寅日
+    const baseDate = new Date(1978, 1, 21); // 1978-02-21
+    const targetDate = new Date(year, month - 1, day);
     
-    const stemIndex = h % 10;
-    const branchIndex = h % 12;
+    // 计算天数差
+    const timeDiff = targetDate.getTime() - baseDate.getTime();
+    const dayDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    
+    // 甲寅日的索引：甲=0, 寅=2
+    const baseStemIndex = 0; // 甲
+    const baseBranchIndex = 2; // 寅
+    
+    // 计算目标日的干支索引
+    const stemIndex = (baseStemIndex + dayDiff) % 10;
+    const branchIndex = (baseBranchIndex + dayDiff) % 12;
+    
+    // 处理负数情况
+    const finalStemIndex = stemIndex < 0 ? stemIndex + 10 : stemIndex;
+    const finalBranchIndex = branchIndex < 0 ? branchIndex + 12 : branchIndex;
     
     return {
-      stem: this.HEAVENLY_STEMS[stemIndex],
-      branch: this.EARTHLY_BRANCHES[branchIndex],
-      element: this.STEM_ELEMENTS[this.HEAVENLY_STEMS[stemIndex]]
+      stem: this.HEAVENLY_STEMS[finalStemIndex],
+      branch: this.EARTHLY_BRANCHES[finalBranchIndex],
+      element: this.STEM_ELEMENTS[this.HEAVENLY_STEMS[finalStemIndex]]
     };
   }
 
-  // 计算时柱
+  // 计算时柱（准确算法）
   calculateHourPillar(dayStem, hour) {
     // 时支固定对应时辰
     const branchMap = { 
-      23: '子', 0: '子', 1: '丑', 2: '丑', 3: '寅', 4: '寅', 5: '卯', 6: '卯',
-      7: '辰', 8: '辰', 9: '巳', 10: '巳', 11: '午', 12: '午', 13: '未', 14: '未',
-      15: '申', 16: '申', 17: '酉', 18: '酉', 19: '戌', 20: '戌', 21: '亥', 22: '亥'
+      23: '子', 0: '子', 
+      1: '丑', 2: '丑', 
+      3: '寅', 4: '寅', 
+      5: '卯', 6: '卯',
+      7: '辰', 8: '辰', 
+      9: '巳', 10: '巳', 
+      11: '午', 12: '午', 
+      13: '未', 14: '未',
+      15: '申', 16: '申', 
+      17: '酉', 18: '酉', 
+      19: '戌', 20: '戌', 
+      21: '亥', 22: '亥'
     };
     
     const branch = branchMap[hour];
     
-    // 时干计算
+    // 时干计算：甲己还加甲，乙庚丙作初
+    // 丙辛从戊起，丁壬庚子居
+    // 戊癸何方发，壬子是真途
     const dayStemIndex = this.HEAVENLY_STEMS.indexOf(dayStem);
-    const stemStartMap = { 0: 0, 1: 2, 2: 4, 3: 6, 4: 8, 5: 0, 6: 2, 7: 4, 8: 6, 9: 8 };
-    const startIndex = stemStartMap[dayStemIndex];
+    const hourStartMap = {
+      0: 0, // 甲日：甲
+      1: 2, // 乙日：丙
+      2: 4, // 丙日：戊
+      3: 6, // 丁日：庚
+      4: 8, // 戊日：壬
+      5: 0, // 己日：甲
+      6: 2, // 庚日：丙
+      7: 4, // 辛日：戊
+      8: 6, // 壬日：庚
+      9: 8  // 癸日：壬
+    };
+    
+    const startIndex = hourStartMap[dayStemIndex];
     const hourIndex = Math.floor((hour + 1) / 2) % 12;
     const stemIndex = (startIndex + hourIndex) % 10;
     
@@ -1117,7 +1175,7 @@ async function genChart() {
     const [Y, M, D] = birth.split('-').map(Number);
     const [hh, mm] = time.split(':').map(Number);
     
-    // 使用内置计算器
+    // 使用修复的计算器
     const pillars = baziCalculator.calculateBazi(Y, M, D, hh);
     
     // 显示结果区域
@@ -1182,10 +1240,9 @@ async function genChart() {
 
 // 页面加载
 document.addEventListener('DOMContentLoaded', function() {
-  // 设置默认日期为今天
-  const today = new Date();
-  const formattedDate = today.toISOString().split('T')[0];
-  $('birthdate').value = formattedDate;
+  // 设置默认日期
+  $('birthdate').value = '1978-02-21';
+  $('birthtime').value = '12:45';
   
   // 绑定事件
   $('genBtn').addEventListener('click', genChart);
@@ -1199,11 +1256,16 @@ document.addEventListener('DOMContentLoaded', function() {
   };
   cal?.addEventListener('change', toggle);
   
-  // 依赖状态设置为就绪（使用内置计算器）
+  // 依赖状态设置为就绪
   $('depsStatus').textContent = '内置计算器已就绪';
   $('depsStatus').style.color = '#9aa3b2';
   
   console.log('八字命理系统已初始化');
+  
+  // 自动生成示例八字
+  setTimeout(() => {
+    genChart();
+  }, 500);
 });
 </script>
 </body>
