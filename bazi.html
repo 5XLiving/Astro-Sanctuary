@@ -591,12 +591,12 @@ footer {
     <div class="row cols-3" style="margin-top:10px">
       <div>
         <label class="muted">出生日期</label>
-        <input type="date" id="birthdate" value="1993-02-21">
+        <input type="date" id="birthdate" value="1978-02-21">
       </div>
       <div>
         <label class="muted">出生时间</label>
         <div class="time-input-container" id="timeInputContainer">
-          <input type="time" id="birthtime" value="17:41">
+          <input type="time" id="birthtime" value="12:45">
         </div>
         <div class="time-unknown-container">
           <input type="checkbox" id="timeUnknown" class="time-unknown-checkbox">
@@ -708,8 +708,123 @@ footer {
 <footer>© 5XLiving • Astro Sanctuary</footer>
 
 <script>
-// 完全修复的八字计算函数 - 使用准确的日柱计算算法
-class BaziCalculator {
+// 工具函数
+function $(id) { return document.getElementById(id); }
+function setBar(el, pct) { if(el) el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
+function el(tag, attrs = {}, html = "") { 
+  const d = document.createElement(tag); 
+  Object.entries(attrs).forEach(([k, v]) => d.setAttribute(k, v)); 
+  d.innerHTML = html; 
+  return d; 
+}
+
+// 依赖加载函数
+async function loadScript(src, timeout = 15000) {
+  if ([...document.scripts].some(s => (s.src || '').includes(src))) return;
+  
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = true;
+    script.crossOrigin = 'anonymous';
+    
+    const timer = setTimeout(() => {
+      reject(new Error(`加载超时: ${src}`));
+    }, timeout);
+    
+    script.onload = () => {
+      clearTimeout(timer);
+      resolve();
+    };
+    
+    script.onerror = () => {
+      clearTimeout(timer);
+      reject(new Error(`加载失败: ${src}`));
+    };
+    
+    document.head.appendChild(script);
+  });
+}
+
+// 加载农历库
+async function ensureLunarJS() {
+  if (window.Lunar && window.Solar) {
+    $('depsStatus').textContent = 'lunar 已就绪';
+    $('depsStatus').style.color = '#9aa3b2';
+    return true;
+  }
+
+  $('depsStatus').textContent = '加载中...';
+  $('depsStatus').style.color = '#ffdf8a';
+
+  const candidates = [
+    'assets/vendor/lunar.min.js',
+    '/assets/vendor/lunar.min.js',
+    'assets/vendor/solarlunar.min.js',
+    '/assets/vendor/solarlunar.min.js'
+  ];
+
+  for (const url of candidates) {
+    try {
+      await loadScript(url, 8000);
+      
+      // 检查是否加载成功
+      if (window.Lunar && window.Solar) {
+        $('depsStatus').textContent = 'lunar 已就绪';
+        $('depsStatus').style.color = '#9aa3b2';
+        return true;
+      }
+      
+      // 检查 solarlunar
+      if (window.solarlunar) {
+        // 如果使用 solarlunar，创建兼容接口
+        window.Lunar = {
+          fromYmd: (year, month, day) => {
+            const lunar = solarlunar.solar2lunar(year, month, day);
+            return {
+              getEightChar: () => ({
+                getYear: () => lunar.gzYear,
+                getMonth: () => lunar.gzMonth,
+                getDay: () => lunar.gzDay,
+                getTime: (hour) => {
+                  // 简化时柱计算
+                  const timeBranches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+                  const branchIndex = Math.floor((hour + 1) / 2) % 12;
+                  const branch = timeBranches[branchIndex];
+                  
+                  // 日干计算时干
+                  const dayStem = lunar.gzDay[0];
+                  const stemStarts = {
+                    '甲': 0, '乙': 2, '丙': 4, '丁': 6, '戊': 8,
+                    '己': 0, '庚': 2, '辛': 4, '壬': 6, '癸': 8
+                  };
+                  const stemStart = stemStarts[dayStem] || 0;
+                  const stemIndex = (stemStart + branchIndex) % 10;
+                  const stems = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
+                  const stem = stems[stemIndex];
+                  
+                  return stem + branch;
+                }
+              })
+            };
+          }
+        };
+        $('depsStatus').textContent = 'solarlunar 已就绪';
+        $('depsStatus').style.color = '#9aa3b2';
+        return true;
+      }
+    } catch (error) {
+      console.log(`尝试加载 ${url} 失败:`, error);
+    }
+  }
+
+  $('depsStatus').textContent = '加载失败';
+  $('depsStatus').style.color = '#ffb4b4';
+  return false;
+}
+
+// 使用专业库的八字计算
+class AccurateBaziCalculator {
   constructor() {
     this.HEAVENLY_STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
     this.EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
@@ -717,157 +832,56 @@ class BaziCalculator {
     this.BRANCH_ELEMENTS = { '子': '水', '丑': '土', '寅': '木', '卯': '木', '辰': '土', '巳': '火', '午': '火', '未': '土', '申': '金', '酉': '金', '戌': '土', '亥': '水' };
   }
 
-  // 计算年柱（准确算法）
-  calculateYearPillar(year) {
-    // 准确算法：年干 = (年份 - 3) % 10，年支 = (年份 - 3) % 12
-    const stemIndex = (year - 3) % 10;
-    const branchIndex = (year - 3) % 12;
-    return {
-      stem: this.HEAVENLY_STEMS[stemIndex],
-      branch: this.EARTHLY_BRANCHES[branchIndex],
-      element: this.STEM_ELEMENTS[this.HEAVENLY_STEMS[stemIndex]]
-    };
-  }
-
-  // 计算月柱（准确算法）
-  calculateMonthPillar(year, month) {
-    // 月支固定对应月份
-    const branchMap = { 
-      1: '寅', 2: '卯', 3: '辰', 4: '巳', 5: '午', 6: '未', 
-      7: '申', 8: '酉', 9: '戌', 10: '亥', 11: '子', 12: '丑' 
-    };
-    const branch = branchMap[month];
-    
-    // 月干计算：根据年干确定
-    // 甲己之年丙作首，乙庚之岁戊为头
-    // 丙辛之年寻庚起，丁壬壬位顺行流
-    // 若问戊癸何方发，甲寅之上好追求
-    const yearStem = this.calculateYearPillar(year).stem;
-    const yearStemIndex = this.HEAVENLY_STEMS.indexOf(yearStem);
-    
-    const monthStartMap = {
-      0: 2, // 甲年：丙
-      1: 4, // 乙年：戊
-      2: 6, // 丙年：庚
-      3: 8, // 丁年：壬
-      4: 0, // 戊年：甲
-      5: 2, // 己年：丙
-      6: 4, // 庚年：戊
-      7: 6, // 辛年：庚
-      8: 8, // 壬年：壬
-      9: 0  // 癸年：甲
-    };
-    
-    const startIndex = monthStartMap[yearStemIndex];
-    const stemIndex = (startIndex + month - 1) % 10;
-    
-    return {
-      stem: this.HEAVENLY_STEMS[stemIndex],
-      branch: branch,
-      element: this.STEM_ELEMENTS[this.HEAVENLY_STEMS[stemIndex]]
-    };
-  }
-
-  // 计算日柱（准确算法 - 使用蔡勒公式）
-  calculateDayPillar(year, month, day) {
-    // 使用蔡勒公式计算日干支
-    if (month < 3) {
-      month += 12;
-      year -= 1;
-    }
-    
-    const K = year % 100;
-    const J = Math.floor(year / 100);
-    
-    // 蔡勒公式
-    const h = (day + Math.floor(13 * (month + 1) / 5) + K + Math.floor(K / 4) + Math.floor(J / 4) - 2 * J) % 7;
-    
-    // 转换为干支（简化算法，实际应该使用更复杂的计算）
-    // 这里使用1900年1月1日为甲午日作为基准
-    const baseDate = new Date(1900, 0, 1); // 1900-01-01 甲午日
-    const targetDate = new Date(year, month - 1, day);
-    
-    const timeDiff = targetDate.getTime() - baseDate.getTime();
-    const dayDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
-    
-    // 甲午日的索引：甲=0, 午=6
-    const baseStemIndex = 0; // 甲
-    const baseBranchIndex = 6; // 午
-    
-    const stemIndex = (baseStemIndex + dayDiff) % 10;
-    const branchIndex = (baseBranchIndex + dayDiff) % 12;
-    
-    return {
-      stem: this.HEAVENLY_STEMS[stemIndex],
-      branch: this.EARTHLY_BRANCHES[branchIndex],
-      element: this.STEM_ELEMENTS[this.HEAVENLY_STEMS[stemIndex]]
-    };
-  }
-
-  // 计算时柱（准确算法）
-  calculateHourPillar(dayStem, hour, timeUnknown = false) {
-    if (timeUnknown) {
-      return {
-        stem: '？',
-        branch: '？',
-        element: '未知'
-      };
-    }
-    
-    // 时支固定对应时辰
-    const branchMap = { 
-      23: '子', 0: '子', 1: '丑', 2: '丑', 3: '寅', 4: '寅', 
-      5: '卯', 6: '卯', 7: '辰', 8: '辰', 9: '巳', 10: '巳', 
-      11: '午', 12: '午', 13: '未', 14: '未', 15: '申', 16: '申', 
-      17: '酉', 18: '酉', 19: '戌', 20: '戌', 21: '亥', 22: '亥'
-    };
-    
-    const branch = branchMap[hour];
-    const dayStemIndex = this.HEAVENLY_STEMS.indexOf(dayStem);
-    
-    // 时干计算：甲己还加甲，乙庚丙作初，丙辛从戊起，丁壬庚子居，戊癸何方发，壬子是真途
-    const hourStartMap = {
-      0: 0, // 甲日：甲
-      1: 2, // 乙日：丙
-      2: 4, // 丙日：戊
-      3: 6, // 丁日：庚
-      4: 8, // 戊日：壬
-      5: 0, // 己日：甲
-      6: 2, // 庚日：丙
-      7: 4, // 辛日：戊
-      8: 6, // 壬日：庚
-      9: 8  // 癸日：壬
-    };
-    
-    const startIndex = hourStartMap[dayStemIndex];
-    const hourIndex = Math.floor((hour + 1) / 2) % 12;
-    const stemIndex = (startIndex + hourIndex) % 10;
-    
-    return {
-      stem: this.HEAVENLY_STEMS[stemIndex],
-      branch: branch,
-      element: this.STEM_ELEMENTS[this.HEAVENLY_STEMS[stemIndex]]
-    };
-  }
-
-  // 计算八字
+  // 使用专业库计算八字
   calculateBazi(year, month, day, hour, timeUnknown = false) {
-    const yearPillar = this.calculateYearPillar(year);
-    const monthPillar = this.calculateMonthPillar(year, month);
-    const dayPillar = this.calculateDayPillar(year, month, day);
-    const hourPillar = this.calculateHourPillar(dayPillar.stem, hour, timeUnknown);
-    
-    return {
-      year: yearPillar,
-      month: monthPillar,
-      day: dayPillar,
-      hour: hourPillar,
-      timeUnknown: timeUnknown
-    };
+    if (!window.Lunar) {
+      throw new Error('农历库未加载');
+    }
+
+    try {
+      const solar = window.Lunar.fromYmd(year, month, day);
+      const eightChar = solar.getEightChar();
+      
+      const yearPillar = eightChar.getYear();
+      const monthPillar = eightChar.getMonth();
+      const dayPillar = eightChar.getDay();
+      const hourPillar = timeUnknown ? '？？' : eightChar.getTime(hour);
+
+      return {
+        year: {
+          stem: yearPillar[0],
+          branch: yearPillar[1],
+          element: this.STEM_ELEMENTS[yearPillar[0]]
+        },
+        month: {
+          stem: monthPillar[0],
+          branch: monthPillar[1],
+          element: this.STEM_ELEMENTS[monthPillar[0]]
+        },
+        day: {
+          stem: dayPillar[0],
+          branch: dayPillar[1],
+          element: this.STEM_ELEMENTS[dayPillar[0]]
+        },
+        hour: timeUnknown ? {
+          stem: '？',
+          branch: '？',
+          element: '未知'
+        } : {
+          stem: hourPillar[0],
+          branch: hourPillar[1],
+          element: this.STEM_ELEMENTS[hourPillar[0]]
+        },
+        timeUnknown: timeUnknown
+      };
+    } catch (error) {
+      console.error('八字计算错误:', error);
+      throw new Error('八字计算失败，请检查输入数据');
+    }
   }
 }
 
-// 心怜管家 AI 功能（保持不变）
+// 心怜管家 AI 功能
 class XinLianAssistant {
   constructor() {
     this.currentContext = null;
@@ -1122,18 +1136,8 @@ class XinLianAssistant {
 }
 
 // 初始化
-const baziCalculator = new BaziCalculator();
+const baziCalculator = new AccurateBaziCalculator();
 const assistant = new XinLianAssistant();
-
-// 工具函数
-function $(id) { return document.getElementById(id); }
-function setBar(el, pct) { if(el) el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
-function el(tag, attrs = {}, html = "") { 
-  const d = document.createElement(tag); 
-  Object.entries(attrs).forEach(([k, v]) => d.setAttribute(k, v)); 
-  d.innerHTML = html; 
-  return d; 
-}
 
 // 五行分析
 function countElements(pillars, timeUnknown = false) {
@@ -1141,7 +1145,6 @@ function countElements(pillars, timeUnknown = false) {
   const STEM_ELEM = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
   const BRANCH_ELEM = {子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'};
   
-  // 只计算年月日三柱
   const pillarsToCount = timeUnknown ? 
     [pillars.year, pillars.month, pillars.day] : 
     [pillars.year, pillars.month, pillars.day, pillars.hour];
@@ -1229,6 +1232,14 @@ async function genChart() {
     return;
   }
 
+  // 检查依赖
+  const depsOk = await ensureLunarJS();
+  if (!depsOk) {
+    err.textContent = '命理计算组件加载失败，请点击"重新加载"或检查网络连接';
+    err.style.display = 'block';
+    return;
+  }
+
   // 显示加载状态
   $('genBtnText').style.display = 'none';
   $('genBtnLoading').style.display = 'inline-block';
@@ -1236,7 +1247,7 @@ async function genChart() {
 
   try {
     const [Y, M, D] = birth.split('-').map(Number);
-    let hour = 12; // 默认中午12点
+    let hour = 12;
     
     if (!timeUnknown) {
       const time = ($('birthtime').value || '').trim();
@@ -1246,7 +1257,7 @@ async function genChart() {
       }
     }
     
-    // 使用修复的计算器
+    // 使用专业库计算八字
     const pillars = baziCalculator.calculateBazi(Y, M, D, hour, timeUnknown);
     
     // 显示结果区域
@@ -1321,11 +1332,21 @@ async function genChart() {
 
 // 页面加载
 document.addEventListener('DOMContentLoaded', function() {
-  $('birthdate').value = '';
-  $('birthtime').value = '';
+  // 设置默认日期
+  $('birthdate').value = '1978-02-21';
+  $('birthtime').value = '12:45';
   
   // 绑定事件
   $('genBtn').addEventListener('click', genChart);
+  
+  // 重新加载按钮
+  $('depsReload').addEventListener('click', async () => {
+    const ok = await ensureLunarJS();
+    if (ok) {
+      const err = $('error');
+      err.style.display = 'none';
+    }
+  });
   
   // 时间不详复选框事件
   $('timeUnknown').addEventListener('change', function() {
@@ -1346,16 +1367,10 @@ document.addEventListener('DOMContentLoaded', function() {
   };
   cal?.addEventListener('change', toggle);
   
-  // 依赖状态设置为就绪
-  $('depsStatus').textContent = '内置计算器已就绪';
-  $('depsStatus').style.color = '#9aa3b2';
+  // 初始化加载依赖
+  ensureLunarJS();
   
   console.log('八字命理系统已初始化');
-  
-  // 自动生成示例八字
-  setTimeout(() => {
-    genChart();
-  }, 500);
 });
 </script>
 </body>
