@@ -496,6 +496,33 @@ footer {
   margin: 10px 0;
   color: #ffb4b4;
 }
+
+/* 时间不详选项样式 */
+.time-unknown-container {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.time-unknown-checkbox {
+  width: 16px;
+  height: 16px;
+}
+
+.time-unknown-label {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
+.time-input-container {
+  transition: all 0.3s ease;
+}
+
+.time-input-container.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}
 </style>
 </head>
 
@@ -564,11 +591,17 @@ footer {
     <div class="row cols-3" style="margin-top:10px">
       <div>
         <label class="muted">出生日期</label>
-        <input type="date" id="birthdate" value="1978-02-21">
+        <input type="date" id="birthdate">
       </div>
       <div>
         <label class="muted">出生时间</label>
-        <input type="time" id="birthtime" value="12:45">
+        <div class="time-input-container" id="timeInputContainer">
+          <input type="time" id="birthtime" value="12:00">
+        </div>
+        <div class="time-unknown-container">
+          <input type="checkbox" id="timeUnknown" class="time-unknown-checkbox">
+          <label for="timeUnknown" class="time-unknown-label">出生时间不详</label>
+        </div>
       </div>
       <div style="display:flex;align-items:flex-end">
         <button class="btn" id="genBtn">
@@ -589,6 +622,7 @@ footer {
       <div class="pillars" id="bazi-pillars"></div>
       <div class="muted" id="bazi-date"></div>
       <div class="muted" id="bazi-day-master"></div>
+      <div class="muted" id="bazi-time-note" style="color: var(--warning);"></div>
     </div>
 
     <div class="card section">
@@ -681,17 +715,10 @@ class BaziCalculator {
     this.EARTHLY_BRANCHES = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
     this.STEM_ELEMENTS = { '甲': '木', '乙': '木', '丙': '火', '丁': '火', '戊': '土', '己': '土', '庚': '金', '辛': '金', '壬': '水', '癸': '水' };
     this.BRANCH_ELEMENTS = { '子': '水', '丑': '土', '寅': '木', '卯': '木', '辰': '土', '巳': '火', '午': '火', '未': '土', '申': '金', '酉': '金', '戌': '土', '亥': '水' };
-    
-    // 1900-2100年的元旦干支
-    this.YEAR_BASE = {
-      1900: { stem: 6, branch: 0 }, // 庚子
-      1978: { stem: 4, branch: 4 }  // 戊午
-    };
   }
 
   // 计算年柱（准确算法）
   calculateYearPillar(year) {
-    // 简化算法：基于固定规律计算
     const stemIndex = (year - 4) % 10;
     const branchIndex = (year - 4) % 12;
     return {
@@ -703,31 +730,17 @@ class BaziCalculator {
 
   // 计算月柱（准确算法）
   calculateMonthPillar(year, month) {
-    // 月支固定对应月份
     const branchMap = { 
       1: '寅', 2: '卯', 3: '辰', 4: '巳', 5: '午', 6: '未', 
       7: '申', 8: '酉', 9: '戌', 10: '亥', 11: '子', 12: '丑' 
     };
     const branch = branchMap[month];
     
-    // 月干计算：根据年干确定
     const yearStem = this.calculateYearPillar(year).stem;
     const yearStemIndex = this.HEAVENLY_STEMS.indexOf(yearStem);
     
-    // 甲己之年丙作首，乙庚之岁戊为头
-    // 丙辛之年寻庚起，丁壬壬位顺行流
-    // 若问戊癸何方发，甲寅之上好追求
     const monthStartMap = {
-      0: 2, // 甲年：丙
-      1: 2, // 乙年：戊
-      2: 4, // 丙年：庚
-      3: 4, // 丁年：壬
-      4: 0, // 戊年：甲
-      5: 0, // 己年：丙
-      6: 2, // 庚年：戊
-      7: 2, // 辛年：庚
-      8: 4, // 壬年：壬
-      9: 4  // 癸年：甲
+      0: 2, 1: 2, 2: 4, 3: 4, 4: 0, 5: 0, 6: 2, 7: 2, 8: 4, 9: 4
     };
     
     const startIndex = monthStartMap[yearStemIndex];
@@ -740,70 +753,48 @@ class BaziCalculator {
     };
   }
 
-  // 计算日柱（准确算法 - 使用基准日计算）
+  // 计算日柱（准确算法）
   calculateDayPillar(year, month, day) {
-    // 使用基准日计算：1978年2月21日为甲寅日
-    const baseDate = new Date(1978, 1, 21); // 1978-02-21
+    // 使用基准日：1900年1月1日为甲子日
+    const baseDate = new Date(1900, 0, 1);
     const targetDate = new Date(year, month - 1, day);
     
-    // 计算天数差
     const timeDiff = targetDate.getTime() - baseDate.getTime();
     const dayDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
     
-    // 甲寅日的索引：甲=0, 寅=2
-    const baseStemIndex = 0; // 甲
-    const baseBranchIndex = 2; // 寅
-    
-    // 计算目标日的干支索引
-    const stemIndex = (baseStemIndex + dayDiff) % 10;
-    const branchIndex = (baseBranchIndex + dayDiff) % 12;
-    
-    // 处理负数情况
-    const finalStemIndex = stemIndex < 0 ? stemIndex + 10 : stemIndex;
-    const finalBranchIndex = branchIndex < 0 ? branchIndex + 12 : branchIndex;
+    const stemIndex = dayDiff % 10;
+    const branchIndex = dayDiff % 12;
     
     return {
-      stem: this.HEAVENLY_STEMS[finalStemIndex],
-      branch: this.EARTHLY_BRANCHES[finalBranchIndex],
-      element: this.STEM_ELEMENTS[this.HEAVENLY_STEMS[finalStemIndex]]
+      stem: this.HEAVENLY_STEMS[stemIndex],
+      branch: this.EARTHLY_BRANCHES[branchIndex],
+      element: this.STEM_ELEMENTS[this.HEAVENLY_STEMS[stemIndex]]
     };
   }
 
   // 计算时柱（准确算法）
-  calculateHourPillar(dayStem, hour) {
-    // 时支固定对应时辰
+  calculateHourPillar(dayStem, hour, timeUnknown = false) {
+    if (timeUnknown) {
+      // 时间不详时，显示为"未知"
+      return {
+        stem: '？',
+        branch: '？',
+        element: '未知'
+      };
+    }
+    
     const branchMap = { 
-      23: '子', 0: '子', 
-      1: '丑', 2: '丑', 
-      3: '寅', 4: '寅', 
-      5: '卯', 6: '卯',
-      7: '辰', 8: '辰', 
-      9: '巳', 10: '巳', 
-      11: '午', 12: '午', 
-      13: '未', 14: '未',
-      15: '申', 16: '申', 
-      17: '酉', 18: '酉', 
-      19: '戌', 20: '戌', 
-      21: '亥', 22: '亥'
+      23: '子', 0: '子', 1: '丑', 2: '丑', 3: '寅', 4: '寅', 
+      5: '卯', 6: '卯', 7: '辰', 8: '辰', 9: '巳', 10: '巳', 
+      11: '午', 12: '午', 13: '未', 14: '未', 15: '申', 16: '申', 
+      17: '酉', 18: '酉', 19: '戌', 20: '戌', 21: '亥', 22: '亥'
     };
     
     const branch = branchMap[hour];
-    
-    // 时干计算：甲己还加甲，乙庚丙作初
-    // 丙辛从戊起，丁壬庚子居
-    // 戊癸何方发，壬子是真途
     const dayStemIndex = this.HEAVENLY_STEMS.indexOf(dayStem);
+    
     const hourStartMap = {
-      0: 0, // 甲日：甲
-      1: 2, // 乙日：丙
-      2: 4, // 丙日：戊
-      3: 6, // 丁日：庚
-      4: 8, // 戊日：壬
-      5: 0, // 己日：甲
-      6: 2, // 庚日：丙
-      7: 4, // 辛日：戊
-      8: 6, // 壬日：庚
-      9: 8  // 癸日：壬
+      0: 0, 1: 2, 2: 4, 3: 6, 4: 8, 5: 0, 6: 2, 7: 4, 8: 6, 9: 8
     };
     
     const startIndex = hourStartMap[dayStemIndex];
@@ -818,17 +809,18 @@ class BaziCalculator {
   }
 
   // 计算八字
-  calculateBazi(year, month, day, hour) {
+  calculateBazi(year, month, day, hour, timeUnknown = false) {
     const yearPillar = this.calculateYearPillar(year);
     const monthPillar = this.calculateMonthPillar(year, month);
     const dayPillar = this.calculateDayPillar(year, month, day);
-    const hourPillar = this.calculateHourPillar(dayPillar.stem, hour);
+    const hourPillar = this.calculateHourPillar(dayPillar.stem, hour, timeUnknown);
     
     return {
       year: yearPillar,
       month: monthPillar,
       day: dayPillar,
-      hour: hourPillar
+      hour: hourPillar,
+      timeUnknown: timeUnknown
     };
   }
 }
@@ -860,7 +852,12 @@ class XinLianAssistant {
   }
 
   analyzeBazi(baziData) {
-    const { dayMaster, elements, strength, season } = baziData;
+    const { dayMaster, elements, strength, season, timeUnknown } = baziData;
+    
+    let timeNote = '';
+    if (timeUnknown) {
+      timeNote = '<li><strong>注意：</strong>由于出生时间不详，时柱无法确定，此分析仅基于年月日三柱</li>';
+    }
     
     let analysis = `
       <ul class="ul">
@@ -868,6 +865,7 @@ class XinLianAssistant {
         <li>命局整体<strong>${strength.mark}</strong>，${this.getStrengthDescription(strength.mark)}</li>
         <li>出生于<strong>${season}</strong>季节，${this.getSeasonInfluence(season, dayMaster.element)}</li>
         <li>五行分布：${this.getElementDistribution(elements)}</li>
+        ${timeNote}
       </ul>
     `;
     
@@ -875,7 +873,12 @@ class XinLianAssistant {
   }
 
   generateAdvice(baziData) {
-    const { strength, useful } = baziData;
+    const { strength, useful, timeUnknown } = baziData;
+    
+    let timeWarning = '';
+    if (timeUnknown) {
+      timeWarning = '<li><strong>重要提示：</strong>由于缺少时柱信息，此分析仅供参考。建议提供准确出生时间以获得更精准的命理分析。</li>';
+    }
     
     let advice = `
       <ul class="ul">
@@ -883,6 +886,7 @@ class XinLianAssistant {
         <li><strong>喜用元素：</strong>${useful.useful.join('、')}</li>
         <li><strong>幸运颜色：</strong>${this.getLuckyColors(useful.useful)}</li>
         <li><strong>适合方位：</strong>${this.getLuckyDirections(useful.useful)}</li>
+        ${timeWarning}
       </ul>
     `;
     
@@ -916,7 +920,7 @@ class XinLianAssistant {
   }
 
   getCareerAdvice() {
-    const { dayMaster, strength } = this.currentContext;
+    const { dayMaster, strength, timeUnknown } = this.currentContext;
     const careers = {
       '木': ['教育行业', '创意设计', '出版传媒', '环保产业'],
       '火': ['互联网科技', '市场营销', '娱乐产业', '餐饮行业'],
@@ -927,27 +931,30 @@ class XinLianAssistant {
     
     const suitableCareers = careers[dayMaster.element] || ['多元化发展'];
     const strengthText = strength.mark === '偏强' ? '适合挑战性工作' : '适合稳定性工作';
+    const timeNote = timeUnknown ? '（注：时柱信息缺失，建议仅供参考）' : '';
     
-    return `基于您的${dayMaster.element}属性日主，${strengthText}。推荐职业方向：${suitableCareers.join('、')}。`;
+    return `基于您的${dayMaster.element}属性日主，${strengthText}。推荐职业方向：${suitableCareers.join('、')}。${timeNote}`;
   }
 
   getWealthAdvice() {
-    const { elements, useful } = this.currentContext;
+    const { elements, useful, timeUnknown } = this.currentContext;
     const strongElement = this.getStrongestElement(elements);
     const weakElement = this.getWeakestElement(elements);
+    const timeNote = timeUnknown ? ' 由于时柱信息不完整，财运分析可能不够精确。' : '';
     
-    return `您的财运${strongElement === '金' || strongElement === '土' ? '较佳' : '需努力'}。建议加强${useful.useful.join('、')}元素的运用，避免${weakElement}相关的高风险投资。`;
+    return `您的财运${strongElement === '金' || strongElement === '土' ? '较佳' : '需努力'}。建议加强${useful.useful.join('、')}元素的运用，避免${weakElement}相关的高风险投资。${timeNote}`;
   }
 
   getRelationshipAdvice() {
-    const { dayMaster, elements } = this.currentContext;
+    const { dayMaster, elements, timeUnknown } = this.currentContext;
     const compatibleElements = this.getCompatibleElements(dayMaster.element);
+    const timeNote = timeUnknown ? ' 时柱信息缺失可能影响感情分析的准确性。' : '';
     
-    return `感情方面，您与${compatibleElements.join('、')}属性的人较为投缘。建议多参与社交活动，扩大交际圈。`;
+    return `感情方面，您与${compatibleElements.join('、')}属性的人较为投缘。建议多参与社交活动，扩大交际圈。${timeNote}`;
   }
 
   getHealthAdvice() {
-    const { elements } = this.currentContext;
+    const { elements, timeUnknown } = this.currentContext;
     const weakElement = this.getWeakestElement(elements);
     const healthMap = {
       '木': '肝胆、眼睛',
@@ -956,12 +963,13 @@ class XinLianAssistant {
       '金': '肺、呼吸系统',
       '水': '肾、泌尿系统'
     };
+    const timeNote = timeUnknown ? ' 健康分析基于现有信息，建议结合实际情况。' : '';
     
-    return `健康方面需特别注意${healthMap[weakElement]}的保养。建议定期体检，保持规律作息。`;
+    return `健康方面需特别注意${healthMap[weakElement]}的保养。建议定期体检，保持规律作息。${timeNote}`;
   }
 
   getLuckyDirectionsAdvice() {
-    const { useful } = this.currentContext;
+    const { useful, timeUnknown } = this.currentContext;
     const directionMap = {
       '木': '东方',
       '火': '南方',
@@ -971,7 +979,9 @@ class XinLianAssistant {
     };
     
     const directions = useful.useful.map(el => directionMap[el]).filter(Boolean);
-    return `您的幸运方位是：${directions.join('、')}。在这些方向工作、生活或旅行会带来好运。`;
+    const timeNote = timeUnknown ? ' 方位建议基于现有信息。' : '';
+    
+    return `您的幸运方位是：${directions.join('、')}。在这些方向工作、生活或旅行会带来好运。${timeNote}`;
   }
 
   showActionResponse(action, response) {
@@ -1084,14 +1094,21 @@ function el(tag, attrs = {}, html = "") {
 }
 
 // 五行分析
-function countElements(pillars) {
+function countElements(pillars, timeUnknown = false) {
   const cnt = {木:0, 火:0, 土:0, 金:0, 水:0};
   const STEM_ELEM = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
   const BRANCH_ELEM = {子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'};
   
-  Object.values(pillars).forEach(pillar => {
-    if(pillar.stem && STEM_ELEM[pillar.stem]) cnt[STEM_ELEM[pillar.stem]] += 1;
-    if(pillar.branch && BRANCH_ELEM[pillar.branch]) cnt[BRANCH_ELEM[pillar.branch]] += 1;
+  // 只计算年月日三柱
+  const pillarsToCount = timeUnknown ? 
+    [pillars.year, pillars.month, pillars.day] : 
+    [pillars.year, pillars.month, pillars.day, pillars.hour];
+  
+  pillarsToCount.forEach(pillar => {
+    if(pillar.stem && STEM_ELEM[pillar.stem] && pillar.stem !== '？') 
+      cnt[STEM_ELEM[pillar.stem]] += 1;
+    if(pillar.branch && BRANCH_ELEM[pillar.branch] && pillar.branch !== '？') 
+      cnt[BRANCH_ELEM[pillar.branch]] += 1;
   });
   
   const total = Object.values(cnt).reduce((a, b) => a + b, 0) || 1;
@@ -1140,12 +1157,16 @@ function chooseUseful(strength, dmElem) {
 }
 
 // 渲染四柱
-function renderPillars(root, p) {
+function renderPillars(root, p, timeUnknown = false) {
   root.innerHTML = '';
   [['年柱', p.year], ['月柱', p.month], ['日柱', p.day], ['时柱', p.hour]].forEach(([tit, v]) => {
+    const isUnknown = (tit === '时柱' && timeUnknown);
+    const stem = isUnknown ? '？' : v.stem;
+    const branch = isUnknown ? '？' : v.branch;
+    
     const div = el('div', {class: 'pillar'}, `
       <div class="tit">${tit}</div>
-      <div class="gz">${v.stem}${v.branch}</div>
+      <div class="gz">${stem}${branch}</div>
     `);
     root.appendChild(div);
   });
@@ -1158,10 +1179,10 @@ async function genChart() {
   err.textContent = '';
   
   const birth = ($('birthdate').value || '').trim();
-  const time = ($('birthtime').value || '').trim();
+  const timeUnknown = $('timeUnknown').checked;
   
-  if(!birth || !time) {
-    err.textContent = '请完善出生日期与时间。';
+  if(!birth) {
+    err.textContent = '请填写出生日期。';
     err.style.display = 'block';
     return;
   }
@@ -1173,21 +1194,38 @@ async function genChart() {
 
   try {
     const [Y, M, D] = birth.split('-').map(Number);
-    const [hh, mm] = time.split(':').map(Number);
+    let hour = 12; // 默认中午12点
+    
+    if (!timeUnknown) {
+      const time = ($('birthtime').value || '').trim();
+      if (time) {
+        const [hh, mm] = time.split(':').map(Number);
+        hour = hh;
+      }
+    }
     
     // 使用修复的计算器
-    const pillars = baziCalculator.calculateBazi(Y, M, D, hh);
+    const pillars = baziCalculator.calculateBazi(Y, M, D, hour, timeUnknown);
     
     // 显示结果区域
     $('result').style.display = 'block';
-    $('bazi-date').textContent = `用于计算（UTC+8，阳历）：${birth} ${time}`;
+    
+    let timeDisplay = timeUnknown ? '时间不详（使用默认时间计算日柱）' : $('birthtime').value;
+    $('bazi-date').textContent = `用于计算（UTC+8，阳历）：${birth} ${timeDisplay}`;
     
     // 渲染四柱
-    renderPillars($('bazi-pillars'), pillars);
+    renderPillars($('bazi-pillars'), pillars, timeUnknown);
     $('bazi-day-master').textContent = `日主：${pillars.day.stem}（${pillars.day.element}）`;
     
+    // 时间不详提示
+    if (timeUnknown) {
+      $('bazi-time-note').textContent = '⚠️ 注意：出生时间不详，时柱无法确定。此分析仅基于年月日三柱，准确性有限。';
+    } else {
+      $('bazi-time-note').textContent = '';
+    }
+    
     // 五行分析
-    const {cnt, pct} = countElements(pillars);
+    const {cnt, pct} = countElements(pillars, timeUnknown);
     setBar($('bar-wood'), pct.wood);
     setBar($('bar-fire'), pct.fire);
     setBar($('bar-earth'), pct.earth);
@@ -1221,7 +1259,8 @@ async function genChart() {
       },
       strength: st,
       season: st.season,
-      useful: adv
+      useful: adv,
+      timeUnknown: timeUnknown
     };
     
     assistant.generateAnalysis(baziData);
@@ -1242,10 +1281,20 @@ async function genChart() {
 document.addEventListener('DOMContentLoaded', function() {
   // 设置默认日期为空
   $('birthdate').value = '';
-  $('birthtime').value = '';
+  $('birthtime').value = '12:00';
   
   // 绑定事件
   $('genBtn').addEventListener('click', genChart);
+  
+  // 时间不详复选框事件
+  $('timeUnknown').addEventListener('change', function() {
+    const timeInputContainer = $('timeInputContainer');
+    if (this.checked) {
+      timeInputContainer.classList.add('disabled');
+    } else {
+      timeInputContainer.classList.remove('disabled');
+    }
+  });
   
   // 历法提示显隐
   const cal = $('calendar'), leap = $('leapWrap'), hint = document.querySelector('#calendarHint');
