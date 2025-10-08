@@ -210,25 +210,55 @@ class BaziCalculator {
     const dayElement = this.getStemElement(dayP.stem);
     const pillars = { year:yearP, month:monthP, day: {...dayP, element: dayElement}, hour: hourP };
 
-    // 五行统计（干支各 +1）
-    const cnt = {木:0,火:0,土:0,金:0,水:0};
-    const list = timeUnknown ? [yearP, monthP, dayP] : [yearP, monthP, dayP, hourP];
-    list.forEach(p => {
-      if (p.stem   && p.stem   !== '？') cnt[this.getStemElement(p.stem)]   += 1;
-      if (p.branch && p.branch !== '？') cnt[this.getBranchElement(p.branch)] += 1;
-    });
-    const total = Object.values(cnt).reduce((a,b)=>a+b,0) || 1;
-    const pct = {
-      wood:  cnt['木']/total*100,
-      fire:  cnt['火']/total*100,
-      earth: cnt['土']/total*100,
-      metal: cnt['金']/total*100,
-      water: cnt['水']/total*100
-    };
-
-    return { pillars, counts: cnt, percents: pct, timeUnknown };
-  }
+// 修复五行统计方法
+analyzeFiveElements(pillars, timeUnknown = false) {
+  const elements = {
+    '木': 0, '火': 0, '土': 0, '金': 0, '水': 0
+  };
+  
+  const pillarsToCount = timeUnknown ? 
+    [pillars.year, pillars.month, pillars.day] : 
+    [pillars.year, pillars.month, pillars.day, pillars.hour];
+  
+  pillarsToCount.forEach(pillar => {
+    // 统计天干
+    if (pillar.stem && pillar.stem !== '？') {
+      const stemElement = this.getStemElement(pillar.stem);
+      elements[stemElement]++;
+    }
+    
+    // 统计地支
+    if (pillar.branch && pillar.branch !== '？') {
+      const branchElement = this.getBranchElement(pillar.branch);
+      elements[branchElement]++;
+    }
+  });
+  
+  const total = Object.values(elements).reduce((a, b) => a + b, 0);
+  
+  const percentages = {
+    wood: total > 0 ? (elements['木'] / total) * 100 : 0,
+    fire: total > 0 ? (elements['火'] / total) * 100 : 0,
+    earth: total > 0 ? (elements['土'] / total) * 100 : 0,
+    metal: total > 0 ? (elements['金'] / total) * 100 : 0,
+    water: total > 0 ? (elements['水'] / total) * 100 : 0
+  };
+  
+  return {
+    counts: elements,
+    percentages: percentages
+  };
 }
+
+// 然后在 calculateBazi 方法中使用：
+const elementsAnalysis = this.analyzeFiveElements({ year: yearP, month: monthP, day: dayP, hour: hourP }, timeUnknown);
+
+return { 
+  pillars: { year: yearP, month: monthP, day: {...dayP, element: dayElement}, hour: hourP }, 
+  counts: elementsAnalysis.counts, 
+  percents: elementsAnalysis.percentages, 
+  timeUnknown 
+};
 
 // —— 全局实例（如已有则复用）
 window.baziCalculator = window.baziCalculator || new BaziCalculator();
