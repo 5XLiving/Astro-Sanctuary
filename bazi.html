@@ -123,56 +123,39 @@ class BaziCalculator {
     this.HEAVENLY_STEMS   = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
     this.EARTHLY_BRANCHES = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
     this.ZODIAC           = ['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
-    this.NAYIN = ['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','屋上土','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];
+    this.NAYIN = ['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];
   }
-
   // 年柱
   calculateYearPillar(year) {
-    const s = (year - 4) % 10;
-    const b = (year - 4) % 12;
-    return {
-      stem: this.HEAVENLY_STEMS[(s+10)%10],
-      branch: this.EARTHLY_BRANCHES[(b+12)%12],
-      zodiac: this.ZODIAC[(b+12)%12]
-    };
+    const s = (year - 4) % 10, b = (year - 4) % 12;
+    return { stem: this.HEAVENLY_STEMS[(s+10)%10], branch: this.EARTHLY_BRANCHES[(b+12)%12], zodiac: this.ZODIAC[(b+12)%12] };
   }
-
-  // 节气定月（寅=1…丑=12），近似阈值
+  // 节气定月（寅=1…丑=12）
   solarMonthIndex(y, m, d) {
     const mmdd = m*100 + d;
-    const gates = [
-      [106,12], [204,1], [306,2], [405,3], [506,4], [606,5],
-      [707,6],  [808,7], [908,8], [1008,9], [1107,10], [1207,11]
-    ];
-    let idx = 11;
-    for (const [thr,val] of gates) if (mmdd >= thr) idx = val;
+    const gates = [[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
+    let idx = 11; for (const [thr,val] of gates) if (mmdd >= thr) idx = val;
     const branchBy = {1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
     return { index: idx, branch: branchBy[idx] };
   }
-
   // 月柱：甲/己丙寅起；乙/庚戊寅起；丙/辛庚寅起；丁/壬壬寅起；戊/癸甲寅起
   calculateMonthPillar(year, month, day) {
     const { index, branch } = this.solarMonthIndex(year, month, day);
     const yStemIdx = this.HEAVENLY_STEMS.indexOf(this.calculateYearPillar(year).stem);
     const startMap = {0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
-    const stemIdx = (startMap[yStemIdx] + (index - 1)) % 10;
+    const stemIdx  = (startMap[yStemIdx] + (index - 1)) % 10;
     return { stem: this.HEAVENLY_STEMS[stemIdx], branch };
   }
-
-  // 日柱：1900-01-31 为甲辰；用 UTC 取整日差（不 +1）
+  // 日柱：1900-01-31 为甲辰；UTC 取整日差
   calculateDayPillar(year, month, day) {
-    const baseUTC   = Date.UTC(1900, 0, 31); // 甲辰（辰索引=4）
+    const baseUTC   = Date.UTC(1900, 0, 31); // 甲辰（辰=4）
     const targetUTC = Date.UTC(year, month - 1, day);
     const dayDiff   = Math.floor((targetUTC - baseUTC) / 86400000);
     const stemIdx   = (0 + dayDiff) % 10;    // 甲=0
     const branchIdx = (4 + dayDiff) % 12;    // 辰=4
-    return {
-      stem: this.HEAVENLY_STEMS[(stemIdx+10)%10],
-      branch: this.EARTHLY_BRANCHES[(branchIdx+12)%12]
-    };
+    return { stem: this.HEAVENLY_STEMS[(stemIdx+10)%10], branch: this.EARTHLY_BRANCHES[(branchIdx+12)%12] };
   }
-
-  // 时柱：子时起；甲日子时甲、乙日起丙…（十干顺推）
+  // 时柱：子时起；甲日子时甲、乙日起丙…
   calculateHourPillar(dayStem, hour) {
     const branchMap = {23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
     const startMap  = {0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8}; // 日干→子时起干
@@ -181,37 +164,28 @@ class BaziCalculator {
     const stemIdx   = (startMap[dayIdx] + hourIndex) % 10;
     return { stem: this.HEAVENLY_STEMS[stemIdx], branch: branchMap[hour] };
   }
-
-  // 五行/纳音/取元素
+  // 五行/纳音/元素
   getElement(stem, branch) {
     const s = {'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'};
     const b = {'子':'水','丑':'土','寅':'木','卯':'木','辰':'土','巳':'火','午':'火','未':'土','申':'金','酉':'金','戌':'土','亥':'水'};
     return `${s[stem]}${b[branch]}`;
   }
   getNayin(stem, branch) {
-    const si = this.HEAVENLY_STEMS.indexOf(stem);
-    const bi = this.EARTHLY_BRANCHES.indexOf(branch);
+    const si = this.HEAVENLY_STEMS.indexOf(stem), bi = this.EARTHLY_BRANCHES.indexOf(branch);
     return this.NAYIN[(si*2 + bi) % this.NAYIN.length];
   }
-  getStemElement(stem){
-    return ({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[stem];
-  }
-  getBranchElement(branch){
-    return ({子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'})[branch];
-  }
+  getStemElement(stem){ return ({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[stem]; }
+  getBranchElement(branch){ return ({子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'})[branch]; }
 
-  // 一次计算：四柱 + 统计（兼容你后续用的数据结构）
+  // 一次算出四柱 + 五行统计
   calculateBazi(year, month, day, hour = 12, timeUnknown = false) {
     const yearP  = this.calculateYearPillar(year);
     const monthP = this.calculateMonthPillar(year, month, day);
     const dayP   = this.calculateDayPillar(year, month, day);
     const hourP  = timeUnknown ? {stem:'？', branch:'？'} : this.calculateHourPillar(dayP.stem, hour);
-
-    // 日主元素
     const dayElement = this.getStemElement(dayP.stem);
-    const pillars = { year:yearP, month:monthP, day: {...dayP, element: dayElement}, hour: hourP };
+    const pillars = { year:yearP, month:monthP, day:{...dayP, element:dayElement}, hour:hourP };
 
-    // 五行统计（干支各 +1）
     const cnt = {木:0,火:0,土:0,金:0,水:0};
     const list = timeUnknown ? [yearP, monthP, dayP] : [yearP, monthP, dayP, hourP];
     list.forEach(p => {
@@ -219,19 +193,11 @@ class BaziCalculator {
       if (p.branch && p.branch !== '？') cnt[this.getBranchElement(p.branch)] += 1;
     });
     const total = Object.values(cnt).reduce((a,b)=>a+b,0) || 1;
-    const pct = {
-      wood:  cnt['木']/total*100,
-      fire:  cnt['火']/total*100,
-      earth: cnt['土']/total*100,
-      metal: cnt['金']/total*100,
-      water: cnt['水']/total*100
-    };
+    const pct = { wood:cnt['木']/total*100, fire:cnt['火']/total*100, earth:cnt['土']/total*100, metal:cnt['金']/total*100, water:cnt['水']/total*100 };
 
     return { pillars, counts: cnt, percents: pct, timeUnknown };
   }
 }
-
-// —— 全局实例（如已有则复用）
 window.baziCalculator = window.baziCalculator || new BaziCalculator();
 
 // ======================= 心怜管家（精简版渲染器） =======================
@@ -239,12 +205,10 @@ class XinLianAssistant {
   constructor(){ this.currentContext=null; }
   generateAnalysis(baziData){
     this.currentContext = baziData;
-    const analysis = this.analyzeBazi(baziData);
-    const advice   = this.generateAdvice(baziData);
     const a = document.getElementById('assistant-analysis');
     const b = document.getElementById('assistant-advice');
-    if (a) a.innerHTML = analysis;
-    if (b) b.innerHTML = advice;
+    if (a) a.innerHTML = this.analyzeBazi(baziData);
+    if (b) b.innerHTML = this.generateAdvice(baziData);
   }
   analyzeBazi({dayMaster, elements, strength, season, timeUnknown}){
     const timeNote = timeUnknown ? '<li><strong>注意：</strong>因出生时间不详，时柱缺失，仅基于年月日三柱。</li>' : '';
@@ -269,34 +233,28 @@ class XinLianAssistant {
       </ul>`;
   }
   getStrengthDescription(m){ return {偏强:'潜力足、抗压好',偏弱:'需外援更能发挥',平衡:'各面均衡、适应性强'}[m]||'具有独特特点'; }
-  getSeasonInfluence(season, el){ const m={春:'木旺生发',夏:'火旺外放',秋:'金旺收敛',冬:'水旺内藏'}; return m[season]||'季节对命局有一定影响'; }
+  getSeasonInfluence(season){ const m={春:'木旺生发',夏:'火旺外放',秋:'金旺收敛',冬:'水旺内藏'}; return m[season]||'季节对命局有一定影响'; }
   getElementDistribution(e){ const map={wood:'木',fire:'火',earth:'土',metal:'金',water:'水'}; return Object.keys(map).map(k=>map[k]+Math.round(e[k])+'%').join('、'); }
   getLuckyColors(list){ const m={木:'绿色/青色',火:'红色/紫色',土:'黄色/棕色',金:'白色/金色',水:'黑色/蓝色'}; return list.map(x=>m[x]).filter(Boolean).join('、'); }
   getLuckyDirections(list){ const m={木:'东方',火:'南方',土:'中央/东北/西南',金:'西方',水:'北方'}; return list.map(x=>m[x]).filter(Boolean).join('、'); }
 }
+const assistant = new XinLianAssistant();
 
 // ======================= 工具 & 规则函数 =======================
-const assistant = new XinLianAssistant();
 function $(id){ return document.getElementById(id); }
 function setText(id, v){ const el=$(id); if(el) el.textContent=v; }
 function setBar(el, pct){ if(el) el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
-
 function judgeStrength(dayGan, monthZhi, cnt){
   const STEM_ELEM = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
   const SEASON_BY_MONTH_BRANCH = {寅:'春',卯:'春',辰:'春',巳:'夏',午:'夏',未:'夏',申:'秋',酉:'秋',戌:'秋',亥:'冬',子:'冬',丑:'冬'};
-  const dmEl = STEM_ELEM[dayGan];
-  const season = SEASON_BY_MONTH_BRANCH[monthZhi] || '-';
+  const dmEl = STEM_ELEM[dayGan]; const season = SEASON_BY_MONTH_BRANCH[monthZhi] || '-';
   let score = 0;
-  if ((season==='春' && '木火'.includes(dmEl)) ||
-      (season==='夏' && '火土'.includes(dmEl)) ||
-      (season==='秋' && dmEl==='金') ||
-      (season==='冬' && dmEl==='水')) score += 2;
+  if ((season==='春' && '木火'.includes(dmEl)) || (season==='夏' && '火土'.includes(dmEl)) || (season==='秋' && dmEl==='金') || (season==='冬' && dmEl==='水')) score += 2;
   score += (cnt[dmEl]||0) * 1.2;
   const mark  = score >= 3 ? '偏强' : (score <= 1 ? '偏弱' : '平衡');
   const focus = mark==='偏强' ? '泄秀/制化' : (mark==='偏弱' ? '补助/顺势' : '守中/调和');
   return {season, mark, focus};
 }
-
 function chooseUseful(strength, dmElem){
   if (strength==='偏强'){
     return {strategy:'泄秀/制化', useful:({木:['火','土','金'],火:['土','金','水'],土:['金','水','木'],金:['水','木','火'],水:['木','火','土']})[dmElem], avoid:[dmElem]};
@@ -305,7 +263,6 @@ function chooseUseful(strength, dmElem){
   }
   return {strategy:'调和', useful:['木','火','土','金','水'], avoid:[]};
 }
-
 // 渲染四柱
 function renderPillars(root, p, timeUnknown=false){
   if (!root) return;
@@ -319,7 +276,6 @@ function renderPillars(root, p, timeUnknown=false){
     root.appendChild(div);
   });
 }
-
 // 填充表格/五行/纳音
 function displayClassicArea(p, timeUnknown){
   const ge = (s,b)=> baziCalculator.getElement(s,b);
@@ -329,7 +285,6 @@ function displayClassicArea(p, timeUnknown){
   setText('day-stem',p.day.stem);     setText('day-branch',p.day.branch);
   setText('hour-stem',timeUnknown?'？':p.hour.stem);
   setText('hour-branch',timeUnknown?'？':p.hour.branch);
-
   const setIf = (id,val)=>{ const el=$(id); if(el) el.textContent = val; };
   setIf('year-element',  ge(p.year.stem,  p.year.branch));
   setIf('month-element', ge(p.month.stem, p.month.branch));
@@ -340,13 +295,20 @@ function displayClassicArea(p, timeUnknown){
   setIf('day-nayin',   ny(p.day.stem,   p.day.branch));
   setIf('hour-nayin',  timeUnknown?'未知':ny(p.hour.stem, p.hour.branch));
 }
-
 // 错误提示
 function showError(msg){
   const el = $('error'); if(!el) return;
-  el.textContent = msg;
-  el.style.display = 'block';
+  el.textContent = msg; el.style.display = 'block';
   setTimeout(()=>{ el.style.display='none'; }, 5000);
+}
+// 保证“心怜管家”插槽存在
+function ensureAssistantSlots(){
+  if (document.getElementById('assistant-analysis')) return;
+  const host = document.querySelector('.assistant-container') || document.getElementById('result') || document.body;
+  const wrap = document.createElement('div'); wrap.className = 'assistant-container';
+  const a = document.createElement('div'); a.id = 'assistant-analysis';
+  const b = document.createElement('div'); b.id = 'assistant-advice';
+  wrap.append(a, b); host.appendChild(wrap);
 }
 
 // ======================= 生成八字主流程 =======================
@@ -366,14 +328,14 @@ async function genChart(){
       if(t) hour = parseInt(t.split(':')[0],10);
     }
 
-    const { pillars, counts, percents } = baziCalculator.calculateBazi(Y,M,D,hour,timeUnknown);
+    const { pillars, counts, percents, timeUnknown: tu } = baziCalculator.calculateBazi(Y,M,D,hour,timeUnknown);
 
     $('result')?.style.setProperty('display','block');
-    const timeText = timeUnknown ? '时间不详' : (hour + '时');
+    const timeText = tu ? '时间不详' : (hour + '时');
     setText('bazi-date', `出生日期: ${Y}年${M}月${D}日 ${timeText}`);
 
-    renderPillars($('bazi-pillars'), pillars, timeUnknown);
-    displayClassicArea(pillars, timeUnknown);
+    renderPillars($('bazi-pillars'), pillars, tu);
+    displayClassicArea(pillars, tu);
 
     setBar($('bar-wood'),  percents.wood);  setText('pct-wood',  Math.round(percents.wood)+'%');
     setBar($('bar-fire'),  percents.fire);  setText('pct-fire',  Math.round(percents.fire)+'%');
@@ -386,24 +348,60 @@ async function genChart(){
     const minK = keys.reduce((a,b)=>counts[a]<counts[b]?a:b);
     setText('bazi-elements-balance', `五行中${maxK}元素最强，${minK}元素最弱。`);
 
-    // 心怜管家：强弱/喜用
+    // —— 强弱/喜用
     const st  = judgeStrength(pillars.day.stem, pillars.month.branch, counts);
     const adv = chooseUseful(st.mark, pillars.day.element);
     setText('bazi-day-master', `日主：${pillars.day.stem}（${pillars.day.element}）`);
     setText('bazi-strengths', `命局${st.mark}，建议策略：${st.focus}`);
 
+    // —— 心怜管家（前端解说）
+    ensureAssistantSlots();
     assistant.generateAnalysis({
       dayMaster: { stem: pillars.day.stem, element: pillars.day.element },
       elements: { wood:percents.wood, fire:percents.fire, earth:percents.earth, metal:percents.metal, water:percents.water },
-      strength: st, season: st.season, useful: adv, timeUnknown
+      strength: st, season: st.season, useful: adv, timeUnknown: tu
     });
 
-    // 控制台输出四柱
-    console.log('实际 →', pillars.year.stem+pillars.year.branch, pillars.month.stem+pillars.month.branch, pillars.day.stem+pillars.day.branch, timeUnknown?'？':(pillars.hour.stem+pillars.hour.branch));
-  }catch(err){
+    // —— 心怜管家（后端解说，可选）
+    try {
+      const payload = {
+        profile: {
+          name: $('name')?.value || '', gender: $('gender')?.value || '',
+          calendar: $('calendar')?.value || 'gregorian',
+          birth: `${Y}-${String(M).padStart(2,'0')}-${String(D).padStart(2,'0')}`,
+          time:  tu ? null : ($('birthtime')?.value || ''), timezone: '+08:00'
+        },
+        chart: {
+          year: pillars.year, month: pillars.month, day: {stem:pillars.day.stem, branch:pillars.day.branch},
+          hour: tu ? {stem:'？',branch:'？'} : pillars.hour,
+          day_master: pillars.day.stem, season: st.season,
+          wuxing_ratio: { wood: percents.wood, fire: percents.fire, earth: percents.earth, metal: percents.metal, water: percents.water }
+        },
+        prefs: { lang: $('langSelect')?.value || 'zh-CN', tier: 'free' }
+      };
+      const resp = await fetch('/api/butler/explain', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      }).then(r=>r.json());
+
+      const ana = document.getElementById('assistant-analysis');
+      const advc= document.getElementById('assistant-advice');
+      if (ana) ana.innerHTML = resp?.layout?.cards?.[0]?.html || ana.innerHTML;
+      if (advc) advc.innerHTML= resp?.layout?.cards?.[1]?.html || advc.innerHTML;
+    } catch(_) { /* 静默失败，不影响页面 */ }
+
+    // 控制台校验
+    console.log('实际 →',
+      pillars.year.stem+pillars.year.branch,
+      pillars.month.stem+pillars.month.branch,
+      pillars.day.stem+pillars.day.branch,
+      tu ? '？' : (pillars.hour.stem+pillars.hour.branch)
+    );
+
+  } catch(err){
     console.error(err);
     showError('计算八字时出现错误，请重试');
-  }finally{
+  } finally {
     if(btn) btn.disabled=false; if(tx) tx.style.display='inline'; if(ld) ld.style.display='none';
   }
 }
@@ -419,7 +417,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   $('genBtn')?.addEventListener('click', genChart);
 });
 
-  // ===== 自测：1978-02-21 12:00（UTC+8）应为 戊午 甲寅 甲寅 庚午 =====
+// ===== 自测（控制台）：1978-02-21 12:00（UTC+8）应为 戊午 甲寅 甲寅 庚午 =====
 (function(){
   const c = new BaziCalculator();
   const Y=c.calculateYearPillar(1978);
@@ -428,7 +426,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const H=c.calculateHourPillar(D.stem,12);
   console.log('应为 → 年 戊午｜月 甲寅｜日 甲寅｜时 庚午');
   console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+H.branch);
-})();  
+})();
 </script>
+
 </body>
 </html>
