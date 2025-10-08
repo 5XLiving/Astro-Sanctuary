@@ -311,6 +311,8 @@ footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0;margin-to
 // =========================
 // 八字计算器（修正版）
 // =========================
+<script>
+// —— 准确版：节气定月、甲辰为基准日
 class BaziCalculator {
   constructor() {
     this.HEAVENLY_STEMS = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
@@ -318,80 +320,84 @@ class BaziCalculator {
     this.ZODIAC = ['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
     this.NAYIN = ['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','屋上土','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];
   }
+
   // 年柱
-  calculateYearPillar(year){
-    const stemIndex = (year - 4) % 10;
-    const branchIndex = (year - 4) % 12;
-    return { stem:this.HEAVENLY_STEMS[stemIndex], branch:this.EARTHLY_BRANCHES[branchIndex], zodiac:this.ZODIAC[branchIndex] };
+  calculateYearPillar(year) {
+    const s = (year - 4) % 10;
+    const b = (year - 4) % 12;
+    return { stem: this.HEAVENLY_STEMS[s], branch: this.EARTHLY_BRANCHES[b], zodiac: this.ZODIAC[b] };
   }
-  // 按节气确定“节气月序”(寅=1,…,丑=12)
-  solarMonthIndex(y,m,d){
-    const mmdd = m * 100 + d;
-    // 近似节气分界（立春2/4、惊蛰3/6、清明4/5、立夏5/6、芒种6/6、小暑7/7、立秋8/8、白露9/8、寒露10/8、立冬11/7、大雪12/7、小寒1/6）
-    if (mmdd >= 1207 || mmdd < 106) return { branch:'子', index:11 };
-    if (mmdd < 204) return { branch:'丑', index:12 };
-    if (mmdd < 306) return { branch:'寅', index:1 };
-    if (mmdd < 405) return { branch:'卯', index:2 };
-    if (mmdd < 506) return { branch:'辰', index:3 };
-    if (mmdd < 606) return { branch:'巳', index:4 };
-    if (mmdd < 707) return { branch:'午', index:5 };
-    if (mmdd < 808) return { branch:'未', index:6 };
-    if (mmdd < 908) return { branch:'申', index:7 };
-    if (mmdd < 1008) return { branch:'酉', index:8 };
-    if (mmdd < 1107) return { branch:'戌', index:9 };
-    return { branch:'亥', index:10 };
+
+  // ——— 关键：用二十四节气的“节”作为月首，确定寅月=1 … 丑月=12
+  // 这里用近似阈值（够排柱用）：立春≈0204、惊蛰≈0306、清明≈0405……
+  solarMonthIndex(y, m, d) {
+    const md = m * 100 + d;
+    const gates = [
+      [1207,'子',11],[106,'丑',12],[204,'寅',1],[306,'卯',2],[405,'辰',3],
+      [506,'巳',4],[606,'午',5],[707,'未',6],[808,'申',7],[908,'酉',8],
+      [1008,'戌',9],[1107,'亥',10],[1207,'子',11]
+    ];
+    let last = null;
+    for (const [thr] of gates) if (thr <= md) last = thr;
+    if (last === null) return { branch:'子', index:11 };
+    const item = gates.find(g => g[0] === last);
+    return { branch:item[1], index:item[2] };
   }
-  // 月柱（节气月 + 年干起始表）
-  calculateMonthPillar(year, month, day){
+
+  // 月柱（寅起，并随年干确定月干起点）
+  calculateMonthPillar(year, month, day) {
     const { branch, index } = this.solarMonthIndex(year, month, day);
-    const yStem = this.calculateYearPillar(year).stem;
-    const yIdx = this.HEAVENLY_STEMS.indexOf(yStem);
-    // 甲己年丙寅起(2)、乙庚年戊寅起(4)、丙辛年庚寅起(6)、丁壬年壬寅起(8)、戊癸年甲寅起(0)
-    const monthStartMap = {0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
-    const start = monthStartMap[yIdx];
-    const stemIndex = (start + (index - 1)) % 10;
-    return { stem:this.HEAVENLY_STEMS[stemIndex], branch };
+    const yStemIdx = this.HEAVENLY_STEMS.indexOf(this.calculateYearPillar(year).stem);
+    // 甲己丙、乙庚戊、丙辛庚、丁壬壬、戊癸甲
+    const startMap = {0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
+    const stemIdx = (startMap[yStemIdx] + (index - 1)) % 10;
+    return { stem: this.HEAVENLY_STEMS[stemIdx], branch };
   }
-  // 日柱（以 1900-01-31 为【甲辰】基准）
-  calculateDayPillar(year, month, day){
-    const base = new Date(1900,0,31); // 甲辰日：甲=0，辰=4
-    const target = new Date(year, month-1, day);
-    const dayDiff = Math.floor((target - base) / (1000*60*60*24));
-    const stemIndex = ((0 + dayDiff) % 10 + 10) % 10;
-    const branchIndex = ((4 + dayDiff) % 12 + 12) % 12;
-    return { stem:this.HEAVENLY_STEMS[stemIndex], branch:this.EARTHLY_BRANCHES[branchIndex] };
+
+  // 日柱：以 1900-01-31 为【甲辰日】基准（甲=0，辰=4）
+  calculateDayPillar(year, month, day) {
+    const base = new Date(1900, 0, 31); // 本地时区00:00
+    const target = new Date(year, month - 1, day);
+    const diff = Math.floor((target - base) / 86400000);
+    const stemIdx = (0 + diff) % 10;
+    const brIdx  = (4 + diff) % 12;
+    return {
+      stem: this.HEAVENLY_STEMS[(stemIdx + 10) % 10],
+      branch: this.EARTHLY_BRANCHES[(brIdx + 12) % 12]
+    };
   }
+
   // 时柱
-  calculateHourPillar(dayStem, hour){
+  calculateHourPillar(dayStem, hour) {
     const branchMap = {23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
     const branch = branchMap[hour];
-    const dayStemIndex = this.HEAVENLY_STEMS.indexOf(dayStem);
-    const hourStartMap = {0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};
-    const startIndex = hourStartMap[dayStemIndex];
-    const hourIndex = Math.floor((hour + 1) / 2) % 12;
-    const stemIndex = (startIndex + hourIndex) % 10;
-    return { stem:this.HEAVENLY_STEMS[stemIndex], branch };
+    const ds = this.HEAVENLY_STEMS.indexOf(dayStem);
+    // 甲/己起甲，乙/庚起丙，丙/辛起戊，丁/壬起庚，戊/癸起壬
+    const start = {0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8}[ds];
+    const hourIdx = Math.floor((hour + 1) / 2) % 12;
+    const stemIdx = (start + hourIdx) % 10;
+    return { stem: this.HEAVENLY_STEMS[stemIdx], branch };
   }
-  getElement(stem, branch){
-    const stemE = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
-    const brE = {子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'};
-    return `${stemE[stem]}${brE[branch]}`;
+
+  // 五行（简版）
+  getElement(stem, branch) {
+    const se = {'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'};
+    const be = {'子':'水','丑':'土','寅':'木','卯':'木','辰':'土','巳':'火','午':'火','未':'土','申':'金','酉':'金','戌':'土','亥':'水'};
+    return `${se[stem]}${be[branch]}`;
   }
-  getNayin(stem, branch){
-    const s = this.HEAVENLY_STEMS.indexOf(stem);
-    const b = this.EARTHLY_BRANCHES.indexOf(branch);
-    const i = (s*2 + b) % this.NAYIN.length;
-    return this.NAYIN[i];
+  getNayin(stem, branch) {
+    const si = this.HEAVENLY_STEMS.indexOf(stem);
+    const bi = this.EARTHLY_BRANCHES.indexOf(branch);
+    return this.NAYIN[(si * 2 + bi) % this.NAYIN.length];
   }
-  analyzeElements(bazi){
-    const elems = { '木':0,'火':0,'土':0,'金':0,'水':0 };
-    for(const k of ['year','month','day','hour']){
-      const st = bazi[k].stem; if(st !== '？'){ const e = this.getElement(st,'子').charAt(0); elems[e]++; }
+  analyzeElements(bazi) {
+    const e = {'木':0,'火':0,'土':0,'金':0,'水':0};
+    for (const k of ['year','month','day','hour']) {
+      const s=bazi[k].stem, b=bazi[k].branch;
+      if (s && s!=='？') e[this.getElement(s,'子')[0]]++;
+      if (b && b!=='？') e[this.getElement('甲',b)[1]]++;
     }
-    for(const k of ['year','month','day','hour']){
-      const br = bazi[k].branch; if(br !== '？'){ const e = this.getElement('甲',br).charAt(1); elems[e]++; }
-    }
-    return elems;
+    return e;
   }
 }
 const baziCalculator = new BaziCalculator();
