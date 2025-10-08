@@ -123,7 +123,7 @@ class BaziCalculator {
     this.HEAVENLY_STEMS   = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
     this.EARTHLY_BRANCHES = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
     this.ZODIAC           = ['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
-    this.NAYIN = ['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];
+    this.NAYIN = ['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','屋上土','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];
   }
   // 年柱
   calculateYearPillar(year) {
@@ -216,7 +216,7 @@ class XinLianAssistant {
       <ul class="ul">
         <li>您的日主为 <strong>${dayMaster.stem}（${dayMaster.element}）</strong></li>
         <li>命局整体<strong>${strength.mark}</strong>，${this.getStrengthDescription(strength.mark)}</li>
-        <li>出生于<strong>${season}</strong>季，${this.getSeasonInfluence(season, dayMaster.element)}</li>
+        <li>出生于<strong>${season}</strong>季，${this.getSeasonInfluence(season)}</li>
         <li>五行分布：${this.getElementDistribution(elements)}</li>
         ${timeNote}
       </ul>`;
@@ -232,89 +232,70 @@ class XinLianAssistant {
         ${timeWarn}
       </ul>`;
   }
+  // —— 这里开始是修正后的方法（都在类里）
   getStrengthDescription(m){ return {偏强:'潜力足、抗压好',偏弱:'需外援更能发挥',平衡:'各面均衡、适应性强'}[m]||'具有独特特点'; }
   getSeasonInfluence(season){ const m={春:'木旺生发',夏:'火旺外放',秋:'金旺收敛',冬:'水旺内藏'}; return m[season]||'季节对命局有一定影响'; }
-  getElementDistribution(e){ const map={wood:'木',fire:'火',earth:'土',metal:'金',water:'水'}; return Object.keys(map).map(k=>map[k]+Math.round(e[k])+'%').join('、'); }
   getLuckyColors(list){ const m={木:'绿色/青色',火:'红色/紫色',土:'黄色/棕色',金:'白色/金色',水:'黑色/蓝色'}; return list.map(x=>m[x]).filter(Boolean).join('、'); }
   getLuckyDirections(list){ const m={木:'东方',火:'南方',土:'中央/东北/西南',金:'西方',水:'北方'}; return list.map(x=>m[x]).filter(Boolean).join('、'); }
-}
 
-  // —— 用于把英文键映射成中文名
-const ELABEL = { wood:'木', fire:'火', earth:'土', metal:'金', water:'水' };
-
-// 元素分布：显示中文 + 可排序
-getElementDistribution(elements) {
-  return Object.entries(elements)
-    .sort((a,b) => b[1] - a[1])
-    .map(([k, v]) => `${ELABEL[k] || k}${Math.round(v)}%`)
-    .join('、');
-}
-
-// 最强/最弱元素：返回中文名，便于后续文案使用
-getStrongestElement(elements) {
-  const [k] = Object.entries(elements).reduce((a,b) => a[1] > b[1] ? a : b);
-  return ELABEL[k] || k; // 返回“木/火/土/金/水”
-}
-getWeakestElement(elements) {
-  const [k] = Object.entries(elements).reduce((a,b) => a[1] < b[1] ? a : b);
-  return ELABEL[k] || k; // 返回“木/火/土/金/水”
-}
-
-// 财运：用中文元素判断与展示，增加兜底
-getWealthAdvice() {
-  const { elements = {}, useful = { useful: [] }, timeUnknown } = this.currentContext || {};
-  const strong = this.getStrongestElement(elements); // “金/土/…”
-  const weak   = this.getWeakestElement(elements);   // “金/土/…”
-  const timeNote = timeUnknown ? ' 由于时柱信息不完整，财运分析可能不够精确。' : '';
-  const isGood = (strong === '金' || strong === '土');
-  const list = Array.isArray(useful.useful) ? useful.useful.join('、') : '';
-  return `您的财运${isGood ? '较佳' : '需努力'}。建议加强${list}元素的运用，避免${weak}相关的高风险投资。${timeNote}`;
-}
-
-// 健康：用中文元素匹配器
-getHealthAdvice() {
-  const { elements = {}, timeUnknown } = this.currentContext || {};
-  const weak = this.getWeakestElement(elements); // “木/火/土/金/水”
-  const healthMap = {
-    '木': '肝胆、眼睛',
-    '火': '心脏、血液循环',
-    '土': '脾胃、消化系统',
-    '金': '肺、呼吸系统',
-    '水': '肾、泌尿系统'
-  };
-  const timeNote = timeUnknown ? ' 健康分析基于现有信息，建议结合实际情况。' : '';
-  const part = healthMap[weak] || '整体作息';
-  return `健康方面需特别注意${part}的保养。建议定期体检，保持规律作息。${timeNote}`;
-}
-
-// 插入响应：更健壮的容器与位置选择
-showActionResponse(action, response) {
-  const messageDiv = document.createElement('div');
-  messageDiv.className = 'assistant-message';
-  messageDiv.innerHTML = `
-    <p><strong>${this.getActionTitle(action)}：</strong>${response}</p>
-    <p class="muted" style="margin-top: 10px; font-size: 0.9em;">
-      💡 想要更精准的指导？<a href="#" style="color: var(--gold2);">升级VIP获取专属分析</a>
-    </p>
-  `;
-
-  // 确保容器存在
-  let container = document.querySelector('.assistant-container');
-  if (!container) {
-    container = document.createElement('div');
-    container.className = 'assistant-container';
-    (document.getElementById('result') || document.body).appendChild(container);
+  // —— 映射与排序显示
+  ELABEL(){ return {wood:'木', fire:'火', earth:'土', metal:'金', water:'水'}; }
+  getElementDistribution(elements) {
+    const L = this.ELABEL();
+    return Object.entries(elements)
+      .sort((a,b) => b[1] - a[1])
+      .map(([k,v]) => `${L[k]||k}${Math.round(v)}%`)
+      .join('、');
   }
-
-  // 尽量插在 .vip-promo 之前；否则追加到末尾
-  const hook = container.querySelector('.vip-promo');
-  if (hook && hook.parentNode === container) {
-    container.insertBefore(messageDiv, hook);
-  } else {
-    container.appendChild(messageDiv);
+  getStrongestElement(elements){
+    const L = this.ELABEL();
+    const [k] = Object.entries(elements).reduce((a,b)=> a[1]>b[1]?a:b);
+    return L[k] || k; // “木/火/土/金/水”
   }
-
-  messageDiv.scrollIntoView({ behavior: 'smooth' });
+  getWeakestElement(elements){
+    const L = this.ELABEL();
+    const [k] = Object.entries(elements).reduce((a,b)=> a[1]<b[1]?a:b);
+    return L[k] || k;
+  }
+  getWealthAdvice(){
+    const { elements = {}, useful = { useful: [] }, timeUnknown } = this.currentContext || {};
+    const strong = this.getStrongestElement(elements);
+    const weak   = this.getWeakestElement(elements);
+    const isGood = (strong === '金' || strong === '土');
+    const list   = Array.isArray(useful.useful) ? useful.useful.join('、') : '';
+    const note   = timeUnknown ? ' 由于时柱信息不完整，财运分析可能不够精确。' : '';
+    return `您的财运${isGood ? '较佳' : '需努力'}。建议加强${list}元素的运用，避免${weak}相关的高风险投资。${note}`;
+  }
+  getHealthAdvice(){
+    const { elements = {}, timeUnknown } = this.currentContext || {};
+    const weak = this.getWeakestElement(elements);
+    const healthMap = {木:'肝胆、眼睛',火:'心脏、血液循环',土:'脾胃、消化系统',金:'肺、呼吸系统',水:'肾、泌尿系统'};
+    const part = healthMap[weak] || '整体作息';
+    const note = timeUnknown ? ' 健康分析基于现有信息，建议结合实际情况。' : '';
+    return `健康方面需特别注意${part}的保养。建议定期体检，保持规律作息。${note}`;
+  }
+  showActionResponse(action, response){
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'assistant-message';
+    messageDiv.innerHTML = `
+      <p><strong>${this.getActionTitle(action)}：</strong>${response}</p>
+      <p class="muted" style="margin-top:10px;font-size:.9em;">
+        💡 想要更精准的指导？<a href="#" style="color: var(--gold2);">升级VIP获取专属分析</a>
+      </p>`;
+    let container = document.querySelector('.assistant-container');
+    if (!container){
+      container = document.createElement('div');
+      container.className = 'assistant-container';
+      (document.getElementById('result') || document.body).appendChild(container);
+    }
+    const hook = container.querySelector('.vip-promo');
+    hook && hook.parentNode===container ? container.insertBefore(messageDiv, hook) : container.appendChild(messageDiv);
+    messageDiv.scrollIntoView({behavior:'smooth'});
+  }
+  getActionTitle(action){
+    const t = {career:'事业建议', wealth:'财运分析', relationship:'感情指导', health:'健康提醒', lucky:'幸运方向'};
+    return t[action] || '专业建议';
+  }
 }
 const assistant = new XinLianAssistant();
 
@@ -415,11 +396,12 @@ async function genChart(){
     renderPillars($('bazi-pillars'), pillars, tu);
     displayClassicArea(pillars, tu);
 
-    setBar($('bar-wood'),  percents.wood);  setText('pct-wood',  Math.round(percents.wood)+'%');
-    setBar($('bar-fire'),  percents.fire);  setText('pct-fire',  Math.round(percents.fire)+'%');
-    setBar($('bar-earth'), percents.earth); setText('pct-earth', Math.round(percents.earth)+'%');
-    setBar($('bar-metal'), percents.metal); setText('pct-metal', Math.round(percents.metal)+'%');
-    setBar($('bar-water'), percents.water); setText('pct-water', Math.round(percents.water)+'%');
+    // —— 这里改成中文 id，与你的 HTML 对齐
+    setBar($('bar-木'),  percents.wood);  setText('pct-木',  Math.round(percents.wood)+'%');
+    setBar($('bar-火'),  percents.fire);  setText('pct-火',  Math.round(percents.fire)+'%');
+    setBar($('bar-土'),  percents.earth); setText('pct-土',  Math.round(percents.earth)+'%');
+    setBar($('bar-金'),  percents.metal); setText('pct-金',  Math.round(percents.metal)+'%');
+    setBar($('bar-水'),  percents.water); setText('pct-水',  Math.round(percents.water)+'%');
 
     const keys = Object.keys(counts);
     const maxK = keys.reduce((a,b)=>counts[a]>counts[b]?a:b);
@@ -455,7 +437,7 @@ async function genChart(){
           day_master: pillars.day.stem, season: st.season,
           wuxing_ratio: { wood: percents.wood, fire: percents.fire, earth: percents.earth, metal: percents.metal, water: percents.water }
         },
-        prefs: { lang: $('langSelect')?.value || 'zh-CN', tier: 'free' }
+        prefs: { lang: 'zh-CN', tier: 'free' }
       };
       const resp = await fetch('/api/butler/explain', {
         method: 'POST', headers: {'Content-Type':'application/json'},
@@ -488,10 +470,8 @@ async function genChart(){
 document.addEventListener('DOMContentLoaded', ()=>{
   const today = new Date(); const def = today.toISOString().split('T')[0];
   if ($('birthdate') && !$('birthdate').value) $('birthdate').value = def;
-
   const tChk = $('timeUnknown'), tBox = $('timeInputContainer');
   if (tChk){ tChk.addEventListener('change', function(){ tBox && tBox.classList.toggle('disabled', this.checked); }); }
-
   $('genBtn')?.addEventListener('click', genChart);
 });
 
