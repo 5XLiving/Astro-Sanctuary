@@ -375,8 +375,10 @@ async function genChart(){
       if(t) hour = parseInt(t.split(':')[0],10);
     }
 
+    // 计算整盘（你已有的计算器）
     const { pillars, counts, percents } = baziCalculator.calculateBazi(Y,M,D,hour,timeUnknown);
 
+    // —— 前端渲染（保持你原来的 UI 流程）
     $('result')?.style.setProperty('display','block');
     const timeText = timeUnknown ? '时间不详' : (hour + '时');
     setText('bazi-date', `出生日期: ${Y}年${M}月${D}日 ${timeText}`);
@@ -395,24 +397,70 @@ async function genChart(){
     const minK = keys.reduce((a,b)=>counts[a]<counts[b]?a:b);
     setText('bazi-elements-balance', `五行中${maxK}元素最强，${minK}元素最弱。`);
 
-    // 心怜管家：强弱/喜用
+    // —— 强弱/喜用（供前端“心怜管家”用）
     const st  = judgeStrength(pillars.day.stem, pillars.month.branch, counts);
-    const adv = chooseUseful(st.mark, pillars.day.element);
-    setText('bazi-day-master', `日主：${pillars.day.stem}（${pillars.day.element}）`);
+    const dmElem = pillars.day.element || ({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[pillars.day.stem];
+    const adv = chooseUseful(st.mark, dmElem);
+    setText('bazi-day-master', `日主：${pillars.day.stem}（${dmElem}）`);
     setText('bazi-strengths', `命局${st.mark}，建议策略：${st.focus}`);
 
     assistant.generateAnalysis({
-      dayMaster: { stem: pillars.day.stem, element: pillars.day.element },
+      dayMaster: { stem: pillars.day.stem, element: dmElem },
       elements: { wood:percents.wood, fire:percents.fire, earth:percents.earth, metal:percents.metal, water:percents.water },
       strength: st, season: st.season, useful: adv, timeUnknown
     });
 
-    // 控制台输出四柱
-    console.log('实际 →', pillars.year.stem+pillars.year.branch, pillars.month.stem+pillars.month.branch, pillars.day.stem+pillars.day.branch, timeUnknown?'？':(pillars.hour.stem+pillars.hour.branch));
-  }catch(err){
+    // === 心怜管家 · 后端解说（放在渲染完成后这里） ===
+    ensureAssistantSlots();  // 没容器就创建
+    const payload = {
+      profile: {
+        name:    $('name')?.value || '',
+        gender:  $('gender')?.value || '',
+        calendar:$('calendar')?.value || 'gregorian',
+        birth:   `${Y}-${String(M).padStart(2,'0')}-${String(D).padStart(2,'0')}`,
+        time:    timeUnknown ? null : ($('birthtime')?.value || ''),
+        timezone:'+08:00'
+      },
+      chart: {
+        year:  pillars.year,
+        month: pillars.month,
+        day:   pillars.day,
+        hour:  timeUnknown ? {stem:'？',branch:'？'} : pillars.hour,
+        day_master: pillars.day.stem,
+        season: st.season,
+        wuxing_ratio: {
+          wood: percents.wood, fire: percents.fire,
+          earth: percents.earth, metal: percents.metal, water: percents.water
+        }
+      },
+      prefs: { lang: $('langSelect')?.value || 'zh-CN', tier: 'free' }
+    };
+
+    try {
+      const resp = await fetch('/api/butler/explain', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      }).then(r => r.json());
+
+      setHTML('assistant-analysis', resp?.layout?.cards?.[0]?.html || '');
+      setHTML('assistant-advice',   resp?.layout?.cards?.[1]?.html || '');
+    } catch (_) {
+      // 静默失败，不影响页面
+    }
+
+    // 控制台校验
+    console.log('实际 →',
+      pillars.year.stem+pillars.year.branch,
+      pillars.month.stem+pillars.month.branch,
+      pillars.day.stem+pillars.day.branch,
+      timeUnknown ? '？' : (pillars.hour.stem+pillars.hour.branch)
+    );
+
+  } catch(err){
     console.error(err);
     showError('计算八字时出现错误，请重试');
-  }finally{
+  } finally {
     if(btn) btn.disabled=false; if(tx) tx.style.display='inline'; if(ld) ld.style.display='none';
   }
 }
