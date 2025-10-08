@@ -117,7 +117,7 @@ input,select{width:100%;box-sizing:border-box;border-radius:12px;border:1px soli
 </main>
 
 <script>
-// ======================= 八字计算器（算法原样保留） =======================
+// ======================= 八字计算器（修正版：算法不改） =======================
 class BaziCalculator {
   constructor() {
     this.HEAVENLY_STEMS   = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
@@ -125,10 +125,12 @@ class BaziCalculator {
     this.ZODIAC           = ['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
     this.NAYIN = ['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','屋上土','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];
   }
+  // 年柱
   calculateYearPillar(year) {
     const s = (year - 4) % 10, b = (year - 4) % 12;
     return { stem: this.HEAVENLY_STEMS[(s+10)%10], branch: this.EARTHLY_BRANCHES[(b+12)%12], zodiac: this.ZODIAC[(b+12)%12] };
   }
+  // 节气定月（寅=1…丑=12）
   solarMonthIndex(y, m, d) {
     const mmdd = m*100 + d;
     const gates = [[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
@@ -136,6 +138,7 @@ class BaziCalculator {
     const branchBy = {1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
     return { index: idx, branch: branchBy[idx] };
   }
+  // 月柱：甲/己丙寅起；乙/庚戊寅起；丙/辛庚寅起；丁/壬壬寅起；戊/癸甲寅起
   calculateMonthPillar(year, month, day) {
     const { index, branch } = this.solarMonthIndex(year, month, day);
     const yStemIdx = this.HEAVENLY_STEMS.indexOf(this.calculateYearPillar(year).stem);
@@ -143,22 +146,25 @@ class BaziCalculator {
     const stemIdx  = (startMap[yStemIdx] + (index - 1)) % 10;
     return { stem: this.HEAVENLY_STEMS[stemIdx], branch };
   }
+  // 日柱：1900-01-31 为甲辰；UTC 取整日差
   calculateDayPillar(year, month, day) {
-    const baseUTC   = Date.UTC(1900, 0, 31);
+    const baseUTC   = Date.UTC(1900, 0, 31); // 甲辰（辰=4）
     const targetUTC = Date.UTC(year, month - 1, day);
     const dayDiff   = Math.floor((targetUTC - baseUTC) / 86400000);
-    const stemIdx   = (0 + dayDiff) % 10;
-    const branchIdx = (4 + dayDiff) % 12;
+    const stemIdx   = (0 + dayDiff) % 10;    // 甲=0
+    const branchIdx = (4 + dayDiff) % 12;    // 辰=4
     return { stem: this.HEAVENLY_STEMS[(stemIdx+10)%10], branch: this.EARTHLY_BRANCHES[(branchIdx+12)%12] };
   }
+  // 时柱：子时起；甲日子时甲、乙日起丙…
   calculateHourPillar(dayStem, hour) {
     const branchMap = {23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
-    const startMap  = {0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};
+    const startMap  = {0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8}; // 日干→子时起干
     const dayIdx    = this.HEAVENLY_STEMS.indexOf(dayStem);
     const hourIndex = Math.floor((hour + 1) / 2) % 12;
     const stemIdx   = (startMap[dayIdx] + hourIndex) % 10;
     return { stem: this.HEAVENLY_STEMS[stemIdx], branch: branchMap[hour] };
   }
+  // 五行/纳音/元素
   getElement(stem, branch) {
     const s = {'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'};
     const b = {'子':'水','丑':'土','寅':'木','卯':'木','辰':'土','巳':'火','午':'火','未':'土','申':'金','酉':'金','戌':'土','亥':'水'};
@@ -170,6 +176,8 @@ class BaziCalculator {
   }
   getStemElement(stem){ return ({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[stem]; }
   getBranchElement(branch){ return ({子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'})[branch]; }
+
+  // 一次算出四柱 + 五行统计
   calculateBazi(year, month, day, hour = 12, timeUnknown = false) {
     const yearP  = this.calculateYearPillar(year);
     const monthP = this.calculateMonthPillar(year, month, day);
@@ -177,6 +185,7 @@ class BaziCalculator {
     const hourP  = timeUnknown ? {stem:'？', branch:'？'} : this.calculateHourPillar(dayP.stem, hour);
     const dayElement = this.getStemElement(dayP.stem);
     const pillars = { year:yearP, month:monthP, day:{...dayP, element:dayElement}, hour:hourP };
+
     const cnt = {木:0,火:0,土:0,金:0,水:0};
     const list = timeUnknown ? [yearP, monthP, dayP] : [yearP, monthP, dayP, hourP];
     list.forEach(p => {
@@ -185,12 +194,14 @@ class BaziCalculator {
     });
     const total = Object.values(cnt).reduce((a,b)=>a+b,0) || 1;
     const pct = { wood:cnt['木']/total*100, fire:cnt['火']/total*100, earth:cnt['土']/total*100, metal:cnt['金']/total*100, water:cnt['水']/total*100 };
+
     return { pillars, counts: cnt, percents: pct, timeUnknown };
   }
 }
 window.baziCalculator = window.baziCalculator || new BaziCalculator();
 
-// ======================= 心怜管家（渲染器，算法不动） =======================
+
+// ======================= 心怜管家（精简版渲染器：不动算法） =======================
 class XinLianAssistant {
   constructor(){ this.currentContext=null; }
   generateAnalysis(baziData){
@@ -229,16 +240,68 @@ class XinLianAssistant {
   ELABEL(){ return {wood:'木', fire:'火', earth:'土', metal:'金', water:'水'}; }
   getElementDistribution(elements) {
     const L = this.ELABEL();
-    return Object.entries(elements).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${L[k]||k}${Math.round(v)}%`).join('、');
+    return Object.entries(elements)
+      .sort((a,b) => b[1] - a[1])
+      .map(([k,v]) => `${L[k]||k}${Math.round(v)}%`)
+      .join('、');
+  }
+  getStrongestElement(elements){
+    const L = this.ELABEL();
+    const [k] = Object.entries(elements).reduce((a,b)=> a[1]>b[1]?a:b);
+    return L[k] || k;
+  }
+  getWeakestElement(elements){
+    const L = this.ELABEL();
+    const [k] = Object.entries(elements).reduce((a,b)=> a[1]<b[1]?a:b);
+    return L[k] || k;
+  }
+  getWealthAdvice(){
+    const { elements = {}, useful = { useful: [] }, timeUnknown } = this.currentContext || {};
+    const strong = this.getStrongestElement(elements);
+    const weak   = this.getWeakestElement(elements);
+    const isGood = (strong === '金' || strong === '土');
+    const list   = Array.isArray(useful.useful) ? useful.useful.join('、') : '';
+    const note   = timeUnknown ? ' 由于时柱信息不完整，财运分析可能不够精确。' : '';
+    return `您的财运${isGood ? '较佳' : '需努力'}。建议加强${list}元素的运用，避免${weak}相关的高风险投资。${note}`;
+  }
+  getHealthAdvice(){
+    const { elements = {}, timeUnknown } = this.currentContext || {};
+    const weak = this.getWeakestElement(elements);
+    const healthMap = {木:'肝胆、眼睛',火:'心脏、血液循环',土:'脾胃、消化系统',金:'肺、呼吸系统',水:'肾、泌尿系统'};
+    const part = healthMap[weak] || '整体作息';
+    const note = timeUnknown ? ' 健康分析基于现有信息，建议结合实际情况。' : '';
+    return `健康方面需特别注意${part}的保养。建议定期体检，保持规律作息。${note}`;
+  }
+  showActionResponse(action, response){
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'assistant-message';
+    messageDiv.innerHTML = `
+      <p><strong>${this.getActionTitle(action)}：</strong>${response}</p>
+      <p class="muted" style="margin-top:10px;font-size:.9em;">
+        💡 想要更精准的指导？<a href="#" style="color: var(--gold2);">升级VIP获取专属分析</a>
+      </p>`;
+    let container = document.querySelector('.assistant-container');
+    if (!container){
+      container = document.createElement('div');
+      container.className = 'assistant-container';
+      (document.getElementById('result') || document.body).appendChild(container);
+    }
+    const hook = container.querySelector('.vip-promo');
+    hook && hook.parentNode===container ? container.insertBefore(messageDiv, hook) : container.appendChild(messageDiv);
+    messageDiv.scrollIntoView({behavior:'smooth'});
+  }
+  getActionTitle(action){
+    const t = {career:'事业建议', wealth:'财运分析', relationship:'感情指导', health:'健康提醒', lucky:'幸运方向'};
+    return t[action] || '专业建议';
   }
 }
 const assistant = new XinLianAssistant();
 
-// ======================= 小工具 =======================
+
+// ======================= 工具 & 规则函数（不改原逻辑） =======================
 function $(id){ return document.getElementById(id); }
 function setText(id, v){ const el=$(id); if(el) el.textContent=v; }
 function setBar(el, pct){ if(el) el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
-function showError(msg){ const el=$('error'); if(!el) return; el.textContent=msg; el.style.display='block'; setTimeout(()=>{ el.style.display='none'; }, 5000); }
 function judgeStrength(dayGan, monthZhi, cnt){
   const STEM_ELEM = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
   const SEASON_BY_MONTH_BRANCH = {寅:'春',卯:'春',辰:'春',巳:'夏',午:'夏',未:'夏',申:'秋',酉:'秋',戌:'秋',亥:'冬',子:'冬',丑:'冬'};
@@ -288,135 +351,151 @@ function displayClassicArea(p, timeUnknown){
   setIf('day-nayin',   ny(p.day.stem,   p.day.branch));
   setIf('hour-nayin',  timeUnknown?'未知':ny(p.hour.stem, p.hour.branch));
 }
+function showError(msg){
+  const el = $('error'); if(!el) return;
+  el.textContent = msg; el.style.display = 'block';
+  setTimeout(()=>{ el.style.display='none'; }, 5000);
+}
+function ensureAssistantSlots(){
+  if (document.getElementById('assistant-analysis')) return;
+  const host = document.querySelector('.assistant-container') || document.getElementById('result') || document.body;
+  const wrap = document.createElement('div'); wrap.className = 'assistant-container';
+  const a = document.createElement('div'); a.id = 'assistant-analysis';
+  const b = document.createElement('div'); b.id = 'assistant-advice';
+  wrap.append(a, b); host.appendChild(wrap);
+}
 
-// ======================= 免费报告（文本模块） =======================
+// ======================= 「免费报告」模块：JS 动态生成 =======================
 function buildFreeReportHTML({pillars, percents, st, adv, timeUnknown}) {
+  // 中文映射
   const L = {wood:'木', fire:'火', earth:'土', metal:'金', water:'水'};
   const entries = Object.entries(percents);
   const strongestK = entries.reduce((a,b)=> a[1]>b[1]?a:b)[0];
   const weakestK   = entries.reduce((a,b)=> a[1]<b[1]?a:b)[0];
   const strongest  = L[strongestK], weakest = L[weakestK];
   const absents = Object.keys(percents).filter(k => Math.round(percents[k])===0).map(k=>L[k]).join('、');
-  const fmt = k => `${L[k]} ${Math.round(percents[k])}%`;
-  const line = ['wood','fire','earth','metal','water'].map(fmt).join('　');
-  const fav  = (adv?.useful||[]).join('、');
-  const avoid= (adv?.avoid||[]).join('、') || '—';
-  const hourTxt = timeUnknown ? '？？' : (pillars.hour.stem + pillars.hour.branch);
+  const fmtPct = k => `${L[k]} ${Math.round(percents[k])}%`;
+  const fiveLine = ['wood','fire','earth','metal','water'].map(fmtPct).join('　');
+  const favList  = (adv?.useful||[]).join('、');
 
-  // 用极简结构+内联样式，避免污染你全站样式
   return `
-    <div class="xl-card" style="margin-top:12px; padding:16px; border-radius:10px; background:var(--card); box-shadow:var(--shadow);">
-      <h3 style="margin:0 0 8px; color:var(--brand)">免费报告</h3>
-      <p style="margin:6px 0;">四柱：<strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${hourTxt}</strong></p>
-      <p style="margin:6px 0;">日主：<strong>${pillars.day.stem}</strong>（<strong>${pillars.day.element}</strong>）｜季节：<strong>${st.season||'-'}</strong>｜命局：<strong>${st.mark}</strong> · <strong>${st.focus}</strong></p>
-      <p style="margin:8px 0;">五行：${line}</p>
-      <p style="margin:4px 0;"><strong>${strongest}</strong>偏旺；<strong>${weakest}</strong>偏弱。${absents?`<span style="color:var(--muted)">（缺：${absents}）</span>`:''}</p>
-      <ul style="margin:6px 0 0 18px; line-height:1.6">
-        <li>喜用优先：<strong>${fav||'—'}</strong>；忌讳：${avoid}</li>
-        <li>调衡要点：${st.focus}</li>
-      </ul>
-      ${timeUnknown?`<p style="margin:6px 0 0; color:var(--muted)">提示：时间不详，时柱未纳入。</p>`:''}
-    </div>
-  `;
-}
+    <!-- ===== BAZI FREE REPORT · auto-rendered (content only) ===== -->
+    <section>
+      <!-- 1) Header -->
+      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px 18px; margin-bottom:18px;">
+        <h2 style="margin:0 0 4px; font-weight:700; letter-spacing:.3px;">
+          <span style="color:var(--brand)">八字命理 · 免费报告</span>
+        </h2>
+        <p style="margin:6px 0 0; color:var(--muted); font-size:14px">算法保持不变 · 本页仅渲染文字内容</p>
+      </div>
 
-// ======================= 心怜管家（挂到 result 里） =======================
-function buildButlerHTML(){
-  return `
-    <div id="assistant-panel" class="xl-card" style="margin-top:12px; padding:16px; border-radius:10px; background:var(--card); box-shadow:var(--shadow);">
-      <h3 style="margin:0 0 8px; color:var(--brand)">心怜管家 · 智能解读</h3>
-      <div id="assistant-analysis"></div>
-      <div id="assistant-advice" style="margin-top:8px"></div>
-    </div>
-  `;
-}
-
-// ======================= GPT 对话抽屉（挂到 result 里） =======================
-function buildChatDrawerHTML(){
-  return `
-    <details id="gpt-drawer" class="xl-card" style="margin-top:12px; padding:0; border-radius:10px; background:var(--card); box-shadow:var(--shadow);">
-      <summary style="cursor:pointer; list-style:none; padding:12px 16px; font-weight:700; color:var(--brand);">GPT 问答</summary>
-      <div style="padding:10px 12px;">
-        <div id="gpt-body" style="max-height:260px; overflow:auto; font-size:14px; line-height:1.5; border:1px solid #222; border-radius:8px; padding:8px;"></div>
-        <div style="display:flex; gap:8px; margin-top:8px;">
-          <input id="gpt-input" placeholder="问点什么…" style="flex:1; padding:8px; border-radius:8px; border:1px solid #222; background:#0b0f14; color:var(--text)">
-          <button id="gpt-send" style="padding:8px 12px; border-radius:8px; background:var(--brand); color:#111; font-weight:700">发送</button>
+      <!-- 2) 命盘总览 -->
+      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+        <h3 style="margin-top:0; color:var(--brand)">一、命盘总览</h3>
+        <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; font-size:14px;">
+          <div>四柱：<strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${timeUnknown ? '？？' : (pillars.hour.stem + pillars.hour.branch)}</strong></div>
+          <div>日主：<strong>${pillars.day.stem}</strong>（<strong>${pillars.day.element}</strong>）</div>
+          <div>季节：<strong>${st.season||'-'}</strong></div>
+          <div>命局：<strong>${st.mark}</strong> · 策略：<strong>${st.focus}</strong></div>
         </div>
       </div>
-    </details>
+
+      <!-- 3) 五行能量分析 -->
+      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+        <h3 style="margin-top:0; color:var(--brand)">二、五行能量分析</h3>
+        <div style="font-size:14px;">${fiveLine}</div>
+        <p style="margin:10px 0 0;">
+          <strong>${strongest}</strong>偏旺；<strong>${weakest}</strong>偏弱。
+          ${absents ? `<span class="muted" style="color:var(--muted)">（缺：${absents}）</span>` : ``}
+        </p>
+        <ul style="margin:10px 0 0 18px; line-height:1.6">
+          <li>喜用优先：<strong>${favList||'—'}</strong></li>
+          <li>调衡要点：${st.focus}</li>
+        </ul>
+        ${timeUnknown ? `<p class="muted" style="color:var(--muted); margin-top:8px;">提示：出生时间不详，未纳入时柱，分析为简化版。</p>` : ``}
+      </div>
+
+      <!-- 4) 性格与天赋（占位模板，可由后端补充更细） -->
+      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+        <h3 style="margin-top:0; color:var(--brand)">三、性格与天赋</h3>
+        <p style="margin:8px 0;"><strong>性格核心：</strong>依据日主、季节与强弱给出核心性格标签。</p>
+        <p style="margin:8px 0;"><strong>优势能量：</strong>执行力 / 创造力 / 学习力（模板化补充）</p>
+        <p style="margin:8px 0;"><strong>潜在挑战：</strong>急躁 / 过度承担 / 边界感（模板化补充）</p>
+      </div>
+
+      <!-- 5) 格局与喜忌 -->
+      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+        <h3 style="margin-top:0; color:var(--brand)">四、格局与喜忌</h3>
+        <p style="margin:8px 0;"><strong>格局要点：</strong>按四柱特征（坐禄/比劫/伤官/七杀等）模板化输出。</p>
+        <p style="margin:8px 0;"><strong>喜用：</strong>${favList||'—'}（基于强弱策略）</p>
+        <p style="margin:8px 0;"><strong>忌讳：</strong>${(adv?.avoid||[]).join('、')||'—'}</p>
+      </div>
+
+      <!-- 6) 事业 · 试读 -->
+      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+        <h3 style="margin-top:0; color:var(--brand)">五、事业与发展（免费试读）</h3>
+        <p style="margin:8px 0;"><strong>适合领域：</strong>依据喜用与日主气质：策划/顾问/设计/运营等（模板化）</p>
+        <p style="margin:8px 0;"><strong>发展策略：</strong>${st.focus}，建立 SOP 与可复制流程</p>
+        <p style="margin:8px 0;"><strong>易错位风险：</strong>事必躬亲 / 决策失衡（模板化）</p>
+        <p style="margin:10px 0 0;" class="muted" style="color:var(--muted)">VIP 解锁：岗位定位、三年运势、转职择时与行动清单。</p>
+      </div>
+
+      <!-- 7) 感情 · 试读 -->
+      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+        <h3 style="margin-top:0; color:var(--brand)">六、感情与关系（免费试读）</h3>
+        <p style="margin:8px 0;"><strong>吸引类型：</strong>与日主互补/需要支持型（模板化）</p>
+        <p style="margin:8px 0;"><strong>关系课题：</strong>边界 / 沟通节奏（模板化）</p>
+        <p style="margin:8px 0;"><strong>相处建议：</strong>尊重节奏、定期复盘（模板化）</p>
+      </div>
+
+      <!-- 8) 财运 · 试读 -->
+      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+        <h3 style="margin-top:0; color:var(--brand)">七、财富与理财（免费试读）</h3>
+        <p style="margin:8px 0;"><strong>财星格局：</strong>结合强弱判断，偏财/正财（模板化）</p>
+        <p style="margin:8px 0;"><strong>进财方式：</strong>内容/系统/复购（模板化）</p>
+        <p style="margin:8px 0;"><strong>破财隐患：</strong>情绪消费/伙伴风险（模板化）</p>
+        <p style="margin:8px 0;"><strong>理财建议：</strong>${(adv?.useful||[]).join('、')||'—'}为主调，稳中求进</p>
+      </div>
+
+      <!-- 9) 健康与作息 -->
+      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+        <h3 style="margin-top:0; color:var(--brand)">八、健康与作息</h3>
+        <p style="margin:8px 0;"><strong>易感部位：</strong>按最弱五行对应系统（模板化）</p>
+        <p style="margin:8px 0;"><strong>调理建议：</strong>作息规律、舒压训练、季节养生（模板化）</p>
+      </div>
+
+      <!-- 10) 环境与色彩 -->
+      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+        <h3 style="margin-top:0; color:var(--brand)">九、环境与色彩（五行调法）</h3>
+        <p style="margin:8px 0;"><strong>有利方位：</strong>依据喜用：东/南/西/北/中（模板化）</p>
+        <p style="margin:8px 0;"><strong>色彩/材质：</strong>与喜用对应色系与材质（模板化）</p>
+        <p style="margin:8px 0;"><strong>空间微调：</strong>小范围摆设与动线建议（模板化）</p>
+      </div>
+
+      <!-- 11) 流年/流月 预告 -->
+      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+        <h3 style="margin-top:0; color:var(--brand)">十、流年 / 流月 · 免费预告</h3>
+        <p style="margin:8px 0;"><strong>年度提示：</strong>依据当年干支与喜用给出一句话预告（模板化）</p>
+        <p style="margin:8px 0;"><strong>本月关注：</strong>节律与行动关键词（模板化）</p>
+        <p style="margin:10px 0 0;" class="muted" style="color:var(--muted)">VIP 解锁：12个月行动清单与择日表。</p>
+      </div>
+
+      <!-- 12) CTA -->
+      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:10px;">
+        <h3 style="margin-top:0; color:var(--brand)">解锁你的完整专属报告</h3>
+        <p style="margin:8px 0;">
+          免费版为基础解读。升级 <strong>VIP</strong>，即可获得
+          <strong>婚姻 / 事业 / 财库 / 择日</strong> 的完整方案与可执行清单。
+        </p>
+        <div style="margin-top:10px;">
+          <a href="/vip" style="display:inline-block; padding:10px 16px; border-radius:10px; background:var(--brand); color:#111; font-weight:700; text-decoration:none;">升级 VIP</a>
+        </div>
+      </div>
+    </section>
   `;
 }
-async function callChatAPI(userText, ctx){
-  try{
-    const r = await fetch('/api/chat', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ prompt: userText, context: ctx })
-    });
-    return r.ok ? (await r.text() || '（无响应）') : '（服务暂不可用）';
-  }catch{ return '（暂时无法连接到服务端）'; }
-}
-function wireChatDrawer(){
-  const send = $('gpt-send'), input=$('gpt-input'), body=$('gpt-body');
-  if(!send || !input || !body) return;
-  send.onclick = async ()=>{
-    const text = (input.value||'').trim(); if(!text) return;
-    body.insertAdjacentHTML('beforeend', `<div style="text-align:right; margin:6px 0;">${text}</div>`);
-    input.value='';
-    const ctx = window.__bazi_ctx__ || {};
-    const reply = await callChatAPI(text, ctx);
-    body.insertAdjacentHTML('beforeend', `<div style="margin:6px 0;">${reply}</div>`);
-    body.scrollTop = body.scrollHeight;
-  };
-}
 
-// ======================= 把扩展模块挂到 #result =======================
-function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
-  const resultEl = $('result');
-  if(!resultEl){ console.warn('[mount] 找不到 #result，跳过扩展模块渲染'); return; }
-
-  // 1) 免费报告（存在则更新，不存在则添加）
-  let freeNode = $('xl-free-report');
-  if(!freeNode){
-    freeNode = document.createElement('div');
-    freeNode.id = 'xl-free-report';
-    resultEl.appendChild(freeNode);
-  }
-  freeNode.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown});
-
-  // 2) 心怜管家
-  let butler = $('assistant-panel');
-  if(!butler){
-    const wrap = document.createElement('div');
-    wrap.innerHTML = buildButlerHTML();
-    resultEl.appendChild(wrap.firstElementChild);
-  }
-  assistant.generateAnalysis({
-    dayMaster: { stem: pillars.day.stem, element: pillars.day.element },
-    elements: { wood:percents.wood, fire:percents.fire, earth:percents.earth, metal:percents.metal, water:percents.water },
-    strength: st, season: st.season, useful: adv, timeUnknown
-  });
-
-  // 3) GPT 抽屉
-  let drawer = $('gpt-drawer');
-  if(!drawer){
-    const wrap = document.createElement('div');
-    wrap.innerHTML = buildChatDrawerHTML();
-    resultEl.appendChild(wrap.firstElementChild);
-    wireChatDrawer();
-  }
-  // 更新上下文给聊天用
-  window.__bazi_ctx__ = {
-    pillars,
-    wuxing_ratio: percents,
-    season: st.season,
-    strength: st.mark,
-    strategy: st.focus,
-    useful: adv?.useful || [],
-    timeUnknown
-  };
-}
-
-// ======================= 主流程 =======================
+// ======================= 主流程：生成八字并渲染 =======================
 async function genChart(){
   const birth = ($('birthdate')?.value||'').trim();
   const timeUnknown = $('timeUnknown')?.checked || false;
@@ -435,36 +514,54 @@ async function genChart(){
 
     const { pillars, counts, percents, timeUnknown: tu } = baziCalculator.calculateBazi(Y,M,D,hour,timeUnknown);
 
-    // 显示你原有的结果区
     $('result')?.style.setProperty('display','block');
     const timeText = tu ? '时间不详' : (hour + '时');
     setText('bazi-date', `出生日期: ${Y}年${M}月${D}日 ${timeText}`);
 
-    // 你的原有UI渲染保持不变
     renderPillars($('bazi-pillars'), pillars, tu);
     displayClassicArea(pillars, tu);
 
+    // —— 五行条（保持你现有中文 id）
     setBar($('bar-木'),  percents.wood);  setText('pct-木',  Math.round(percents.wood)+'%');
     setBar($('bar-火'),  percents.fire);  setText('pct-火',  Math.round(percents.fire)+'%');
     setBar($('bar-土'),  percents.earth); setText('pct-土',  Math.round(percents.earth)+'%');
     setBar($('bar-金'),  percents.metal); setText('pct-金',  Math.round(percents.metal)+'%');
     setBar($('bar-水'),  percents.water); setText('pct-水',  Math.round(percents.water)+'%');
 
+    // —— 最强/最弱提示
     const keys = Object.keys(counts);
     const maxK = keys.reduce((a,b)=>counts[a]>counts[b]?a:b);
     const minK = keys.reduce((a,b)=>counts[a]<counts[b]?a:b);
     setText('bazi-elements-balance', `五行中${maxK}元素最强，${minK}元素最弱。`);
 
+    // —— 强弱/喜用
     const st  = judgeStrength(pillars.day.stem, pillars.month.branch, counts);
     const adv = chooseUseful(st.mark, pillars.day.element);
     setText('bazi-day-master', `日主：${pillars.day.stem}（${pillars.day.element}）`);
     setText('bazi-strengths', `命局${st.mark}，建议策略：${st.focus}`);
 
-    // 把扩展模块安全挂到 #result
-    mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown: tu});
+    // —— 渲染【免费报告】模块（插入到 #bazi-free-report 容器）
+    let freeReportHost = document.getElementById('bazi-free-report');
+    if (!freeReportHost) {
+      // 若页面没有容器，则自动创建并挂在 result 下方
+      freeReportHost = document.createElement('div');
+      freeReportHost.id = 'bazi-free-report';
+      freeReportHost.className = 'container';
+      freeReportHost.style.paddingTop = '12px';
+      (document.getElementById('result') || document.body).appendChild(freeReportHost);
+    }
+    freeReportHost.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown: tu});
 
-    // （可选）后端解说，失败静默
-    try{
+    // —— 心怜管家（前端解说）
+    ensureAssistantSlots();
+    assistant.generateAnalysis({
+      dayMaster: { stem: pillars.day.stem, element: pillars.day.element },
+      elements: { wood:percents.wood, fire:percents.fire, earth:percents.earth, metal:percents.metal, water:percents.water },
+      strength: st, season: st.season, useful: adv, timeUnknown: tu
+    });
+
+    // —— 心怜管家（后端解说，可选，失败静默）
+    try {
       const payload = {
         profile: {
           name: $('name')?.value || '', gender: $('gender')?.value || '',
@@ -476,7 +573,7 @@ async function genChart(){
           year: pillars.year, month: pillars.month, day: {stem:pillars.day.stem, branch:pillars.day.branch},
           hour: tu ? {stem:'？',branch:'？'} : pillars.hour,
           day_master: pillars.day.stem, season: st.season,
-          wuxing_ratio: percents
+          wuxing_ratio: { wood: percents.wood, fire: percents.fire, earth: percents.earth, metal: percents.metal, water: percents.water }
         },
         prefs: { lang: 'zh-CN', tier: 'free' }
       };
@@ -490,8 +587,9 @@ async function genChart(){
         if (ana && resp?.layout?.cards?.[0]?.html) ana.innerHTML = resp.layout.cards[0].html;
         if (advc && resp?.layout?.cards?.[1]?.html) advc.innerHTML= resp.layout.cards[1].html;
       }
-    }catch{}
+    } catch(_) { /* 静默失败，不影响页面 */ }
 
+    // 控制台校验
     console.log('实际 →',
       pillars.year.stem+pillars.year.branch,
       pillars.month.stem+pillars.month.branch,
@@ -507,13 +605,22 @@ async function genChart(){
   }
 }
 
-// ======================= 事件绑定（不创建多余容器） =======================
+// 事件绑定
 document.addEventListener('DOMContentLoaded', ()=>{
   const today = new Date(); const def = today.toISOString().split('T')[0];
   if ($('birthdate') && !$('birthdate').value) $('birthdate').value = def;
   const tChk = $('timeUnknown'), tBox = $('timeInputContainer');
   if (tChk){ tChk.addEventListener('change', function(){ tBox && tBox.classList.toggle('disabled', this.checked); }); }
   $('genBtn')?.addEventListener('click', genChart);
+
+  // 若页面未提供“免费报告”容器，先创建一个（避免你忘了加）
+  if (!document.getElementById('bazi-free-report')) {
+    const freeReportHost = document.createElement('div');
+    freeReportHost.id = 'bazi-free-report';
+    freeReportHost.className = 'container';
+    freeReportHost.style.paddingTop = '12px';
+    (document.getElementById('result') || document.body).appendChild(freeReportHost);
+  }
 });
 
 // ===== 自测（控制台）：1978-02-21 12:00（UTC+8）应为 戊午 甲寅 甲寅 庚午 =====
@@ -527,6 +634,5 @@ document.addEventListener('DOMContentLoaded', ()=>{
   console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+H.branch);
 })();
 </script>
-
 </body>
 </html>
