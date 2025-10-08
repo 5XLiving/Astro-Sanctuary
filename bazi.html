@@ -539,6 +539,58 @@ footer {
   margin: 10px 0;
   color: #ffb4b4;
 }
+
+/* 会员服务容器样式修复 */
+.membership-section {
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 15px;
+  margin: 10px 0;
+}
+
+.vip-pricing {
+  background: linear-gradient(135deg, #ffd700, #ffed4e);
+  border-radius: 12px;
+  padding: 20px;
+  margin: 15px 0;
+  text-align: center;
+  border: 1px solid #e6c76e;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+}
+
+.vip-price {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #b8860b;
+  margin: 10px 0;
+}
+
+.vip-features {
+  list-style: none;
+  padding: 0;
+  margin: 15px 0;
+}
+
+.vip-features li {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 响应式布局修复 */
+@media (max-width: 768px) {
+  .membership-section {
+    padding: 10px;
+    margin: 5px 0;
+  }
+  
+  .vip-pricing {
+    padding: 15px;
+  }
+  
+  .vip-price {
+    font-size: 1.5rem;
+  }
+}  
 </style>
 </head>
 
@@ -611,10 +663,11 @@ footer {
         </div>
       </div>
       <div style="display:flex;align-items:flex-end">
-        <button class="btn" id="genBtn">
-          <span id="genBtnText">生成八字</span>
-          <span id="genBtnLoading" class="loading" style="display:none"></span>
-        </button>
+<!-- 确保按钮有正确的ID -->
+<button class="btn" id="genBtn">
+  <span id="genBtnText">生成八字</span>
+  <span id="genBtnLoading" class="loading" style="display:none"></span>
+</button>
       </div>
     </div>
 
@@ -1403,6 +1456,8 @@ function showAuthError(message) {
   }, 5000);
 }
 
+// ... 前面的所有代码保持不变 ...
+
 // 时间不详复选框事件
 document.getElementById('timeUnknown').addEventListener('change', function() {
   const timeInputContainer = document.getElementById('timeInputContainer');
@@ -1413,12 +1468,83 @@ document.getElementById('timeUnknown').addEventListener('change', function() {
   }
 });
 
-// 初始化
+// 初始化 - 修复这个部分
 document.addEventListener('DOMContentLoaded', function() {
   // 设置默认日期为今天
   const today = new Date();
   const formattedDate = today.toISOString().split('T')[0];
   document.getElementById('birthdate').value = formattedDate;
+  
+  // 重新绑定生成八字按钮事件
+  const genBtn = document.getElementById('genBtn');
+  if (genBtn) {
+    // 移除可能存在的旧事件监听器
+    genBtn.replaceWith(genBtn.cloneNode(true));
+    
+    // 重新获取按钮并绑定事件
+    document.getElementById('genBtn').addEventListener('click', function() {
+      console.log('生成八字按钮被点击');
+      
+      const birthdate = document.getElementById('birthdate').value;
+      const birthtime = document.getElementById('birthtime').value;
+      const timeUnknown = document.getElementById('timeUnknown').checked;
+      
+      if (!birthdate) {
+        showError('请选择出生日期');
+        return;
+      }
+      
+      // 显示加载状态
+      document.getElementById('genBtnText').style.display = 'none';
+      document.getElementById('genBtnLoading').style.display = 'inline-block';
+      
+      setTimeout(() => {
+        try {
+          // 解析日期和时间
+          const date = new Date(birthdate);
+          const year = date.getFullYear();
+          const month = date.getMonth() + 1;
+          const day = date.getDate();
+          
+          let hour = 12;
+          if (!timeUnknown && birthtime) {
+            const timeParts = birthtime.split(':');
+            hour = parseInt(timeParts[0]);
+          }
+          
+          // 计算八字
+          const yearPillar = baziCalculator.calculateYearPillar(year);
+          const monthPillar = baziCalculator.calculateMonthPillar(year, month);
+          const dayPillar = baziCalculator.calculateDayPillar(year, month, day);
+          const hourPillar = timeUnknown ? 
+            { stem: '？', branch: '？' } : 
+            baziCalculator.calculateHourPillar(dayPillar.stem, hour);
+          
+          const bazi = {
+            year: yearPillar,
+            month: monthPillar,
+            day: dayPillar,
+            hour: hourPillar
+          };
+          
+          // 显示结果
+          displayBaziResult(bazi, year, month, day, hour, timeUnknown);
+          
+          // 隐藏加载状态
+          document.getElementById('genBtnText').style.display = 'inline';
+          document.getElementById('genBtnLoading').style.display = 'none';
+          
+        } catch (error) {
+          console.error('计算八字时出错:', error);
+          showError('计算八字时出现错误，请重试');
+          document.getElementById('genBtnText').style.display = 'inline';
+          document.getElementById('genBtnLoading').style.display = 'none';
+        }
+      }, 1000);
+    });
+  } else {
+    console.error('找不到生成八字按钮');
+  }
   
   // 运行八字计算测试
   testBaziCalculation();
@@ -1457,5 +1583,6 @@ function testBaziCalculation() {
   
   return isCorrect;
 }
+</script>
 </body>
 </html>
