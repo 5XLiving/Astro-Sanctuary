@@ -365,29 +365,36 @@ function ensureAssistantSlots(){
   wrap.append(a, b); host.appendChild(wrap);
 }
 
-// ======================= 「免费报告」模块：JS 动态生成 =======================
+// ======================= 免费报告（文本模块） =======================
 function buildFreeReportHTML({pillars, percents, st, adv, timeUnknown}) {
-  // 中文映射
   const L = {wood:'木', fire:'火', earth:'土', metal:'金', water:'水'};
   const entries = Object.entries(percents);
   const strongestK = entries.reduce((a,b)=> a[1]>b[1]?a:b)[0];
   const weakestK   = entries.reduce((a,b)=> a[1]<b[1]?a:b)[0];
   const strongest  = L[strongestK], weakest = L[weakestK];
   const absents = Object.keys(percents).filter(k => Math.round(percents[k])===0).map(k=>L[k]).join('、');
-  const fmtPct = k => `${L[k]} ${Math.round(percents[k])}%`;
-  const fiveLine = ['wood','fire','earth','metal','water'].map(fmtPct).join('　');
-  const favList  = (adv?.useful||[]).join('、');
+  const fmt = k => `${L[k]} ${Math.round(percents[k])}%`;
+  const line = ['wood','fire','earth','metal','water'].map(fmt).join('　');
+  const fav  = (adv?.useful||[]).join('、');
+  const avoid= (adv?.avoid||[]).join('、') || '—';
+  const hourTxt = timeUnknown ? '？？' : (pillars.hour.stem + pillars.hour.branch);
 
+  // 用极简结构+内联样式，避免污染你全站样式
   return `
-    <!-- ===== BAZI FREE REPORT · auto-rendered (content only) ===== -->
-    <section>
-      <!-- 1) Header -->
-      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px 18px; margin-bottom:18px;">
-        <h2 style="margin:0 0 4px; font-weight:700; letter-spacing:.3px;">
-          <span style="color:var(--brand)">八字命理 · 免费报告</span>
-        </h2>
-        <p style="margin:6px 0 0; color:var(--muted); font-size:14px">算法保持不变 · 本页仅渲染文字内容</p>
-      </div>
+    <div class="xl-card" style="margin-top:12px; padding:16px; border-radius:10px; background:var(--card); box-shadow:var(--shadow);">
+      <h3 style="margin:0 0 8px; color:var(--brand)">免费报告</h3>
+      <p style="margin:6px 0;">四柱：<strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${hourTxt}</strong></p>
+      <p style="margin:6px 0;">日主：<strong>${pillars.day.stem}</strong>（<strong>${pillars.day.element}</strong>）｜季节：<strong>${st.season||'-'}</strong>｜命局：<strong>${st.mark}</strong> · <strong>${st.focus}</strong></p>
+      <p style="margin:8px 0;">五行：${line}</p>
+      <p style="margin:4px 0;"><strong>${strongest}</strong>偏旺；<strong>${weakest}</strong>偏弱。${absents?`<span style="color:var(--muted)">（缺：${absents}）</span>`:''}</p>
+      <ul style="margin:6px 0 0 18px; line-height:1.6">
+        <li>喜用优先：<strong>${fav||'—'}</strong>；忌讳：${avoid}</li>
+        <li>调衡要点：${st.focus}</li>
+      </ul>
+      ${timeUnknown?`<p style="margin:6px 0 0; color:var(--muted)">提示：时间不详，时柱未纳入。</p>`:''}
+    </div>
+  `;
+}
 
       <!-- 2) 命盘总览 -->
       <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
@@ -495,6 +502,102 @@ function buildFreeReportHTML({pillars, percents, st, adv, timeUnknown}) {
   `;
 }
 
+// ======================= 心怜管家（挂到 result 里） =======================
+function buildButlerHTML(){
+  return `
+    <div id="assistant-panel" class="xl-card" style="margin-top:12px; padding:16px; border-radius:10px; background:var(--card); box-shadow:var(--shadow);">
+      <h3 style="margin:0 0 8px; color:var(--brand)">心怜管家 · 智能解读</h3>
+      <div id="assistant-analysis"></div>
+      <div id="assistant-advice" style="margin-top:8px"></div>
+    </div>
+  `;
+}  
+  
+// ======================= GPT 对话抽屉（挂到 result 里） =======================
+function buildChatDrawerHTML(){
+  return `
+    <details id="gpt-drawer" class="xl-card" style="margin-top:12px; padding:0; border-radius:10px; background:var(--card); box-shadow:var(--shadow);">
+      <summary style="cursor:pointer; list-style:none; padding:12px 16px; font-weight:700; color:var(--brand);">GPT 问答</summary>
+      <div style="padding:10px 12px;">
+        <div id="gpt-body" style="max-height:260px; overflow:auto; font-size:14px; line-height:1.5; border:1px solid #222; border-radius:8px; padding:8px;"></div>
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <input id="gpt-input" placeholder="问点什么…" style="flex:1; padding:8px; border-radius:8px; border:1px solid #222; background:#0b0f14; color:var(--text)">
+          <button id="gpt-send" style="padding:8px 12px; border-radius:8px; background:var(--brand); color:#111; font-weight:700">发送</button>
+        </div>
+      </div>
+    </details>
+  `;
+}
+async function callChatAPI(userText, ctx){
+  try{
+    const r = await fetch('/api/chat', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ prompt: userText, context: ctx })
+    });
+    return r.ok ? (await r.text() || '（无响应）') : '（服务暂不可用）';
+  }catch{ return '（暂时无法连接到服务端）'; }
+}
+function wireChatDrawer(){
+  const send = $('gpt-send'), input=$('gpt-input'), body=$('gpt-body');
+  if(!send || !input || !body) return;
+  send.onclick = async ()=>{
+    const text = (input.value||'').trim(); if(!text) return;
+    body.insertAdjacentHTML('beforeend', `<div style="text-align:right; margin:6px 0;">${text}</div>`);
+    input.value='';
+    const ctx = window.__bazi_ctx__ || {};
+    const reply = await callChatAPI(text, ctx);
+    body.insertAdjacentHTML('beforeend', `<div style="margin:6px 0;">${reply}</div>`);
+    body.scrollTop = body.scrollHeight;
+  };
+}
+  
+// ======================= 把扩展模块挂到 #result =======================
+function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
+  const resultEl = $('result');
+  if(!resultEl){ console.warn('[mount] 找不到 #result，跳过扩展模块渲染'); return; }
+
+  // 1) 免费报告（存在则更新，不存在则添加）
+  let freeNode = $('xl-free-report');
+  if(!freeNode){
+    freeNode = document.createElement('div');
+    freeNode.id = 'xl-free-report';
+    resultEl.appendChild(freeNode);
+  }
+  freeNode.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown});
+
+  // 2) 心怜管家
+  let butler = $('assistant-panel');
+  if(!butler){
+    const wrap = document.createElement('div');
+    wrap.innerHTML = buildButlerHTML();
+    resultEl.appendChild(wrap.firstElementChild);
+  }
+  assistant.generateAnalysis({
+    dayMaster: { stem: pillars.day.stem, element: pillars.day.element },
+    elements: { wood:percents.wood, fire:percents.fire, earth:percents.earth, metal:percents.metal, water:percents.water },
+    strength: st, season: st.season, useful: adv, timeUnknown
+  });
+
+  // 3) GPT 抽屉
+  let drawer = $('gpt-drawer');
+  if(!drawer){
+    const wrap = document.createElement('div');
+    wrap.innerHTML = buildChatDrawerHTML();
+    resultEl.appendChild(wrap.firstElementChild);
+    wireChatDrawer();
+  }
+  // 更新上下文给聊天用
+  window.__bazi_ctx__ = {
+    pillars,
+    wuxing_ratio: percents,
+    season: st.season,
+    strength: st.mark,
+    strategy: st.focus,
+    useful: adv?.useful || [],
+    timeUnknown
+  };
+}
+  
 // ======================= 主流程：生成八字并渲染 =======================
 async function genChart(){
   const birth = ($('birthdate')?.value||'').trim();
