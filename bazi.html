@@ -851,6 +851,7 @@ footer {
 
 <script>
 // 八字计算器类
+// 八字计算器类 - 修复版本
 class BaziCalculator {
   constructor() {
     this.HEAVENLY_STEMS = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
@@ -859,7 +860,7 @@ class BaziCalculator {
     this.NAYIN = ['海中金', '炉中火', '大林木', '路旁土', '剑锋金', '山头火', '涧下水', '城头土', '白蜡金', '杨柳木', '泉中水', '屋上土', '霹雳火', '松柏木', '长流水', '砂石金', '山下火', '平地木', '壁上土', '金箔金', '佛灯火', '天河水', '大驿土', '钗钏金', '桑柘木', '大溪水', '沙中土', '天上火', '石榴木', '大海水'];
   }
 
-  // 计算年柱
+  // 计算年柱 - 保持原样
   calculateYearPillar(year) {
     const stemIndex = (year - 4) % 10;
     const branchIndex = (year - 4) % 12;
@@ -870,17 +871,34 @@ class BaziCalculator {
     };
   }
 
-  // 计算月柱（简化版）
+  // 修复月柱计算 - 关键修复！
   calculateMonthPillar(year, month) {
     // 月支固定对应月份
-    const monthBranches = ['寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥', '子', '丑'];
-    const branchIndex = (month + 1) % 12;
-    const branch = monthBranches[branchIndex];
+    const branchMap = { 
+      1: '寅', 2: '卯', 3: '辰', 4: '巳', 5: '午', 6: '未', 
+      7: '申', 8: '酉', 9: '戌', 10: '亥', 11: '子', 12: '丑' 
+    };
+    const branch = branchMap[month];
     
-    // 月干计算
     const yearStem = this.calculateYearPillar(year).stem;
     const yearStemIndex = this.HEAVENLY_STEMS.indexOf(yearStem);
-    const stemIndex = (yearStemIndex * 2 + branchIndex) % 10;
+    
+    // 修正的月干起始表 - 关键修复！
+    const monthStartMap = {
+      0: 2,  // 甲年：丙作首
+      1: 4,  // 乙年：戊为头
+      2: 6,  // 丙年：寻庚起
+      3: 8,  // 丁年：壬位顺行流
+      4: 0,  // 戊年：甲寅之上好追求 ← 这里应该是0！
+      5: 2,  // 己年：丙作首
+      6: 4,  // 庚年：戊为头
+      7: 6,  // 辛年：寻庚起
+      8: 8,  // 壬年：壬位顺行流
+      9: 0   // 癸年：甲寅之上好追求
+    };
+    
+    const startIndex = monthStartMap[yearStemIndex];
+    const stemIndex = (startIndex + month - 1) % 10;
     
     return {
       stem: this.HEAVENLY_STEMS[stemIndex],
@@ -888,16 +906,27 @@ class BaziCalculator {
     };
   }
 
-  // 计算日柱（简化版 - 实际需要复杂算法）
+  // 修复日柱计算 - 使用更准确的算法
   calculateDayPillar(year, month, day) {
-    // 简化计算，实际应该使用精确算法
-    const baseDate = new Date(1900, 0, 1);
+    // 使用已知准确的基准日：1900年1月31日为甲午日
+    const baseDate = new Date(1900, 0, 31); // 1900-01-31 甲午日
     const targetDate = new Date(year, month - 1, day);
-    const diffTime = targetDate - baseDate;
-    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
     
-    const stemIndex = (diffDays + 9) % 10;
-    const branchIndex = (diffDays + 1) % 12;
+    // 计算天数差
+    const timeDiff = targetDate.getTime() - baseDate.getTime();
+    const dayDiff = Math.floor(timeDiff / (1000 * 60 * 60 * 24));
+    
+    // 甲午日的索引：甲=0, 午=6
+    const baseStemIndex = 0;
+    const baseBranchIndex = 6;
+    
+    // 计算目标日的干支索引
+    let stemIndex = (baseStemIndex + dayDiff) % 10;
+    let branchIndex = (baseBranchIndex + dayDiff) % 12;
+    
+    // 处理负数
+    if (stemIndex < 0) stemIndex += 10;
+    if (branchIndex < 0) branchIndex += 12;
     
     return {
       stem: this.HEAVENLY_STEMS[stemIndex],
@@ -905,15 +934,35 @@ class BaziCalculator {
     };
   }
 
-  // 计算时柱
+  // 修复时柱计算
   calculateHourPillar(dayStem, hour) {
-    const hourBranches = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
-    const branchIndex = Math.floor((hour + 1) / 2) % 12;
-    const branch = hourBranches[branchIndex];
+    const branchMap = { 
+      23: '子', 0: '子', 1: '丑', 2: '丑', 3: '寅', 4: '寅', 
+      5: '卯', 6: '卯', 7: '辰', 8: '辰', 9: '巳', 10: '巳', 
+      11: '午', 12: '午', 13: '未', 14: '未', 15: '申', 16: '申', 
+      17: '酉', 18: '酉', 19: '戌', 20: '戌', 21: '亥', 22: '亥'
+    };
     
-    // 时干计算
+    const branch = branchMap[hour];
     const dayStemIndex = this.HEAVENLY_STEMS.indexOf(dayStem);
-    const stemIndex = (dayStemIndex * 2 + branchIndex) % 10;
+    
+    // 修正的时干计算表
+    const hourStartMap = {
+      0: 0,  // 甲日：甲
+      1: 2,  // 乙日：丙
+      2: 4,  // 丙日：戊
+      3: 6,  // 丁日：庚
+      4: 8,  // 戊日：壬
+      5: 0,  // 己日：甲
+      6: 2,  // 庚日：丙
+      7: 4,  // 辛日：戊
+      8: 6,  // 壬日：庚
+      9: 8   // 癸日：壬
+    };
+    
+    const startIndex = hourStartMap[dayStemIndex];
+    const hourIndex = Math.floor((hour + 1) / 2) % 12;
+    const stemIndex = (startIndex + hourIndex) % 10;
     
     return {
       stem: this.HEAVENLY_STEMS[stemIndex],
@@ -921,7 +970,7 @@ class BaziCalculator {
     };
   }
 
-  // 获取五行
+  // 获取五行 - 保持原样
   getElement(stem, branch) {
     const stemElements = {
       '甲': '木', '乙': '木', '丙': '火', '丁': '火',
@@ -938,7 +987,7 @@ class BaziCalculator {
     return `${stemElements[stem]}${branchElements[branch]}`;
   }
 
-  // 获取纳音
+  // 获取纳音 - 保持原样
   getNayin(stem, branch) {
     const stemIndex = this.HEAVENLY_STEMS.indexOf(stem);
     const branchIndex = this.EARTHLY_BRANCHES.indexOf(branch);
@@ -946,7 +995,7 @@ class BaziCalculator {
     return this.NAYIN[index];
   }
 
-  // 分析五行平衡
+  // 分析五行平衡 - 保持原样
   analyzeElements(bazi) {
     const elements = {
       '木': 0, '火': 0, '土': 0, '金': 0, '水': 0
@@ -1370,7 +1419,43 @@ document.addEventListener('DOMContentLoaded', function() {
   const today = new Date();
   const formattedDate = today.toISOString().split('T')[0];
   document.getElementById('birthdate').value = formattedDate;
+  
+  // 运行八字计算测试
+  testBaziCalculation();
 });
-</script>
+
+// 验证八字计算是否正确
+function testBaziCalculation() {
+  const calculator = new BaziCalculator();
+  
+  // 测试1978年2月21日12:45
+  const year = 1978, month = 2, day = 21, hour = 12;
+  
+  const yearPillar = calculator.calculateYearPillar(year);
+  const monthPillar = calculator.calculateMonthPillar(year, month);
+  const dayPillar = calculator.calculateDayPillar(year, month, day);
+  const hourPillar = calculator.calculateHourPillar(dayPillar.stem, hour);
+  
+  console.log('修复后计算结果:');
+  console.log('年柱:', yearPillar.stem + yearPillar.branch, '(应该是: 戊午)');
+  console.log('月柱:', monthPillar.stem + monthPillar.branch, '(应该是: 甲寅)');
+  console.log('日柱:', dayPillar.stem + dayPillar.branch, '(应该是: 甲寅)');
+  console.log('时柱:', hourPillar.stem + hourPillar.branch, '(应该是: 庚午)');
+  
+  // 验证结果
+  const isCorrect = 
+    yearPillar.stem + yearPillar.branch === '戊午' &&
+    monthPillar.stem + monthPillar.branch === '甲寅' &&
+    dayPillar.stem + dayPillar.branch === '甲寅' &&
+    hourPillar.stem + hourPillar.branch === '庚午';
+  
+  console.log('计算结果是否正确:', isCorrect);
+  
+  if (!isCorrect) {
+    console.error('八字计算仍有问题，需要进一步调试');
+  }
+  
+  return isCorrect;
+}
 </body>
 </html>
