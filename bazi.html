@@ -116,85 +116,118 @@ input,select{width:100%;box-sizing:border-box;border-radius:12px;border:1px soli
 
 <script>
 // ======================= 八字计算器（修正版） =======================
+// ===== 八字计算器（修正版）====================================
 class BaziCalculator {
   constructor() {
     this.HEAVENLY_STEMS   = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
     this.EARTHLY_BRANCHES = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
     this.ZODIAC           = ['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
     this.NAYIN = ['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','屋上土','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];
-    this.STEM_ELEM = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
-    this.BRANCH_ELEM = {子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'};
   }
 
+  // 年柱：按年份
   calculateYearPillar(year) {
-    const s = (year - 4) % 10, b = (year - 4) % 12;
-    return { stem: this.HEAVENLY_STEMS[s], branch: this.EARTHLY_BRANCHES[b], zodiac: this.ZODIAC[b] };
+    const s = (year - 4) % 10;
+    const b = (year - 4) % 12;
+    return {
+      stem: this.HEAVENLY_STEMS[s],
+      branch: this.EARTHLY_BRANCHES[b],
+      zodiac: this.ZODIAC[b]
+    };
   }
 
-  // 近似节气阈值 → 寅月=1 … 丑月=12（排月柱足够）
+  // —— 节气定月（寅=1…丑=12），用近似节气阈值即可
   solarMonthIndex(y, m, d) {
-    const mmdd = m*100 + d;
+    const mmdd = m * 100 + d;
     const gates = [
-      [106,12],[204,1],[306,2],[405,3],[506,4],[606,5],
-      [707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]
+      [106, 12],      // 小寒以后算上年腊月（丑月=12）
+      [204, 1], [306, 2], [405, 3], [506, 4], [606, 5],
+      [707, 6], [808, 7], [908, 8], [1008, 9], [1107, 10], [1207, 11]
     ];
     let idx = 11;
-    for (const [thr,val] of gates) if (mmdd >= thr) idx = val;
-    const by = {1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
-    return { index: idx, branch: by[idx] };
+    for (const [thr, val] of gates) if (mmdd >= thr) idx = val;
+    const branchBy = {1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
+    return { index: idx, branch: branchBy[idx] };
   }
 
-  // 甲/己年丙寅起；乙/庚戊寅；丙/辛庚寅；丁/壬壬寅；戊/癸甲寅
+  // 月柱：甲/己年丙寅起；乙/庚年戊寅起；丙/辛年庚寅起；丁/壬年壬寅起；戊/癸年甲寅起
   calculateMonthPillar(year, month, day) {
     const { index, branch } = this.solarMonthIndex(year, month, day);
     const yStemIdx = this.HEAVENLY_STEMS.indexOf(this.calculateYearPillar(year).stem);
     const startMap = {0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
-    const stemIdx  = (startMap[yStemIdx] + (index - 1)) % 10;
+    const stemIdx = (startMap[yStemIdx] + (index - 1)) % 10;
     return { stem: this.HEAVENLY_STEMS[stemIdx], branch };
   }
 
-  // 1900-01-31 为甲午，用 UTC 计日并 +1 修正常见偏移
+  // 日柱（关键修复）：以 1900-01-31 为【甲辰】基准；用 UTC 计算整日差；不再 +1
   calculateDayPillar(year, month, day) {
-    const baseUTC   = Date.UTC(1900, 0, 31);
-    const targetUTC = Date.UTC(year, month-1, day);
-    const dayDiff   = Math.floor((targetUTC - baseUTC) / 86400000) + 1;
-    const stemIdx   = (0 + dayDiff) % 10;  // 甲=0
-    const branchIdx = (6 + dayDiff) % 12;  // 午=6
+    const baseUTC   = Date.UTC(1900, 0, 31);                 // 甲辰日（branch=辰=索引4）
+    const targetUTC = Date.UTC(year, month - 1, day);
+    const dayDiff   = Math.floor((targetUTC - baseUTC) / 86400000); // 整日差
+
+    const stemIdx   = (0 + dayDiff) % 10;   // 甲=0
+    const branchIdx = (4 + dayDiff) % 12;   // 辰=4 （≠ 午！）
+
     return {
-      stem: this.HEAVENLY_STEMS[(stemIdx+10)%10],
-      branch: this.EARTHLY_BRANCHES[(branchIdx+12)%12]
+      stem: this.HEAVENLY_STEMS[(stemIdx + 10) % 10],
+      branch: this.EARTHLY_BRANCHES[(branchIdx + 12) % 12]
     };
   }
 
-  // 时柱（子时起；十天干轮转）
+  // 时柱：子时起；按“甲日子时甲、乙日起丙 …”推干
   calculateHourPillar(dayStem, hour) {
     const branchMap = {23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
     const startMap  = {0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8}; // 日干→子时起干
-    const dIdx = this.HEAVENLY_STEMS.indexOf(dayStem);
-    const hourIndex = Math.floor((hour + 1)/2) % 12;
-    const stemIdx   = (startMap[dIdx] + hourIndex) % 10;
+    const dayIdx    = this.HEAVENLY_STEMS.indexOf(dayStem);
+    const hourIndex = Math.floor((hour + 1) / 2) % 12;
+    const stemIdx   = (startMap[dayIdx] + hourIndex) % 10;
     return { stem: this.HEAVENLY_STEMS[stemIdx], branch: branchMap[hour] };
   }
 
+  // 辅助：五行/纳音/统计
   getElement(stem, branch) {
-    return `${this.STEM_ELEM[stem]}${this.BRANCH_ELEM[branch]}`;
+    const s = {'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'};
+    const b = {'子':'水','丑':'土','寅':'木','卯':'木','辰':'土','巳':'火','午':'火','未':'土','申':'金','酉':'金','戌':'土','亥':'水'};
+    return `${s[stem]}${b[branch]}`;
   }
-  getStemElement(stem){ return this.STEM_ELEM[stem]; }
-  getBranchElement(branch){ return this.BRANCH_ELEM[branch]; }
-
   getNayin(stem, branch) {
     const si = this.HEAVENLY_STEMS.indexOf(stem);
     const bi = this.EARTHLY_BRANCHES.indexOf(branch);
-    return this.NAYIN[(si*2 + bi) % this.NAYIN.length];
+    return this.NAYIN[(si * 2 + bi) % this.NAYIN.length];
+  }
+  analyzeElements(b) {
+    const r = {木:0,火:0,土:0,金:0,水:0};
+    for (const k of ['year','month','day','hour']) {
+      const s = b[k].stem;   if (s && s !== '？') r[this.getElement(s,'子')[0]]++;
+      const z = b[k].branch; if (z && z !== '？') r[this.getElement('甲',z)[1]]++;
+    }
+    return r;
   }
 
-  // —— 一次性计算整盘（含简易统计），供新功能使用
-  calculateBazi(Y, M, D, hour = 12, timeUnknown = false) {
-    const year  = this.calculateYearPillar(Y);
-    const month = this.calculateMonthPillar(Y, M, D);
-    const day   = this.calculateDayPillar(Y, M, D);
-    const hourP = timeUnknown ? { stem:'？', branch:'？' } : this.calculateHourPillar(day.stem, hour);
+  // 一次性算出四柱（方便你新加的流程用）
+  calculateBazi(year, month, day, hour = 12, timeUnknown = false) {
+    const yearP  = this.calculateYearPillar(year);
+    const monthP = this.calculateMonthPillar(year, month, day);
+    const dayP   = this.calculateDayPillar(year, month, day);
+    const hourP  = timeUnknown ? {stem:'？', branch:'？'} : this.calculateHourPillar(dayP.stem, hour);
+    return { year:yearP, month:monthP, day:dayP, hour:hourP };
+  }
+}
 
+// —— 如果你的页面里已经有 baziCalculator，就复用；没有就初始化一个
+window.baziCalculator = window.baziCalculator || new BaziCalculator();
+
+  // ===== 自测（可留在控制台，帮你快速验证；不需要可删除）==============
+(function selfTest(){
+  const c = new BaziCalculator();
+  const Y=c.calculateYearPillar(1978);
+  const M=c.calculateMonthPillar(1978,2,21);
+  const D=c.calculateDayPillar(1978,2,21);
+  const H=c.calculateHourPillar(D.stem,12);
+  console.log('应为 → 年 戊午｜月 甲寅｜日 甲寅｜时 庚午');
+  console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+H.branch);
+})();
+  
     // 日主元素
     const dayElement = this.getStemElement(day.stem);
     const pillars = { year, month, day: {...day, element: dayElement}, hour: hourP };
