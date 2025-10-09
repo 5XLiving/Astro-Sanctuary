@@ -361,47 +361,51 @@ function setText(id,v){const el=$(id);if(el) el.textContent=v}
 function setBar(el,pct){if(el) el.style.width=Math.max(0,Math.min(100,pct))+'%'}
 function showError(msg){const el=$('error');if(!el) return;el.textContent=msg;el.style.display='block';setTimeout(()=>{el.style.display='none'},5000)}
 function renderPillars(root,p,timeUnknown=false){if(!root)return;root.innerHTML='';[['年柱',p.year],['月柱',p.month],['日柱',p.day],['时柱',p.hour]].forEach(([tit,v])=>{const u=(tit==='时柱'&&timeUnknown);const stem=u?'？':v.stem,branch=u?'？':v.branch;const div=document.createElement('div');div.className='pillar';div.innerHTML=`<div class="tit">${tit}</div><div class="gz">${stem}${branch}</div>`;root.appendChild(div)})}
-function displayClassicArea(p, timeUnknown){
+function displayClassicArea(p,timeUnknown){
   const ge=(s,b)=>baziCalculator.getStemElement(s)+baziCalculator.getBranchElement(b);
-  const setIf=(id,val)=>{const el=$(id); if(el) el.textContent=val};
+  const setIf=(id,val)=>{const el=$(id);if(el) el.textContent=val};
 
-  setText('year-stem',p.year.stem);  setText('year-branch',p.year.branch);
-  setText('month-stem',p.month.stem);setText('month-branch',p.month.branch);
-  setText('day-stem',p.day.stem);    setText('day-branch',p.day.branch);
-  setText('hour-stem', timeUnknown?'？':p.hour.stem);
-  setText('hour-branch', timeUnknown?'？':p.hour.branch);
+  setText('year-stem',p.year.stem);
+  setText('year-branch',p.year.branch);
+  setText('month-stem',p.month.stem);
+  setText('month-branch',p.month.branch);
+  setText('day-stem',p.day.stem);
+  setText('day-branch',p.day.branch);
+  setText('hour-stem',timeUnknown?'？':p.hour.stem);
+  setText('hour-branch',timeUnknown?'？':p.hour.branch);
 
-  setIf('year-element', ge(p.year.stem,p.year.branch));
+  setIf('year-element',ge(p.year.stem,p.year.branch));
   setIf('month-element',ge(p.month.stem,p.month.branch));
-  setIf('day-element',  ge(p.day.stem,p.day.branch));
-  setIf('hour-element', timeUnknown ? '未知' : ge(p.hour.stem,p.hour.branch));
+  setIf('day-element',ge(p.day.stem,p.day.branch));
+  setIf('hour-element',timeUnknown?'未知':ge(p.hour.stem,p.hour.branch));
 
-  // 纳音（可选：兼容没有 getNayin 的情况）
   const hasNayin = typeof baziCalculator.getNayin === 'function';
-  setIf('year-nayin',  hasNayin ? baziCalculator.getNayin(p.year.stem,p.year.branch)  : '—');
+  setIf('year-nayin',  hasNayin ? baziCalculator.getNayin(p.year.stem, p.year.branch)  : '—');
   setIf('month-nayin', hasNayin ? baziCalculator.getNayin(p.month.stem,p.month.branch) : '—');
-  setIf('day-nayin',   hasNayin ? baziCalculator.getNayin(p.day.stem,p.day.branch)     : '—');
+  setIf('day-nayin',   hasNayin ? baziCalculator.getNayin(p.day.stem,  p.day.branch)   : '—');
   setIf('hour-nayin',  timeUnknown ? '未知' : (hasNayin ? baziCalculator.getNayin(p.hour.stem,p.hour.branch) : '—'));
-} // ←←← 这行一定要有
+}
 
-function judgeStrength(dayGan, monthZhi, cnt){ /* 原逻辑不变 */ }
-function chooseUseful(strength, dmElem){ /* 原逻辑不变 */ }
-
-// —— 下面这些函数必须在顶层（不要嵌在上面那个函数里）
+// —— 下面两个函数要在全局作用域（不要嵌在 displayClassicArea 里）
 function judgeStrength(dayGan,monthZhi,cnt){
   const STEM_ELEM={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
   const SEASON_BY_MONTH_BRANCH={寅:'春',卯:'春',辰:'春',巳:'夏',午:'夏',未:'夏',申:'秋',酉:'秋',戌:'秋',亥:'冬',子:'冬',丑:'冬'};
-  const dmEl=STEM_ELEM[dayGan]; const season=SEASON_BY_MONTH_BRANCH[monthZhi]||'-';
+  const dmEl=STEM_ELEM[dayGan];
+  const season=SEASON_BY_MONTH_BRANCH[monthZhi]||'-';
   let score=0;
   if((season==='春'&&'木火'.includes(dmEl))||(season==='夏'&&'火土'.includes(dmEl))||(season==='秋'&&dmEl==='金')||(season==='冬'&&dmEl==='水')) score+=2;
   score+=(cnt[dmEl]||0)*1.2;
-  const mark=score>=3?'偏强':(score<=1?'偏弱':'平衡'); const focus=mark==='偏强'?'泄秀/制化':(mark==='偏弱'?'补助/顺势':'守中/调和');
+  const mark=score>=3?'偏强':(score<=1?'偏弱':'平衡');
+  const focus=mark==='偏强'?'泄秀/制化':(mark==='偏弱'?'补助/顺势':'守中/调和');
   return{season,mark,focus}
 }
 
 function chooseUseful(strength,dmElem){
-  if (strength==='偏强') return {strategy:'泄秀/制化', useful:({木:['火','土','金'],火:['土','金','水'],土:['金','水','木'],金:['水','木','火'],水:['木','火','土']})[dmElem], avoid:[dmElem]};
-  if (strength==='偏弱') return {strategy:'生扶/补助', useful:({木:['木','水'],火:['火','木'],土:['土','火'],金:['金','土'],水:['水','金']})[dmElem], avoid:[]};
+  if (strength==='偏强'){
+    return {strategy:'泄秀/制化', useful:({木:['火','土','金'],火:['土','金','水'],土:['金','水','木'],金:['水','木','火'],水:['木','火','土']})[dmElem], avoid:[dmElem]};
+  } else if (strength==='偏弱'){
+    return {strategy:'生扶/补助', useful:({木:['木','水'],火:['火','木'],土:['土','火'],金:['金','土'],水:['水','金']})[dmElem], avoid:[]};
+  }
   return {strategy:'调和', useful:['木','火','土','金','水'], avoid:[]};
 }
   
@@ -505,9 +509,17 @@ document.addEventListener('DOMContentLoaded',()=>{
   function addMsg(text,me=false){const div=document.createElement('div');div.className='ss-msg'+(me?' me':'');div.textContent=text;$body.appendChild(div);$body.scrollTop=$body.scrollHeight}
   async function askChat(prompt){addMsg(prompt,true);$input.value='';$input.focus();try{const r=await fetch(`${API_BASE}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'system',content:'你是“心怜管家”，帮助访客了解命理心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。'},{role:'user',content:prompt}]})});let data,reply='';try{data=await r.json()}catch{data={}}reply=data.reply??data.text??data?.choices?.[0]?.message?.content??"";if(!reply) return addMsg('抱歉，服务暂时繁忙，请稍后重试。');addMsg(reply)}catch(e){addMsg('网络异常，请稍后再试。')}}
   $send.addEventListener('click',()=>{const v=$input.value.trim();if(v) askChat(v)});$input.addEventListener('keydown',(e)=>{if(e.key==='Enter'){const v=$input.value.trim();if(v) askChat(v)}});
-
   if(select){select.addEventListener('change',()=>{setLang(select.value);applyI18n();applyChatI18n()})}
 
+  function on(id, evt, handler){
+  const el = document.getElementById(id);
+  if(!el || typeof el.addEventListener !== 'function'){
+    console.warn(`#${id} 不存在或不可监听`);
+    return;
+  }
+  el.addEventListener(evt, handler);
+}
+  
   // 生辰默认值 + 绑定
   const today=new Date();const def=today.toISOString().split('T')[0];if($('birthdate')&&!$('birthdate').value)$('birthdate').value=def;
   $('genBtn')?.addEventListener('click',genChart);
