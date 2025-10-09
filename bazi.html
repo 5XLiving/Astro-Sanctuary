@@ -286,7 +286,7 @@ footer{color:#6c7b8c; font-size:.85rem; text-align:center; padding:30px 0}
 /* ---------------- 基础工具 ---------------- */
 const $ = (id)=>document.getElementById(id);
 
-/* ============== 多语言字典（保持原样） ============== */
+/* ============== 多语言字典（最小可用版） ============== */
 const translations = {
   "zh-CN": {
     "lang_label":"语言",
@@ -301,6 +301,8 @@ const translations = {
     "btn_upgrade":"💎 升级为 VIP（月费）",
     "btn_backshop":"← 返回命理商城",
     "note_price1":"$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）",
+    "ph_email":"邮箱 Email",
+    "ph_password":"密码 Password（至少8位，含大小写数字符号）",
     "chat_fab":"心", "chat_placeholder":"问点什么…", "chat_send":"发送"
   },
   "zh-TW": {
@@ -316,6 +318,8 @@ const translations = {
     "btn_upgrade":"💎 升級為 VIP（包月）",
     "btn_backshop":"← 返回命理商店",
     "note_price1":"$9.9 / 月費 VIP（命理空間 + 心憐空間 + 靈性課程）",
+    "ph_email":"信箱 Email",
+    "ph_password":"密碼 Password（至少8位，含大小寫數字符號）",
     "chat_fab":"心", "chat_placeholder":"想問什麼…", "chat_send":"發送"
   },
   "en": {
@@ -331,6 +335,8 @@ const translations = {
     "btn_upgrade":"💎 Upgrade to VIP (Monthly)",
     "btn_backshop":"← Back to Shop",
     "note_price1":"$9.9 / month (Destiny + Xinlian + Courses)",
+    "ph_email":"Email",
+    "ph_password":"Password (8+ incl. Aa0#)",
     "chat_fab":"Ask", "chat_placeholder":"Type your question…", "chat_send":"Send"
   }
 };
@@ -341,26 +347,102 @@ function t(key){
 const LANG_KEY="site_lang";
 function getLang(){return localStorage.getItem(LANG_KEY)||document.documentElement.lang||"zh-CN";}
 function setLang(code){localStorage.setItem(LANG_KEY,code);document.documentElement.lang=code;}
-function applyI18n(){document.querySelectorAll("[data-i18n]").forEach(el=>{const k=el.getAttribute("data-i18n");el.textContent=t(k)});document.querySelectorAll("[data-i18n-ph]").forEach(el=>{const k=el.getAttribute("data-i18n-ph");el.setAttribute("placeholder",t(k))});}
-function applyChatI18n(){const fab=$('ssChatFab');const inp=$('ssChatInput');const btn=$('ssChatSend');if(fab) fab.textContent=t('chat_fab');if(inp) inp.placeholder=t('chat_placeholder');if(btn) btn.textContent=t('chat_send');}
+function applyI18n(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const k=el.getAttribute("data-i18n"); el.textContent=t(k)
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
+    const k=el.getAttribute("data-i18n-ph"); el.setAttribute("placeholder",t(k))
+  });
+}
+function applyChatI18n(){
+  const fab=$('ssChatFab'); const inp=$('ssChatInput'); const btn=$('ssChatSend');
+  if(fab) fab.textContent=t('chat_fab');
+  if(inp) inp.placeholder=t('chat_placeholder');
+  if(btn) btn.textContent=t('chat_send');
+}
 
-/* ============== 八字计算器（保持你的算法） ============== */
-class BaziCalculator{constructor(){this.HEAVENLY_STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];this.EARTHLY_BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];this.ZODIAC=['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];this.NAYIN=['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','屋上土','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];}
-calculateYearPillar(year){const s=(year-4)%10,b=(year-4)%12;return{stem:this.HEAVENLY_STEMS[(s+10)%10],branch:this.EARTHLY_BRANCHES[(b+12)%12],zodiac:this.ZODIAC[(b+12)%12]};}
-solarMonthIndex(y,m,d){const mmdd=m*100+d;const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];let idx=11;for(const [thr,val]of gates)if(mmdd>=thr)idx=val;const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};return{index:idx,branch:branchBy[idx]};}
-calculateMonthPillar(year,month,day){const {index,branch}=this.solarMonthIndex(year,month,day);const yStemIdx=this.HEAVENLY_STEMS.indexOf(this.calculateYearPillar(year).stem);const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};const stemIdx=(startMap[yStemIdx]+(index-1))%10;return{stem:this.HEAVENLY_STEMS[stemIdx],branch};}
-calculateDayPillar(year,month,day){const baseUTC=Date.UTC(1900,0,31);const targetUTC=Date.UTC(year,month-1,day);const dayDiff=Math.floor((targetUTC-baseUTC)/86400000);const stemIdx=(0+dayDiff)%10;const branchIdx=(4+dayDiff)%12;return{stem:this.HEAVENLY_STEMS[(stemIdx+10)%10],branch:this.EARTHLY_BRANCHES[(branchIdx+12)%12]};}
-calculateHourPillar(dayStem,hour){const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};const dayIdx=this.HEAVENLY_STEMS.indexOf(dayStem);const hourIndex=Math.floor((hour+1)/2)%12;const stemIdx=(startMap[dayIdx]+hourIndex)%10;return{stem:this.HEAVENLY_STEMS[stemIdx],branch:branchMap[hour]};}
-getStemElement(stem){return({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[stem]}
-getBranchElement(branch){return({子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'})[branch]}
-calculateBazi(year,month,day,hour=12,timeUnknown=false){const yearP=this.calculateYearPillar(year);const monthP=this.calculateMonthPillar(year,month,day);const dayP=this.calculateDayPillar(year,month,day);const hourP=timeUnknown?{stem:'？',branch:'？'}:this.calculateHourPillar(dayP.stem,hour);const dayElement=this.getStemElement(dayP.stem);const pillars={year:yearP,month:monthP,day:{...dayP,element:dayElement},hour:hourP};const cnt={木:0,火:0,土:0,金:0,水:0};(timeUnknown?[yearP,monthP,dayP]:[yearP,monthP,dayP,hourP]).forEach(p=>{if(p.stem&&p.stem!=='？')cnt[this.getStemElement(p.stem)]+=1;if(p.branch&&p.branch!=='？')cnt[this.getBranchElement(p.branch)]+=1});const total=Object.values(cnt).reduce((a,b)=>a+b,0)||1;const pct={wood:cnt['木']/total*100,fire:cnt['火']/total*100,earth:cnt['土']/total*100,metal:cnt['金']/total*100,water:cnt['水']/total*100};return{pillars,counts:cnt,percents:pct,timeUnknown};}}
+/* ============== 八字计算器（你的算法，保留） ============== */
+class BaziCalculator{
+  constructor(){
+    this.HEAVENLY_STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+    this.EARTHLY_BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+    this.ZODIAC=['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
+    this.NAYIN=['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','屋上土','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];
+  }
+  calculateYearPillar(year){
+    const s=(year-4)%10,b=(year-4)%12;
+    return{stem:this.HEAVENLY_STEMS[(s+10)%10],branch:this.EARTHLY_BRANCHES[(b+12)%12],zodiac:this.ZODIAC[(b+12)%12]};
+  }
+  solarMonthIndex(y,m,d){
+    const mmdd=m*100+d;
+    const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
+    let idx=11; for(const [thr,val] of gates) if(mmdd>=thr) idx=val;
+    const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
+    return{index:idx,branch:branchBy[idx]};
+  }
+  calculateMonthPillar(year,month,day){
+    const {index,branch}=this.solarMonthIndex(year,month,day);
+    const yStemIdx=this.HEAVENLY_STEMS.indexOf(this.calculateYearPillar(year).stem);
+    const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
+    const stemIdx=(startMap[yStemIdx]+(index-1))%10;
+    return{stem:this.HEAVENLY_STEMS[stemIdx],branch};
+  }
+  calculateDayPillar(year,month,day){
+    const baseUTC=Date.UTC(1900,0,31);
+    const targetUTC=Date.UTC(year,month-1,day);
+    const dayDiff=Math.floor((targetUTC-baseUTC)/86400000);
+    const stemIdx=(0+dayDiff)%10;
+    const branchIdx=(4+dayDiff)%12;
+    return{stem:this.HEAVENLY_STEMS[(stemIdx+10)%10],branch:this.EARTHLY_BRANCHES[(branchIdx+12)%12]};
+  }
+  calculateHourPillar(dayStem,hour){
+    const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
+    const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};
+    const dayIdx=this.HEAVENLY_STEMS.indexOf(dayStem);
+    const hourIndex=Math.floor((hour+1)/2)%12;
+    const stemIdx=(startMap[dayIdx]+hourIndex)%10;
+    return{stem:this.HEAVENLY_STEMS[stemIdx],branch:branchMap[hour]};
+  }
+  getStemElement(stem){return({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[stem]}
+  getBranchElement(branch){return({子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'})[branch]}
+  // 可选：如果将来接入纳音表
+  // getNayin(stem, branch){...}
+  calculateBazi(year,month,day,hour=12,timeUnknown=false){
+    const yearP=this.calculateYearPillar(year);
+    const monthP=this.calculateMonthPillar(year,month,day);
+    const dayP=this.calculateDayPillar(year,month,day);
+    const hourP=timeUnknown?{stem:'？',branch:'？'}:this.calculateHourPillar(dayP.stem,hour);
+    const dayElement=this.getStemElement(dayP.stem);
+    const pillars={year:yearP,month:monthP,day:{...dayP,element:dayElement},hour:hourP};
+    const cnt={木:0,火:0,土:0,金:0,水:0};
+    (timeUnknown?[yearP,monthP,dayP]:[yearP,monthP,dayP,hourP]).forEach(p=>{
+      if(p.stem&&p.stem!=='？')cnt[this.getStemElement(p.stem)]+=1;
+      if(p.branch&&p.branch!=='？')cnt[this.getBranchElement(p.branch)]+=1
+    });
+    const total=Object.values(cnt).reduce((a,b)=>a+b,0)||1;
+    const pct={wood:cnt['木']/total*100,fire:cnt['火']/total*100,earth:cnt['土']/total*100,metal:cnt['金']/total*100,water:cnt['水']/total*100};
+    return{pillars,counts:cnt,percents:pct,timeUnknown};
+  }
+}
 const baziCalculator=new BaziCalculator();
 
-/* ---------------- 规则/渲染（保持你的逻辑） ---------------- */
+/* ---------------- 规则/渲染 ---------------- */
 function setText(id,v){const el=$(id);if(el) el.textContent=v}
 function setBar(el,pct){if(el) el.style.width=Math.max(0,Math.min(100,pct))+'%'}
 function showError(msg){const el=$('error');if(!el) return;el.textContent=msg;el.style.display='block';setTimeout(()=>{el.style.display='none'},5000)}
-function renderPillars(root,p,timeUnknown=false){if(!root)return;root.innerHTML='';[['年柱',p.year],['月柱',p.month],['日柱',p.day],['时柱',p.hour]].forEach(([tit,v])=>{const u=(tit==='时柱'&&timeUnknown);const stem=u?'？':v.stem,branch=u?'？':v.branch;const div=document.createElement('div');div.className='pillar';div.innerHTML=`<div class="tit">${tit}</div><div class="gz">${stem}${branch}</div>`;root.appendChild(div)})}
+function renderPillars(root,p,timeUnknown=false){
+  if(!root)return;
+  root.innerHTML='';
+  [['年柱',p.year],['月柱',p.month],['日柱',p.day],['时柱',p.hour]].forEach(([tit,v])=>{
+    const u=(tit==='时柱'&&timeUnknown);
+    const stem=u?'？':v.stem,branch=u?'？':v.branch;
+    const div=document.createElement('div');
+    div.className='pillar';
+    div.innerHTML=`<div class="tit">${tit}</div><div class="gz">${stem}${branch}</div>`;
+    root.appendChild(div)
+  })
+}
 function displayClassicArea(p,timeUnknown){
   const ge=(s,b)=>baziCalculator.getStemElement(s)+baziCalculator.getBranchElement(b);
   const setIf=(id,val)=>{const el=$(id);if(el) el.textContent=val};
@@ -386,7 +468,7 @@ function displayClassicArea(p,timeUnknown){
   setIf('hour-nayin',  timeUnknown ? '未知' : (hasNayin ? baziCalculator.getNayin(p.hour.stem,p.hour.branch) : '—'));
 }
 
-// —— 下面两个函数要在全局作用域（不要嵌在 displayClassicArea 里）
+// —— 放全局
 function judgeStrength(dayGan,monthZhi,cnt){
   const STEM_ELEM={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
   const SEASON_BY_MONTH_BRANCH={寅:'春',卯:'春',辰:'春',巳:'夏',午:'夏',未:'夏',申:'秋',酉:'秋',戌:'秋',亥:'冬',子:'冬',丑:'冬'};
@@ -399,7 +481,6 @@ function judgeStrength(dayGan,monthZhi,cnt){
   const focus=mark==='偏强'?'泄秀/制化':(mark==='偏弱'?'补助/顺势':'守中/调和');
   return{season,mark,focus}
 }
-
 function chooseUseful(strength,dmElem){
   if (strength==='偏强'){
     return {strategy:'泄秀/制化', useful:({木:['火','土','金'],火:['土','金','水'],土:['金','水','木'],金:['水','木','火'],水:['木','火','土']})[dmElem], avoid:[dmElem]};
@@ -408,7 +489,8 @@ function chooseUseful(strength,dmElem){
   }
   return {strategy:'调和', useful:['木','火','土','金','水'], avoid:[]};
 }
-  
+
+/* ---------------- Chat Drawer（内嵌抽屉） ---------------- */
 function buildChatDrawerHTML(){
   return `
   <details id="gpt-drawer" open class="xl-card" style="margin-top:12px;padding:0;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
@@ -422,12 +504,60 @@ function buildChatDrawerHTML(){
     </div>
   </details>`;
 }
-async function callChatAPI(userText,ctx){const payload={messages:[{role:'user',content:userText}],context:ctx};async function post(url){try{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(r.ok){const t=await r.text();try{const j=JSON.parse(t);return j.reply||t||'（无响应）'}catch{return t||'（无响应）'}}}catch(_){}return null}return await post('/api/butler/chat')||await post('/api/chat')||'（暂时无法连接到服务端）'}
-function wireChatDrawer(){const send=$('gpt-send'),input=$('gpt-input'),body=$('gpt-body');if(!send||!input||!body) return;send.onclick=async()=>{const text=(input.value||'').trim();if(!text) return;body.insertAdjacentHTML('beforeend',`<div style="text-align:right;margin:6px 0;">${text}</div>`);input.value='';const ctx=window.__bazi_ctx__||{};const reply=await callChatAPI(text,ctx);body.insertAdjacentHTML('beforeend',`<div style="margin:6px 0;">${reply}</div>`);body.scrollTop=body.scrollHeight}}
-function ensureGPTDrawer(){const host=$('result')||document.body;let drawer=$('gpt-drawer');if(!drawer){const wrap=document.createElement('div');wrap.innerHTML=buildChatDrawerHTML();host.insertBefore(wrap.firstElementChild,host.firstChild);drawer=$('gpt-drawer')}else if(host&&drawer.parentNode!==host){host.insertBefore(drawer,host.firstChild)}drawer.style.display='block';drawer.removeAttribute('hidden');const send=$('gpt-send');if(send){const cloned=send.cloneNode(true);send.parentNode.replaceChild(cloned,send)}wireChatDrawer()}
+async function callChatAPI(userText,ctx){
+  const payload={messages:[{role:'user',content:userText}],context:ctx};
+  async function post(url){
+    try{
+      const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      if(r.ok){const t=await r.text();try{const j=JSON.parse(t);return j.reply||t||'（无响应）'}catch{return t||'（无响应）'}}
+    }catch(_){}
+    return null
+  }
+  return await post('/api/butler/chat')||await post('/api/chat')||'（暂时无法连接到服务端）'
+}
+function wireChatDrawer(){
+  const send=$('gpt-send'),input=$('gpt-input'),body=$('gpt-body');
+  if(!send||!input||!body) return;
+  send.onclick=async()=>{
+    const text=(input.value||'').trim(); if(!text) return;
+    body.insertAdjacentHTML('beforeend',`<div style="text-align:right;margin:6px 0;">${text}</div>`);
+    input.value='';
+    const ctx=window.__bazi_ctx__||{};
+    const reply=await callChatAPI(text,ctx);
+    body.insertAdjacentHTML('beforeend',`<div style="margin:6px 0;">${reply}</div>`);
+    body.scrollTop=body.scrollHeight
+  }
+}
+function ensureGPTDrawer(){
+  const host=$('result')||document.body;
+  let drawer=$('gpt-drawer');
+  if(!drawer){
+    const wrap=document.createElement('div'); wrap.innerHTML=buildChatDrawerHTML();
+    host.insertBefore(wrap.firstElementChild,host.firstChild);
+    drawer=$('gpt-drawer')
+  }else if(host&&drawer.parentNode!==host){
+    host.insertBefore(drawer,host.firstChild)
+  }
+  drawer.style.display='block'; drawer.removeAttribute('hidden');
+  const send=$('gpt-send');
+  if(send){const cloned=send.cloneNode(true); send.parentNode.replaceChild(cloned,send)}
+  wireChatDrawer()
+}
 
-/* ---------------- 统一挂载：报告 + 管家 + 抽屉 ---------------- */
-function buildFreeReportHTML({pillars,percents,st,adv,timeUnknown}){const L={wood:'木',fire:'火',earth:'土',metal:'金',water:'水'};const entries=Object.entries(percents);const strongestK=entries.reduce((a,b)=>a[1]>b[1]?a:b)[0];const weakestK=entries.reduce((a,b)=>a[1]<b[1]?a:b)[0];const strongest=L[strongestK],weakest=L[weakestK];const absents=Object.keys(percents).filter(k=>Math.round(percents[k])===0).map(k=>L[k]).join('、');const fmt=k=>`${L[k]} ${Math.round(percents[k])}%`;const line=['wood','fire','earth','metal','water'].map(fmt).join('　');const fav=(adv?.useful||[]).join('、');const avoid=(adv?.avoid||[]).join('、')||'—';const hourTxt=timeUnknown?'？？':(pillars.hour.stem+pillars.hour.branch);return `
+/* ---------------- 报告 + 管家 + 抽屉 ---------------- */
+function buildFreeReportHTML({pillars,percents,st,adv,timeUnknown}){
+  const L={wood:'木',fire:'火',earth:'土',metal:'金',water:'水'};
+  const entries=Object.entries(percents);
+  const strongestK=entries.reduce((a,b)=>a[1]>b[1]?a:b)[0];
+  const weakestK=entries.reduce((a,b)=>a[1]<b[1]?a:b)[0];
+  const strongest=L[strongestK],weakest=L[weakestK];
+  const absents=Object.keys(percents).filter(k=>Math.round(percents[k])===0).map(k=>L[k]).join('、');
+  const fmt=k=>`${L[k]} ${Math.round(percents[k])}%`;
+  const line=['wood','fire','earth','metal','water'].map(fmt).join('　');
+  const fav=(adv?.useful||[]).join('、');
+  const avoid=(adv?.avoid||[]).join('、')||'—';
+  const hourTxt=timeUnknown?'？？':(pillars.hour.stem+pillars.hour.branch);
+  return `
   <div class="xl-card" style="margin-top:12px;padding:16px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
     <h3 style="margin:0 0 8px;color:var(--brand)">免费报告</h3>
     <p style="margin:6px 0;">四柱：<strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${hourTxt}</strong></p>
@@ -439,56 +569,101 @@ function buildFreeReportHTML({pillars,percents,st,adv,timeUnknown}){const L={woo
       <li>调衡要点：${st.focus}</li>
     </ul>
     ${timeUnknown?`<p style="margin:6px 0 0;color:var(--muted)">提示：时间不详，时柱未纳入。</p>`:''}
-  </div>`}
-function buildButlerHTML(){return `
+  </div>`
+}
+function buildButlerHTML(){
+  return `
   <div id="assistant-panel" class="xl-card" style="margin-top:12px;padding:16px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
     <h3 style="margin:0 0 8px;color:var(--brand)">心怜管家 · 智能解读</h3>
     <div id="assistant-analysis"></div>
     <div id="assistant-advice" style="margin-top:8px"></div>
-  </div>`}
-function mountExtensionsIntoResult({pillars,percents,st,adv,timeUnknown}){const resultEl=$('result');if(!resultEl){console.warn('[mount] 找不到 #result');return}
-let freeNode=$('xl-free-report');if(!freeNode){freeNode=document.createElement('div');freeNode.id='xl-free-report';resultEl.appendChild(freeNode)}freeNode.innerHTML=buildFreeReportHTML({pillars,percents,st,adv,timeUnknown});
-let butler=$('assistant-panel');if(!butler){const wrap=document.createElement('div');wrap.innerHTML=buildButlerHTML();resultEl.appendChild(wrap.firstElementChild)}
-let drawer=$('gpt-drawer');if(!drawer){const wrap=document.createElement('div');wrap.innerHTML=buildChatDrawerHTML();resultEl.appendChild(wrap.firstElementChild);wireChatDrawer()}
-window.__bazi_ctx__={pillars,wuxing_ratio:percents,season:st.season,strength:st.mark,strategy:st.focus,useful:adv?.useful||[],timeUnknown}}
+  </div>`
+}
+function mountExtensionsIntoResult({pillars,percents,st,adv,timeUnknown}){
+  const resultEl=$('result'); if(!resultEl){console.warn('[mount] 找不到 #result');return}
+  let freeNode=$('xl-free-report');
+  if(!freeNode){freeNode=document.createElement('div');freeNode.id='xl-free-report';resultEl.appendChild(freeNode)}
+  freeNode.innerHTML=buildFreeReportHTML({pillars,percents,st,adv,timeUnknown});
+  let butler=$('assistant-panel');
+  if(!butler){const wrap=document.createElement('div');wrap.innerHTML=buildButlerHTML();resultEl.appendChild(wrap.firstElementChild)}
+  let drawer=$('gpt-drawer');
+  if(!drawer){const wrap=document.createElement('div');wrap.innerHTML=buildChatDrawerHTML();resultEl.appendChild(wrap.firstElementChild);wireChatDrawer()}
+  window.__bazi_ctx__={pillars,wuxing_ratio:percents,season:st.season,strength:st.mark,strategy:st.focus,useful:adv?.useful||[],timeUnknown}
+}
+
 /* ---------------- 生成命盘主流程 ---------------- */
-async function genChart(){const birth=($('birthdate')?.value||'').trim();const timeUnknown=$('timeUnknown')?.checked||false;if(!birth){showError('请填写出生日期。');return}
-const btn=$('genBtn'),tx=$('genBtnText'),ld=$('genBtnLoading');if(btn) btn.disabled=true;if(tx) tx.style.display='none';if(ld) ld.style.display='inline-block';
-try{const [Y,M,D]=birth.split('-').map(Number);let hour=12;if(!timeUnknown){const t=($('birthtime')?.value||'').trim();if(t) hour=parseInt(t.split(':')[0],10)}
-const {pillars,counts,percents,timeUnknown:tu}=baziCalculator.calculateBazi(Y,M,D,hour,timeUnknown);
-$('result')?.style.setProperty('display','block');ensureGPTDrawer();
-const timeText=tu?'时间不详':(hour+'时');setText('bazi-date',`出生日期: ${Y}年${M}月${D}日 ${timeText}`);if(tu){const el=$('bazi-date');el&&(el.innerHTML+=' <span class="badge-warn">未纳入时柱</span>')}
-renderPillars($('bazi-pillars'),pillars,tu);displayClassicArea(pillars,tu);
-setBar($('bar-木'),percents.wood);setText('pct-木',Math.round(percents.wood)+'%');
-setBar($('bar-火'),percents.fire);setText('pct-火',Math.round(percents.fire)+'%');
-setBar($('bar-土'),percents.earth);setText('pct-土',Math.round(percents.earth)+'%');
-setBar($('bar-金'),percents.metal);setText('pct-金',Math.round(percents.metal)+'%');
-setBar($('bar-水'),percents.water);setText('pct-水',Math.round(percents.water)+'%');
-const st=judgeStrength(pillars.day.stem,pillars.month.branch,counts);const adv=chooseUseful(st.mark,pillars.day.element);
-const keys=Object.keys(counts);const maxK=keys.reduce((a,b)=>counts[a]>counts[b]?a:b);const minK=keys.reduce((a,b)=>counts[a]<counts[b]?a:b);
-setText('bazi-elements-balance',`五行中${maxK}元素最强，${minK}元素最弱。`);
-mountExtensionsIntoResult({pillars,percents,st,adv,timeUnknown:tu});
-try{const payload={profile:{name:$('name')?.value||'',gender:$('gender')?.value||'',calendar:$('calendar')?.value||'gregorian',birth:`${Y}-${String(M).padStart(2,'0')}-${String(D).padStart(2,'0')}`,time:tu?null:($('birthtime')?.value||''),timezone:'+08:00'},chart:{year:pillars.year,month:pillars.month,day:{stem:pillars.day.stem,branch:pillars.day.branch},hour:tu?{stem:'？',branch:'？'}:pillars.hour,day_master:pillars.day.stem,season:st.season,wuxing_ratio:{wood:percents.wood,fire:percents.fire,earth:percents.earth,metal:percents.metal,water:percents.water}},prefs:{lang:'zh-CN',tier:'free'}};
-const resp=await fetch('/api/butler/explain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(r=>r.json()).catch(()=>null);
-const ana=$('assistant-analysis');const advc=$('assistant-advice');if(resp&&resp.layout){if(ana&&resp?.layout?.cards?.[0]?.html) ana.innerHTML=resp.layout.cards[0].html;if(advc&&resp?.layout?.cards?.[1]?.html) advc.innerHTML=resp.layout.cards[1].html}}catch(_){}
-console.log('实际 →',pillars.year.stem+pillars.year.branch,pillars.month.stem+pillars.month.branch,pillars.day.stem+pillars.day.branch,tu?'？':(pillars.hour.stem+pillars.hour.branch))
-}catch(err){console.error(err);showError('计算八字时出现错误，请重试')}
-finally{if(btn) btn.disabled=false;if(tx) tx.style.display='inline';if(ld) ld.style.display='none'}}
- 
-/* ---------------- 悬浮“心怜管家”窗口（保持你的对接） ---------------- */
+async function genChart(){
+  const birth=($('birthdate')?.value||'').trim();
+  const timeUnknown=$('timeUnknown')?.checked||false;
+  if(!birth){showError('请填写出生日期。');return}
+  const btn=$('genBtn'),tx=$('genBtnText'),ld=$('genBtnLoading');
+  if(btn) btn.disabled=true; if(tx) tx.style.display='none'; if(ld) ld.style.display='inline-block';
+  try{
+    const [Y,M,D]=birth.split('-').map(Number);
+    let hour=12;
+    if(!timeUnknown){const t=($('birthtime')?.value||'').trim(); if(t) hour=parseInt(t.split(':')[0],10)}
+    const {pillars,counts,percents,timeUnknown:tu}=baziCalculator.calculateBazi(Y,M,D,hour,timeUnknown);
+    $('result')?.style.setProperty('display','block'); ensureGPTDrawer();
+    const timeText=tu?'时间不详':(hour+'时');
+    setText('bazi-date',`出生日期: ${Y}年${M}月${D}日 ${timeText}`);
+    if(tu){const el=$('bazi-date'); el&&(el.innerHTML+=' <span class="badge-warn">未纳入时柱</span>')}
+    renderPillars($('bazi-pillars'),pillars,tu); displayClassicArea(pillars,tu);
+
+    setBar($('bar-木'),percents.wood); setText('pct-木',Math.round(percents.wood)+'%');
+    setBar($('bar-火'),percents.fire); setText('pct-火',Math.round(percents.fire)+'%');
+    setBar($('bar-土'),percents.earth); setText('pct-土',Math.round(percents.earth)+'%');
+    setBar($('bar-金'),percents.metal); setText('pct-金',Math.round(percents.metal)+'%');
+    setBar($('bar-水'),percents.water); setText('pct-水',Math.round(percents.water)+'%');
+
+    const st=judgeStrength(pillars.day.stem,pillars.month.branch,counts);
+    const adv=chooseUseful(st.mark,pillars.day.element);
+    const keys=Object.keys(counts);
+    const maxK=keys.reduce((a,b)=>counts[a]>counts[b]?a:b);
+    const minK=keys.reduce((a,b)=>counts[a]<counts[b]?a:b);
+    setText('bazi-elements-balance',`五行中${maxK}元素最强，${minK}元素最弱。`);
+
+    mountExtensionsIntoResult({pillars,percents,st,adv,timeUnknown:tu});
+
+    try{
+      const payload={profile:{name:$('name')?.value||'',gender:$('gender')?.value||'',calendar:$('calendar')?.value||'gregorian',birth:`${Y}-${String(M).padStart(2,'0')}-${String(D).padStart(2,'0')}`,time:tu?null:($('birthtime')?.value||''),timezone:'+08:00'},chart:{year:pillars.year,month:pillars.month,day:{stem:pillars.day.stem,branch:pillars.day.branch},hour:tu?{stem:'？',branch:'？'}:pillars.hour,day_master:pillars.day.stem,season:st.season,wuxing_ratio:{wood:percents.wood,fire:percents.fire,earth:percents.earth,metal:percents.metal,water:percents.water}},prefs:{lang:getLang(),tier:'free'}};
+      const resp=await fetch('/api/butler/explain',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}).then(r=>r.json()).catch(()=>null);
+      const ana=$('assistant-analysis'); const advc=$('assistant-advice');
+      if(resp&&resp.layout){
+        if(ana&&resp?.layout?.cards?.[0]?.html) ana.innerHTML=resp.layout.cards[0].html;
+        if(advc&&resp?.layout?.cards?.[1]?.html) advc.innerHTML=resp.layout.cards[1].html;
+      }
+    }catch(_){}
+    console.log('实际 →',pillars.year.stem+pillars.year.branch,pillars.month.stem+pillars.month.branch,pillars.day.stem+pillars.day.branch,tu?'？':(pillars.hour.stem+pillars.hour.branch))
+  }catch(err){
+    console.error(err); showError('计算八字时出现错误，请重试')
+  }finally{
+    if(btn) btn.disabled=false; if(tx) tx.style.display='inline'; if(ld) ld.style.display='none'
+  }
+}
+
+/* ---------------- 悬浮“心怜管家”窗口（右下） ---------------- */
 const API_BASE='https://throbbing-lab-1440.hello5xliving.workers.dev';
-function showAuthErr(msg){const e=$("auth-error");e.textContent=msg;e.style.display="block";setTimeout(()=>{e.style.display='none'},5000)}
-function hideAuthErr(){const e=$("auth-error");e.style.display="none";e.textContent=""}
+function showAuthErr(msg){const e=$("auth-error"); if(!e) return; e.textContent=msg; e.style.display="block"; setTimeout(()=>{e.style.display='none'},5000)}
+function hideAuthErr(){const e=$("auth-error"); if(!e) return; e.style.display="none"; e.textContent=""}
+
+/* 安全绑定工具 */
+function on(id, evt, handler){
+  const el = document.getElementById(id);
+  if(!el || typeof el.addEventListener !== 'function'){
+    console.warn(`#${id} 不存在或不可监听`);
+    return;
+  }
+  el.addEventListener(evt, handler);
+}
 
 document.addEventListener('DOMContentLoaded',()=>{
-  // 先创建再赋值
+  // —— 右下悬浮球
   const chatFab = document.createElement('div');
-  chatFab.textContent = '心';
   chatFab.className = 'ss-chat-fab';
   chatFab.id = 'ssChatFab';
   chatFab.title = '心怜管家';
-  chatFab.textContent = '心';                  // 圆形按钮上的字
   chatFab.setAttribute('aria-label','心怜管家');
+  chatFab.textContent = t('chat_fab');
 
   const chatPanel = document.createElement('div');
   chatPanel.className = 'ss-chat-panel';
@@ -500,42 +675,103 @@ document.addEventListener('DOMContentLoaded',()=>{
   document.body.appendChild(chatFab);
   document.body.appendChild(chatPanel);
 
-  // 语言
-  const select=$('langSelect');const current=getLang();if(select) select.value=current;applyI18n();applyChatI18n();
+  // 多语言初始化
+  const select=$('langSelect'); const current=getLang(); if(select) select.value=current;
+  applyI18n(); applyChatI18n();
 
+  // 悬浮球交互
   const $body=$('ssChatBody'),$input=$('ssChatInput'),$send=$('ssChatSend'),$close=$('ssChatClose');
-  const openPanel=()=>{chatPanel.style.display='flex';$input.focus()};const closePanel=()=>{chatPanel.style.display='none'};
-  chatFab.addEventListener('click',openPanel);$close.addEventListener('click',closePanel);
-  function addMsg(text,me=false){const div=document.createElement('div');div.className='ss-msg'+(me?' me':'');div.textContent=text;$body.appendChild(div);$body.scrollTop=$body.scrollHeight}
-  async function askChat(prompt){addMsg(prompt,true);$input.value='';$input.focus();try{const r=await fetch(`${API_BASE}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'system',content:'你是“心怜管家”，帮助访客了解命理心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。'},{role:'user',content:prompt}]})});let data,reply='';try{data=await r.json()}catch{data={}}reply=data.reply??data.text??data?.choices?.[0]?.message?.content??"";if(!reply) return addMsg('抱歉，服务暂时繁忙，请稍后重试。');addMsg(reply)}catch(e){addMsg('网络异常，请稍后再试。')}}
-  $send.addEventListener('click',()=>{const v=$input.value.trim();if(v) askChat(v)});$input.addEventListener('keydown',(e)=>{if(e.key==='Enter'){const v=$input.value.trim();if(v) askChat(v)}});
-  if(select){select.addEventListener('change',()=>{setLang(select.value);applyI18n();applyChatI18n()})}
+  const openPanel=()=>{chatPanel.style.display='flex';$input&&$input.focus()};
+  const closePanel=()=>{chatPanel.style.display='none'};
+  chatFab.addEventListener('click',openPanel); $close.addEventListener('click',closePanel);
 
-  function on(id, evt, handler){
-  const el = document.getElementById(id);
-  if(!el || typeof el.addEventListener !== 'function'){
-    console.warn(`#${id} 不存在或不可监听`);
-    return;
+  function addMsg(text,me=false){
+    const div=document.createElement('div'); div.className='ss-msg'+(me?' me':''); div.textContent=text;
+    $body.appendChild(div); $body.scrollTop=$body.scrollHeight
   }
-  el.addEventListener(evt, handler);
-}
-  
+  async function askChat(prompt){
+    addMsg(prompt,true); $input.value=''; $input.focus();
+    try{
+      const r=await fetch(`${API_BASE}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'system',content:'你是“心怜管家”，帮助访客了解命理心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。'},{role:'user',content:prompt}]})});
+      let data,reply=''; try{data=await r.json()}catch{data={}}
+      reply=data.reply??data.text??data?.choices?.[0]?.message?.content??"";
+      if(!reply) return addMsg('抱歉，服务暂时繁忙，请稍后重试。');
+      addMsg(reply)
+    }catch(e){ addMsg('网络异常，请稍后再试。') }
+  }
+  $send.addEventListener('click',()=>{const v=$input.value.trim(); if(v) askChat(v)});
+  $input.addEventListener('keydown',(e)=>{if(e.key==='Enter'){const v=$input.value.trim(); if(v) askChat(v)}});
+
+  if(select){
+    select.addEventListener('change',()=>{
+      setLang(select.value); applyI18n(); applyChatI18n()
+    })
+  }
+
   // 生辰默认值 + 绑定
-  const today=new Date();const def=today.toISOString().split('T')[0];if($('birthdate')&&!$('birthdate').value)$('birthdate').value=def;
-  $('genBtn')?.addEventListener('click',genChart);
+  const today=new Date(); const def=today.toISOString().split('T')[0];
+  if($('birthdate')&&!$('birthdate').value) $('birthdate').value=def;
+  on('genBtn','click',genChart);
+
+  // 登录/注册/重设 事件（安全绑定）
+  on('registerForm','submit',async(e)=>{
+    e.preventDefault(); hideAuthErr();
+    const email=$('email')?.value.trim(), password=$('password')?.value.trim();
+    if(!email||!password) return showAuthErr('请输入邮箱与密码');
+    if(!strongPwd(password)) return showAuthErr('密码至少8位，需包含大写/小写/数字/特殊符号');
+    $('registerBtn').disabled=true;
+    try{
+      const res=await safeJson(await fetch(`${API_BASE}/api/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}));
+      if(res.ok===true){ localStorage.setItem('vipEmail',email); location.href='vip_trial.html'; return }
+      if((res.msg||"")==='exists'){ await loginFlow(email,password); return }
+      return showAuthErr((res.msg&&(res.msg+''))||'注册失败：');
+    }catch(err){ showAuthErr('注册失败：'+(err?.message||'')) }
+    finally{ $('registerBtn').disabled=false }
+  });
+
+  on('loginForm','submit',async(e)=>{
+    e.preventDefault(); hideAuthErr();
+    const email=$('email')?.value.trim(), password=$('password')?.value.trim();
+    if(!email||!password) return showAuthErr('请输入邮箱与密码');
+    $('loginBtn').disabled=true;
+    try{ await loginFlow(email,password) }
+    catch(err){ showAuthErr('登入失败：'+(err?.message||'')) }
+    finally{ $('loginBtn').disabled=false }
+  });
+
+  on('resetBtn','click',async()=>{
+    hideAuthErr();
+    let email=prompt('请输入注册邮箱：'); if(email===null) return; email=email.trim();
+    if(!email) return showAuthErr('邮箱不能为空');
+    let newPassword=prompt('请输入新密码（至少8位，含大小写、数字、符号）：'); if(newPassword===null) return;
+    newPassword=newPassword.trim(); if(!newPassword) return showAuthErr('密码不能为空');
+    if(!strongPwd(newPassword)) return showAuthErr('密码至少8位，需包含大写/小写/数字/特殊符号');
+    $('resetBtn').disabled=true;
+    try{
+      const res=await safeJson(await fetch(`${API_BASE}/api/reset`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,newPassword})}));
+      if(!res.ok) return showAuthErr((res.msg&&(res.msg+''))||'重设失败：');
+      alert('密码已成功更新，请用新密码重新登入。');
+    }catch(err){ showAuthErr('重设失败：'+(err?.message||'')) }
+    finally{ $('resetBtn').disabled=false }
+  });
 });
 
-/* ---------------- 登录流程（保持你的逻辑，错误指向 auth-error） ---------------- */
+/* ---------------- 登录流程工具 ---------------- */
 async function safeJson(resp){try{return await resp.json()}catch{return{ok:false,msg:'upstream_error'}}}
 function strongPwd(pw){return pw.length>=8&&/[A-Z]/.test(pw)&&/[a-z]/.test(pw)&&/[0-9]/.test(pw)&&/[^A-Za-z0-9]/.test(pw)}
-async function loginFlow(email,password){const res=await safeJson(await fetch(`${API_BASE}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}));const msg=(res.msg||"").toString().toLowerCase();let expired=false;if(res.expired===true) expired=true;else if(msg==='expired') expired=true;else if(res.expiresAt){const ts=Date.parse(res.expiresAt);if(!Number.isNaN(ts)&&ts<Date.now()) expired=true}
-  if(expired){const go=confirm('会员已过期，请续费。是否前往续费？');if(go) window.open('https://yourshopifyshop.com/products/monthly-vip','_blank');return}
-  if(res.ok===true){localStorage.setItem('vipEmail',res.email||email);location.href='https://astro.5xliving.com/vip_soul_sanctuary.html';return}
-  if(msg==='no_account') return showAuthErr('账户不存在，请先注册');if(msg==='wrong_pwd') return showAuthErr('密码错误');return showAuthErr('登入失败：'+(res.msg?` ${res.msg}`:''))}
-
-document.getElementById('registerForm').addEventListener('submit',async(e)=>{e.preventDefault();hideAuthErr();const email=$('email').value.trim();const password=$('password').value.trim();if(!email||!password) return showAuthErr('请输入邮箱与密码');if(!strongPwd(password)) return showAuthErr('密码至少8位，需包含大写/小写/数字/特殊符号');$('registerBtn').disabled=true;try{const res=await safeJson(await fetch(`${API_BASE}/api/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}));if(res.ok===true){localStorage.setItem('vipEmail',email);location.href='vip_trial.html';return}if((res.msg||"")==='exists'){await loginFlow(email,password);return}return showAuthErr((res.msg&&(res.msg+''))||'注册失败：')}catch(err){showAuthErr('注册失败：'+(err?.message||''))}finally{$('registerBtn').disabled=false}})
-document.getElementById('loginForm').addEventListener('submit',async(e)=>{e.preventDefault();hideAuthErr();const email=$('email').value.trim();const password=$('password').value.trim();if(!email||!password) return showAuthErr('请输入邮箱与密码');$('loginBtn').disabled=true;try{await loginFlow(email,password)}catch(err){showAuthErr('登入失败：'+(err?.message||''))}finally{$('loginBtn').disabled=false}})
-document.getElementById('resetBtn').addEventListener('click',async()=>{hideAuthErr();let email=prompt('请输入注册邮箱：');if(email===null) return;email=email.trim();if(!email) return showAuthErr('邮箱不能为空');let newPassword=prompt('请输入新密码（至少8位，含大小写、数字、符号）：');if(newPassword===null) return;newPassword=newPassword.trim();if(!newPassword) return showAuthErr('密码不能为空');if(!strongPwd(newPassword)) return showAuthErr('密码至少8位，需包含大写/小写/数字/特殊符号');$('resetBtn').disabled=true;try{const res=await safeJson(await fetch(`${API_BASE}/api/reset`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,newPassword})}));if(!res.ok) return showAuthErr((res.msg&&(res.msg+''))||'重设失败：');alert('密码已成功更新，请用新密码重新登入。')}catch(err){showAuthErr('重设失败：'+(err?.message||''))}finally{$('resetBtn').disabled=false}})
+async function loginFlow(email,password){
+  const res=await safeJson(await fetch(`${API_BASE}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}));
+  const msg=(res.msg||"").toString().toLowerCase();
+  let expired=false;
+  if(res.expired===true) expired=true;
+  else if(msg==='expired') expired=true;
+  else if(res.expiresAt){const ts=Date.parse(res.expiresAt); if(!Number.isNaN(ts)&&ts<Date.now()) expired=true}
+  if(expired){const go=confirm('会员已过期，请续费。是否前往续费？'); if(go) window.open('https://yourshopifyshop.com/products/monthly-vip','_blank'); return}
+  if(res.ok===true){ localStorage.setItem('vipEmail',res.email||email); location.href='https://astro.5xliving.com/vip_soul_sanctuary.html'; return}
+  if(msg==='no_account') return showAuthErr('账户不存在，请先注册');
+  if(msg==='wrong_pwd') return showAuthErr('密码错误');
+  return showAuthErr('登入失败：'+(res.msg?` ${res.msg}`:''))
+}
 
 /* 自测：1978-02-21 12:00（UTC+8）应为 戊午 甲寅 甲寅 庚午 */
 (function(){
