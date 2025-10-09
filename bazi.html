@@ -37,6 +37,7 @@ input,select{width:100%;box-sizing:border-box;border-radius:12px;border:1px soli
 .bar i{display:block;height:100%;background:linear-gradient(90deg,#ffe084,#f2d27a);width:0}
 .bar-row{display:grid;grid-template-columns:60px 1fr 60px;gap:10px;align-items:center}
 .error-message{background:rgba(255,90,95,.1);border:1px solid #ff5a5f;border-radius:8px;padding:10px;display:none}
+.badge-warn{display:inline-block;padding:2px 8px;margin-left:6px;border:1px solid #ffb84d;border-radius:999px;color:#ffb84d;font-size:.82rem}
 </style>
 </head>
 <body>
@@ -209,17 +210,20 @@ class XinLianAssistant {
     if (a) a.innerHTML = this.analyzeBazi(baziData);
     if (b) b.innerHTML = this.generateAdvice(baziData);
   }
-  analyzeBazi({dayMaster, elements, strength, season, timeUnknown}){
-    const timeNote = timeUnknown ? '<li><strong>注意：</strong>因出生时间不详，时柱缺失，仅基于年月日三柱。</li>' : '';
-    return `
-      <ul class="ul">
-        <li>您的日主为 <strong>${dayMaster.stem}（${dayMaster.element}）</strong></li>
-        <li>命局整体<strong>${strength.mark}</strong>，${this.getStrengthDescription(strength.mark)}</li>
-        <li>出生于<strong>${season}</strong>季，${this.getSeasonInfluence(season)}</li>
-        <li>五行分布：${this.getElementDistribution(elements)}</li>
-        ${timeNote}
-      </ul>`;
-  }
+  
+analyzeBazi({dayMaster, elements, strength, season, timeUnknown}){
+  const timeNote = timeUnknown
+    ? '<li><strong>注意：</strong>已勾选“出生时间不详”，本页分析<strong>未纳入时柱</strong>（准确度会略降；补充具体时间可更精准）。</li>'
+    : '';
+  return `
+    <ul class="ul">
+      <li>您的日主为 <strong>${dayMaster.stem}（${dayMaster.element}）</strong></li>
+      <li>命局整体<strong>${strength.mark}</strong>，${this.getStrengthDescription(strength.mark)}</li>
+      <li>出生于<strong>${season}</strong>季，${this.getSeasonInfluence(season)}</li>
+      <li>五行分布：${this.getElementDistribution(elements)}</li>
+      ${timeNote}
+    </ul>`;
+}
   generateAdvice({strength, useful, timeUnknown}){
     const timeWarn = timeUnknown ? '<li><strong>提示：</strong>无时柱，建议仅作参考。</li>' : '';
     return `
@@ -636,9 +640,14 @@ async function genChart(){
 
     const { pillars, counts, percents, timeUnknown: tu } = baziCalculator.calculateBazi(Y,M,D,hour,timeUnknown);
 
-    $('result')?.style.setProperty('display','block');
-    const timeText = tu ? '时间不详' : (hour + '时');
-    setText('bazi-date', `出生日期: ${Y}年${M}月${D}日 ${timeText}`);
+const timeText = tu ? '时间不详' : (hour + '时');
+setText('bazi-date',
+  `出生日期: ${Y}年${M}月${D}日 ${timeText}${tu ? '' : ''}`
+);
+if (tu) {
+  const el = document.getElementById('bazi-date');
+  el && (el.innerHTML += ' <span class="badge-warn">未纳入时柱</span>');
+}
 
     renderPillars($('bazi-pillars'), pillars, tu);
     displayClassicArea(pillars, tu);
