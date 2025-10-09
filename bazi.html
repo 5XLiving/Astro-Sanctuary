@@ -396,110 +396,131 @@ function buildFreeReportHTML({pillars, percents, st, adv, timeUnknown}) {
   `;
 }
 
-      <!-- 2) 命盘总览 -->
-      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
-        <h3 style="margin-top:0; color:var(--brand)">一、命盘总览</h3>
-        <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; font-size:14px;">
-          <div>四柱：<strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${timeUnknown ? '？？' : (pillars.hour.stem + pillars.hour.branch)}</strong></div>
-          <div>日主：<strong>${pillars.day.stem}</strong>（<strong>${pillars.day.element}</strong>）</div>
-          <div>季节：<strong>${st.season||'-'}</strong></div>
-          <div>命局：<strong>${st.mark}</strong> · 策略：<strong>${st.focus}</strong></div>
-        </div>
-      </div>
+// ======================= 富内容报告 · 章节化渲染 =======================
+// 1) 生成整页报告 HTML（把原本 <!-- 2) 命盘总览 --> … </section> 的内容改成模板字符串）
+function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}) {
+  const L = {wood:'木', fire:'火', earth:'土', metal:'金', water:'水'};
+  const P = pillars;
+  const line = ['wood','fire','earth','metal','water']
+    .map(k => `${L[k]}${Math.round(percents[k]||0)}%`).join(' ');
+  const entries = Object.entries(percents);
+  const strongestK = entries.reduce((a,b)=> (a[1]>b[1]?a:b), ['wood',0])[0];
+  const weakestK   = entries.reduce((a,b)=> (a[1]<b[1]?a:b), ['wood',0])[0];
+  const strongest  = L[strongestK]||'—';
+  const weakest    = L[weakestK]||'—';
+  const absents = Object.keys(percents)
+    .filter(k => Math.round(percents[k]||0)===0)
+    .map(k=>L[k]).join('、');
+  const favList   = (adv?.useful||[]).join('、') || '—';
+  const avoidList = (adv?.avoid||[]).join('、') || '—';
+  const hourTxt   = timeUnknown ? '？？' : (P.hour.stem + P.hour.branch);
 
-      <!-- 3) 五行能量分析 -->
-      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
-        <h3 style="margin-top:0; color:var(--brand)">二、五行能量分析</h3>
-        <div style="font-size:14px;">${fiveLine}</div>
-        <p style="margin:10px 0 0;">
-          <strong>${strongest}</strong>偏旺；<strong>${weakest}</strong>偏弱。
-          ${absents ? `<span class="muted" style="color:var(--muted)">（缺：${absents}）</span>` : ``}
-        </p>
-        <ul style="margin:10px 0 0 18px; line-height:1.6">
-          <li>喜用优先：<strong>${favList||'—'}</strong></li>
-          <li>调衡要点：${st.focus}</li>
-        </ul>
-        ${timeUnknown ? `<p class="muted" style="color:var(--muted); margin-top:8px;">提示：出生时间不详，未纳入时柱，分析为简化版。</p>` : ``}
-      </div>
+  return `
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">一、命盘总览</h3>
+    <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; font-size:14px;">
+      <div>四柱：<strong>${P.year.stem}${P.year.branch} ${P.month.stem}${P.month.branch} ${P.day.stem}${P.day.branch} ${hourTxt}</strong></div>
+      <div>日主：<strong>${P.day.stem}</strong>（<strong>${P.day.element}</strong>）</div>
+      <div>季节：<strong>${st.season||'-'}</strong></div>
+      <div>命局：<strong>${st.mark}</strong> · 策略：<strong>${st.focus}</strong></div>
+    </div>
+  </section>
 
-      <!-- 4) 性格与天赋（占位模板，可由后端补充更细） -->
-      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
-        <h3 style="margin-top:0; color:var(--brand)">三、性格与天赋</h3>
-        <p style="margin:8px 0;"><strong>性格核心：</strong>依据日主、季节与强弱给出核心性格标签。</p>
-        <p style="margin:8px 0;"><strong>优势能量：</strong>执行力 / 创造力 / 学习力（模板化补充）</p>
-        <p style="margin:8px 0;"><strong>潜在挑战：</strong>急躁 / 过度承担 / 边界感（模板化补充）</p>
-      </div>
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">二、五行能量分析</h3>
+    <div style="font-size:14px;">${line}</div>
+    <p style="margin:10px 0 0;">
+      <strong>${strongest}</strong>偏旺；<strong>${weakest}</strong>偏弱。
+      ${absents ? `<span class="muted" style="color:var(--muted)">（缺：${absents}）</span>` : ``}
+    </p>
+    <ul style="margin:10px 0 0 18px; line-height:1.6">
+      <li>喜用优先：<strong>${favList}</strong></li>
+      <li>调衡要点：${st.focus}</li>
+    </ul>
+    ${timeUnknown ? `<p class="muted" style="color:var(--muted); margin-top:8px;">提示：出生时间不详，未纳入时柱。</p>` : ``}
+  </section>
 
-      <!-- 5) 格局与喜忌 -->
-      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
-        <h3 style="margin-top:0; color:var(--brand)">四、格局与喜忌</h3>
-        <p style="margin:8px 0;"><strong>格局要点：</strong>按四柱特征（坐禄/比劫/伤官/七杀等）模板化输出。</p>
-        <p style="margin:8px 0;"><strong>喜用：</strong>${favList||'—'}（基于强弱策略）</p>
-        <p style="margin:8px 0;"><strong>忌讳：</strong>${(adv?.avoid||[]).join('、')||'—'}</p>
-      </div>
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">三、性格与天赋</h3>
+    <p style="margin:8px 0;"><strong>性格核心：</strong>依据日主、季节与强弱给出核心性格标签（示例：外向表达、行动力强）。</p>
+    <p style="margin:8px 0;"><strong>优势能量：</strong>执行力 / 创造力 / 学习力（模板化补充）</p>
+    <p style="margin:8px 0;"><strong>潜在挑战：</strong>急躁 / 过度承担 / 边界感（模板化补充）</p>
+  </section>
 
-      <!-- 6) 事业 · 试读 -->
-      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
-        <h3 style="margin-top:0; color:var(--brand)">五、事业与发展（免费试读）</h3>
-        <p style="margin:8px 0;"><strong>适合领域：</strong>依据喜用与日主气质：策划/顾问/设计/运营等（模板化）</p>
-        <p style="margin:8px 0;"><strong>发展策略：</strong>${st.focus}，建立 SOP 与可复制流程</p>
-        <p style="margin:8px 0;"><strong>易错位风险：</strong>事必躬亲 / 决策失衡（模板化）</p>
-        <p style="margin:10px 0 0;" class="muted" style="color:var(--muted)">VIP 解锁：岗位定位、三年运势、转职择时与行动清单。</p>
-      </div>
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">四、格局与喜忌</h3>
+    <p style="margin:8px 0;"><strong>格局要点：</strong>按四柱特征（坐禄/比劫/伤官/七杀等）模板化输出。</p>
+    <p style="margin:8px 0;"><strong>喜用：</strong>${favList}</p>
+    <p style="margin:8px 0;"><strong>忌讳：</strong>${avoidList}</p>
+  </section>
 
-      <!-- 7) 感情 · 试读 -->
-      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
-        <h3 style="margin-top:0; color:var(--brand)">六、感情与关系（免费试读）</h3>
-        <p style="margin:8px 0;"><strong>吸引类型：</strong>与日主互补/需要支持型（模板化）</p>
-        <p style="margin:8px 0;"><strong>关系课题：</strong>边界 / 沟通节奏（模板化）</p>
-        <p style="margin:8px 0;"><strong>相处建议：</strong>尊重节奏、定期复盘（模板化）</p>
-      </div>
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">五、事业与发展（免费试读）</h3>
+    <p style="margin:8px 0;"><strong>适合领域：</strong>依据喜用与日主气质：策划/顾问/设计/运营等（模板化）</p>
+    <p style="margin:8px 0;"><strong>发展策略：</strong>${st.focus}，建立 SOP 与可复制流程</p>
+    <p style="margin:8px 0;"><strong>易错位风险：</strong>事必躬亲 / 决策失衡（模板化）</p>
+    <p style="margin:10px 0 0;" class="muted" style="color:var(--muted)">VIP 解锁：岗位定位、三年运势、转职择时与行动清单。</p>
+  </section>
 
-      <!-- 8) 财运 · 试读 -->
-      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
-        <h3 style="margin-top:0; color:var(--brand)">七、财富与理财（免费试读）</h3>
-        <p style="margin:8px 0;"><strong>财星格局：</strong>结合强弱判断，偏财/正财（模板化）</p>
-        <p style="margin:8px 0;"><strong>进财方式：</strong>内容/系统/复购（模板化）</p>
-        <p style="margin:8px 0;"><strong>破财隐患：</strong>情绪消费/伙伴风险（模板化）</p>
-        <p style="margin:8px 0;"><strong>理财建议：</strong>${(adv?.useful||[]).join('、')||'—'}为主调，稳中求进</p>
-      </div>
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">六、感情与关系（免费试读）</h3>
+    <p style="margin:8px 0;"><strong>吸引类型：</strong>与日主互补/需要支持型（模板化）</p>
+    <p style="margin:8px 0;"><strong>关系课题：</strong>边界 / 沟通节奏（模板化）</p>
+    <p style="margin:8px 0;"><strong>相处建议：</strong>尊重节奏、定期复盘（模板化）</p>
+  </section>
 
-      <!-- 9) 健康与作息 -->
-      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
-        <h3 style="margin-top:0; color:var(--brand)">八、健康与作息</h3>
-        <p style="margin:8px 0;"><strong>易感部位：</strong>按最弱五行对应系统（模板化）</p>
-        <p style="margin:8px 0;"><strong>调理建议：</strong>作息规律、舒压训练、季节养生（模板化）</p>
-      </div>
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">七、财富与理财（免费试读）</h3>
+    <p style="margin:8px 0;"><strong>财星格局：</strong>结合强弱判断，偏财/正财（模板化）</p>
+    <p style="margin:8px 0;"><strong>进财方式：</strong>内容/系统/复购（模板化）</p>
+    <p style="margin:8px 0;"><strong>破财隐患：</strong>情绪消费/伙伴风险（模板化）</p>
+    <p style="margin:8px 0;"><strong>理财建议：</strong>${favList} 为主调，稳中求进</p>
+  </section>
 
-      <!-- 10) 环境与色彩 -->
-      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
-        <h3 style="margin-top:0; color:var(--brand)">九、环境与色彩（五行调法）</h3>
-        <p style="margin:8px 0;"><strong>有利方位：</strong>依据喜用：东/南/西/北/中（模板化）</p>
-        <p style="margin:8px 0;"><strong>色彩/材质：</strong>与喜用对应色系与材质（模板化）</p>
-        <p style="margin:8px 0;"><strong>空间微调：</strong>小范围摆设与动线建议（模板化）</p>
-      </div>
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">八、健康与作息</h3>
+    <p style="margin:8px 0;"><strong>易感部位：</strong>按最弱五行（${weakest}）对应系统（模板化）</p>
+    <p style="margin:8px 0;"><strong>调理建议：</strong>作息规律、舒压训练、季节养生（模板化）</p>
+  </section>
 
-      <!-- 11) 流年/流月 预告 -->
-      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
-        <h3 style="margin-top:0; color:var(--brand)">十、流年 / 流月 · 免费预告</h3>
-        <p style="margin:8px 0;"><strong>年度提示：</strong>依据当年干支与喜用给出一句话预告（模板化）</p>
-        <p style="margin:8px 0;"><strong>本月关注：</strong>节律与行动关键词（模板化）</p>
-        <p style="margin:10px 0 0;" class="muted" style="color:var(--muted)">VIP 解锁：12个月行动清单与择日表。</p>
-      </div>
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">九、环境与色彩（五行调法）</h3>
+    <p style="margin:8px 0;"><strong>有利方位：</strong>依据喜用：东/南/西/北/中（模板化）</p>
+    <p style="margin:8px 0;"><strong>色彩/材质：</strong>与喜用对应色系与材质（模板化）</p>
+    <p style="margin:8px 0;"><strong>空间微调：</strong>小范围摆设与动线建议（模板化）</p>
+  </section>
 
-      <!-- 12) CTA -->
-      <div class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:10px;">
-        <h3 style="margin-top:0; color:var(--brand)">解锁你的完整专属报告</h3>
-        <p style="margin:8px 0;">
-          免费版为基础解读。升级 <strong>VIP</strong>，即可获得
-          <strong>婚姻 / 事业 / 财库 / 择日</strong> 的完整方案与可执行清单。
-        </p>
-        <div style="margin-top:10px;">
-          <a href="/vip" style="display:inline-block; padding:10px 16px; border-radius:10px; background:var(--brand); color:#111; font-weight:700; text-decoration:none;">升级 VIP</a>
-        </div>
-      </div>
-    </section>
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">十、流年 / 流月 · 免费预告</h3>
+    <p style="margin:8px 0;"><strong>年度提示：</strong>依据当年干支与喜用给一句话预告（模板化）</p>
+    <p style="margin:8px 0;"><strong>本月关注：</strong>节律与行动关键词（模板化）</p>
+    <p style="margin:10px 0 0;" class="muted" style="color:var(--muted)">VIP 解锁：12 个月行动清单与择日表。</p>
+  </section>
+
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:10px;">
+    <h3 style="margin-top:0; color:var(--brand)">解锁你的完整专属报告</h3>
+    <p style="margin:8px 0;">
+      免费版为基础解读。升级 <strong>VIP</strong>，即可获得
+      <strong>婚姻 / 事业 / 财库 / 择日</strong> 的完整方案与可执行清单。
+    </p>
+    <div style="margin-top:10px;">
+      <a href="/vip" style="display:inline-block; padding:10px 16px; border-radius:10px; background:var(--brand); color:#111; font-weight:700; text-decoration:none;">升级 VIP</a>
+    </div>
+  </section>
   `;
+}
+
+// 2) 将报告挂载到页面（自动创建容器）
+function mountRichReport({pillars, percents, st, adv, timeUnknown}) {
+  let host = document.getElementById('xl-rich-report');
+  if (!host) {
+    host = document.createElement('section');
+    host.id = 'xl-rich-report';
+    host.className = 'container';
+    host.style.paddingTop = '12px';
+    (document.getElementById('result') || document.body).appendChild(host);
+  }
+  host.innerHTML = buildRichReportHTML({pillars, percents, st, adv, timeUnknown});
 }
 
 // ======================= 心怜管家（挂到 result 里） =======================
@@ -646,7 +667,6 @@ async function genChart(){
     // —— 渲染【免费报告】模块（插入到 #bazi-free-report 容器）
     let freeReportHost = document.getElementById('bazi-free-report');
     if (!freeReportHost) {
-      // 若页面没有容器，则自动创建并挂在 result 下方
       freeReportHost = document.createElement('div');
       freeReportHost.id = 'bazi-free-report';
       freeReportHost.className = 'container';
@@ -654,6 +674,9 @@ async function genChart(){
       (document.getElementById('result') || document.body).appendChild(freeReportHost);
     }
     freeReportHost.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown: tu});
+
+    // ★★★ 富内容报告（第2~12章）：插入到页面（挂到 #xl-rich-report 下，没有会自动创建）
+    mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
 
     // —— 心怜管家（前端解说）
     ensureAssistantSlots();
