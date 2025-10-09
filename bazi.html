@@ -38,6 +38,9 @@ input,select{width:100%;box-sizing:border-box;border-radius:12px;border:1px soli
 .bar-row{display:grid;grid-template-columns:60px 1fr 60px;gap:10px;align-items:center}
 .error-message{background:rgba(255,90,95,.1);border:1px solid #ff5a5f;border-radius:8px;padding:10px;display:none}
 .badge-warn{display:inline-block;padding:2px 8px;margin-left:6px;border:1px solid #ffb84d;border-radius:999px;color:#ffb84d;font-size:.82rem}
+#gpt-drawer { display:block !important; }
+#gpt-drawer[hidden] { display:block !important; }
+#gpt-drawer > summary { display:block; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -531,20 +534,25 @@ function buildChatDrawerHTML(){
   `;
 }
 async function callChatAPI(userText, ctx){
-  try{
-    const r = await fetch('/api/butler/chat', {
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        messages: [
-          {role:'system', content: '你是心怜管家，请用温柔专业的人类口吻回答。'},
-          {role:'user', content: JSON.stringify({context: ctx, question: userText})}
-        ]
-      })
-    });
-    if (!r.ok) return '（服务暂不可用）';
-    const data = await r.json().catch(()=>null);
-    return (data && (data.reply || data.text || data.message)) || '（无响应）';
-  }catch{ return '（暂时无法连接到服务端）'; }
+  const payload = { messages: [{role:'user', content: userText}], context: ctx };
+  async function post(url){
+    try{
+      const r = await fetch(url, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+      if (r.ok) {
+        // 兼容两种返回格式
+        const t = await r.text();
+        try {
+          const j = JSON.parse(t);
+          return j.reply || t || '（无响应）';
+        } catch { return t || '（无响应）'; }
+      }
+    }catch(_){}
+    return null;
+  }
+  return await post('/api/butler/chat') || await post('/api/chat') || '（暂时无法连接到服务端）';
 }
 function wireChatDrawer(){
   const send = $('gpt-send'), input=$('gpt-input'), body=$('gpt-body');
@@ -608,18 +616,35 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
   };
 }
 
-  function ensureGPTDrawer() {
+function ensureGPTDrawer() {
   const host = document.getElementById('result') || document.body;
   let drawer = document.getElementById('gpt-drawer');
+
+  // 不存在就创建
   if (!drawer) {
     const wrap = document.createElement('div');
     wrap.innerHTML = buildChatDrawerHTML();
-    host.appendChild(wrap.firstElementChild);
-    wireChatDrawer();
+    // 放到结果区的最前面，确保“看得见”
+    host.insertBefore(wrap.firstElementChild, host.firstChild);
     drawer = document.getElementById('gpt-drawer');
+  } else {
+    // 已存在：若不在 #result，移过来并放最前
+    if (host && drawer.parentNode !== host) {
+      host.insertBefore(drawer, host.firstChild);
+    }
   }
-  drawer.style.display = '';            // 防被隐藏
-  drawer.removeAttribute('hidden');     // 防被加 hidden
+
+  // 兜底：确保显示、不被隐藏
+  drawer.style.display = 'block';
+  drawer.removeAttribute('hidden');
+
+  // 反复绑定也没事：先解绑再绑（简单粗暴）
+  const send = document.getElementById('gpt-send');
+  if (send) {
+    const cloned = send.cloneNode(true);
+    send.parentNode.replaceChild(cloned, send);
+  }
+  wireChatDrawer();
 }
 
 // ======================= 主流程：生成八字并渲染 =======================
@@ -643,7 +668,7 @@ async function genChart(){
 
     // 显示结果区
     $('result')?.style.setProperty('display','block');
-    ensureGPTDrawer(); // ← 加这一行
+    ensureGPTDrawer(); // ← 强制把 GPT 抽屉放到结果区最上方并绑定事件
 
     // 日期与“未纳入时柱”徽章
     const timeText = tu ? '时间不详' : (hour + '时');
