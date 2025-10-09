@@ -93,9 +93,11 @@ footer{color:#6c7b8c; font-size:.85rem; text-align:center; padding:30px 0}
 .panel .body{ padding:18px; }
 
 /* 表单行 */
-.row{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
-.row.one{ grid-template-columns: 1fr; }
-@media (max-width:640px){ .row{ grid-template-columns: 1fr; } }
+.astro-auth .row{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.astro-auth .row.one{ grid-template-columns:1fr; }
+@media (max-width:640px){ .astro-auth .row{ grid-template-columns:1fr; } }
+.columns{display:grid; gap:12px; grid-template-columns:1fr}
+@media(min-width:900px){ .columns{grid-template-columns:1fr 1fr} }  
 </style>
 </head>
 <body>
@@ -285,7 +287,54 @@ footer{color:#6c7b8c; font-size:.85rem; text-align:center; padding:30px 0}
 const $ = (id)=>document.getElementById(id);
 
 /* ============== 多语言字典（保持原样） ============== */
-const translations={/* ……（保持你原来的整份 translations；此处省略，为了阅读） …… */};
+<script>
+const translations = {
+  "zh-CN": {
+    "lang_label":"语言",
+    "vip_title":"🌙 会员区域 VIP Segment",
+    "vip_mingli":"🗝 命理空间专属内容",
+    "vip_xinlian":"🌙 心怜空间专属内容",
+    "login_title":"💎 登入 VIP 功能",
+    "btn_login":"登入账户",
+    "btn_reset":"🔑 重设密码",
+    "btn_register":"注册账户",
+    "note_price":"注册账号赠送一次免费体验",
+    "btn_upgrade":"💎 升级为 VIP（月费）",
+    "btn_backshop":"← 返回命理商城",
+    "note_price1":"$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）",
+    "chat_fab":"心", "chat_placeholder":"问点什么…", "chat_send":"发送"
+  },
+  "zh-TW": {
+    "lang_label":"語言",
+    "vip_title":"🌙 會員區域 VIP Segment",
+    "vip_mingli":"🗝 命理空間專屬內容",
+    "vip_xinlian":"🌙 心憐空間專屬內容",
+    "login_title":"💎 登入 VIP 功能",
+    "btn_login":"登入帳戶",
+    "btn_reset":"🔑 重設密碼",
+    "btn_register":"註冊帳戶",
+    "note_price":"註冊贈送一次免費體驗",
+    "btn_upgrade":"💎 升級為 VIP（包月）",
+    "btn_backshop":"← 返回命理商店",
+    "note_price1":"$9.9 / 月費 VIP（命理空間 + 心憐空間 + 靈性課程）",
+    "chat_fab":"心", "chat_placeholder":"想問什麼…", "chat_send":"發送"
+  },
+  "en": {
+    "lang_label":"Language",
+    "vip_title":"🌙 VIP Segment",
+    "vip_mingli":"🗝 Destiny Space (exclusive)",
+    "vip_xinlian":"🌙 Xinlian Space (exclusive)",
+    "login_title":"💎 VIP Sign-in",
+    "btn_login":"Sign in",
+    "btn_reset":"🔑 Reset Password",
+    "btn_register":"Create Account",
+    "note_price":"New account includes one free try",
+    "btn_upgrade":"💎 Upgrade to VIP (Monthly)",
+    "btn_backshop":"← Back to Shop",
+    "note_price1":"$9.9 / month (Destiny + Xinlian + Courses)",
+    "chat_fab":"Ask", "chat_placeholder":"Type your question…", "chat_send":"Send"
+  }
+};
 function t(key){
   const dict = (typeof translations === 'object' && translations) ? (translations[getLang()] || translations["zh-CN"] || {}) : {};
   return dict[key] || key;
@@ -313,27 +362,45 @@ function setText(id,v){const el=$(id);if(el) el.textContent=v}
 function setBar(el,pct){if(el) el.style.width=Math.max(0,Math.min(100,pct))+'%'}
 function showError(msg){const el=$('error');if(!el) return;el.textContent=msg;el.style.display='block';setTimeout(()=>{el.style.display='none'},5000)}
 function renderPillars(root,p,timeUnknown=false){if(!root)return;root.innerHTML='';[['年柱',p.year],['月柱',p.month],['日柱',p.day],['时柱',p.hour]].forEach(([tit,v])=>{const u=(tit==='时柱'&&timeUnknown);const stem=u?'？':v.stem,branch=u?'？':v.branch;const div=document.createElement('div');div.className='pillar';div.innerHTML=`<div class="tit">${tit}</div><div class="gz">${stem}${branch}</div>`;root.appendChild(div)})}
-function displayClassicArea(p,timeUnknown){const ge=(s,b)=>baziCalculator.getStemElement(s)+baziCalculator.getBranchElement(b);const ny=(s,b)=>baziCalculator.getNayin?s+b:b;setText('year-stem',p.year.stem);setText('year-branch',p.year.branch);setText('month-stem',p.month.stem);setText('month-branch',p.month.branch);setText('day-stem',p.day.stem);setText('day-branch',p.day.branch);setText('hour-stem',timeUnknown?'？':p.hour.stem);setText('hour-branch',timeUnknown?'？':p.hour.branch);const setIf=(id,val)=>{const el=$(id);if(el) el.textContent=val};setIf('year-element',ge(p.year.stem,p.year.branch));setIf('month-element',ge(p.month.stem,p.month.branch));setIf('day-element',ge(p.day.stem,p.day.branch));setIf('hour-element',timeUnknown?'未知':ge(p.hour.stem,p.hour.branch));
-function judgeStrength(dayGan,monthZhi,cnt){const STEM_ELEM={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};const SEASON_BY_MONTH_BRANCH={寅:'春',卯:'春',辰:'春',巳:'夏',午:'夏',未:'夏',申:'秋',酉:'秋',戌:'秋',亥:'冬',子:'冬',丑:'冬'};const dmEl=STEM_ELEM[dayGan];const season=SEASON_BY_MONTH_BRANCH[monthZhi]||'-';let score=0;if((season==='春'&&'木火'.includes(dmEl))||(season==='夏'&&'火土'.includes(dmEl))||(season==='秋'&&dmEl==='金')||(season==='冬'&&dmEl==='水'))score+=2;score+=(cnt[dmEl]||0)*1.2;const mark=score>=3?'偏强':(score<=1?'偏弱':'平衡');const focus=mark==='偏强'?'泄秀/制化':(mark==='偏弱'?'补助/顺势':'守中/调和');return{season,mark,focus}}
-const hasNayin = typeof baziCalculator.getNayin === 'function';
-setIf('year-nayin',  hasNayin ? baziCalculator.getNayin(p.year.stem, p.year.branch)  : '—');
-setIf('month-nayin', hasNayin ? baziCalculator.getNayin(p.month.stem,p.month.branch) : '—');
-setIf('day-nayin',   hasNayin ? baziCalculator.getNayin(p.day.stem,  p.day.branch)   : '—');
-setIf('hour-nayin',  timeUnknown ? '未知' : (hasNayin ? baziCalculator.getNayin(p.hour.stem,p.hour.branch) : '—'));
+function displayClassicArea(p,timeUnknown){
+  const ge=(s,b)=>baziCalculator.getStemElement(s)+baziCalculator.getBranchElement(b);
+  setText('year-stem',p.year.stem);
+  setText('year-branch',p.year.branch);
+  setText('month-stem',p.month.stem);
+  setText('month-branch',p.month.branch);
+  setText('day-stem',p.day.stem);
+  setText('day-branch',p.day.branch);
+  setText('hour-stem',timeUnknown?'？':p.hour.stem);
+  setText('hour-branch',timeUnknown?'？':p.hour.branch);
+
+  const setIf=(id,val)=>{const el=$(id); if(el) el.textContent=val};
+  setIf('year-element',ge(p.year.stem,p.year.branch));
+  setIf('month-element',ge(p.month.stem,p.month.branch));
+  setIf('day-element',ge(p.day.stem,p.day.branch));
+  setIf('hour-element',timeUnknown?'未知':ge(p.hour.stem,p.hour.branch));
+
+  const hasNayin = typeof baziCalculator.getNayin === 'function';
+  setIf('year-nayin',  hasNayin ? baziCalculator.getNayin(p.year.stem, p.year.branch)  : '—');
+  setIf('month-nayin', hasNayin ? baziCalculator.getNayin(p.month.stem,p.month.branch) : '—');
+  setIf('day-nayin',   hasNayin ? baziCalculator.getNayin(p.day.stem,  p.day.branch)   : '—');
+  setIf('hour-nayin',  timeUnknown ? '未知' : (hasNayin ? baziCalculator.getNayin(p.hour.stem,p.hour.branch) : '—'));
+}
+
+// —— 下面这些函数必须在顶层（不要嵌在上面那个函数里）
+function judgeStrength(dayGan,monthZhi,cnt){
+  const STEM_ELEM={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
+  const SEASON_BY_MONTH_BRANCH={寅:'春',卯:'春',辰:'春',巳:'夏',午:'夏',未:'夏',申:'秋',酉:'秋',戌:'秋',亥:'冬',子:'冬',丑:'冬'};
+  const dmEl=STEM_ELEM[dayGan]; const season=SEASON_BY_MONTH_BRANCH[monthZhi]||'-';
+  let score=0;
+  if((season==='春'&&'木火'.includes(dmEl))||(season==='夏'&&'火土'.includes(dmEl))||(season==='秋'&&dmEl==='金')||(season==='冬'&&dmEl==='水')) score+=2;
+  score+=(cnt[dmEl]||0)*1.2;
+  const mark=score>=3?'偏强':(score<=1?'偏弱':'平衡'); const focus=mark==='偏强'?'泄秀/制化':(mark==='偏弱'?'补助/顺势':'守中/调和');
+  return{season,mark,focus}
+}
+
 function chooseUseful(strength,dmElem){
-  if (strength==='偏强'){
-    return {
-      strategy:'泄秀/制化',
-      useful:({木:['火','土','金'],火:['土','金','水'],土:['金','水','木'],金:['水','木','火'],水:['木','火','土']})[dmElem],
-      avoid:[dmElem]
-    };
-  } else if (strength==='偏弱'){
-    return {
-      strategy:'生扶/补助',
-      useful:({木:['木','水'],火:['火','木'],土:['土','火'],金:['金','土'],水:['水','金']})[dmElem],
-      avoid:[]
-    };
-  }
+  if (strength==='偏强') return {strategy:'泄秀/制化', useful:({木:['火','土','金'],火:['土','金','水'],土:['金','水','木'],金:['水','木','火'],水:['木','火','土']})[dmElem], avoid:[dmElem]};
+  if (strength==='偏弱') return {strategy:'生扶/补助', useful:({木:['木','水'],火:['火','木'],土:['土','火'],金:['金','土'],水:['水','金']})[dmElem], avoid:[]};
   return {strategy:'调和', useful:['木','火','土','金','水'], avoid:[]};
 }
   
@@ -411,6 +478,7 @@ function hideAuthErr(){const e=$("auth-error");e.style.display="none";e.textCont
 document.addEventListener('DOMContentLoaded',()=>{
   // 先创建再赋值
   const chatFab = document.createElement('div');
+  chatFab.textContent = '心';
   chatFab.className = 'ss-chat-fab';
   chatFab.id = 'ssChatFab';
   chatFab.title = '心怜管家';
