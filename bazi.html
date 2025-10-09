@@ -116,7 +116,7 @@ input,select{width:100%;box-sizing:border-box;border-radius:12px;border:1px soli
 </main>
 
 <script>
-// ======================= 八字计算器（修正版：算法不改） =======================
+// ======================= 八字计算器（不改算法） =======================
 class BaziCalculator {
   constructor() {
     this.HEAVENLY_STEMS   = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
@@ -124,12 +124,10 @@ class BaziCalculator {
     this.ZODIAC           = ['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
     this.NAYIN = ['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','屋上土','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];
   }
-  // 年柱
   calculateYearPillar(year) {
     const s = (year - 4) % 10, b = (year - 4) % 12;
     return { stem: this.HEAVENLY_STEMS[(s+10)%10], branch: this.EARTHLY_BRANCHES[(b+12)%12], zodiac: this.ZODIAC[(b+12)%12] };
   }
-  // 节气定月（寅=1…丑=12）
   solarMonthIndex(y, m, d) {
     const mmdd = m*100 + d;
     const gates = [[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
@@ -137,7 +135,6 @@ class BaziCalculator {
     const branchBy = {1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
     return { index: idx, branch: branchBy[idx] };
   }
-  // 月柱：甲/己丙寅起；乙/庚戊寅起；丙/辛庚寅起；丁/壬壬寅起；戊/癸甲寅起
   calculateMonthPillar(year, month, day) {
     const { index, branch } = this.solarMonthIndex(year, month, day);
     const yStemIdx = this.HEAVENLY_STEMS.indexOf(this.calculateYearPillar(year).stem);
@@ -145,7 +142,6 @@ class BaziCalculator {
     const stemIdx  = (startMap[yStemIdx] + (index - 1)) % 10;
     return { stem: this.HEAVENLY_STEMS[stemIdx], branch };
   }
-  // 日柱：1900-01-31 为甲辰；UTC 取整日差
   calculateDayPillar(year, month, day) {
     const baseUTC   = Date.UTC(1900, 0, 31); // 甲辰（辰=4）
     const targetUTC = Date.UTC(year, month - 1, day);
@@ -154,7 +150,6 @@ class BaziCalculator {
     const branchIdx = (4 + dayDiff) % 12;    // 辰=4
     return { stem: this.HEAVENLY_STEMS[(stemIdx+10)%10], branch: this.EARTHLY_BRANCHES[(branchIdx+12)%12] };
   }
-  // 时柱：子时起；甲日子时甲、乙日起丙…
   calculateHourPillar(dayStem, hour) {
     const branchMap = {23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
     const startMap  = {0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8}; // 日干→子时起干
@@ -163,7 +158,6 @@ class BaziCalculator {
     const stemIdx   = (startMap[dayIdx] + hourIndex) % 10;
     return { stem: this.HEAVENLY_STEMS[stemIdx], branch: branchMap[hour] };
   }
-  // 五行/纳音/元素
   getElement(stem, branch) {
     const s = {'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'};
     const b = {'子':'水','丑':'土','寅':'木','卯':'木','辰':'土','巳':'火','午':'火','未':'土','申':'金','酉':'金','戌':'土','亥':'水'};
@@ -175,8 +169,6 @@ class BaziCalculator {
   }
   getStemElement(stem){ return ({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[stem]; }
   getBranchElement(branch){ return ({子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'})[branch]; }
-
-  // 一次算出四柱 + 五行统计
   calculateBazi(year, month, day, hour = 12, timeUnknown = false) {
     const yearP  = this.calculateYearPillar(year);
     const monthP = this.calculateMonthPillar(year, month, day);
@@ -193,14 +185,13 @@ class BaziCalculator {
     });
     const total = Object.values(cnt).reduce((a,b)=>a+b,0) || 1;
     const pct = { wood:cnt['木']/total*100, fire:cnt['火']/total*100, earth:cnt['土']/total*100, metal:cnt['金']/total*100, water:cnt['水']/total*100 };
-
     return { pillars, counts: cnt, percents: pct, timeUnknown };
   }
 }
 window.baziCalculator = window.baziCalculator || new BaziCalculator();
 
 
-// ======================= 心怜管家（精简版渲染器：不动算法） =======================
+// ======================= 心怜管家（渲染器） =======================
 class XinLianAssistant {
   constructor(){ this.currentContext=null; }
   generateAnalysis(baziData){
@@ -210,20 +201,19 @@ class XinLianAssistant {
     if (a) a.innerHTML = this.analyzeBazi(baziData);
     if (b) b.innerHTML = this.generateAdvice(baziData);
   }
-  
-analyzeBazi({dayMaster, elements, strength, season, timeUnknown}){
-  const timeNote = timeUnknown
-    ? '<li><strong>注意：</strong>已勾选“出生时间不详”，本页分析<strong>未纳入时柱</strong>（准确度会略降；补充具体时间可更精准）。</li>'
-    : '';
-  return `
-    <ul class="ul">
-      <li>您的日主为 <strong>${dayMaster.stem}（${dayMaster.element}）</strong></li>
-      <li>命局整体<strong>${strength.mark}</strong>，${this.getStrengthDescription(strength.mark)}</li>
-      <li>出生于<strong>${season}</strong>季，${this.getSeasonInfluence(season)}</li>
-      <li>五行分布：${this.getElementDistribution(elements)}</li>
-      ${timeNote}
-    </ul>`;
-}
+  analyzeBazi({dayMaster, elements, strength, season, timeUnknown}){
+    const timeNote = timeUnknown
+      ? '<li><strong>注意：</strong>已勾选“出生时间不详”，本页分析<strong>未纳入时柱</strong>（准确度会略降；补充具体时间可更精准）。</li>'
+      : '';
+    return `
+      <ul class="ul">
+        <li>您的日主为 <strong>${dayMaster.stem}（${dayMaster.element}）</strong></li>
+        <li>命局整体<strong>${strength.mark}</strong>，${this.getStrengthDescription(strength.mark)}</li>
+        <li>出生于<strong>${season}</strong>季，${this.getSeasonInfluence(season)}</li>
+        <li>五行分布：${this.getElementDistribution(elements)}</li>
+        ${timeNote}
+      </ul>`;
+  }
   generateAdvice({strength, useful, timeUnknown}){
     const timeWarn = timeUnknown ? '<li><strong>提示：</strong>无时柱，建议仅作参考。</li>' : '';
     return `
@@ -300,7 +290,7 @@ analyzeBazi({dayMaster, elements, strength, season, timeUnknown}){
 const assistant = new XinLianAssistant();
 
 
-// ======================= 工具 & 规则函数（不改原逻辑） =======================
+// ======================= 工具 & 规则函数 =======================
 function $(id){ return document.getElementById(id); }
 function setText(id, v){ const el=$(id); if(el) el.textContent=v; }
 function setBar(el, pct){ if(el) el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
@@ -380,8 +370,6 @@ function buildFreeReportHTML({pillars, percents, st, adv, timeUnknown}) {
   const fav  = (adv?.useful||[]).join('、');
   const avoid= (adv?.avoid||[]).join('、') || '—';
   const hourTxt = timeUnknown ? '？？' : (pillars.hour.stem + pillars.hour.branch);
-
-  // 用极简结构+内联样式，避免污染你全站样式
   return `
     <div class="xl-card" style="margin-top:12px; padding:16px; border-radius:10px; background:var(--card); box-shadow:var(--shadow);">
       <h3 style="margin:0 0 8px; color:var(--brand)">免费报告</h3>
@@ -398,21 +386,17 @@ function buildFreeReportHTML({pillars, percents, st, adv, timeUnknown}) {
   `;
 }
 
-// ======================= 富内容报告 · 章节化渲染 =======================
-// 1) 生成整页报告 HTML（把原本 <!-- 2) 命盘总览 --> … </section> 的内容改成模板字符串）
+// ======================= 富内容报告（章节化） =======================
 function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}) {
   const L = {wood:'木', fire:'火', earth:'土', metal:'金', water:'水'};
   const P = pillars;
-  const line = ['wood','fire','earth','metal','water']
-    .map(k => `${L[k]}${Math.round(percents[k]||0)}%`).join(' ');
+  const line = ['wood','fire','earth','metal','water'].map(k => `${L[k]}${Math.round(percents[k]||0)}%`).join(' ');
   const entries = Object.entries(percents);
   const strongestK = entries.reduce((a,b)=> (a[1]>b[1]?a:b), ['wood',0])[0];
   const weakestK   = entries.reduce((a,b)=> (a[1]<b[1]?a:b), ['wood',0])[0];
   const strongest  = L[strongestK]||'—';
   const weakest    = L[weakestK]||'—';
-  const absents = Object.keys(percents)
-    .filter(k => Math.round(percents[k]||0)===0)
-    .map(k=>L[k]).join('、');
+  const absents = Object.keys(percents).filter(k => Math.round(percents[k]||0)===0).map(k=>L[k]).join('、');
   const favList   = (adv?.useful||[]).join('、') || '—';
   const avoidList = (adv?.avoid||[]).join('、') || '—';
   const hourTxt   = timeUnknown ? '？？' : (P.hour.stem + P.hour.branch);
@@ -461,7 +445,7 @@ function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}) {
     <p style="margin:8px 0;"><strong>适合领域：</strong>依据喜用与日主气质：策划/顾问/设计/运营等（模板化）</p>
     <p style="margin:8px 0;"><strong>发展策略：</strong>${st.focus}，建立 SOP 与可复制流程</p>
     <p style="margin:8px 0;"><strong>易错位风险：</strong>事必躬亲 / 决策失衡（模板化）</p>
-    <p style="margin:10px 0 0;" class="muted" style="color:var(--muted)">VIP 解锁：岗位定位、三年运势、转职择时与行动清单。</p>
+    <p style="margin:10px 0 0;" class="muted">VIP 解锁：岗位定位、三年运势、转职择时与行动清单。</p>
   </section>
 
   <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
@@ -496,7 +480,7 @@ function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}) {
     <h3 style="margin-top:0; color:var(--brand)">十、流年 / 流月 · 免费预告</h3>
     <p style="margin:8px 0;"><strong>年度提示：</strong>依据当年干支与喜用给一句话预告（模板化）</p>
     <p style="margin:8px 0;"><strong>本月关注：</strong>节律与行动关键词（模板化）</p>
-    <p style="margin:10px 0 0;" class="muted" style="color:var(--muted)">VIP 解锁：12 个月行动清单与择日表。</p>
+    <p style="margin:10px 0 0;" class="muted">VIP 解锁：12 个月行动清单与择日表。</p>
   </section>
 
   <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:10px;">
@@ -511,8 +495,6 @@ function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}) {
   </section>
   `;
 }
-
-// 2) 将报告挂载到页面（自动创建容器）
 function mountRichReport({pillars, percents, st, adv, timeUnknown}) {
   let host = document.getElementById('xl-rich-report');
   if (!host) {
@@ -525,7 +507,7 @@ function mountRichReport({pillars, percents, st, adv, timeUnknown}) {
   host.innerHTML = buildRichReportHTML({pillars, percents, st, adv, timeUnknown});
 }
 
-// ======================= 心怜管家（挂到 result 里） =======================
+// ======================= 心怜管家卡片 & GPT抽屉 =======================
 function buildButlerHTML(){
   return `
     <div id="assistant-panel" class="xl-card" style="margin-top:12px; padding:16px; border-radius:10px; background:var(--card); box-shadow:var(--shadow);">
@@ -534,9 +516,7 @@ function buildButlerHTML(){
       <div id="assistant-advice" style="margin-top:8px"></div>
     </div>
   `;
-}  
-  
-// ======================= GPT 对话抽屉（挂到 result 里） =======================
+}
 function buildChatDrawerHTML(){
   return `
     <details id="gpt-drawer" class="xl-card" style="margin-top:12px; padding:0; border-radius:10px; background:var(--card); box-shadow:var(--shadow);">
@@ -553,11 +533,18 @@ function buildChatDrawerHTML(){
 }
 async function callChatAPI(userText, ctx){
   try{
-    const r = await fetch('/api/chat', {
+    const r = await fetch('/api/butler/chat', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ prompt: userText, context: ctx })
+      body: JSON.stringify({
+        messages: [
+          {role:'system', content: '你是心怜管家，请用温柔专业的人类口吻回答。'},
+          {role:'user', content: JSON.stringify({context: ctx, question: userText})}
+        ]
+      })
     });
-    return r.ok ? (await r.text() || '（无响应）') : '（服务暂不可用）';
+    if (!r.ok) return '（服务暂不可用）';
+    const data = await r.json().catch(()=>null);
+    return (data && (data.reply || data.text || data.message)) || '（无响应）';
   }catch{ return '（暂时无法连接到服务端）'; }
 }
 function wireChatDrawer(){
@@ -573,13 +560,13 @@ function wireChatDrawer(){
     body.scrollTop = body.scrollHeight;
   };
 }
-  
-// ======================= 把扩展模块挂到 #result =======================
+
+// ======================= 统一挂载（免费报告 + 管家卡片 + GPT抽屉） =======================
 function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
   const resultEl = $('result');
   if(!resultEl){ console.warn('[mount] 找不到 #result，跳过扩展模块渲染'); return; }
 
-  // 1) 免费报告（存在则更新，不存在则添加）
+  // 1) 免费报告
   let freeNode = $('xl-free-report');
   if(!freeNode){
     freeNode = document.createElement('div');
@@ -588,7 +575,7 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
   }
   freeNode.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown});
 
-  // 2) 心怜管家
+  // 2) 心怜管家卡片
   let butler = $('assistant-panel');
   if(!butler){
     const wrap = document.createElement('div');
@@ -609,7 +596,8 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
     resultEl.appendChild(wrap.firstElementChild);
     wireChatDrawer();
   }
-  // 更新上下文给聊天用
+
+  // 4) 聊天上下文
   window.__bazi_ctx__ = {
     pillars,
     wuxing_ratio: percents,
@@ -620,7 +608,8 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
     timeUnknown
   };
 }
-  
+
+
 // ======================= 主流程：生成八字并渲染 =======================
 async function genChart(){
   const birth = ($('birthdate')?.value||'').trim();
@@ -638,72 +627,50 @@ async function genChart(){
       if(t) hour = parseInt(t.split(':')[0],10);
     }
 
-// 计算出命盘后
-const { pillars, counts, percents, timeUnknown: tu } =
-  baziCalculator.calculateBazi(Y, M, D, hour, timeUnknown);
+    const { pillars, counts, percents, timeUnknown: tu } = baziCalculator.calculateBazi(Y,M,D,hour,timeUnknown);
 
-// 👇 补回这一行，显示结果区
-$('result')?.style.setProperty('display','block');
+    // 显示结果区
+    $('result')?.style.setProperty('display','block');
 
-const timeText = tu ? '时间不详' : (hour + '时');
-setText('bazi-date', `出生日期: ${Y}年${M}月${D}日 ${timeText}${tu ? '' : ''}`);
-if (tu) {
-  const el = document.getElementById('bazi-date');
-  el && (el.innerHTML += ' <span class="badge-warn">未纳入时柱</span>');
-}
+    // 日期与“未纳入时柱”徽章
+    const timeText = tu ? '时间不详' : (hour + '时');
+    setText('bazi-date', `出生日期: ${Y}年${M}月${D}日 ${timeText}`);
+    if (tu) {
+      const el = document.getElementById('bazi-date');
+      el && (el.innerHTML += ' <span class="badge-warn">未纳入时柱</span>');
+    }
 
+    // 经典区：四柱表 + 五行条
     renderPillars($('bazi-pillars'), pillars, tu);
     displayClassicArea(pillars, tu);
-
-    // —— 五行条（保持你现有中文 id）
     setBar($('bar-木'),  percents.wood);  setText('pct-木',  Math.round(percents.wood)+'%');
     setBar($('bar-火'),  percents.fire);  setText('pct-火',  Math.round(percents.fire)+'%');
     setBar($('bar-土'),  percents.earth); setText('pct-土',  Math.round(percents.earth)+'%');
     setBar($('bar-金'),  percents.metal); setText('pct-金',  Math.round(percents.metal)+'%');
     setBar($('bar-水'),  percents.water); setText('pct-水',  Math.round(percents.water)+'%');
 
-    // —— 最强/最弱提示
+    // 强弱/喜用
+    const st  = judgeStrength(pillars.day.stem, pillars.month.branch, counts);
+    const adv = chooseUseful(st.mark, pillars.day.element);
     const keys = Object.keys(counts);
     const maxK = keys.reduce((a,b)=>counts[a]>counts[b]?a:b);
     const minK = keys.reduce((a,b)=>counts[a]<counts[b]?a:b);
     setText('bazi-elements-balance', `五行中${maxK}元素最强，${minK}元素最弱。`);
 
-    // —— 强弱/喜用
-    const st  = judgeStrength(pillars.day.stem, pillars.month.branch, counts);
-    const adv = chooseUseful(st.mark, pillars.day.element);
-    setText('bazi-day-master', `日主：${pillars.day.stem}（${pillars.day.element}）`);
-    setText('bazi-strengths', `命局${st.mark}，建议策略：${st.focus}`);
+    // 统一挂载（免费报告 + 管家卡片 + GPT抽屉）
+    mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
 
-    // —— 渲染【免费报告】模块（插入到 #bazi-free-report 容器）
-    let freeReportHost = document.getElementById('bazi-free-report');
-    if (!freeReportHost) {
-      freeReportHost = document.createElement('div');
-      freeReportHost.id = 'bazi-free-report';
-      freeReportHost.className = 'container';
-      freeReportHost.style.paddingTop = '12px';
-      (document.getElementById('result') || document.body).appendChild(freeReportHost);
-    }
-    freeReportHost.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown: tu});
-
-    // ★★★ 富内容报告（第2~12章）：插入到页面（挂到 #xl-rich-report 下，没有会自动创建）
+    // 富内容报告（第2~10章）
     mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
 
-    // —— 心怜管家（前端解说）
-    ensureAssistantSlots();
-    assistant.generateAnalysis({
-      dayMaster: { stem: pillars.day.stem, element: pillars.day.element },
-      elements: { wood:percents.wood, fire:percents.fire, earth:percents.earth, metal:percents.metal, water:percents.water },
-      strength: st, season: st.season, useful: adv, timeUnknown: tu
-    });
-
-    // —— 心怜管家（后端解说，可选，失败静默）
+    // —— 可选：后端“心怜管家”解说（失败静默）
     try {
       const payload = {
         profile: {
           name: $('name')?.value || '', gender: $('gender')?.value || '',
           calendar: $('calendar')?.value || 'gregorian',
           birth: `${Y}-${String(M).padStart(2,'0')}-${String(D).padStart(2,'0')}`,
-          time:  tu ? null : ($('birthtime')?.value || ''), timezone: '+08:00'
+          time: tu ? null : ($('birthtime')?.value || ''), timezone: '+08:00'
         },
         chart: {
           year: pillars.year, month: pillars.month, day: {stem:pillars.day.stem, branch:pillars.day.branch},
@@ -748,15 +715,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const tChk = $('timeUnknown'), tBox = $('timeInputContainer');
   if (tChk){ tChk.addEventListener('change', function(){ tBox && tBox.classList.toggle('disabled', this.checked); }); }
   $('genBtn')?.addEventListener('click', genChart);
-
-  // 若页面未提供“免费报告”容器，先创建一个（避免你忘了加）
-  if (!document.getElementById('bazi-free-report')) {
-    const freeReportHost = document.createElement('div');
-    freeReportHost.id = 'bazi-free-report';
-    freeReportHost.className = 'container';
-    freeReportHost.style.paddingTop = '12px';
-    (document.getElementById('result') || document.body).appendChild(freeReportHost);
-  }
 });
 
 // ===== 自测（控制台）：1978-02-21 12:00（UTC+8）应为 戊午 甲寅 甲寅 庚午 =====
