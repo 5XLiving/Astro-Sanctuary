@@ -1,10 +1,13 @@
+
+
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8" />
 <title>八字命理 · 5XLiving</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<link rel="icon" href="data:,"><!-- 避免 favicon 404 -->
+<link rel="icon" href="data:,"> <!-- 避免 favicon 404 -->
 <style>
 :root {
   --bg: #0b0f14; --card: #11161dcc; --text: #e8edf3; --muted: #9aa3b2;
@@ -36,7 +39,6 @@ input,select{width:100%;box-sizing:border-box;border-radius:12px;border:1px soli
 .bar-row{display:grid;grid-template-columns:60px 1fr 60px;gap:10px;align-items:center}
 .error-message{background:rgba(255,90,95,.1);border:1px solid #ff5a5f;border-radius:8px;padding:10px;display:none}
 .badge-warn{display:inline-block;padding:2px 8px;margin-left:6px;border:1px solid #ffb84d;border-radius:999px;color:#ffb84d;font-size:.82rem}
-/* 强制让 GPT 抽屉可见 */
 #gpt-drawer { display:block !important; }
 #gpt-drawer[hidden] { display:block !important; }
 #gpt-drawer > summary { display:block; cursor:pointer; }
@@ -349,6 +351,14 @@ function showError(msg){
   el.textContent = msg; el.style.display = 'block';
   setTimeout(()=>{ el.style.display='none'; }, 5000);
 }
+function ensureAssistantSlots(){
+  if (document.getElementById('assistant-analysis')) return;
+  const host = document.querySelector('.assistant-container') || document.getElementById('result') || document.body;
+  const wrap = document.createElement('div'); wrap.className = 'assistant-container';
+  const a = document.createElement('div'); a.id = 'assistant-analysis';
+  const b = document.createElement('div'); b.id = 'assistant-advice';
+  wrap.append(a, b); host.appendChild(wrap);
+}
 
 // ======================= 免费报告（文本模块） =======================
 function buildFreeReportHTML({pillars, percents, st, adv, timeUnknown}) {
@@ -379,7 +389,7 @@ function buildFreeReportHTML({pillars, percents, st, adv, timeUnknown}) {
   `;
 }
 
-// ======================= 富内容报告（章节化，可选） =======================
+// ======================= 富内容报告（章节化） =======================
 function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}) {
   const L = {wood:'木', fire:'火', earth:'土', metal:'金', water:'水'};
   const P = pillars;
@@ -395,7 +405,7 @@ function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}) {
   const hourTxt   = timeUnknown ? '？？' : (P.hour.stem + P.hour.branch);
 
   return `
-  <section class="card">
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
     <h3 style="margin-top:0; color:var(--brand)">一、命盘总览</h3>
     <div style="display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; font-size:14px;">
       <div>四柱：<strong>${P.year.stem}${P.year.branch} ${P.month.stem}${P.month.branch} ${P.day.stem}${P.day.branch} ${hourTxt}</strong></div>
@@ -405,7 +415,7 @@ function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}) {
     </div>
   </section>
 
-  <section class="card">
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
     <h3 style="margin-top:0; color:var(--brand)">二、五行能量分析</h3>
     <div style="font-size:14px;">${line}</div>
     <p style="margin:10px 0 0;">
@@ -417,6 +427,74 @@ function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}) {
       <li>调衡要点：${st.focus}</li>
     </ul>
     ${timeUnknown ? `<p class="muted" style="color:var(--muted); margin-top:8px;">提示：出生时间不详，未纳入时柱。</p>` : ``}
+  </section>
+
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">三、性格与天赋</h3>
+    <p style="margin:8px 0;"><strong>性格核心：</strong>依据日主、季节与强弱给出核心性格标签（示例：外向表达、行动力强）。</p>
+    <p style="margin:8px 0;"><strong>优势能量：</strong>执行力 / 创造力 / 学习力（模板化补充）</p>
+    <p style="margin:8px 0;"><strong>潜在挑战：</strong>急躁 / 过度承担 / 边界感（模板化补充）</p>
+  </section>
+
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">四、格局与喜忌</h3>
+    <p style="margin:8px 0;"><strong>格局要点：</strong>按四柱特征（坐禄/比劫/伤官/七杀等）模板化输出。</p>
+    <p style="margin:8px 0;"><strong>喜用：</strong>${favList}</p>
+    <p style="margin:8px 0;"><strong>忌讳：</strong>${avoidList}</p>
+  </section>
+
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">五、事业与发展（免费试读）</h3>
+    <p style="margin:8px 0;"><strong>适合领域：</strong>依据喜用与日主气质：策划/顾问/设计/运营等（模板化）</p>
+    <p style="margin:8px 0;"><strong>发展策略：</strong>${st.focus}，建立 SOP 与可复制流程</p>
+    <p style="margin:8px 0;"><strong>易错位风险：</strong>事必躬亲 / 决策失衡（模板化）</p>
+    <p style="margin:10px 0 0;" class="muted">VIP 解锁：岗位定位、三年运势、转职择时与行动清单。</p>
+  </section>
+
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">六、感情与关系（免费试读）</h3>
+    <p style="margin:8px 0;"><strong>吸引类型：</strong>与日主互补/需要支持型（模板化）</p>
+    <p style="margin:8px 0;"><strong>关系课题：</strong>边界 / 沟通节奏（模板化）</p>
+    <p style="margin:8px 0;"><strong>相处建议：</strong>尊重节奏、定期复盘（模板化）</p>
+  </section>
+
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">七、财富与理财（免费试读）</h3>
+    <p style="margin:8px 0;"><strong>财星格局：</strong>结合强弱判断，偏财/正财（模板化）</p>
+    <p style="margin:8px 0;"><strong>进财方式：</strong>内容/系统/复购（模板化）</p>
+    <p style="margin:8px 0;"><strong>破财隐患：</strong>情绪消费/伙伴风险（模板化）</p>
+    <p style="margin:8px 0;"><strong>理财建议：</strong>${favList} 为主调，稳中求进</p>
+  </section>
+
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">八、健康与作息</h3>
+    <p style="margin:8px 0;"><strong>易感部位：</strong>按最弱五行（${weakest}）对应系统（模板化）</p>
+    <p style="margin:8px 0;"><strong>调理建议：</strong>作息规律、舒压训练、季节养生（模板化）</p>
+  </section>
+
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">九、环境与色彩（五行调法）</h3>
+    <p style="margin:8px 0;"><strong>有利方位：</strong>依据喜用：东/南/西/北/中（模板化）</p>
+    <p style="margin:8px 0;"><strong>色彩/材质：</strong>与喜用对应色系与材质（模板化）</p>
+    <p style="margin:8px 0;"><strong>空间微调：</strong>小范围摆设与动线建议（模板化）</p>
+  </section>
+
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:16px;">
+    <h3 style="margin-top:0; color:var(--brand)">十、流年 / 流月 · 免费预告</h3>
+    <p style="margin:8px 0;"><strong>年度提示：</strong>依据当年干支与喜用给一句话预告（模板化）</p>
+    <p style="margin:8px 0;"><strong>本月关注：</strong>节律与行动关键词（模板化）</p>
+    <p style="margin:10px 0 0;" class="muted">VIP 解锁：12 个月行动清单与择日表。</p>
+  </section>
+
+  <section class="card" style="background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:20px; margin-bottom:10px;">
+    <h3 style="margin-top:0; color:var(--brand)">解锁你的完整专属报告</h3>
+    <p style="margin:8px 0;">
+      免费版为基础解读。升级 <strong>VIP</strong>，即可获得
+      <strong>婚姻 / 事业 / 财库 / 择日</strong> 的完整方案与可执行清单。
+    </p>
+    <div style="margin-top:10px;">
+      <a href="/vip" style="display:inline-block; padding:10px 16px; border-radius:10px; background:var(--brand); color:#111; font-weight:700; text-decoration:none;">升级 VIP</a>
+    </div>
   </section>
   `;
 }
@@ -444,7 +522,7 @@ function buildButlerHTML(){
 }
 function buildChatDrawerHTML(){
   return `
-    <details id="gpt-drawer" open class="xl-card" style="margin-top:12px; padding:0; border-radius:10px; background:var(--card); box-shadow:var(--shadow);">
+    <details id="gpt-drawer" class="xl-card" style="margin-top:12px; padding:0; border-radius:10px; background:var(--card); box-shadow:var(--shadow);">
       <summary style="cursor:pointer; list-style:none; padding:12px 16px; font-weight:700; color:var(--brand);">GPT 问答</summary>
       <div style="padding:10px 12px;">
         <div id="gpt-body" style="max-height:260px; overflow:auto; font-size:14px; line-height:1.5; border:1px solid #222; border-radius:8px; padding:8px;"></div>
@@ -465,9 +543,12 @@ async function callChatAPI(userText, ctx){
         body: JSON.stringify(payload)
       });
       if (r.ok) {
+        // 兼容两种返回格式
         const t = await r.text();
-        try { const j = JSON.parse(t); return j.reply || t || '（无响应）'; }
-        catch { return t || '（无响应）'; }
+        try {
+          const j = JSON.parse(t);
+          return j.reply || t || '（无响应）';
+        } catch { return t || '（无响应）'; }
       }
     }catch(_){}
     return null;
@@ -486,39 +567,6 @@ function wireChatDrawer(){
     body.insertAdjacentHTML('beforeend', `<div style="margin:6px 0;">${reply}</div>`);
     body.scrollTop = body.scrollHeight;
   };
-}
-function ensureGPTDrawer() {
-  const host = document.getElementById('result') || document.body;
-  let drawer = document.getElementById('gpt-drawer');
-
-  // 不存在就创建
-  if (!drawer) {
-    const wrap = document.createElement('div');
-    wrap.innerHTML = buildChatDrawerHTML();
-    host.insertBefore(wrap.firstElementChild, host.firstChild || null);
-    drawer = document.getElementById('gpt-drawer');
-  } else if (host && drawer.parentNode !== host) {
-    // 已存在：若不在当前 host，移过来并放最前
-    host.insertBefore(drawer, host.firstChild || null);
-  }
-
-  // 兜底：确保显示、展开、可交互
-  if (drawer) {
-    drawer.style.display = 'block';
-    drawer.removeAttribute('hidden');
-    drawer.open = true;
-
-    // 反复绑定也没事：先解绑再绑（克隆替换）
-    const send = document.getElementById('gpt-send');
-    if (send && send.parentNode) {
-      const cloned = send.cloneNode(true);
-      send.parentNode.replaceChild(cloned, send);
-    }
-    wireChatDrawer();
-
-    // 可选：滚动到可见
-    try { drawer.scrollIntoView({behavior:'smooth', block:'start'}); } catch {}
-  }
 }
 
 // ======================= 统一挂载（免费报告 + 管家卡片 + GPT抽屉） =======================
@@ -549,7 +597,13 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
   });
 
   // 3) GPT 抽屉
-  ensureGPTDrawer(); // 强制把 GPT 抽屉放到结果区最上方并绑定事件
+  let drawer = $('gpt-drawer');
+  if(!drawer){
+    const wrap = document.createElement('div');
+    wrap.innerHTML = buildChatDrawerHTML();
+    resultEl.appendChild(wrap.firstElementChild);
+    wireChatDrawer();
+  }
 
   // 4) 聊天上下文
   window.__bazi_ctx__ = {
@@ -561,6 +615,37 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
     useful: adv?.useful || [],
     timeUnknown
   };
+}
+
+function ensureGPTDrawer() {
+  const host = document.getElementById('result') || document.body;
+  let drawer = document.getElementById('gpt-drawer');
+
+  // 不存在就创建
+  if (!drawer) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = buildChatDrawerHTML();
+    // 放到结果区的最前面，确保“看得见”
+    host.insertBefore(wrap.firstElementChild, host.firstChild);
+    drawer = document.getElementById('gpt-drawer');
+  } else {
+    // 已存在：若不在 #result，移过来并放最前
+    if (host && drawer.parentNode !== host) {
+      host.insertBefore(drawer, host.firstChild);
+    }
+  }
+
+  // 兜底：确保显示、不被隐藏
+  drawer.style.display = 'block';
+  drawer.removeAttribute('hidden');
+
+  // 反复绑定也没事：先解绑再绑（简单粗暴）
+  const send = document.getElementById('gpt-send');
+  if (send) {
+    const cloned = send.cloneNode(true);
+    send.parentNode.replaceChild(cloned, send);
+  }
+  wireChatDrawer();
 }
 
 // ======================= 主流程：生成八字并渲染 =======================
@@ -584,6 +669,7 @@ async function genChart(){
 
     // 显示结果区
     $('result')?.style.setProperty('display','block');
+    ensureGPTDrawer(); // ← 强制把 GPT 抽屉放到结果区最上方并绑定事件
 
     // 日期与“未纳入时柱”徽章
     const timeText = tu ? '时间不详' : (hour + '时');
@@ -613,7 +699,7 @@ async function genChart(){
     // 统一挂载（免费报告 + 管家卡片 + GPT抽屉）
     mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
 
-    // 富内容报告（可选）
+    // 富内容报告（第2~10章）
     mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
 
     // —— 可选：后端“心怜管家”解说（失败静默）
@@ -661,16 +747,13 @@ async function genChart(){
   }
 }
 
-// 事件绑定（首屏就挂上抽屉）
+// 事件绑定
 document.addEventListener('DOMContentLoaded', ()=>{
   const today = new Date(); const def = today.toISOString().split('T')[0];
   if ($('birthdate') && !$('birthdate').value) $('birthdate').value = def;
   const tChk = $('timeUnknown'), tBox = $('timeInputContainer');
   if (tChk){ tChk.addEventListener('change', function(){ tBox && tBox.classList.toggle('disabled', this.checked); }); }
   $('genBtn')?.addEventListener('click', genChart);
-
-  // 让 GPT 抽屉在首屏就出现（先挂到 body；生成八字后会被移到 #result 顶部）
-  ensureGPTDrawer();
 });
 
 // ===== 自测（控制台）：1978-02-21 12:00（UTC+8）应为 戊午 甲寅 甲寅 庚午 =====
