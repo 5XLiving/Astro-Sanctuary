@@ -6,7 +6,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <link rel="icon" href="data:,"><!-- 避免 favicon 404 -->
 <style>
-:root{--bg:#0b0f14;--card:#11161dcc;--text:#e8edf3;--muted:#9aa3b2;--brand:#d4af37;--gold2:#f2d27a;--radius:14px;--shadow:0 8px 30px rgba(0,0,0,.35);--accent:#3a86ff}
+:root{
+  --bg:#0b0f14;
+  --card:#11161dcc;
+  --text:#e8edf3;
+  --muted:#9aa3b2;
+  --brand:#d4af37;
+  --gold2:#f2d27a;
+  --radius:14px;
+  --shadow:0 8px 30px rgba(0,0,0,.35);
+  --accent:#3a86ff;
+  /* 新增：会员区样式用到的变量 */
+  --panel: rgba(255,255,255,.04);
+  --border:#273246;
+  --gold:#ffe084;
+}  
 html,body{height:100%;margin:0;color:var(--text);background:var(--bg);font-family:Inter,system-ui,-apple-system,"Noto Sans SC",sans-serif;line-height:1.6}
 .container{width:100%;max-width:1100px;padding:24px 16px 80px;margin:0 auto}
 header{position:sticky;top:0;z-index:10;backdrop-filter:saturate(140%) blur(12px);background:#0b0f14cc;border-bottom:1px solid #0f1622}
@@ -54,6 +68,30 @@ input,select{width:100%;box-sizing:border-box;border-radius:12px;border:1px soli
 #gpt-drawer {display:block!important}
 #gpt-drawer[hidden]{display:block!important}
 #gpt-drawer>summary{display:block;cursor:pointer}
+  /* 会员区整体卡片 */
+.astro-auth{ max-width: 980px; margin: 28px auto; padding: 20px 18px;
+  background: linear-gradient(180deg, var(--panel), rgba(255,255,255,.01));
+  border: 1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 18px 50px rgba(0,0,0,.35);
+}
+/* 两列布局 */
+.auth-grid{ display:grid; gap:18px; grid-template-columns: 1.2fr .8fr; }
+@media (max-width: 860px){ .auth-grid{ grid-template-columns: 1fr; } }
+
+/* 内部卡片 */
+.panel{ background: linear-gradient(180deg, rgba(255,255,255,.03), rgba(255,255,255,.01));
+  border:1px solid var(--border); border-radius: var(--radius);
+  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+}
+.panel .head{ padding:16px 18px; border-bottom:1px solid var(--border);
+  color:var(--gold); font-weight:700; letter-spacing:.3px;
+}
+.panel .body{ padding:18px; }
+
+/* 表单行 */
+.row{ display:grid; grid-template-columns: 1fr 1fr; gap:12px; }
+.row.one{ grid-template-columns: 1fr; }
+@media (max-width:640px){ .row{ grid-template-columns: 1fr; } }
 </style>
 </head>
 <body>
@@ -244,7 +282,10 @@ const $ = (id)=>document.getElementById(id);
 
 /* ============== 多语言字典（保持原样） ============== */
 const translations={/* ……（保持你原来的整份 translations；此处省略，为了阅读） …… */};
-function t(key){const L=translations[getLang()]||translations["zh-CN"];return L[key]||translations["zh-CN"][key]||key;}
+function t(key){
+  const dict = (typeof translations === 'object' && translations) ? (translations[getLang()] || translations["zh-CN"] || {}) : {};
+  return dict[key] || key;
+}
 const LANG_KEY="site_lang";
 function getLang(){return localStorage.getItem(LANG_KEY)||document.documentElement.lang||"zh-CN";}
 function setLang(code){localStorage.setItem(LANG_KEY,code);document.documentElement.lang=code;}
@@ -268,12 +309,32 @@ function setText(id,v){const el=$(id);if(el) el.textContent=v}
 function setBar(el,pct){if(el) el.style.width=Math.max(0,Math.min(100,pct))+'%'}
 function showError(msg){const el=$('error');if(!el) return;el.textContent=msg;el.style.display='block';setTimeout(()=>{el.style.display='none'},5000)}
 function renderPillars(root,p,timeUnknown=false){if(!root)return;root.innerHTML='';[['年柱',p.year],['月柱',p.month],['日柱',p.day],['时柱',p.hour]].forEach(([tit,v])=>{const u=(tit==='时柱'&&timeUnknown);const stem=u?'？':v.stem,branch=u?'？':v.branch;const div=document.createElement('div');div.className='pillar';div.innerHTML=`<div class="tit">${tit}</div><div class="gz">${stem}${branch}</div>`;root.appendChild(div)})}
-function displayClassicArea(p,timeUnknown){const ge=(s,b)=>baziCalculator.getStemElement(s)+baziCalculator.getBranchElement(b);const ny=(s,b)=>baziCalculator.getNayin?s+b:b;setText('year-stem',p.year.stem);setText('year-branch',p.year.branch);setText('month-stem',p.month.stem);setText('month-branch',p.month.branch);setText('day-stem',p.day.stem);setText('day-branch',p.day.branch);setText('hour-stem',timeUnknown?'？':p.hour.stem);setText('hour-branch',timeUnknown?'？':p.hour.branch);const setIf=(id,val)=>{const el=$(id);if(el) el.textContent=val};setIf('year-element',ge(p.year.stem,p.year.branch));setIf('month-element',ge(p.month.stem,p.month.branch));setIf('day-element',ge(p.day.stem,p.day.branch));setIf('hour-element',timeUnknown?'未知':ge(p.hour.stem,p.hour.branch));setIf('year-nayin',baziCalculator.getNayin(p.year.stem,p.year.branch));setIf('month-nayin',baziCalculator.getNayin(p.month.stem,p.month.branch));setIf('day-nayin',baziCalculator.getNayin(p.day.stem,p.day.branch));setIf('hour-nayin',timeUnknown?'未知':baziCalculator.getNayin(p.hour.stem,p.hour.branch))}
-
+function displayClassicArea(p,timeUnknown){const ge=(s,b)=>baziCalculator.getStemElement(s)+baziCalculator.getBranchElement(b);const ny=(s,b)=>baziCalculator.getNayin?s+b:b;setText('year-stem',p.year.stem);setText('year-branch',p.year.branch);setText('month-stem',p.month.stem);setText('month-branch',p.month.branch);setText('day-stem',p.day.stem);setText('day-branch',p.day.branch);setText('hour-stem',timeUnknown?'？':p.hour.stem);setText('hour-branch',timeUnknown?'？':p.hour.branch);const setIf=(id,val)=>{const el=$(id);if(el) el.textContent=val};setIf('year-element',ge(p.year.stem,p.year.branch));setIf('month-element',ge(p.month.stem,p.month.branch));setIf('day-element',ge(p.day.stem,p.day.branch));setIf('hour-element',timeUnknown?'未知':ge(p.hour.stem,p.hour.branch));
 function judgeStrength(dayGan,monthZhi,cnt){const STEM_ELEM={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};const SEASON_BY_MONTH_BRANCH={寅:'春',卯:'春',辰:'春',巳:'夏',午:'夏',未:'夏',申:'秋',酉:'秋',戌:'秋',亥:'冬',子:'冬',丑:'冬'};const dmEl=STEM_ELEM[dayGan];const season=SEASON_BY_MONTH_BRANCH[monthZhi]||'-';let score=0;if((season==='春'&&'木火'.includes(dmEl))||(season==='夏'&&'火土'.includes(dmEl))||(season==='秋'&&dmEl==='金')||(season==='冬'&&dmEl==='水'))score+=2;score+=(cnt[dmEl]||0)*1.2;const mark=score>=3?'偏强':(score<=1?'偏弱':'平衡');const focus=mark==='偏强'?'泄秀/制化':(mark==='偏弱'?'补助/顺势':'守中/调和');return{season,mark,focus}}
-function chooseUseful(strength,dmElem){if(strength==='偏强'){return{strategy:'泄秀/制化',useful:({木:['火','土','金'],火:['土','金','水'],土:['金','水','木'],金:['水','木','火'],水:['木','火','土']})[dmElem],avoid:[dmElem]}}else if(strength==='偏弱'){return{strategy:'生扶/补助',useful:({木:['木','水'],火:['火','木'],土:['土','火'],金:['金','土'],水:['水','金']})[dmElem],avoid:[]}}return{strategy:'调和',useful:['木','火','土','金','水'],avoid:[]}}
-
-function buildChatDrawerHTML(){return `
+const hasNayin = typeof baziCalculator.getNayin === 'function';
+setIf('year-nayin',  hasNayin ? baziCalculator.getNayin(p.year.stem, p.year.branch)  : '—');
+setIf('month-nayin', hasNayin ? baziCalculator.getNayin(p.month.stem,p.month.branch) : '—');
+setIf('day-nayin',   hasNayin ? baziCalculator.getNayin(p.day.stem,  p.day.branch)   : '—');
+setIf('hour-nayin',  timeUnknown ? '未知' : (hasNayin ? baziCalculator.getNayin(p.hour.stem,p.hour.branch) : '—'));
+function chooseUseful(strength,dmElem){
+  if (strength==='偏强'){
+    return {
+      strategy:'泄秀/制化',
+      useful:({木:['火','土','金'],火:['土','金','水'],土:['金','水','木'],金:['水','木','火'],水:['木','火','土']})[dmElem],
+      avoid:[dmElem]
+    };
+  } else if (strength==='偏弱'){
+    return {
+      strategy:'生扶/补助',
+      useful:({木:['木','水'],火:['火','木'],土:['土','火'],金:['金','土'],水:['水','金']})[dmElem],
+      avoid:[]
+    };
+  }
+  return {strategy:'调和', useful:['木','火','土','金','水'], avoid:[]};
+}
+  
+function buildChatDrawerHTML(){
+  return `
   <details id="gpt-drawer" open class="xl-card" style="margin-top:12px;padding:0;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
     <summary style="cursor:pointer;list-style:none;padding:12px 16px;font-weight:700;color:var(--brand);">心怜管家</summary>
     <div style="padding:10px 12px;">
@@ -283,7 +344,8 @@ function buildChatDrawerHTML(){return `
         <button id="gpt-send" style="padding:8px 12px;border-radius:8px;background:var(--brand);color:#111;font-weight:700">发送</button>
       </div>
     </div>
-  </details>`}
+  </details>`;
+}
 async function callChatAPI(userText,ctx){const payload={messages:[{role:'user',content:userText}],context:ctx};async function post(url){try{const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});if(r.ok){const t=await r.text();try{const j=JSON.parse(t);return j.reply||t||'（无响应）'}catch{return t||'（无响应）'}}}catch(_){}return null}return await post('/api/butler/chat')||await post('/api/chat')||'（暂时无法连接到服务端）'}
 function wireChatDrawer(){const send=$('gpt-send'),input=$('gpt-input'),body=$('gpt-body');if(!send||!input||!body) return;send.onclick=async()=>{const text=(input.value||'').trim();if(!text) return;body.insertAdjacentHTML('beforeend',`<div style="text-align:right;margin:6px 0;">${text}</div>`);input.value='';const ctx=window.__bazi_ctx__||{};const reply=await callChatAPI(text,ctx);body.insertAdjacentHTML('beforeend',`<div style="margin:6px 0;">${reply}</div>`);body.scrollTop=body.scrollHeight}}
 function ensureGPTDrawer(){const host=$('result')||document.body;let drawer=$('gpt-drawer');if(!drawer){const wrap=document.createElement('div');wrap.innerHTML=buildChatDrawerHTML();host.insertBefore(wrap.firstElementChild,host.firstChild);drawer=$('gpt-drawer')}else if(host&&drawer.parentNode!==host){host.insertBefore(drawer,host.firstChild)}drawer.style.display='block';drawer.removeAttribute('hidden');const send=$('gpt-send');if(send){const cloned=send.cloneNode(true);send.parentNode.replaceChild(cloned,send)}wireChatDrawer()}
@@ -343,11 +405,23 @@ function showAuthErr(msg){const e=$("auth-error");e.textContent=msg;e.style.disp
 function hideAuthErr(){const e=$("auth-error");e.style.display="none";e.textContent=""}
 
 document.addEventListener('DOMContentLoaded',()=>{
-  // 浮窗
-  const chatFab=document.createElement('div');chatFab.className='ss-chat-fab';chatFab.id='ssChatFab';chatFab.title='心怜管家';
-  const chatPanel=document.createElement('div');chatPanel.className='ss-chat-panel';chatPanel.id='ssChatPanel';chatPanel.setAttribute('role','dialog');chatPanel.setAttribute('aria-label','心怜管家');
-  chatPanel.innerHTML=`<div class="ss-chat-head"><div class="ss-chat-title">心怜管家</div><div class="ss-close" id="ssChatClose">✕</div></div><div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div><div class="ss-chat-input"><input id="ssChatInput" type="text"/><button id="ssChatSend"></button></div>`;
-  document.body.appendChild(chatFab);document.body.appendChild(chatPanel);
+  // 先创建再赋值
+  const chatFab = document.createElement('div');
+  chatFab.className = 'ss-chat-fab';
+  chatFab.id = 'ssChatFab';
+  chatFab.title = '心怜管家';
+  chatFab.textContent = '心';                  // 圆形按钮上的字
+  chatFab.setAttribute('aria-label','心怜管家');
+
+  const chatPanel = document.createElement('div');
+  chatPanel.className = 'ss-chat-panel';
+  chatPanel.id = 'ssChatPanel';
+  chatPanel.setAttribute('role','dialog');
+  chatPanel.setAttribute('aria-label','心怜管家');
+  chatPanel.innerHTML = `<div class="ss-chat-head"><div class="ss-chat-title">心怜管家</div><div class="ss-close" id="ssChatClose">✕</div></div><div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div><div class="ss-chat-input"><input id="ssChatInput" type="text"/><button id="ssChatSend"></button></div>`;
+
+  document.body.appendChild(chatFab);
+  document.body.appendChild(chatPanel);
 
   // 语言
   const select=$('langSelect');const current=getLang();if(select) select.value=current;applyI18n();applyChatI18n();
