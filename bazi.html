@@ -66,12 +66,14 @@
     .badge-warn{display:inline-block;padding:2px 8px;margin-left:6px;border:1px solid #ffb84d;border-radius:999px;color:#ffb84d;font-size:.82rem}
     .muted{color:var(--muted)}
 
-    /* —— 出生时间同一行 + 估时间按钮 —— */
+    /* —— 出生时间：时间输入 + “不详”同一行 —— */
     .time-row{display:flex;align-items:center;gap:10px}
     .time-row .time-unknown{display:flex;align-items:center;gap:6px;white-space:nowrap}
     .btn-mini{padding:8px 10px;border-radius:10px}
+    /* —— 隐藏“估时间”按钮：仅勾选不详时弹窗 —— */
+    #guessTimeBtn{display:none !important; visibility:hidden !important;}
 
-    /* —— 右下角心怜管家（只保留“问”悬浮球） —— */
+    /* —— 右下角心怜管家（问） —— */
     .ss-chat-fab{
       position:fixed;right:18px;bottom:18px;z-index:50;width:56px;height:56px;border-radius:50%;
       background:linear-gradient(180deg,#fff9e6,#e6c76e);color:#191919;display:grid;place-items:center;font-weight:800;
@@ -173,6 +175,7 @@
           <div class="time-row">
             <input type="time" id="birthtime" value="12:00">
             <label class="muted time-unknown"><input type="checkbox" id="timeUnknown"> 出生时间不详</label>
+            <!-- 触发按钮已隐藏，仅保留以兼容脚本 -->
             <button class="btn btn-mini ghost" id="guessTimeBtn" type="button" title="用小测试估一下时间">🧭 估时间</button>
           </div>
         </div>
@@ -330,7 +333,7 @@
   function setText(id, v){ const el=$(id); if(el) el.textContent=v; }
   function setBar(el, pct){ if(el) el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
 
-  /* ================== 多语言（精简：含常用键） ================== */
+  /* ================== 多语言（精简） ================== */
   const LANG_KEY="site_lang";
   function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
   function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
@@ -396,7 +399,7 @@
     if (btn) btn.textContent = t('chat_send');
   }
 
-  /* ================== 八字计算器（保持你的算法，修正模板字符串） ================== */
+  /* ================== 八字计算器（简化） ================== */
   class BaziCalculator{
     constructor(){
       this.HEAVENLY_STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
@@ -512,6 +515,7 @@
       ${timeUnknown?`<p class="muted" style="margin-top:6px;">提示：时间不详，时柱未纳入。</p>`:''}
     </div>`;
   }
+
   function buildRichReportHTML({pillars,percents,st,adv,timeUnknown}){
     const L={wood:'木',fire:'火',earth:'土',metal:'金',water:'水'}; const P=pillars;
     const line=['wood','fire','earth','metal','water'].map(k=>`${L[k]}${Math.round(percents[k]||0)}%`).join(' ');
@@ -558,35 +562,63 @@
         <h3 style="margin-top:0;color:var(--brand)">七、财富与理财（免费试读）</h3>
         <p style="margin:8px 0;">理财建议：以 ${favList} 为主调，稳中求进</p>
       </section>
-  <!-- 八、健康与作息 -->
-  <section class="card" style="padding:20px;">
-    <h3 style="margin-top:0;color:var(--brand)">八、健康与作息</h3>
-    <p style="margin:8px 0;">按最弱五行（${weakest}）制定作息（模板化）</p>
-  </section>
+      <!-- 八、健康与作息 -->
+      <section class="card" style="padding:20px;">
+        <h3 style="margin-top:0;color:var(--brand)">八、健康与作息</h3>
+        <p style="margin:8px 0;">按最弱五行（${weakest}）制定作息（模板化）</p>
+      </section>
 
-  <!-- Butler 插入位置：健康节后 -->
-  <div id="butler-anchor"></div>
+      <!-- Butler 插入位置：健康节后 -->
+      <div id="butler-anchor"></div>
 
-  <!-- 九、环境与色彩（原来紧随其后，保留） -->
-  <section class="card" style="padding:20px;">
-    <h3 style="margin-top:0;color:var(--brand)">九、环境与色彩</h3>
-    <p style="margin:8px 0;">有利方位与配色随喜用（模板化）</p>
-  </section>
+      <!-- 九、环境与色彩 -->
+      <section class="card" style="padding:20px;">
+        <h3 style="margin-top:0;color:var(--brand)">九、环境与色彩</h3>
+        <p style="margin:8px 0;">有利方位与配色随喜用（模板化）</p>
+      </section>
+
+      <!-- 解锁 -->
       <section class="card" style="padding:20px;margin-bottom:10px;">
         <h3 style="margin-top:0;color:var(--brand)">解锁完整专属报告</h3>
         <p style="margin:8px 0;">升级 VIP 获取 “事业策略树 / 婚姻合盘 / 90 天里程碑 / 风水微调 / 祈愿修心”。</p>
         <div style="margin-top:10px;"><a href="/vip" style="display:inline-block;padding:10px 16px;border-radius:10px;background:var(--brand);color:#111;font-weight:700;text-decoration:none;">升级 VIP</a></div>
       </section>`;
   }
-  mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
-  relocateButlerPanel();   // ← 新增：把“心怜管家”移到健康节后面
-    let host=$('xl-rich-report'); if(!host){ host=document.createElement('section'); host.id='xl-rich-report'; host.className='container'; host.style.paddingTop='12px'; ($('result')||document.body).appendChild(host); }
-    host.innerHTML=buildRichReportHTML({pillars,percents,st,adv,timeUnknown});
+
+  /* —— 富报告挂载 + 管家重定位 —— */
+  function mountRichReport({ pillars, percents, st, adv, timeUnknown }){
+    let host=$('xl-rich-report');
+    if(!host){
+      host=document.createElement('section');
+      host.id='xl-rich-report';
+      host.className='container';
+      host.style.paddingTop='12px';
+      ($('result')||document.body).appendChild(host);
+    }
+    host.innerHTML = buildRichReportHTML({pillars,percents,st,adv,timeUnknown});
+    relocateButlerPanel(); // 把管家卡片移到健康节后
   }
 
   /* ================== 管家卡片 & GPT 抽屉（抽屉被CSS隐藏） ================== */
-  function buildButlerHTML(){ return `<div id="assistant-panel" class="xl-card" style="margin-top:12px;padding:16px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);"><h3 style="margin:0 0 8px;color:var(--brand)">心怜管家 · 智能解读</h3><div id="assistant-analysis"></div><div id="assistant-advice" style="margin-top:8px"></div></div>`; }
-  function buildChatDrawerHTML(){ return `<details id="gpt-drawer" class="xl-card" style="margin-top:12px;padding:0;border-radius:10px;background:var(--card);box-shadow:var(--shadow);"><summary style="cursor:pointer;list-style:none;padding:12px 16px;font-weight:700;color:var(--brand);">GPT 问答</summary><div style="padding:10px 12px;"><div id="gpt-body" style="max-height:260px;overflow:auto;font-size:14px;line-height:1.5;border:1px solid #222;border-radius:8px;padding:8px;"></div><div style="display:flex;gap:8px;margin-top:8px;"><input id="gpt-input" placeholder="问点什么…" style="flex:1;padding:8px;border-radius:8px;border:1px solid #222;background:#0b0f14;color:var(--text)"><button id="gpt-send" style="padding:8px 12px;border-radius:8px;background:var(--brand);color:#111;font-weight:700">发送</button></div></div></details>`; }
+  function buildButlerHTML(){
+    return `<div id="assistant-panel" class="xl-card" style="margin-top:12px;padding:16px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
+      <h3 style="margin:0 0 8px;color:var(--brand)">心怜管家 · 智能解读</h3>
+      <div id="assistant-analysis"></div>
+      <div id="assistant-advice" style="margin-top:8px"></div>
+    </div>`;
+  }
+  function buildChatDrawerHTML(){
+    return `<details id="gpt-drawer" class="xl-card" style="margin-top:12px;padding:0;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
+      <summary style="cursor:pointer;list-style:none;padding:12px 16px;font-weight:700;color:var(--brand);">GPT 问答</summary>
+      <div style="padding:10px 12px;">
+        <div id="gpt-body" style="max-height:260px;overflow:auto;font-size:14px;line-height:1.5;border:1px solid #222;border-radius:8px;padding:8px;"></div>
+        <div style="display:flex;gap:8px;margin-top:8px;">
+          <input id="gpt-input" placeholder="问点什么…" style="flex:1;padding:8px;border-radius:8px;border:1px solid #222;background:#0b0f14;color:var(--text)">
+          <button id="gpt-send" style="padding:8px 12px;border-radius:8px;background:var(--brand);color:#111;font-weight:700">发送</button>
+        </div>
+      </div>
+    </details>`;
+  }
   async function callChatAPI(userText,ctx){
     const payload={messages:[{role:'user',content:userText}],context:ctx};
     async function post(url){ try{ const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); if(r.ok){ const t=await r.text(); try{ const j=JSON.parse(t); return j.reply||t||'（无响应）'; }catch{return t||'（无响应）'; } } }catch(_){} return null; }
@@ -600,16 +632,15 @@
     const ctx={ dayMaster:{stem:pillars.day.stem,element:pillars.day.element}, elements:percents, strength:st, season:st.season, useful:adv, timeUnknown };
     new XinLianAssistant().generateAnalysis(ctx);
     window.__bazi_ctx__={pillars,wuxing_ratio:percents,season:st.season,strength:st.mark,strategy:st.focus,useful:adv?.useful||[],timeUnknown};
-    // （可选）插入被隐藏的 GPT 抽屉，保持结构一致
     if(!$('gpt-drawer')){ const wrap=document.createElement('div'); wrap.innerHTML=buildChatDrawerHTML(); resultEl.appendChild(wrap.firstElementChild); }
   }
-    function relocateButlerPanel(){
-  const panel  = document.getElementById('assistant-panel');
-  const anchor = document.getElementById('butler-anchor');
-  if (!panel || !anchor) return;
-  // 把管家卡片移到“健康”后面
-  anchor.parentNode.insertBefore(panel, anchor.nextSibling);
-}
+
+  function relocateButlerPanel(){
+    const panel  = document.getElementById('assistant-panel');
+    const anchor = document.getElementById('butler-anchor');
+    if (!panel || !anchor || !anchor.parentNode) return;
+    anchor.parentNode.insertBefore(panel, anchor.nextSibling);
+  }
 
   /* ================== 生成命盘 ================== */
   async function genChart(){
@@ -634,8 +665,7 @@
       const keys=Object.keys(counts); const maxK=keys.reduce((a,b)=>counts[a]>counts[b]?a:b); const minK=keys.reduce((a,b)=>counts[a]<counts[b]?a:b);
       setText('bazi-elements-balance',`五行中${maxK}元素最强，${minK}元素最弱。`);
       mountExtensionsIntoResult({pillars,percents,st,adv,timeUnknown:tu});
-      mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
-      relocateButlerPanel();   // ← 新增：把“心怜管家”移到健康节后面
+      mountRichReport({ pillars, percents, st, adv, timeUnknown: tu }); // 生成富报告并重定位管家
       console.log('实际 →', pillars.year.stem+pillars.year.branch, pillars.month.stem+pillars.month.branch, pillars.day.stem+pillars.day.branch, tu?'？':(pillars.hour.stem+pillars.hour.branch));
     }catch(err){ console.error(err); showErr('计算八字时出现错误，请重试'); }
     finally{ if(btn) btn.disabled=false; if(tx) tx.style.display='inline'; if(ld) ld.style.display='none'; }
@@ -670,11 +700,11 @@
     $input&&$input.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
   });
 
-  /* ================== 估时间向导 ================== */
+  /* ================== 估时间向导（仅勾选不详时触发） ================== */
   (function initBirthtimeWizard(){
     const tChk=$('timeUnknown'), tInput=$('birthtime'), btn=$('guessTimeBtn');
     const twMask=$('twMask'), twGrid=$('twGrid'), twApply=$('twApply'), twCancel=$('twCancel');
-    if(!tInput||!tChk||!btn||!twMask||!twGrid||!twApply||!twCancel) return;
+    if(!tInput||!tChk||!twMask||!twGrid||!twApply||!twCancel) return;
 
     const DZ=[
       ['子','23:00–01:00','00:00'],['丑','01:00–03:00','02:00'],['寅','03:00–05:00','04:00'],['卯','05:00–07:00','06:00'],
@@ -694,14 +724,20 @@
       }else{ [...twGrid.children].forEach(x=>x.classList.remove('active')); }
     }
     function closeWizard(){ twMask.style.display='none'; }
-    tChk.addEventListener('change', ()=>{ tInput.disabled=tChk.checked; if(tChk.checked) openWizard(); });
-    btn.addEventListener('click', openWizard);
+
+    // 仅当勾选“不详”时自动弹出；取消勾选则关闭
+    tChk.addEventListener('change', ()=>{ tInput.disabled=tChk.checked; if(tChk.checked) openWizard(); else closeWizard(); });
+
+    // （按钮被隐藏，但保留兼容：若存在仍可打开）
+    btn && btn.addEventListener('click', openWizard);
+
     twCancel.addEventListener('click', closeWizard);
     twApply.addEventListener('click', ()=>{
       if(!selected) return;
       const mid=Object.fromEntries(DZ.map(([z,_,m])=>[z,m]))[selected];
       tInput.value=mid; tInput.disabled=false; tChk.checked=false; closeWizard();
     });
+
     tInput.disabled=tChk.checked;
   })();
 
@@ -770,7 +806,7 @@
     });
   });
 
-  /* ================== 自测（控制台）：1978-02-21 12:00 应为 戊午 甲寅 甲寅 庚午 ================== */
+  /* ================== 自测：1978-02-21 12:00 → 戊午 甲寅 甲寅 庚午 ================== */
   (function(){
     const c=new BaziCalculator(); const Y=c.calculateYearPillar(1978); const M=c.calculateMonthPillar(1978,2,21); const D=c.calculateDayPillar(1978,2,21); const H=c.calculateHourPillar(D.stem,12);
     console.log('应为 → 年 戊午｜月 甲寅｜日 甲寅｜时 庚午');
