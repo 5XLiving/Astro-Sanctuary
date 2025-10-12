@@ -781,40 +781,149 @@ class XinLianAssistant{
   }
 }
 
-/* ================== 免费/富报告 ================== */
-function buildFreeReportHTML({pillars,percents,st,adv,timeUnknown}){
-  const L={wood:'木',fire:'火',earth:'土',metal:'金',water:'水'};
-  const entries=Object.entries(percents); const strongestK=entries.reduce((a,b)=>a[1]>b[1]?a:b)[0]; const weakestK=entries.reduce((a,b)=>a[1]<b[1]?a:b)[0];
-  const strongest=L[strongestK], weakest=L[weakestK]; const absents=Object.keys(percents).filter(k=>Math.round(percents[k])===0).map(k=>L[k]).join('、');
-  const fmt=k=>`${L[k]} ${Math.round(percents[k]||0)}%`; const line=['wood','fire','earth','metal','water'].map(fmt).join('　');
-  const fav=(adv?.useful||[]).join('、'); const avoid=(adv?.avoid||[]).join('、')||'—'; const hourTxt=timeUnknown?'？？':(pillars.hour.stem+pillars.hour.branch);
-  return `<div class="xl-card" style="margin-top:12px;padding:16px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
-    <h3 style="margin:0 0 8px;color:var(--brand)">免费报告</h3>
-    <p style="margin:6px 0;">四柱：<strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${hourTxt}</strong></p>
-    <p style="margin:6px 0;">日主：<strong>${pillars.day.stem}</strong>（<strong>${pillars.day.element}</strong>）｜季节：<strong>${st.season||'-'}</strong>｜命局：<strong>${st.mark}</strong> · <strong>${st.focus}</strong></p>
-    <p style="margin:8px 0;">五行：${line}</p>
-    <p style="margin:4px 0;"><strong>${strongest}</strong>偏旺；<strong>${weakest}</strong>偏弱。${absents?`<span class="muted">（缺：${absents}）</span>`:''}</p>
-    <ul style="margin:6px 0 0 18px;line-height:1.6">
-      <li>喜用优先：<strong>${fav||'—'}</strong>；忌讳：${avoid}</li>
-      <li>调衡要点：${st.focus}</li>
-    </ul>
-    ${timeUnknown?`<p class="muted" style="margin-top:6px;">提示：时间不详，时柱未纳入。</p>`:''}
-  </div>`;
+// ============ ③ 替换：可切换语言的“免费/富报告” ============
+
+// 覆盖你原来的 buildFreeReportHTML
+function buildFreeReportHTML({pillars, percents, st, adv, timeUnknown}){
+  const E = ELABEL();
+  const entries = Object.entries(percents||{});
+  const strongestK = entries.reduce((a,b)=>a[1]>b[1]?a:b, ['wood',0])[0];
+  const weakestK   = entries.reduce((a,b)=>a[1]<b[1]?a:b, ['wood',0])[0];
+  const strongest = E[strongestK] || '';
+  const weakest   = E[weakestK] || '';
+  const absents = Object.keys(percents||{})
+    .filter(k=>Math.round(percents[k]||0)===0)
+    .map(k=>E[k]).filter(Boolean);
+  const fmt = k => `${E[k]} ${Math.round(percents[k]||0)}%`;
+  const lang = (getLang()||'').toLowerCase();
+  const sep  = lang.startsWith('zh') ? '　' : ' · ';
+  const line = ['wood','fire','earth','metal','water'].map(fmt).join(sep);
+
+  // 喜用/忌用显示用本地化五行名
+  const favLoc   = elCharsToLocale(adv?.useful||[]);
+  const avoidLoc = elCharsToLocale(adv?.avoid||[]);
+  const favText   = favLoc.length ? listJoin(favLoc) : (lang.startsWith('zh')?'—':'—');
+  const avoidText = avoidLoc.length ? listJoin(avoidLoc) : (lang.startsWith('zh')?'—':'—');
+
+  // 小件文本
+  const hourTxt = timeUnknown ? t('rpt_time_unknown') : (pillars.hour.stem + pillars.hour.branch);
+  const dmElemKey = EL_CHAR_TO_KEY[pillars.day.element] || 'wood';
+  const dmElemName = E[dmElemKey];
+
+  const stName = strategyName(st.focus);
+
+  // 文案拼装
+  const favAvoidLine = t('rpt_fav_avoid_template')
+    .replace('{fav}', favText)
+    .replace('{avoid}', avoidText);
+
+  const absStr = absents.length ? (lang.startsWith('zh') ? `（${t('rpt_absent_prefix')}${listJoin(absents)}）`
+                                                          : ` (${t('rpt_absent_prefix')}${listJoin(absents)})`) : '';
+
+  return `
+    <div class="xl-card" style="margin-top:12px;padding:16px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
+      <h3 style="margin:0 0 8px;color:var(--brand)">${t('rpt_free_title')}</h3>
+      <p style="margin:6px 0;">${t('rpt_pillars_label')}：<strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${hourTxt}</strong></p>
+      <p style="margin:6px 0;">${t('rpt_daymaster_label')}：<strong>${pillars.day.stem}</strong>（<strong>${dmElemName}</strong>）｜${t('rpt_season_label')}：<strong>${seasonName(st.season)||'-'}</strong>｜${t('rpt_chart_label')}：<strong>${t('strength_'+(st.mark==='偏强'?'strong':st.mark==='偏弱'?'weak':'balanced'))}</strong> · <strong>${t('rpt_strategy_label')}：${stName}</strong></p>
+      <p style="margin:8px 0;">${t('rpt_wuxing_label')}：${line}</p>
+      <p style="margin:4px 0;"><strong>${strongest}</strong>${t('rpt_strongest_word')}；<strong>${weakest}</strong>${t('rpt_weakest_word')}。${absStr}</p>
+      <ul style="margin:6px 0 0 18px;line-height:1.6">
+        <li>${favAvoidLine}</li>
+        <li>${t('rpt_balance_focus_label')}：${stName}</li>
+      </ul>
+      ${timeUnknown?`<p class="muted" style="margin-top:6px;">${t('rpt_time_hint')}</p>`:''}
+    </div>`;
 }
 
-/* ✅ 只保留这一份：富报告 */
+// 覆盖你原来的 buildRichReportHTML
 function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}){
-  const L={wood:'木',fire:'火',earth:'土',metal:'金',water:'水'};
-  const P=pillars;
-  const line=['wood','fire','earth','metal','water'].map(k=>`${L[k]}${Math.round(percents[k]||0)}%`).join(' ');
-  const entries=Object.entries(percents);
-  const strongestK=entries.reduce((a,b)=>a[1]>b[1]?a:b, ['wood',0])[0];
-  const weakestK  =entries.reduce((a,b)=>a[1]<b[1]?a:b, ['wood',0])[0];
-  const strongest=L[strongestK]||'—', weakest=L[weakestK]||'—';
-  const absents=Object.keys(percents).filter(k=>Math.round(percents[k]||0)===0).map(k=>L[k]).join('、');
-  const favList=(adv?.useful||[]).join('、')||'—', avoidList=(adv?.avoid||[]).join('、')||'—';
-  const hourTxt=timeUnknown?'？？':(P.hour.stem+P.hour.branch);
+  const E = ELABEL();
+  const lang = (getLang()||'').toLowerCase();
+  const sep  = lang.startsWith('zh') ? '' : ' ';
+  const line = ['wood','fire','earth','metal','water']
+    .map(k=>`${E[k]}${sep}${Math.round(percents[k]||0)}%`).join(lang.startsWith('zh') ? ' ' : ' · ');
+
+  const entries = Object.entries(percents||{});
+  const strongestK = entries.reduce((a,b)=>a[1]>b[1]?a:b, ['wood',0])[0];
+  const weakestK   = entries.reduce((a,b)=>a[1]<b[1]?a:b, ['wood',0])[0];
+  const strongest  = E[strongestK]||'—';
+  const weakest    = E[weakestK]||'—';
+  const absentsArr = Object.keys(percents||{}).filter(k=>Math.round(percents[k]||0)===0).map(k=>E[k]);
+  const absentsStr = absentsArr.length ? (lang.startsWith('zh')?`（${t('rpt_absent_prefix')}${listJoin(absentsArr)}）`:` (${t('rpt_absent_prefix')}${listJoin(absentsArr)})`) : '';
+
+  const favLoc   = elCharsToLocale(adv?.useful||[]);
+  const avoidLoc = elCharsToLocale(adv?.avoid||[]);
+  const favList   = favLoc.length ? listJoin(favLoc) : (lang.startsWith('zh')?'—':'—');
+  const avoidList = avoidLoc.length ? listJoin(avoidLoc) : (lang.startsWith('zh')?'—':'—');
+
+  const hourTxt = timeUnknown ? t('rpt_time_unknown') : (pillars.hour.stem+pillars.hour.branch);
+  const dmElemKey = EL_CHAR_TO_KEY[pillars.day.element] || 'wood';
+  const dmElemName = E[dmElemKey];
+  const stName = strategyName(st.focus);
+
   return `
+    <section class="card" style="padding:20px;">
+      <h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_overview_title')}</h3>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;font-size:14px;">
+        <div>${t('rpt_pillars_label')}：<strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${hourTxt}</strong></div>
+        <div>${t('rpt_daymaster_label')}：<strong>${pillars.day.stem}</strong>（<strong>${dmElemName}</strong>）</div>
+        <div>${t('rpt_season_label')}：<strong>${seasonName(st.season)||'-'}</strong></div>
+        <div>${t('rpt_chart_label')}：<strong>${t('strength_'+(st.mark==='偏强'?'strong':st.mark==='偏弱'?'weak':'balanced'))}</strong> · ${t('rpt_strategy_label')}：<strong>${stName}</strong></div>
+      </div>
+    </section>
+
+    <section class="card" style="padding:20px;">
+      <h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_elements_title')}</h3>
+      <div style="font-size:14px;">${line}</div>
+      <p style="margin:10px 0 0;"><strong>${strongest}</strong>${t('rpt_strongest_word')}；<strong>${weakest}</strong>${t('rpt_weakest_word')}。${absentsStr}</p>
+      <ul style="margin:10px 0 0 18px;line-height:1.6">
+        <li>${t('useful_elements')}${listJoin(favLoc)}</li>
+        <li>${t('rpt_balance_focus_label')}：${stName}</li>
+      </ul>
+      ${timeUnknown?`<p class="muted" style="margin-top:8px;">${t('rpt_time_hint')}</p>`:''}
+    </section>
+
+    <section class="card" style="padding:20px;">
+      <h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_traits_title')}</h3>
+      <p style="margin:8px 0;">${t('rpt_traits_intro')}</p>
+      <p style="margin:8px 0;">${t('rpt_traits_adv')}</p>
+      <p style="margin:8px 0;">${t('rpt_traits_chal')}</p>
+    </section>
+
+    <section class="card" style="padding:20px;">
+      <h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_structure_title')}</h3>
+      <p style="margin:8px 0;">${t('rpt_structure_line_template').replace('{fav}', favList).replace('{avoid}', avoidList)}</p>
+    </section>
+
+    <section class="card" style="padding:20px;">
+      <h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_career_title')}</h3>
+      <p style="margin:8px 0;">${t('rpt_career_fields_placeholder')}</p>
+      <p style="margin:8px 0;">${t('rpt_dev_strategy_prefix')}${stName}，SOP</p>
+    </section>
+
+    <section class="card" style="padding:20px;">
+      <h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_love_title')}</h3>
+      <p style="margin:8px 0;">${t('rpt_love_placeholder')}</p>
+    </section>
+
+    <section class="card" style="padding:20px;">
+      <h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_wealth_title')}</h3>
+      <p style="margin:8px 0;">${t('rpt_wealth_suggestion_template').replace('{fav}', favList)}</p>
+    </section>
+
+    <section class="card" style="padding:20px;">
+      <h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_health_title')}</h3>
+      <p style="margin:8px 0;">${t('rpt_health_placeholder_template').replace('{weak}', weakest)}</p>
+    </section>
+
+    <section class="card" style="padding:20px;">
+      <h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_env_title')}</h3>
+      <p style="margin:8px 0;">${t('rpt_env_placeholder')}</p>
+    </section>
+
+    <div id="butler-anchor"></div>
+  `;
+}
     <section class="card" style="padding:20px;">
       <h3 style="margin-top:0;color:var(--brand)">一、命盘总览</h3>
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;font-size:14px;">
