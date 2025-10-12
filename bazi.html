@@ -411,13 +411,11 @@ const translations = {
 };
 function t(key){ const L = translations[getLang()] || translations["zh-CN"]; return L[key] || (translations["zh-CN"][key] || key); }
 
-/***** i18n PATCH: 占位符 & 管家用到的 key —— 先补现有三语 *****/
+/***** i18n PATCH: 占位符 & 管家用到的 key *****/
 Object.assign(translations["zh-CN"], {
   ph_email:"邮箱 Email",
   ph_password:"密码 Password（至少8位，含大小写数字符号）",
   err_reset_fail:"重设失败：",
-
-  // — 心怜管家（分析器）多语言键
   butler_title:"心怜管家 · 智能解读",
   day_master:"日主",
   chart_strength:"命局",
@@ -682,8 +680,11 @@ function judgeStrength(dayGan,monthZhi,cnt){
   const STEM_ELEM={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
   const SEASON_BY_MONTH_BRANCH={寅:'春',卯:'春',辰:'春',巳:'夏',午:'夏',未:'夏',申:'秋',酉:'秋',戌:'秋',亥:'冬',子:'冬',丑:'冬'};
   const dmEl=STEM_ELEM[dayGan], season=SEASON_BY_MONTH_BRANCH[monthZhi]||'-';
-  let score=0; if((season==='春'&&'木火'.includes(dmEl))||(season==='夏'&&'火土'.includes(dmEl))||(season==='秋'&&dmEl==='金')||(season==='冬'&&dmEl==='水')) score+=2;
-  score+=(cnt[dmEl]||0)*1.2; const mark=score>=3?'偏强':(score<=1?'偏弱':'平衡'); const focus=mark==='偏强'?'泄秀/制化':(mark==='偏弱'?'补助/顺势':'守中/调和'); return{season,mark,focus};
+  let score=0;
+  if((season==='春'&&'木火'.includes(dmEl))||(season==='夏'&&'火土'.includes(dmEl))||(season==='秋'&&dmEl==='金')||(season==='冬'&&dmEl==='水')) score+=2;
+  score+=(cnt[dmEl]||0)*1.2;
+  const mark=score>=3?'偏强':(score<=1?'偏弱':'平衡');
+  const focus=mark==='偏强'?'泄秀/制化':(mark==='偏弱'?'补助/顺势':'守中/调和'); return{season,mark,focus};
 }
 function chooseUseful(strength,dmElem){
   if(strength==='偏强') return {strategy:'泄秀/制化', useful:({木:['火','土','金'],火:['土','金','水'],土:['金','水','木'],金:['水','木','火'],水:['木','火','土']})[dmElem], avoid:[dmElem]};
@@ -708,7 +709,6 @@ function initLangUI(){
     rerenderReportsIfAny();
   });
 }
-// 报告重渲染（切语种时调用）
 function rerenderReportsIfAny(){
   if (window.__last_report__) {
     const { pillars, percents, st, adv, tu } = window.__last_report__;
@@ -734,8 +734,7 @@ class XinLianAssistant{
     if (b) b.innerHTML = this.generateAdvice(baziData);
   }
   analyzeBazi({dayMaster,elements,strength,season,timeUnknown}){
-    const timeNote = timeUnknown
-      ? `<li><strong>${t('note')}</strong>：${t('time_unknown_checked')}，<strong>${t('hour_pillar_excluded')}</strong>。</li>` : '';
+    const timeNote = timeUnknown ? `<li><strong>${t('note')}</strong>：${t('time_unknown_checked')}，<strong>${t('hour_pillar_excluded')}</strong>。</li>` : '';
     return `<ul class="ul">
       <li>${t('day_master')}：<strong>${dayMaster.stem}（${dayMaster.element}）</strong></li>
       <li>${t('chart_strength')}<strong>${this._strengthLabel(strength.mark)}</strong>：${this.getStrengthDescription(strength.mark)}</li>
@@ -765,13 +764,11 @@ class XinLianAssistant{
     return map[season] || t('season_generic');
   }
   getLuckyColors(list){
-    const C = this._COLOR();
-    const m = { '木': C.wood, '火': C.fire, '土': C.earth, '金': C.metal, '水': C.water };
+    const C = this._COLOR(); const m = { '木': C.wood, '火': C.fire, '土': C.earth, '金': C.metal, '水': C.water };
     return this._join(list.map(x=>m[x]));
   }
   getLuckyDirections(list){
-    const D = this._DIR();
-    const m = { '木': D.wood, '火': D.fire, '土': D.earth, '金': D.metal, '水': D.water };
+    const D = this._DIR(); const m = { '木': D.wood, '火': D.fire, '土': D.earth, '金': D.metal, '水': D.water };
     return this._join(list.map(x=>m[x]));
   }
   ELABEL(){ return this._EL(); }
@@ -985,7 +982,7 @@ async function genChart(){
     // 供语言切换时重渲染
     window.__last_report__ = { pillars, percents, st, adv, tu };
 
-    // 扩展&富报告（只调一次）
+    // 扩展&富报告
     mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
     mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
 
@@ -1149,6 +1146,5 @@ document.addEventListener('DOMContentLoaded', ()=>{
   console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+H.branch);
 })();
 </script>
-
 </body>
 </html>
