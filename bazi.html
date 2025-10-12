@@ -710,35 +710,90 @@ function buildRichReportHTML({pillars,percents,st,adv,timeUnknown}){
     anchor.parentNode.insertBefore(panel, anchor.nextSibling);
   }
 
-  /* ================== 生成命盘 ================== */
-  async function genChart(){
-    const birth=($('birthdate')?.value||'').trim(); const timeUnknown=$('timeUnknown')?.checked||false;
-    if(!birth){ showErr('请填写出生日期。'); return; }
-    const btn=$('genBtn'), tx=$('genBtnText'), ld=$('genBtnLoading'); if(btn) btn.disabled=true; if(tx) tx.style.display='none'; if(ld) ld.style.display='inline-block';
-    try{
-      const [Y,M,D]=birth.split('-').map(Number); let hour=12;
-      if(!timeUnknown){ const t=($('birthtime')?.value||'').trim(); if(t) hour=parseInt(t.split(':')[0],10); }
-      const {pillars,counts,percents,timeUnknown:tu}=baziCalculator.calculateBazi(Y,M,D,hour,timeUnknown);
-      $('result')?.style.setProperty('display','block');
-      const timeText=tu?'时间不详':(hour+'时'); setText('bazi-date',`出生日期: ${Y}年${M}月${D}日 ${timeText}`);
-      if(tu){ const el=$('bazi-date'); el&&(el.innerHTML+=' <span class="badge-warn">未纳入时柱</span>'); }
-      renderPillars($('bazi-pillars'),pillars,tu); displayClassicArea(pillars,tu);
-      setBar($('bar-木'),percents.wood);  setText('pct-木',Math.round(percents.wood)+'%');
-      setBar($('bar-火'),percents.fire);  setText('pct-火',Math.round(percents.fire)+'%');
-      setBar($('bar-土'),percents.earth); setText('pct-土',Math.round(percents.earth)+'%');
-      setBar($('bar-金'),percents.metal); setText('pct-金',Math.round(percents.metal)+'%');
-      setBar($('bar-水'),percents.water); setText('pct-水',Math.round(percents.water)+'%');
-      const st=judgeStrength(pillars.day.stem,pillars.month.branch,counts);
-      const adv=chooseUseful(st.mark,pillars.day.element);
-      const keys=Object.keys(counts); const maxK=keys.reduce((a,b)=>counts[a]>counts[b]?a:b); const minK=keys.reduce((a,b)=>counts[a]<counts[b]?a:b);
-      setText('bazi-elements-balance',`五行中${maxK}元素最强，${minK}元素最弱。`);
-      mountExtensionsIntoResult({pillars,percents,st,adv,timeUnknown:tu});
-      mountRichReport({ pillars, percents, st, adv, timeUnknown: tu }); // 生成富报告并重定位管家
-      console.log('实际 →', pillars.year.stem+pillars.year.branch, pillars.month.stem+pillars.month.branch, pillars.day.stem+pillars.day.branch, tu?'？':(pillars.hour.stem+pillars.hour.branch));
-    }catch(err){ console.error(err); showErr('计算八字时出现错误，请重试'); }
-    finally{ if(btn) btn.disabled=false; if(tx) tx.style.display='inline'; if(ld) ld.style.display='none'; }
-  }
+ /* ================== 生成命盘 ================== */
+async function genChart(){
+  const birth = ($('birthdate')?.value || '').trim();
+  const timeUnknown = $('timeUnknown')?.checked || false;
+  if (!birth){ showErr('请填写出生日期。'); return; }
+
+  const btn=$('genBtn'), tx=$('genBtnText'), ld=$('genBtnLoading');
+  if(btn) btn.disabled = true;
+  if(tx) tx.style.display = 'none';
+  if(ld) ld.style.display = 'inline-block';
+
+  try{
+    const [Y,M,D] = birth.split('-').map(Number);
+    let hour = 12;
+    if (!timeUnknown){
+      const t = ($('birthtime')?.value || '').trim();
+      if (t){
+        const h = parseInt(t.split(':')[0], 10);
+        if (!Number.isNaN(h)) hour = h;
+      }
+    }
+
+    const { pillars, counts, percents, timeUnknown: tu } =
+      baziCalculator.calculateBazi(Y, M, D, hour, timeUnknown);
+
+    $('result')?.style.setProperty('display','block');
+    const timeText = tu ? '时间不详' : (hour + '时');
+    setText('bazi-date', `出生日期: ${Y}年${M}月${D}日 ${timeText}`);
+    if (tu){ const el=$('bazi-date'); if(el) el.innerHTML += ' <span class="badge-warn">未纳入时柱</span>'; }
+
+    renderPillars($('bazi-pillars'), pillars, tu);
+    displayClassicArea(pillars, tu);
+
+    setBar($('bar-木'), percents.wood);  setText('pct-木',  Math.round(percents.wood)  + '%');
+    setBar($('bar-火'), percents.fire);  setText('pct-火',  Math.round(percents.fire)  + '%');
+    setBar($('bar-土'), percents.earth); setText('pct-土',  Math.round(percents.earth) + '%');
+    setBar($('bar-金'), percents.metal); setText('pct-金',  Math.round(percents.metal) + '%');
+    setBar($('bar-水'), percents.water); setText('pct-水',  Math.round(percents.water) + '%');
+
+    const st  = judgeStrength(pillars.day.stem, pillars.month.branch, counts);
+    const adv = chooseUseful(st.mark, pillars.day.element);
+
+    const keys = Object.keys(counts);
+    const maxK = keys.reduce((a,b)=>counts[a]>counts[b]?a:b);
+    const minK = keys.reduce((a,b)=>counts[a]<counts[b]?a:b);
+    setText('bazi-elements-balance', `五行中${maxK}元素最强，${minK}元素最弱。`);
+
+    // 供语言切换时重渲染
     window.__last_report__ = { pillars, percents, st, adv, tu };
+
+    // 扩展&富报告（只调一次）
+    mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
+    if (typeof mountRichReport === 'function') {
+      mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
+    }
+
+    console.log(
+      '实际 →',
+      pillars.year.stem+pillars.year.branch,
+      pillars.month.stem+pillars.month.branch,
+      pillars.day.stem+pillars.day.branch,
+      tu ? '？' : (pillars.hour.stem+pillars.hour.branch)
+    );
+  } catch (err){
+    console.error(err);
+    showErr('计算八字时出现错误，请重试');
+  } finally {
+    if(btn) btn.disabled = false;
+    if(tx)  tx.style.display = 'inline';
+    if(ld)  ld.style.display = 'none';
+  }
+}
+function mountRichReport({ pillars, percents, st, adv, timeUnknown }) {
+  let host = document.getElementById('rich-report');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'rich-report';
+    const result = document.getElementById('result');
+    if (result) result.appendChild(host);
+  }
+  host.innerHTML = buildRichReportHTML({ pillars, percents, st, adv, timeUnknown });
+  // 可选：把管家面板移动到锚点后
+  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
+}
 
   /* ================== Chat 悬浮球 ================== */
   document.addEventListener('DOMContentLoaded', ()=>{
