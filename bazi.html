@@ -519,37 +519,102 @@ function rerenderReportsIfAny(){
   }
 }    
 
-  /* ================== 心怜管家（分析器） ================== */
-  class XinLianAssistant{
-    constructor(){ this.currentContext=null; }
-    generateAnalysis(baziData){ this.currentContext=baziData; const a=$('assistant-analysis'), b=$('assistant-advice'); if(a) a.innerHTML=this.analyzeBazi(baziData); if(b) b.innerHTML=this.generateAdvice(baziData); }
-    analyzeBazi({dayMaster,elements,strength,season,timeUnknown}){
-      const timeNote=timeUnknown?'<li><strong>注意：</strong>已勾选“出生时间不详”，<strong>未纳入时柱</strong>。</li>':'';
-      return `<ul class="ul">
-        <li>日主：<strong>${dayMaster.stem}（${dayMaster.element}）</strong></li>
-        <li>命局<strong>${strength.mark}</strong>：${this.getStrengthDescription(strength.mark)}</li>
-        <li>季节：<strong>${season}</strong>，${this.getSeasonInfluence(season)}</li>
-        <li>五行分布：${this.getElementDistribution(elements)}</li>
-        ${timeNote}
-      </ul>`;
-    }
-    generateAdvice({strength,useful,timeUnknown}){
-      const timeWarn=timeUnknown?'<li><strong>提示：</strong>无时柱，建议仅作参考。</li>':'';
-      return `<ul class="ul">
-        <li><strong>发展策略：</strong>${strength.focus}</li>
-        <li><strong>喜用元素：</strong>${(useful.useful||[]).join('、')}</li>
-        <li><strong>幸运颜色：</strong>${this.getLuckyColors(useful.useful||[])}</li>
-        <li><strong>适合方位：</strong>${this.getLuckyDirections(useful.useful||[])}</li>
-        ${timeWarn}
-      </ul>`;
-    }
-    getStrengthDescription(m){ return {偏强:'潜力足、抗压好',偏弱:'需外援更能发挥',平衡:'均衡、适应性强'}[m]||'具有独特特点'; }
-    getSeasonInfluence(season){ const m={春:'木旺生发',夏:'火旺外放',秋:'金旺收敛',冬:'水旺内藏'}; return m[season]||'季节对命局有一定影响'; }
-    getLuckyColors(list){ const m={木:'绿色/青色',火:'红色/紫色',土:'黄色/棕色',金:'白色/金色',水:'黑色/蓝色'}; return list.map(x=>m[x]).filter(Boolean).join('、'); }
-    getLuckyDirections(list){ const m={木:'东方',火:'南方',土:'中央/东北/西南',金:'西方',水:'北方'}; return list.map(x=>m[x]).filter(Boolean).join('、'); }
-    ELABEL(){ return {wood:'木',fire:'火',earth:'土',metal:'金',water:'水'}; }
-    getElementDistribution(elements){ const L=this.ELABEL(); return Object.entries(elements).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${L[k]||k}${Math.round(v)}%`).join('、'); }
+/* ================== 心怜管家（分析器｜多语言） ================== */
+class XinLianAssistant{
+  constructor(){ this.currentContext = null; }
+
+  // 小工具：中/英等分隔符
+  _join(list){ const lang = (getLang()||'').toLowerCase(); return list.filter(Boolean).join(lang.startsWith('zh')?'、':', '); }
+
+  // 强弱标签多语言
+  _strengthLabel(m){
+    const map = { '偏强': t('strength_strong'), '偏弱': t('strength_weak'), '平衡': t('strength_balanced') };
+    return map[m] || m;
   }
+
+  // 五行与方位、颜色多语言
+  _EL(){ return {
+    wood: t('el_wood'), fire: t('el_fire'), earth: t('el_earth'), metal: t('el_metal'), water: t('el_water')
+  }; }
+  _DIR(){ return {
+    wood: t('dir_wood'), fire: t('dir_fire'), earth: t('dir_earth'), metal: t('dir_metal'), water: t('dir_water')
+  }; }
+  _COLOR(){ return {
+    wood: t('color_wood'), fire: t('color_fire'), earth: t('color_earth'),
+    metal: t('color_metal'), water: t('color_water')
+  }; }
+
+  generateAnalysis(baziData){
+    this.currentContext = baziData;
+    const a = $('assistant-analysis'), b = $('assistant-advice');
+    if (a) a.innerHTML = this.analyzeBazi(baziData);
+    if (b) b.innerHTML = this.generateAdvice(baziData);
+  }
+
+  analyzeBazi({dayMaster,elements,strength,season,timeUnknown}){
+    const timeNote = timeUnknown
+      ? `<li><strong>${t('note')}</strong>：${t('time_unknown_checked')}，<strong>${t('hour_pillar_excluded')}</strong>。</li>`
+      : '';
+    return `<ul class="ul">
+      <li>${t('day_master')}：<strong>${dayMaster.stem}（${dayMaster.element}）</strong></li>
+      <li>${t('chart_strength')}<strong>${this._strengthLabel(strength.mark)}</strong>：${this.getStrengthDescription(strength.mark)}</li>
+      <li>${t('season')}：<strong>${season}</strong>，${this.getSeasonInfluence(season)}</li>
+      <li>${t('wuxing_distribution')}：${this.getElementDistribution(elements)}</li>
+      ${timeNote}
+    </ul>`;
+  }
+
+  generateAdvice({strength,useful,timeUnknown}){
+    const warn = timeUnknown ? `<li><strong>${t('hint')}</strong>：${t('no_hour_tip')}</li>` : '';
+    const luckyColors = this.getLuckyColors(useful.useful||[]);
+    const luckyDirs   = this.getLuckyDirections(useful.useful||[]);
+    return `<ul class="ul">
+      <li><strong>${t('dev_strategy')}</strong>${strength.focus}</li>
+      <li><strong>${t('useful_elements')}</strong>${this._join(useful.useful||[])}</li>
+      <li><strong>${t('lucky_colors')}</strong>${luckyColors}</li>
+      <li><strong>${t('lucky_directions')}</strong>${luckyDirs}</li>
+      ${warn}
+    </ul>`;
+  }
+
+  // —— 描述&映射也做多语言
+  getStrengthDescription(m){
+    const map = {
+      '偏强': t('desc_strong'),
+      '偏弱': t('desc_weak'),
+      '平衡': t('desc_balanced')
+    };
+    return map[m] || t('desc_generic');
+  }
+
+  getSeasonInfluence(season){
+    const map = { '春': t('season_spring'), '夏': t('season_summer'), '秋': t('season_autumn'), '冬': t('season_winter') };
+    return map[season] || t('season_generic');
+  }
+
+  getLuckyColors(list){
+    const C = this._COLOR();
+    const m = { '木': C.wood, '火': C.fire, '土': C.earth, '金': C.metal, '水': C.water };
+    return this._join(list.map(x=>m[x]));
+  }
+
+  getLuckyDirections(list){
+    const D = this._DIR();
+    const m = { '木': D.wood, '火': D.fire, '土': D.earth, '金': D.metal, '水': D.water };
+    return this._join(list.map(x=>m[x]));
+  }
+
+  ELABEL(){ return this._EL(); } // 兼容旧调用
+
+  getElementDistribution(elements){
+    const L = this._EL();
+    return Object.entries(elements)
+      .sort((a,b)=>b[1]-a[1])
+      .map(([k,v])=>`${L[k]||k}${Math.round(v)}%`)
+      .join(this._join([]).replace(/./g,'' ) || '、'); // 用同语言分隔符
+  }
+}
+
 
   /* ================== 免费/富报告 ================== */
   function buildFreeReportHTML({pillars,percents,st,adv,timeUnknown}){
@@ -667,14 +732,18 @@ function buildRichReportHTML({pillars,percents,st,adv,timeUnknown}){
       </div>
     </section>
 
-  /* ================== 管家卡片 & GPT 抽屉（抽屉被CSS隐藏） ================== */
-  function buildButlerHTML(){
-    return `<div id="assistant-panel" class="xl-card" style="margin-top:12px;padding:16px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
-      <h3 style="margin:0 0 8px;color:var(--brand)">心怜管家 · 智能解读</h3>
+/* ================== 管家卡片（支持多语言） ================== */
+function buildButlerHTML(){
+  return `
+    <div id="assistant-panel" class="xl-card"
+         style="margin-top:12px;padding:16px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
+      <h3 class="butler-title" style="margin:0 0 8px;color:var(--brand)"
+          data-i18n="butler_title">${t('butler_title')}</h3>
       <div id="assistant-analysis"></div>
       <div id="assistant-advice" style="margin-top:8px"></div>
     </div>`;
-  }
+}
+
   function buildChatDrawerHTML(){
     return `<details id="gpt-drawer" class="xl-card" style="margin-top:12px;padding:0;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
       <summary style="cursor:pointer;list-style:none;padding:12px 16px;font-weight:700;color:var(--brand);">GPT 问答</summary>
@@ -692,15 +761,24 @@ function buildRichReportHTML({pillars,percents,st,adv,timeUnknown}){
     async function post(url){ try{ const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)}); if(r.ok){ const t=await r.text(); try{ const j=JSON.parse(t); return j.reply||t||'（无响应）'; }catch{return t||'（无响应）'; } } }catch(_){} return null; }
     return await post('/api/butler/chat') || await post('/api/chat') || '（暂时无法连接到服务端）';
   }
-  function mountExtensionsIntoResult({pillars,percents,st,adv,timeUnknown}){
-    const resultEl=$('result'); if(!resultEl) return;
-    let freeNode=$('xl-free-report'); if(!freeNode){ freeNode=document.createElement('div'); freeNode.id='xl-free-report'; resultEl.appendChild(freeNode); }
-    freeNode.innerHTML=buildFreeReportHTML({pillars,percents,st,adv,timeUnknown});
-    let butler=$('assistant-panel'); if(!butler){ const wrap=document.createElement('div'); wrap.innerHTML=buildButlerHTML(); resultEl.appendChild(wrap.firstElementChild); }
-    const ctx={ dayMaster:{stem:pillars.day.stem,element:pillars.day.element}, elements:percents, strength:st, season:st.season, useful:adv, timeUnknown };
-    new XinLianAssistant().generateAnalysis(ctx);
-    window.__bazi_ctx__={pillars,wuxing_ratio:percents,season:st.season,strength:st.mark,strategy:st.focus,useful:adv?.useful||[],timeUnknown};
-    if(!$('gpt-drawer')){ const wrap=document.createElement('div'); wrap.innerHTML=buildChatDrawerHTML(); resultEl.appendChild(wrap.firstElementChild); }
+function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
+  const resultEl = $('result');
+  if (!resultEl) return;
+
+  let freeNode = $('xl-free-report');
+  if (!freeNode) {
+    freeNode = document.createElement('div');
+    freeNode.id = 'xl-free-report';
+    resultEl.appendChild(freeNode);
+  }
+  freeNode.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown});
+
+  let butler = $('assistant-panel');
+  if (!butler) {
+    const wrap = document.createElement('div');
+    wrap.innerHTML = buildButlerHTML();
+    resultEl.appendChild(wrap.firstElementChild);
+    applyI18n();          // ★ 新增：让新增节点也应用翻译
   }
 
   function relocateButlerPanel(){
