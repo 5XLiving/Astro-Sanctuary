@@ -485,6 +485,40 @@
     return {strategy:'调和', useful:['木','火','土','金','水'], avoid:[]};
   }
 
+// —— 语言：初始化 + 切换后重渲染
+function initLangUI(){
+  const sel = document.getElementById('langSelect');
+  if(!sel) return;
+  // 读取记忆语言
+  const current = getLang();
+  sel.value = current;
+  document.documentElement.lang = current;
+  applyI18n();
+  applyChatI18n();
+
+  sel.addEventListener('change', ()=>{
+    setLang(sel.value);               // 存 localStorage + <html lang=...>
+    applyI18n();                      // 刷新所有 data-i18n 文案
+    applyChatI18n();                  // 刷新右下角“心怜管家”输入区文案
+    rerenderReportsIfAny();           // 重新渲染已生成的报告（见下）
+  });
+}
+
+// 报告重渲染（切语种时调用）
+function rerenderReportsIfAny(){
+  // 1) 经典表格区只包含符号，不需要重刷；需要的话可在此按需改文案
+  // 2) 富报告/免费报告：根据缓存的上一次数据重建
+  if (window.__last_report__) {
+    const { pillars, percents, st, adv, tu } = window.__last_report__;
+    // 先重建“免费报告 + 管家卡片”
+    mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
+    // 再重建“富报告”
+    mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
+    // 把管家卡片移到“健康”后（如果你有这个位置要求）
+    if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
+  }
+}    
+
   /* ================== 心怜管家（分析器） ================== */
   class XinLianAssistant{
     constructor(){ this.currentContext=null; }
@@ -704,6 +738,7 @@ function buildRichReportHTML({pillars,percents,st,adv,timeUnknown}){
     }catch(err){ console.error(err); showErr('计算八字时出现错误，请重试'); }
     finally{ if(btn) btn.disabled=false; if(tx) tx.style.display='inline'; if(ld) ld.style.display='none'; }
   }
+    window.__last_report__ = { pillars, percents, st, adv, tu };
 
   /* ================== Chat 悬浮球 ================== */
   document.addEventListener('DOMContentLoaded', ()=>{
