@@ -364,6 +364,7 @@ const translations = {
     err_need_ep:"请输入邮箱与密码", err_pwd_rule:"密码至少8位，需包含大写/小写/数字/特殊符号",
     err_no_account:"账户不存在，请先注册", err_wrong_pwd:"密码错误", err_expired:"会员已过期，请续费",
     err_login_fail:"登入失败：", err_register_fail:"注册失败：", err_email_empty:"邮箱不能为空", err_pwd_empty:"密码不能为空",
+    err_reset_fail:"重设密码失败：",
     prompt_email:"请输入注册邮箱：", prompt_newpwd:"请输入新密码（至少8位，含大小写、数字、符号）：",
     btn_upgrade:"💎 升级为 VIP（月费）", btn_backshop:"← 返回命理商城",
     vip_title:"🌙 会员区域 VIP Segment", vip_mingli:"🗝 命理空间专属内容", vip_xinlian:"🌙 心怜空间专属内容",
@@ -374,6 +375,8 @@ const translations = {
     login_title:"💎 登入 VIP 功能",
     chat_fab:"问", chat_placeholder:"请问您想了解什么？（如：如何开始免费体验）", chat_send:"发送",
     msg_reset_ok:"密码已成功更新，请用新密码重新登入。",
+    ph_email:"邮箱 Email",
+    ph_password:"密码 Password（至少8位，含大小写数字符号）",
 
     // Butler / report keys
     butler_title:"心怜管家 · 智能解读",
@@ -431,6 +434,7 @@ const translations = {
     err_need_ep:"Enter email and password", err_pwd_rule:"Password must be 8+ and include upper/lowercase, number, symbol",
     err_no_account:"Account not found. Please register first.", err_wrong_pwd:"Incorrect password", err_expired:"Membership expired. Please renew.",
     err_login_fail:"Login failed: ", err_register_fail:"Registration failed: ", err_email_empty:"Email cannot be empty", err_pwd_empty:"Password cannot be empty",
+    err_reset_fail:"Password reset failed: ",
     prompt_email:"Enter your registered email:", prompt_newpwd:"Enter a new password (8+, upper/lower/digit/symbol):",
     btn_upgrade:"💎 Upgrade to VIP (Monthly)", btn_backshop:"← Back to Store",
     vip_title:"🌙 VIP Segment", vip_mingli:"🗝 Astro Sanctuary · Exclusive", vip_xinlian:"🌙 Soul Sanctuary · Exclusive",
@@ -441,6 +445,8 @@ const translations = {
     login_title:"💎 VIP Login",
     chat_fab:"Chat", chat_placeholder:"What would you like to know? (e.g., how to start the free trial)", chat_send:"Send",
     msg_reset_ok:"Password updated. Please log in with the new one.",
+    ph_email:"Email",
+    ph_password:"Password (8+, upper/lower/digit/symbol)",
 
     // Butler / report keys
     butler_title:"Xinlian Butler · Insight",
@@ -654,7 +660,7 @@ function buildFreeReportHTML({pillars, percents, st, adv, timeUnknown}){
   const line = ['wood','fire','earth','metal','water'].map(fmt).join(sep);
 
   const favLoc   = elCharsToLocale(adv?.useful||[]);
-  the const avoidLoc = elCharsToLocale(adv?.avoid||[]);
+  const avoidLoc = elCharsToLocale(adv?.avoid||[]);
   const favText   = favLoc.length ? listJoin(favLoc) : (lang.startsWith('zh')?'—':'—');
   const avoidText = avoidLoc.length ? listJoin(avoidLoc) : (lang.startsWith('zh')?'—':'—');
 
@@ -945,7 +951,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   chatPanel.innerHTML = `
     <div class="ss-chat-head"><div class="ss-chat-title">心怜管家 · Chat</div><div class="ss-close" id="ssChatClose">✕</div></div>
     <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
-    <div class="ss-chat-input"><input id="ssChatInput" type="text" placeholder="\${t('chat_placeholder')}"/><button id="ssChatSend" class="btn">\${t('chat_send')}</button></div>`;
+    <div class="ss-chat-input"><input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/><button id="ssChatSend" class="btn">${t('chat_send')}</button></div>`;
   document.body.appendChild(chatFab); document.body.appendChild(chatPanel);
   applyChatI18n();
 
@@ -957,7 +963,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   async function askChat(prompt){
     addMsg(prompt,true); if($input){ $input.value=''; $input.focus(); }
     try{
-      const r=await fetch(\`\${API_BASE}/api/chat\`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'system',content:'你是“心怜管家”，帮助访客了解命理心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。'},{role:'user',content:prompt}]})});
+      const r=await fetch(`${API_BASE}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'system',content:'你是“心怜管家”，帮助访客了解命理心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。'},{role:'user',content:prompt}]})});
       let data,reply=''; try{data=await r.json()}catch{data={}} reply=data.reply??data.text??data?.choices?.[0]?.message?.content??"";
       if(!reply) return addMsg('抱歉，服务暂时繁忙，请稍后重试。'); addMsg(reply);
     }catch(e){ addMsg('网络异常，请稍后再试。'); }
@@ -988,7 +994,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     twMask.style.display='flex'; selected=null; twApply.disabled=true;
     if(!twGrid.dataset.built){
       DZ.forEach(([z,range])=>{
-        const b=document.createElement('button'); b.type='button'; b.className='tw-btn'; b.textContent=\`\${z}（\${range}）\`;
+        const b=document.createElement('button'); b.type='button'; b.className='tw-btn'; b.textContent=`${z}（${range}）`;
         b.addEventListener('click',()=>{ [...twGrid.children].forEach(x=>x.classList.remove('active')); b.classList.add('active'); selected=z; twApply.disabled=false;});
         twGrid.appendChild(b);
       }); twGrid.dataset.built='1';
@@ -1068,5 +1074,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+H.branch);
 })();
 </script>
+
 </body>
 </html>
