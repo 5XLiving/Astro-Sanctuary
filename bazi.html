@@ -227,7 +227,7 @@
       </div>
 
       <div class="card">
-        <div class="h2">五行能量分析</div>
+        <div class="h2" data-i18n="rpt_sec_elements_title">五行能量分析</div>
         <div class="bar-row"><span>木</span><div class="bar"><i id="bar-木"></i></div><span id="pct-木">0%</span></div>
         <div class="bar-row"><span>火</span><div class="bar"><i id="bar-火"></i></div><span id="pct-火">0%</span></div>
         <div class="bar-row"><span>土</span><div class="bar"><i id="bar-土"></i></div><span id="pct-土">0%</span></div>
@@ -377,7 +377,7 @@ const translations = {
     msg_reset_ok:"密码已成功更新，请用新密码重新登入。",
     ph_email:"邮箱 Email",
     ph_password:"密码 Password（至少8位，含大小写数字符号）",
-
+    elements_balance_tpl: '五行中{max}元素最强，{min}元素最弱。',
     // Butler / report keys
     butler_title:"心怜管家 · 智能解读",
     day_master:"日主", chart_strength:"命局", season:"季节", wuxing_distribution:"五行分布",
@@ -447,6 +447,7 @@ const translations = {
     msg_reset_ok:"Password updated. Please log in with the new one.",
     ph_email:"Email",
     ph_password:"Password (8+, upper/lower/digit/symbol)",
+    elements_balance_tpl: 'Strongest: {max} · Weakest: {min}',
 
     // Butler / report keys
     butler_title:"Xinlian Butler · Insight",
@@ -872,7 +873,14 @@ async function genChart(){
     const keys = Object.keys(counts);
     const maxK = keys.reduce((a,b)=>counts[a]>counts[b]?a:b);
     const minK = keys.reduce((a,b)=>counts[a]<counts[b]?a:b);
-    setText('bazi-elements-balance', `五行中${maxK}元素最强，${minK}元素最弱。`);
+    setconst E = ELABEL();
+const char2Locale = { 木: E.wood, 火: E.fire, 土: E.earth, 金: E.metal, 水: E.water };
+setText(
+  'bazi-elements-balance',
+  t('elements_balance_tpl')
+    .replace('{max}', char2Locale[maxK])
+    .replace('{min}', char2Locale[minK])
+);Text('bazi-elements-balance', `五行中${maxK}元素最强，${minK}元素最弱。`);
 
     window.__last_report__ = { pillars, percents, st, adv, tu };
 
@@ -943,6 +951,22 @@ function rerenderReportsIfAny(){
     if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
   }
 }
+
+// 语言切换后也更新“最强/最弱”提示
+if (window.__last_report__) {
+  const { percents } = window.__last_report__;
+  const E = ELABEL();
+  const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
+  const entries = Object.entries(percents || {});
+  const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
+  const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
+  setText(
+    'bazi-elements-balance',
+    t('elements_balance_tpl')
+      .replace('{max}', key2Locale[strongestK])
+      .replace('{min}', key2Locale[weakestK])
+  );
+}  
 
 /* ================== Chat 悬浮球 ================== */
 document.addEventListener('DOMContentLoaded', ()=>{
