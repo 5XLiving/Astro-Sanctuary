@@ -971,14 +971,21 @@ function mountRichReport({ pillars, percents, st, adv, timeUnknown }) {
 
 /* ================== 语言：初始化 + 切换后重渲染 ================== */
 function applyI18n(){
-  document.querySelectorAll("[data-i18n]").forEach(el=>{ const key=el.getAttribute("data-i18n"); el.textContent=t(key);});
-  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ const key=el.getAttribute("data-i18n-ph"); el.setAttribute("placeholder", t(key));});
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const key=el.getAttribute("data-i18n");
+    el.textContent=t(key);
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
+    const key=el.getAttribute("data-i18n-ph");
+    el.setAttribute("placeholder", t(key));
+  });
 }
+
 function applyChatI18n(){
   const fab=$('ssChatFab'), inp=$('ssChatInput'), btn=$('ssChatSend');
   if (fab) fab.textContent = t('chat_fab');
-  if (inp) inp.placeholder = t('chat_placeholder');
-  if (btn) btn.textContent = t('chat_send');
+  if (inp)  inp.placeholder = t('chat_placeholder');
+  if (btn)  btn.textContent = t('chat_send');
 }
 
 /** 切语言后：重渲染富报告 + 更新管家卡片 + 同步“最强/最弱”文案 */
@@ -986,28 +993,33 @@ function rerenderReportsIfAny(){
   if (!window.__last_report__) return;
   const { pillars, percents, st, adv, tu } = window.__last_report__;
 
-  // 富报告
-  mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
-
-  // 管家卡片 + 免费简报
+  // 先重画报告和管家
   mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
+  mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
+  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
 
-  // “最强 / 最弱”行多语言同步
+  // 同步“最强/最弱”提示行
   const E = ELABEL();
   const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
   const entries = Object.entries(percents || {});
   const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
   const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
-  setText('bazi-elements-balance',
+  setText(
+    'bazi-elements-balance',
     t('elements_balance_tpl')
       .replace('{max}', key2Locale[strongestK])
       .replace('{min}', key2Locale[weakestK])
   );
+
+  // 刷新管家标题（防止停留在旧语言）
+  const tEl = document.querySelector('#assistant-panel .butler-title');
+  if (tEl) tEl.textContent = t('butler_title');
 }
 
 function initLangUI(){
   const sel = document.getElementById('langSelect');
   if(!sel) return;
+
   const current = getLang();
   sel.value = current;
   document.documentElement.lang = current;
