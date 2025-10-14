@@ -245,43 +245,42 @@ label.muted{display:block;margin-bottom:4px}
     <input id="name" placeholder="你的称呼（用于个性化）" data-i18n-ph="ph_name" />
   </div>
   <div>
-    <label class="muted" data-i18n="gender_label">性别</label>
+    <label class="muted">性别</label>
     <select id="gender">
-      <option value="" data-i18n="opt_gender_confidential">不透露</option>
-      <option value="male" data-i18n="opt_gender_male">男性</option>
-      <option value="female" data-i18n="opt_gender_female">女性</option>
-      </select>
+      <option value="">不透露 / Confidential</option>
+      <option value="male">男性 / Male</option>
+      <option value="female">女性 / Female</option>
+    </select>
   </div>
   <div>
-  <label class="muted" data-i18n="label_calendar">历法</label>
-  <select id="calendar">
-    <option value="gregorian" data-i18n="opt_cal_gregorian">阳历</option>
-    <option value="lunar" data-i18n="opt_cal_lunar">农历</option>
+    <label class="muted">历法</label>
+    <select id="calendar">
+      <option value="gregorian">阳历 / Gregorian</option>
+      <option value="lunar">农历 / Lunar</option>
     </select>
   </div>
 </div>
 
 <div class="row cols-3" style="margin-top:10px">
   <div>
-    <label class="muted" data-i18n="label_birthdate">出生日期</label>
-    <input type="date" id="birthdate" />
+    <label class="muted">出生日期</label>
+    <input type="date" id="birthdate">
   </div>
 
   <div>
-    <label class="muted" data-i18n="label_birthtime">出生时间</label>
+    <label class="muted">出生时间</label>
     <div class="time-row">
-       <input type="time" id="birthtime" value="12:00" />
-       <label class="muted time-unknown">
-       <input type="checkbox" id="timeUnknown" />
-       <span data-i18n="cb_time_unknown">出生时间不详</span>
+      <input type="time" id="birthtime" value="12:00">
+      <label class="muted time-unknown">
+        <input type="checkbox" id="timeUnknown"> 不决定时间
       </label>
     </div>
   </div>
 
   <div class="gen-wrap">
     <button class="btn" id="genBtn">
-      <span id="genBtnText" data-i18n="btn_generate_chart">生成八字</span>
-      <span id="genBtnLoading" style="display:none">计算中...</span>
+      <span id="genBtnText">Generate Chart</span>
+      <span id="genBtnLoading" style="display:none">Calculating…</span>
     </button>
   </div>
 </div>
@@ -1029,8 +1028,9 @@ function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}){
 /* ================== 管家卡片（支持多语言） ================== */
 function buildButlerHTML(){
   return `
-    <div id="assistant-panel" class="xl-card" ...>
-      <h3 class="butler-title" data-i18n="butler_title">${t('butler_title')}</h3>
+    <div id="assistant-panel" class="xl-card"
+         style="margin-top:12px;padding:16px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
+      <h3 class="butler-title" style="margin:0 0 8px;color:var(--brand)" data-i18n="butler_title">${t('butler_title')}</h3>
       <div id="assistant-analysis"></div>
       <div id="assistant-advice" style="margin-top:8px"></div>
     </div>`;
@@ -1041,17 +1041,21 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
   const resultEl = $('result');
   if (!resultEl) return;
 
-  // …… free report 省略
+  let freeNode = $('xl-free-report');
+  if (!freeNode) {
+    freeNode = document.createElement('div');
+    freeNode.id = 'xl-free-report';
+    resultEl.appendChild(freeNode);
+  }
+  freeNode.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown});
 
   let butler = $('assistant-panel');
   if (!butler) {
     const wrap = document.createElement('div');
     wrap.innerHTML = buildButlerHTML();
     resultEl.appendChild(wrap.firstElementChild);
+    applyI18n(); // 标题多语言
   }
-  // 🔴 每次都刷新标题文本（避免停留在上一次语言）
-  const titleEl = document.querySelector('#assistant-panel .butler-title');
-  if (titleEl) titleEl.textContent = t('butler_title');
 
   const assistant = new XinLianAssistant();
   assistant.generateAnalysis({
@@ -1185,16 +1189,13 @@ function initLangUI(){
   applyI18n();
   applyChatI18n();
 
-sel.addEventListener('change', ()=>{
-  setLang(sel.value);
-  applyI18n();
-  applyChatI18n();
-  rerenderReportsIfAny();          // ✅ 已有
-  // 保险：如果已有管家卡片，强制刷新标题
-  const tEl = document.querySelector('#assistant-panel .butler-title');
-  if (tEl) tEl.textContent = t('butler_title');
-});
-  
+  sel.addEventListener('change', ()=>{
+    setLang(sel.value);
+    applyI18n();
+    applyChatI18n();
+    rerenderReportsIfAny();
+  });
+}
 function rerenderReportsIfAny(){
   if (window.__last_report__) {
     const { pillars, percents, st, adv, tu } = window.__last_report__;
