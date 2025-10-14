@@ -827,7 +827,6 @@ class XinLianAssistant{
   _EL(){ return { wood: t('el_wood'), fire: t('el_fire'), earth: t('el_earth'), metal: t('el_metal'), water: t('el_water') }; }
   _DIR(){ return { wood: t('dir_wood'), fire: t('dir_fire'), earth: t('dir_earth'), metal: t('dir_metal'), water: t('dir_water') }; }
   _COLOR(){ return { wood: t('color_wood'), fire: t('color_fire'), earth: t('color_earth'), metal: t('color_metal'), water: t('color_water') }; }
-
   generateAnalysis(baziData){
     this.currentContext = baziData;
     const a = $('assistant-analysis'), b = $('assistant-advice');
@@ -837,25 +836,19 @@ class XinLianAssistant{
   analyzeBazi({dayMaster,elements,strength,season,timeUnknown}){
     const timeNote = timeUnknown ? `<li><strong>${t('note')}</strong>：${t('time_unknown_checked')}，<strong>${t('hour_pillar_excluded')}</strong>。</li>` : '';
     return `<ul class="ul">
-      <li>${t('day_master')}：<strong>${dayMaster.stem}（${dayMaster.element}）</strong></li>
+      <li>${t('day_master')}：<strong>${dayMaster.stem}（${ELABEL()[EL_CHAR_TO_KEY[dayMaster.element]]||dayMaster.element}）</strong></li>
       <li>${t('chart_strength')}<strong>${this._strengthLabel(strength.mark)}</strong>：${this.getStrengthDescription(strength.mark)}</li>
-      <li>${t('season')}：<strong>${season}</strong>，${this.getSeasonInfluence(season)}</li>
+      <li>${t('season')}：<strong>${seasonName(season)}</strong>，${this.getSeasonInfluence(season)}</li>
       <li>${t('wuxing_distribution')}：${this.getElementDistribution(elements)}</li>
       ${timeNote}
     </ul>`;
   }
-   generateAdvice({strength,useful,timeUnknown}){
+generateAdvice({strength,useful,timeUnknown}){
   const warn = timeUnknown ? `<li><strong>${t('hint')}</strong>：${t('no_hour_tip')}</li>` : '';
-
-  // ✅ 五行名称本地化（木/火/土/金/水 → Wood/Fire/...）
-  const favLocalized = listJoin(elCharsToLocale(useful.useful||[]));
-
-  // ✅ 策略词本地化（泄秀/制化、生扶/补助、调和 → 英文）
-  const strategyLocalized = strategyName(strength.focus);
-
+  const strategyLocalized = strategyName(strength.focus);           // 策略多语言
+  const favLocalized = listJoin(elCharsToLocale(useful.useful||[])); // 五行多语言
   const luckyColors = this.getLuckyColors(useful.useful||[]);
   const luckyDirs   = this.getLuckyDirections(useful.useful||[]);
-
   return `<ul class="ul">
     <li><strong>${t('dev_strategy')}</strong>${strategyLocalized}</li>
     <li><strong>${t('useful_elements')}</strong>${favLocalized}</li>
@@ -864,6 +857,7 @@ class XinLianAssistant{
     ${warn}
   </ul>`;
 }
+
   getStrengthDescription(m){
     const map = { '偏强': t('desc_strong'), '偏弱': t('desc_weak'), '平衡': t('desc_balanced') };
     return map[m] || t('desc_generic');
@@ -1205,25 +1199,43 @@ function initLangUI(){
   });
 }
 function rerenderReportsIfAny(){
-  if (window.__last_report__) {
-    const { pillars, percents, st, adv, tu } = window.__last_report__;
-    mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
-    mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
-    if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
+  const ctx = window.__last_report__;
+  if (!ctx) return;
 
-    // 切语言后同步刷新“最强/最弱”提示
-    const E = ELABEL();
-    const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
-    const entries = Object.entries(percents || {});
-    const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
-    const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
-    setText(
-      'bazi-elements-balance',
-      t('elements_balance_tpl')
-        .replace('{max}', key2Locale[strongestK])
-        .replace('{min}', key2Locale[weakestK])
-    );
-  }
+  const { pillars, percents, st, adv, tu } = ctx;
+
+  // 1) 重新渲染报告（免费+富报告）
+  mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
+  mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
+  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
+
+  // 2) 切语言后同步刷新“最强/最弱”提示
+  const E = ELABEL();
+  const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
+  const entries = Object.entries(percents || {});
+  const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
+  const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
+  setText(
+    'bazi-elements-balance',
+    t('elements_balance_tpl')
+      .replace('{max}', key2Locale[strongestK])
+      .replace('{min}', key2Locale[weakestK])
+  );
+
+  // 3) 强制刷新“心怜管家”标题与内容为当前语言
+  const titleEl = document.querySelector('#assistant-panel .butler-title');
+  if (titleEl) titleEl.textContent = t('butler_title');
+
+  // 再跑一次管家内容（确保分析与建议文本跟随语言）
+  const assistant = new XinLianAssistant();
+  assistant.generateAnalysis({
+    dayMaster: { stem: pillars.day.stem, element: pillars.day.element },
+    elements: percents,
+    strength: st,
+    season: st.season,
+    useful: adv,
+    timeUnknown: tu
+  });
 }
 
 /* ================== Chat 悬浮球 ================== */
