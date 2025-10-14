@@ -1028,7 +1028,8 @@ function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}){
 /* ================== 管家卡片（支持多语言） ================== */
 function buildButlerHTML(){
   return `
-    <div id="assistant-panel" class="xl-card" ...>
+    <div id="assistant-panel" class="xl-card" 
+         style="margin-top:12px;padding:16px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
       <h3 class="butler-title" data-i18n="butler_title">${t('butler_title')}</h3>
       <div id="assistant-analysis"></div>
       <div id="assistant-advice" style="margin-top:8px"></div>
@@ -1184,37 +1185,36 @@ function initLangUI(){
   applyI18n();
   applyChatI18n();
 
-sel.addEventListener('change', ()=>{
-  setLang(sel.value);
-  applyI18n();
-  applyChatI18n();
-  rerenderReportsIfAny();          // ✅ 已有
-  // 保险：如果已有管家卡片，强制刷新标题
-  const tEl = document.querySelector('#assistant-panel .butler-title');
-  if (tEl) tEl.textContent = t('butler_title');
-});
+  sel.addEventListener('change', ()=>{
+    setLang(sel.value);
+    applyI18n();
+    applyChatI18n();
+    rerenderReportsIfAny(); // 重新渲染报告
+    const tEl = document.querySelector('#assistant-panel .butler-title');
+    if (tEl) tEl.textContent = t('butler_title');
+  });
   
-function rerenderReportsIfAny(){
-  if (window.__last_report__) {
-    const { pillars, percents, st, adv, tu } = window.__last_report__;
-    mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
-    mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
-    if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
+  function rerenderReportsIfAny(){
+    if (window.__last_report__) {
+      const { pillars, percents, st, adv, tu } = window.__last_report__;
+      mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
+      mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
+      if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
 
-    // 切语言后同步刷新“最强/最弱”提示
-    const E = ELABEL();
-    const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
-    const entries = Object.entries(percents || {});
-    const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
-    const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
-    setText(
-      'bazi-elements-balance',
-      t('elements_balance_tpl')
-        .replace('{max}', key2Locale[strongestK])
-        .replace('{min}', key2Locale[weakestK])
-    );
+      const E = ELABEL();
+      const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
+      const entries = Object.entries(percents || {});
+      const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
+      const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
+      setText(
+        'bazi-elements-balance',
+        t('elements_balance_tpl')
+          .replace('{max}', key2Locale[strongestK])
+          .replace('{min}', key2Locale[weakestK])
+      );
+    }
   }
-}
+} // ←←← 这个就是你漏掉的花括号
 
 /* ================== Chat 悬浮球 ================== */
 document.addEventListener('DOMContentLoaded', ()=>{
