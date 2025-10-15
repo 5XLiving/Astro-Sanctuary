@@ -1,438 +1,738 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh">
 <head>
-  <meta charset="UTF-8" />
-  <title data-i18n="page_title">本命星盘</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <style>
-    :root{
-      --bg:#0b0f14; --card:#11161dCC; --line:#1f2a36; --text:#e8edf3; --muted:#98a7b7;
-      --brand:#d4af37; --accent:#58b9ff; --radius:14px; --shadow:0 8px 30px rgba(0,0,0,.35); --blur:10px;
-    }
-    html,body{height:100%} html{font-size:16px}
-    @media(min-width:768px){ html{font-size:17px} } @media(min-width:1200px){ html{font-size:18px} }
-    body{
-      margin:0; color:var(--text);
-      background: radial-gradient(1200px 600px at 70% -10%, #16202b 10%, transparent 60%) no-repeat,
-                  linear-gradient(180deg,#0b0f14,#0b0f14);
-      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans SC", Arial, sans-serif;
-      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-    }
-    body::before{
-      content:""; position:fixed; inset:0; z-index:-2;
-      background:url('assets/images/gate.jpg') center/cover no-repeat;
-      filter:brightness(.45) saturate(.9) blur(2px);
-    }
-    .glow{position:fixed; inset:auto auto 10% -10%; width:45vw; height:45vw; max-width:700px; max-height:700px;
-      background:radial-gradient(closest-side, #2a98ff33, transparent 70%); filter:blur(30px); z-index:-1; pointer-events:none;}
-
-    .container{width:100%; max-width:1000px; padding:24px 16px 80px; margin:0 auto;}
-    header{position:sticky; top:0; z-index:10; backdrop-filter:saturate(140%) blur(12px);
-      background:#0b0f14cc; border-bottom:1px solid #0f1622;}
-    .head-inner{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:16px}
-    .brand{display:flex; align-items:center; gap:12px;}
-    .brand-badge{width:36px; height:36px; border-radius:10px; background:linear-gradient(145deg,#273243,#0e141c);
-      display:grid; place-items:center; color:var(--brand); font-weight:700; box-shadow:var(--shadow)}
-    .title{font-family:"Noto Serif SC","Noto Serif",serif; font-weight:600; letter-spacing:.02em; font-size:1.1rem}
-    .subtitle{color:var(--muted); font-size:.9rem}
-
-    /* 语言选择器 */
-    .lang{display:flex; align-items:center; gap:8px}
-    .lang label{color:var(--muted); font-size:.9rem}
-    .lang select{
-      appearance:none; border-radius:10px; border:1px solid #243244; background:#0e1520; color:var(--text);
-      padding:10px 34px 10px 12px; font-size:.95rem;
-      background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2398a7b7' stroke-width='2' fill='none'/%3E%3C/svg%3E");
-      background-repeat:no-repeat; background-position:calc(100% - 12px) 50%;
-    }
-
-    .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
-      box-shadow:var(--shadow); backdrop-filter: blur(var(--blur)); padding:18px;}
-    .section{margin-top:18px}
-    .section h2{
-      font-family:"Noto Serif SC","Noto Serif",serif; font-weight:600; font-size:1.2rem; margin:0 0 12px;
-      display:flex; align-items:center; gap:10px
-    }
-    .section h2::before{
-      content:""; width:8px; height:8px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 4px #58b9ff22
-    }
-
-    .row{display:grid; gap:12px}
-    @media(min-width:640px){ .row-2{grid-template-columns:1fr 1fr} .row-3{grid-template-columns:1fr 1fr 1fr} }
-    input,select,button{
-      width:100%; box-sizing:border-box; border-radius:12px; border:1px solid #243244;
-      background:#0e1520; color:var(--text); padding:14px 13px; font-size:1rem; outline:none;
-    }
-    input::placeholder{color:#6f8092}
-    select{appearance:none; background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2398a7b7' stroke-width='2' fill='none'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:calc(100% - 12px) 50%}
-
-    .btn{
-      background:linear-gradient(180deg,#1d2a3a,#101723); border:1px solid #28364a;
-      font-weight:600; letter-spacing:.02em; cursor:pointer; transition:transform .05s ease, box-shadow .2s ease, border .2s ease;
-    }
-    .btn:hover{box-shadow:0 6px 18px rgba(88,185,255,.15), inset 0 1px 0 #2e3c50}
-    .btn:active{transform:translateY(1px)}
-    .btn[disabled]{opacity:.6; cursor:not-allowed}
-
-    .muted{color:var(--muted)} .error{color:#ff8f8f; margin-top:8px}
-    footer{color:#6c7b8c; font-size:.85rem; text-align:center; padding:30px 0}
-
-    /* 占位报告卡片 */
-    .stack{display:grid; gap:12px}
-    .pill{border:1px solid #263448; background:#0e1520; border-radius:12px; padding:12px}
-    .pill .tag{display:inline-block; font-size:.82rem; padding:3px 8px; border-radius:999px; border:1px solid #2b3a4f; color:#c7d5e6; background:#0b111b}
-    .big{font-weight:700}
-
-    /* 标题与副标题都走 Noto Serif，大小与 Index 页一致 */
-.title{
-  font-family:"Noto Serif SC","Noto Serif",serif;
-  font-weight:600;
-  letter-spacing:.02em;
-  font-size:1.1rem;    /* 与 Index 保持一致 */
-}
-.subtitle{
-  font-family:"Noto Serif SC","Noto Serif",serif;
-  font-weight:400;
-  font-size:.95rem;    /* 与 Index 保持一致 */
-  color:var(--muted);
-  line-height:1.25;
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>塔罗牌占卜 · Tarot</title>
+<style>
+/* =====================
+THEME • VARIABLES
+===================== */
+:root{
+  --bg:#0b0f14;
+  --card:#11161dcc;
+  --line:#1f2a36;
+  --text:#e8edf3; /* body text = white */
+  --muted:#98a7b7;
+  --gold:#d4af37; /* header/title accents */
+  --brand:#d4af37; /* 5X brand gold */
+  --radius:14px;
+  --shadow:0 8px 24px rgba(0,0,0,.35);
+  --card-w:128px;
+  --card-h:212px;
+  --gap:14px;
 }
 
-/* 右侧两行排版到一列、与品牌对齐 */
-.subhead{
-  display:flex;
-  flex-direction:column;
-  align-items:flex-end;   /* 右对齐更精致 */
-  gap:2px;
+@media (max-width: 640px){
+  :root{ --card-w:100px; --card-h:168px; --gap:10px; }
 }
 
-/* 小屏时允许自动换行，避免挤压 */
-@media (max-width:520px){
-  .head-inner{ flex-wrap:wrap; }
-  .subhead{ align-items:flex-start; }
+/* =============
+GLOBAL RESET
+============= */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:Inter,"Noto Sans SC",system-ui,-apple-system,Segoe UI,Roboto,"PingFang SC","Hiragino Sans GB","Microsoft Yahei",sans-serif;
+  line-height:1.6;
 }
-  </style>
+
+/* Scrollbar (optional) */
+*::-webkit-scrollbar{width:10px;height:10px}
+*::-webkit-scrollbar-thumb{background:#1b2430;border-radius:8px;border:2px solid #0b0f14}
+*::-webkit-scrollbar-track{background:#0b0f14}
+
+/* ===============
+HEADER (5X)
+=============== */
+header{
+  position:sticky; top:0; z-index:20;
+  backdrop-filter:blur(10px);
+  background:#0b0f14cc;
+  border-bottom:1px solid var(--line);
+}
+.head-inner{
+  max-width:1100px; margin:0 auto;
+  padding:12px 16px;
+  display:flex; align-items:center; justify-content:space-between;
+}
+.brand{display:flex; align-items:center; gap:10px}
+.brand img.logo{width:28px; height:28px; object-fit:contain; display:block; filter: drop-shadow(0 2px 6px rgba(0,0,0,.4));}
+.brand-badge{background:var(--brand); color:#111; padding:6px 10px; border-radius:8px; font-weight:800}
+.title{font-weight:700; color:var(--gold);} /* header font = gold */
+.lang select{padding:6px 8px; border-radius:8px; background:#0f1420; color:#e8edf3; border:1px solid #273245}
+
+/* ===============
+PAGE CONTAINER
+=============== */
+.app{max-width:1100px; margin:0 auto; padding:18px}
+.app h1{margin:6px 0 14px; color:var(--gold); font-weight:800}
+
+/* ============
+CONTROLS
+============ */
+.controls{display:flex; flex-wrap:wrap; gap:10px; margin-bottom:12px}
+.controls input, .controls select, .controls button{padding:12px; border-radius:12px; border:1px solid #273245; background:#0f1420; color:var(--text)}
+.controls input{flex:1; min-width:220px}
+.controls button{cursor:pointer; background:linear-gradient(180deg,#fff9e6,var(--gold)); color:#121212; border-color:var(--gold); font-weight:800}
+.q{margin:6px 0 12px; font-weight:600; color:var(--muted)}
+
+/* ============
+TAROT BOARD + CARDS
+============ */
+.board{display:grid; gap:var(--gap); justify-content:center; align-content:start}
+.card{display:flex; flex-direction:column; align-items:center; gap:6px; text-align:center; background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:10px 10px 12px; box-shadow:var(--shadow); width:calc(var(--card-w) + 20px)}
+.imgwrap{width:var(--card-w); height:var(--card-h); border-radius:10px; overflow:hidden; background:#000; display:grid; place-items:center; border:1px solid #34455a}
+.card-img{display:block; width:100%; height:100%; object-fit:cover}
+.cap{font-weight:700}
+.mean{font-size:.92rem; color:var(--muted)}
+
+/* Spread layouts */
+.board.spread-1{grid-template-columns:repeat(1, max-content)}
+.board.spread-3{grid-template-columns:repeat(3, max-content)}
+
+/* 5-card cross using grid-areas */
+.board.spread-5{display:grid; grid-template-columns:repeat(3, max-content); grid-template-rows:auto auto auto; grid-template-areas:
+  "top top top"
+  "left center right"
+  "bottom bottom bottom"; }
+.board.spread-5 .pos-top{grid-area:top}
+.board.spread-5 .pos-left{grid-area:left}
+.board.spread-5 .pos-center{grid-area:center}
+.board.spread-5 .pos-right{grid-area:right}
+.board.spread-5 .pos-bottom{grid-area:bottom}
+
+/* 10-card Celtic Cross in three rows */
+.board.spread-10{gap:var(--gap)}
+.board.spread-10 .row{display:grid; gap:var(--gap); justify-content:center}
+.board.spread-10 .row-1{grid-template-columns:repeat(3, max-content)}
+.board.spread-10 .row-2{grid-template-columns:repeat(3, max-content)}
+.board.spread-10 .row-3{grid-template-columns:repeat(4, max-content)}
+
+/* ============
+READING PANEL
+============ */
+.panel{margin-top:16px; padding:14px; border:1px solid var(--line); background:#0f1420; border-radius:12px}
+.muted{color:var(--muted)}
+.btn{padding:8px 12px; border-radius:10px; border:1px solid #273245; background:#0f1420; color:#ffe084; cursor:pointer}
+.btn.ghost{background:transparent; color:var(--text)}
+
+/* ================= GPT FLOAT CHAT (UI only) ================= */
+.ss-chat-fab{position:fixed; right:18px; bottom:18px; z-index:30; background:var(--gold); color:#111; font-weight:800; padding:10px 14px; border-radius:999px; box-shadow:var(--shadow); cursor:pointer}
+.ss-chat-panel{position:fixed; right:18px; bottom:72px; width:320px; max-height:70vh; background:#0f1420; border:1px solid var(--line); border-radius:16px; display:none; flex-direction:column; overflow:hidden; box-shadow:var(--shadow); z-index:30}
+.ss-chat-panel[aria-hidden="false"]{display:flex}
+.ss-chat-head{display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid var(--line)}
+.ss-chat-title{font-weight:700}
+.ss-close{cursor:pointer; opacity:.8}
+.ss-chat-body{padding:12px; overflow:auto; display:flex; flex-direction:column; gap:10px}
+.ss-msg{background:#11161dcc; border:1px solid var(--line); padding:10px; border-radius:10px; font-size:.95rem}
+.ss-msg .meta{font-size:.8rem; color:var(--muted); margin-bottom:4px}
+.ss-chat-input{display:flex; gap:8px; padding:10px; border-top:1px solid var(--line)}
+.ss-chat-input input{flex:1; padding:10px; border-radius:10px; border:1px solid #273245; background:#0b0f14; color:var(--text)}
+
+/* ========
+Time-window modal (if needed later)
+======== */
+.tw-mask{position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:40}
+.tw-mask[aria-hidden="false"]{display:flex}
+.tw-box{width:min(560px, 92vw); background:#0f1420; border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow)}
+.tw-head{padding:12px 14px; border-bottom:1px solid var(--line); font-weight:700}
+.tw-body{padding:12px 14px}
+.tw-grid{display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px}
+.tw-foot{display:flex; gap:8px; justify-content:flex-end; padding:12px 14px; border-top:1px solid var(--line)}
+
+</style>
 </head>
 <body>
-  <div class="glow"></div>
-<header class="site-header">
-  <div class="head-inner container">
-    <!-- 品牌：点击回 5xLiving · 八字简评 首页 -->
-    <a class="brand" href="https://astro.5xliving.com">
-      <span class="brand-badge">5X</span>
-      <span class="title">
-        5xLiving · <span data-i18n="title_bazi_brief">八字简评</span>
-      </span>
-    </a>
-
-    <!-- 右侧副标题（两行） -->
-    <div class="subhead">
-      <div class="subtitle" data-i18n="tagline_main">命理供门 · 本命星盘</div>
+<header>
+  <div class="head-inner">
+    <div class="brand">
+      <div class="brand-badge">Tarot</div>
+      <div class="title" data-i18n="brand_title">命理心怜空间 · Soul Sanctuary</div>
+    </div>
+    <div class="lang">
+      <select id="langSel">
+        <option value="zh-CN">简体中文</option>
+        <option value="en-US">English</option>
+      </select>
     </div>
   </div>
-      <div class="lang">
-        <label for="langSelect" data-i18n="lang_label">语言</label>
-        <select id="langSelect" aria-label="Language">
-          <option value="zh-CN">简体中文</option>
-          <option value="zh-TW">繁體中文</option>
-          <option value="en">English</option>
-          <option value="ja">日本語</option>
-          <option value="th">ไทย</option>
-          <option value="ms">Bahasa Melayu</option>
-        </select>
+</header>
+
+<div class="app">
+  <h1 data-i18n="page_title">塔罗牌占卜</h1>
+  <div class="controls">
+    <input id="question" placeholder="请输入你的问题（必填，决定解读方向）" data-i18n-placeholder="q_ph" />
+    <select id="spread">
+      <option value="1" data-i18n="s1">单张</option>
+      <option value="3" data-i18n="s3">三张（过去 / 现在 / 未来）</option>
+      <option value="5" data-i18n="s5">十字排法（5张）</option>
+      <option value="10" data-i18n="s10">凯尔特十字（10张）</option>
+    </select>
+    <button id="go" data-i18n="draw_btn">抽牌</button>
+  </div>
+
+  <div id="qdisplay" class="q muted" data-i18n="tip_focus">（提示：输入问题会让解读更聚焦）</div>
+  <div id="board" class="board"></div>
+
+  <div id="reading" class="panel" style="display:none">
+    <h3 style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <span data-i18n="reading_title">解读与建议</span>
+    </h3>hat-body" id="chatBody">
+    <div class="ss-msg"><div class="meta">Demo</div>目前为前端示例。要接入 OpenAI/后端，请在 sendGPT() 中调用你的 API。</div>
+  </div>
+  <div class="ss-chat-input">
+    <input id="chatInput" placeholder="输入问题…"/>
+    <button class="btn" id="chatSend">发送</button>
+  </div>
+</div>
+
+<!-- 估时间弹窗（预留：如不需要可删除） -->
+<div class="tw-mask" id="twMask" aria-hidden="true">
+  <div class="tw-box" role="dialog" aria-modal="true" aria-labelledby="twTitle">
+    <div class="tw-head" id="twTitle">🧭 估一个大致出生时间</div>
+    <div class="tw-body">
+      <div class="muted" style="margin-bottom:8px">选择你记得的<strong>大概时段</strong>（地支双小时段）</div>
+      <div class="tw-grid" id="twGrid"></div>
+      <div class="muted" style="margin-top:10px;font-size:.9em">
+        选择后点“填入时间”，会用该时段的中位时间写到上方时间输入框，并自动取消“时间不详”。
       </div>
     </div>
-  </header>
+    <div class="tw-foot">
+      <button class="btn ghost" id="twCancel" type="button">取消</button>
+      <button class="btn" id="twApply" type="button" disabled>填入时间</button>
+    </div>
+  </div>
+</div>
 
-  <main class="container">
-    <!-- 表单 -->
-    <section class="card section">
-      <h2 data-i18n="form_title">提交出生资料 · 生成星盘</h2>
+<script>
+/* ===========================
+   I18N（中文/英文）
+=========================== */
+const I18N = {
+  'zh-CN': {
+    ui: {
+      page_title: '塔罗牌占卜',
+      q_ph:'请输入你的问题（必填，决定解读方向）',
+      s1:'单张', s3:'三张（过去 / 现在 / 未来）', s5:'十字排法（5张）', s10:'凯尔特十字（10张）',
+      draw_btn:'抽牌',
+      tip_focus:'（提示：输入问题会让解读更聚焦）',
+      reading_title:'解读与建议',
+      tts_btn:'朗读',
+      tts_tip_start:'点击开始朗读',
+      tts_tip_stop:'再次点击停止朗读',
+      disclaimer:'说明：塔罗为指引工具，非医学/法律/金融建议，请以理性判断与自我意愿为先。',
+      rate:'语速', you:'你', reading:'解读', no_q:'（未填写问题）'
+    },
+    pos: {
+      single:'当下核心', past:'过去', present:'现在', future:'未来',
+      top:'指引/主题', left:'过去根源', center:'当下核心', right:'外在影响', bottom:'未来发展',
+      p1:'当下', p2:'阻碍', p3:'潜意识', p4:'过去', p5:'显意识', p6:'未来', p7:'自我', p8:'环境', p9:'希望/恐惧', p10:'结果'
+    },
+    suits: {
+      wands:{name:'权杖', domain:'行动/热情'},
+      cups:{name:'圣杯', domain:'情感/关系'},
+      swords:{name:'宝剑', domain:'思维/沟通'},
+      pentacles:{name:'钱币', domain:'现实/资源'}
+    },
+    ranks:{
+      ace:'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九','10':'十',
+      page:'侍从', knight:'骑士', queen:'皇后', king:'国王',
+      tone:{ ace:'起点/潜能','2':'对话/选择','3':'协作/成长','4':'结构/稳定','5':'挑战/波动','6':'交流/支持','7':'评估/耐心','8':'推进/效率','9':'成果/负担','10':'阶段完成', page:'讯息/学习', knight:'行动/推动', queen:'成熟/滋养', king:'掌控/定调'}
+    },
+    majors:[
+      ['愚者','自由/跃迁','拥抱未知，轻装启程'],['魔术师','意志/显化','集中资源，立即行动'],['女祭司','直觉/潜意识','先观察，后表态'],['女皇','滋养/丰盛','以温柔与照料促进成长'],['皇帝','秩序/结构','定规则、立边界、给安全感'],['教皇','规范/传承','遵循制度与长辈建议'],['恋人','选择/连结','对齐价值观再承诺'],['战车','推进/胜负','定目标，强势推进'],['力量','勇气/温柔','以柔克刚，稳定耐心'],['隐者','内省/独处','收心审视，独立判断'],['命运之轮','周期/机缘','顺势而为，抓时机'],['正义','衡量/公平','以事实与边界解决'],['倒吊人','停止/换角','暂缓推进，换位思考'],['死神','结束/重生','果断止损，迎接新生'],['节制','调和/节律','降强度，稳节奏'],['恶魔','执著/诱惑','辨依赖，断不良循环'],['高塔','突变/瓦解','接纳变化，快速重组'],['星星','希望/复原','重建信任，温柔修复'],['月亮','迷雾/不安','推迟重大决定，先查明'],['太阳','清晰/喜悦','公开透明，庆祝成果'],['审判','觉醒/召回','回应召唤，纠偏复盘'],['世界','完成/整合','闭环与升级，开启新篇']
+    ],
+    tags:{upright:'正位', reversed:'逆位'},
+    nextSteps:'<b>下一步（48 小时内）：</b><br>① 写下 1 条小目标；② 安排 1 个具体行动（加到日历）；③ 用 3 个客观指标衡量（如回复频率、面谈时长、实际成交/预约）。',
+    posHint:{
+      past:'回顾过去经验，找可复用或需放下的部分',
+      present:'描述当前核心矛盾与关键变量',
+      future:'给出两步以内可执行动作，避免空谈愿景',
+      top:'以“主题/原则”定调当下选择',
+      left:'识别历史惯性与旧信念的影响',
+      center:'聚焦此刻真正要解决的一件事',
+      right:'评估外部因素/他人立场',
+      bottom:'规划接下来 1–3 周路径',
+      p1:'描述当下状态与主要张力',
+      p2:'指出阻碍与对策',
+      p3:'点破潜意识动机/恐惧',
+      p4:'回顾成因与既往模式',
+      p5:'眼前认知与显性目标',
+      p6:'未来 1–6 周的趋势',
+      p7:'自我定位与角色选择',
+      p8:'环境/他人/情境影响',
+      p9:'希望与恐惧的两面',
+      p10:'阶段性结果与调整建议',
+      single:'提炼本次占卜的唯一关键行动'
+    },
+    domainAdvice:{
+      love:{majorRev:'先放慢表达强度，尊重对方边界与节奏', majorOk:'以真诚与稳定行动建立安全感',
+        wands:'避免情绪化推进，先确认彼此意愿',
+        cups:'先自稳情绪，再谈需求与亲密',
+        swords:'减少质问，多用澄清式提问',
+        pentacles:'少物质对冲，多高质量相处'},
+      career:{majorRev:'修正方向与分工，别硬推', majorOk:'制定里程碑与负责矩阵',
+        wands:'控制节奏，拆小步',
+        cups:'凝聚团队情绪，提高协作',
+        swords:'用数据与事实避免内耗',
+        pentacles:'先补资源/流程再扩张'},
+      money:{majorRev:'收缩风险，现金流优先', majorOk:'谨慎扩张，指标驱动',
+        wands:'降成本/提效并行',
+        cups:'慎选合作，明确分账',
+        swords:'复盘模型与假设',
+        pentacles:'库存/预算/费用三表联动'},
+      health:{majorRev:'先休息与就医评估', majorOk:'建立作息与轻运动',
+        wands:'避免过量训练',
+        cups:'情绪护理与支持',
+        swords:'减压与睡眠优先',
+        pentacles:'规律饮食与体检'},
+      general:{majorRev:'先稳住再决策', majorOk:'小步验证，逐步推进',
+        wands:'放缓节奏，聚焦一件事',
+        cups:'优先关系质量',
+        swords:'先信息对齐',
+        pentacles:'先做可落地资源配置'}
+    }
+  },
 
-      <div class="row row-2">
-        <input id="name" placeholder="姓名（可选）" data-i18n-ph="ph_name">
-        <select id="gender">
-          <option value="" disabled selected data-i18n="ph_gender">选择性别</option>
-          <option value="male" data-i18n="gender_male">男性</option>
-          <option value="female" data-i18n="gender_female">女性</option>
-        </select>
-      </div>
+  'en-US': {
+    ui: {
+      page_title:'Tarot Reading',
+      q_ph:'Type your question (focuses the reading)',
+      s1:'Single', s3:'Three (Past / Present / Future)', s5:'Cross (5)', s10:'Celtic Cross (10)',
+      draw_btn:'Draw',
+      tip_focus:'(Tip: a clear question focuses the reading)',
+      reading_title:'Insights & Advice',
+      tts_btn:'Read Aloud',
+      tts_tip_start:'Press to read aloud',
+      tts_tip_stop:'Press again to stop reading',
+      disclaimer:'Tarot offers guidance, not medical/legal/financial advice. Use your judgment.',
+      rate:'Rate', you:'You', reading:'Reading', no_q:'(No question)'
+    },
+    pos:{single:'Core Now', past:'Past', present:'Present', future:'Future',
+         top:'Theme/Guidance', left:'Roots', center:'Core Now', right:'External', bottom:'Development',
+         p1:'Present', p2:'Obstacle', p3:'Subconscious', p4:'Past', p5:'Conscious', p6:'Future', p7:'Self', p8:'Environment', p9:'Hopes/Fears', p10:'Outcome'},
+    suits:{
+      wands:{name:'Wands', domain:'Action/Passion'},
+      cups:{name:'Cups', domain:'Emotion/Relations'},
+      swords:{name:'Swords', domain:'Mind/Communication'},
+      pentacles:{name:'Pentacles', domain:'Material/Resources'}
+    },
+    ranks:{
+      ace:'Ace','2':'Two','3':'Three','4':'Four','5':'Five','6':'Six','7':'Seven','8':'Eight','9':'Nine','10':'Ten',
+      page:'Page', knight:'Knight', queen:'Queen', king:'King',
+      tone:{ace:'Seed/Potential','2':'Duality/Choice','3':'Collab/Growth','4':'Structure/Stability','5':'Challenge/Flux','6':'Exchange/Support','7':'Evaluate/Patience','8':'Momentum/Efficiency','9':'Result/Burden','10':'Completion',
+            page:'Message/Learning', knight:'Action/Drive', queen:'Maturity/Nurture', king:'Authority/Setting Tone'}
+    },
+    majors:[
+      ['The Fool','Freedom/Leap','Embrace the unknown; travel light'],
+      ['The Magician','Will/Manifest','Align resources; act now'],
+      ['The High Priestess','Intuition/Subconscious','Observe first, speak later'],
+      ['The Empress','Nurture/Abundance','Gentle care grows results'],
+      ['The Emperor','Order/Structure','Set rules and safety'],
+      ['The Hierophant','Norms/Tradition','Follow guidance and standards'],
+      ['The Lovers','Choice/Union','Align values before commitment'],
+      ['The Chariot','Push/Win','Pick a target; drive forward'],
+      ['Strength','Courage/Gentleness','Soft power, steady patience'],
+      ['The Hermit','Introspect/Alone','Withdraw to assess'],
+      ['Wheel of Fortune','Cycle/Timing','Ride the turn; seize timing'],
+      ['Justice','Measure/Fairness','Facts and boundaries solve it'],
+      ['The Hanged Man','Pause/Reframe','Wait; see from another angle'],
+      ['Death','Ending/Rebirth','Cut losses; welcome renewal'],
+      ['Temperance','Blend/Rhythm','Lower intensity; steady cadence'],
+      ['The Devil','Attachment/Temptation','Name the bind; break the loop'],
+      ['The Tower','Shock/Collapse','Accept change; rebuild swiftly'],
+      ['The Star','Hope/Recovery','Restore trust; heal gently'],
+      ['The Moon','Fog/Anxiety','Delay big moves; verify facts'],
+      ['The Sun','Clarity/Joy','Be open; celebrate wins'],
+      ['Judgement','Awakening/Call','Answer the call; correct course'],
+      ['The World','Completion/Integration','Close the loop; level up']
+    ],
+    tags:{upright:'Upright', reversed:'Reversed'},
+    nextSteps:'<b>Next 48h:</b><br>(1) Write one small goal; (2) Schedule one concrete action; (3) Track 3 objective metrics (e.g., reply cadence, meeting time, actual bookings).',
+    posHint:{
+      past:'Extract reusable lessons or what to release',
+      present:'Name the core tension and variables',
+      future:'Give 1–2 actionable next steps',
+      top:'Set principles to guide choices',
+      left:'Spot legacy patterns/beliefs',
+      center:'Focus on the one real problem',
+      right:'Weigh external factors/others',
+      bottom:'Plan next 1–3 weeks',
+      p1:'Describe current state and tension',
+      p2:'Point out obstacle and counter-move',
+      p3:'Expose hidden motives/fears',
+      p4:'Review causes and patterns',
+      p5:'Conscious goal and frame',
+      p6:'Trend for next 1–6 weeks',
+      p7:'Your role/stance',
+      p8:'Context and stakeholders',
+      p9:'Hope vs fear twin view',
+      p10:'Likely outcome & adjustment',
+      single:'One key action for this session'
+    },
+    domainAdvice:{
+      love:{majorRev:'Slow intensity; honor boundaries', majorOk:'Build safety with steady acts',
+        wands:'Curb impulsive pushes; confirm consent',
+        cups:'Regulate emotion before needs talk',
+        swords:'Use clarifying questions over grilling',
+        pentacles:'Less gifting; more quality time'},
+      career:{majorRev:'Fix direction/roles before pushing', majorOk:'Milestones and RACI',
+        wands:'Control pace; break into sprints',
+        cups:'Rally morale; improve collaboration',
+        swords:'Use data to avoid churn',
+        pentacles:'Secure resources/process first'},
+      money:{majorRev:'De-risk; protect cashflow', majorOk:'Cautious growth; KPI-led',
+        wands:'Cut cost + raise efficiency',
+        cups:'Choose partners carefully; clear split',
+        swords:'Audit assumptions and model',
+        pentacles:'Tie inventory/budget/expenses'},
+      health:{majorRev:'Rest & seek evaluation', majorOk:'Routines + light exercise',
+        wands:'Avoid over-training',
+        cups:'Emotional support',
+        swords:'Reduce stress; prioritize sleep',
+        pentacles:'Diet regularity; check-ups'},
+      general:{majorRev:'Stabilize before deciding', majorOk:'Validate in small steps',
+        wands:'Slow down; single-task',
+        cups:'Prioritize relationship quality',
+        swords:'Align information first',
+        pentacles:'Resource a concrete plan first'}
+    }
+  }
+};
 
-      <div class="row row-3" style="margin-top:6px">
-        <input type="date" id="birth_date" data-i18n-ph="ph_birthdate">
-        <input type="time" id="birth_time" data-i18n-ph="ph_birthtime">
-        <input type="text" id="birth_place" placeholder="出生地点 / Place" data-i18n-ph="ph_place">
-      </div>
+/* 小工具 */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const rnd = n => Math.floor(Math.random()*n);
 
-      <div class="row row-2" style="margin-top:6px">
-        <select id="calendar">
-          <option value="Gregorian" data-i18n="calendar_g">阳历 / Gregorian</option>
-          <option value="Lunar" disabled data-i18n="calendar_l">农历 / Lunar（即将支持）</option>
-        </select>
-        <button class="btn" id="btnSubmit" onclick="generateChart()" data-i18n="btn_gen">生成星盘</button>
-      </div>
+/* 语言处理 */
+const FALLBACK = 'zh-CN';
+function detectLang(){
+  const nav=(navigator.language||'').toLowerCase();
+  if(nav.startsWith('zh')) return 'zh-CN';
+  if(nav.startsWith('en')) return 'en-US';
+  return FALLBACK;
+}
+let CUR = detectLang();
+const langSel = document.getElementById('langSel');
+langSel.value = CUR;
 
-      <div class="muted" style="margin-top:6px" data-i18n="hint_tz">
-        提示：默认东八区时间。后续将支持城市时区与夏令时自动换算。
-      </div>
-      <div class="error" id="error" style="display:none"></div>
-    </section>
+/* t(): 读取文案 */
+function t(path, dflt=''){
+  const parts = path.split('.');
+  let node = I18N[CUR];
+  for(const p of parts){ if(!node) break; node=node[p]; }
+  return node==null ? dflt : node;
+}
+window.t = t; // 供 TTS 提示用
 
-    <!-- 占位报告 -->
-    <section id="preview" style="display:none" class="card section">
-      <h2 data-i18n="preview_title">占位版报告</h2>
-      <div class="stack" id="preview_content"></div>
-      <div class="muted" style="margin-top:8px" data-i18n="preview_note">
-        已记录你的资料。正式星盘与宫位、相位、行星解释将在对接星历库后展示。
-      </div>
-    </section>
-  </main>
+/* 应用静态 UI 文案 */
+function applyStaticUI(){
+  $('[data-i18n="page_title"]').textContent = t('ui.page_title');
+  $('[data-i18n="tip_focus"]').textContent = t('ui.tip_focus');
+  $('[data-i18n="reading_title"]').textContent = t('ui.reading_title');
+  $('[data-i18n="disclaimer"]').textContent = t('ui.disclaimer');
+  $('#go').textContent = t('ui.draw_btn');
+  // 下拉选项
+  const spread = $('#spread');
+  spread.options[0].textContent = t('ui.s1');
+  spread.options[1].textContent = t('ui.s3');
+  spread.options[2].textContent = t('ui.s5');
+  spread.options[3].textContent = t('ui.s10');
+  // 输入框 placeholder
+  $('#question').setAttribute('placeholder', t('ui.q_ph'));
+  // 朗读速度标签
+  // TTS 按钮文案
+  const ttsSpan = $('#ttsBtn span'); if(ttsSpan) ttsSpan.textContent = t('ui.tts_btn');
+}
 
-  <footer>© 5XLiving • Astro Sanctuary</footer>
+/* ==============
+   牌库 & 抽牌
+================ */
+const SUITS = [
+  {key:'wands',    zh:'权杖'},
+  {key:'cups',     zh:'圣杯'},
+  {key:'swords',   zh:'宝剑'},
+  {key:'pentacles',zh:'钱币'}
+];
+const RANKS = [
+  {id:'ace', zh:'一'},{id:'2', zh:'二'},{id:'3', zh:'三'},{id:'4', zh:'四'},{id:'5', zh:'五'},
+  {id:'6', zh:'六'},{id:'7', zh:'七'},{id:'8', zh:'八'},{id:'9', zh:'九'},{id:'10', zh:'十'},
+  {id:'pan', zh:'皇后'环境修改）。
+// 若放在 /img/tarot/ 目录，保持默认即可；若走 CDN，设置为完整 URL。
+let IMG_BASE = '/img/tarot';
+function buildDeck(){
+  const deck=[];
+  // majors
+  MAJORS.forEach(i=>{
+    deck.push({id:`major_${String(i).padStart(2,'0')}`, group:'major', idx:i});
+  });
+  // minors
+  SUITS.forEach(s=>{
+    RANKS.forEach(r=>{
+      deck.push({id:`${s.key}_${r.id}`, group:'minor', suit:s.key, rank:r.id});
+    });
+  });
+  return deck;
+}
+const DECK = buildDeck();
+function draw(n){
+  const pool=[...DECK], picks=[];
+  for(let i=0;i<n;i++){
+    const idx=rnd(pool.length);
+    const card=pool.splice(idx,1)[0];
+    card.reversed = Math.random()<0.5;
+    picks.push(card);
+  }
+  return picks;
+}
+function imgFor(card){
+  return `${IMG_BASE}/${card.id}.webp`;
+}
 
-  <script>
-    // ====== Airtable（临时直连，生产请改后端代理）======
-    const BASE_ID = "apphD4o8Efxs8h0fz";
-    const TABLE   = "natal_requests";
-    const TOKEN   = "patrciW8c0s9IIT2m.5fa42a27dc796b099b18f118bb640d96f1361a809a2a49d3dfffd2c81acf3553";
+/* ==============
+   布局定义
+================ */
+const SPREADS = {
+  1:  { layout:'spread-1',  positions:[{key:'single'}]},
+  3:  { layout:'spread-3',  positions:[{key:'past'},{key:'present'},{key:'future'}]},
+  5:  { layout:'spread-5',  positions:[
+        {key:'top',cls:'pos-top'}, {key:'left',cls:'pos-left'}, {key:'center',cls:'pos-center'},
+        {key:'right',cls:'pos-right'}, {key:'bottom',cls:'pos-bottom'}
+      ]},
+  10: { layout:'spread-10', positions:[
+        {key:'p1'},{key:'p2'},{key:'p3'},{key:'p4'},{key:'p5'},{key:'p6'},{key:'p7'},{key:'p8'},{key:'p9'},{key:'p10'}
+      ]}
+};
 
-    const $ = id => document.getElementById(id);
-    const lock = v => { const b=$("btnSubmit"); if(b) b.disabled=v; };
-    function showErr(msg){ const e=$("error"); e.textContent=msg; e.style.display="block"; setTimeout(()=>e.style.display='none',4000); }
-    function safeEmailFilter(s){ return encodeURIComponent(String(s||"").replace(/'/g,"\\'")); } // 预留用
+/* ==============
+   本地化帮助
+================ */
+function cardName(card){
+  if(card.group==='major'){
+    return I18N[CUR].majors[card.idx][0];
+  }else{
+    const s=I18N[CUR].suits[card.suit];
+    const r=I18N[CUR].ranks[card.rank] || card.rank.toUpperCase();
+    return `${s.name}${r}`;
+  }
+}
+function previewLineLocalized(card){
+  if(card.group==='major'){
+    const row = I18N[CUR].majors[card.idx];
+    return `${row[1]} · ${row[2]}`;
+  }else{
+    const s = I18N[CUR].suits[card.suit];
+    const tone = I18N[CUR].ranks.tone[card.rank];
+    return `${s.name}（${s.domain}）· ${tone}`;
+  }
+}
+function posLabel(key){ return I18N[CUR].pos[key] || key; }
+function tagFor(rev){ return rev ? I18N[CUR].tags.reversed : I18N[CUR].tags.upright; }
+function classifyQuestion(q){
+  q=(q||'').toLowerCase();
+  const love = ['恋','爱','喜欢','感情','暧昧','结婚','分手','复合','will she','will he','relationship','love'];
+  const career=['工作','升职','跳槽','offer','事业','老板','同事','项目','career','job'];
+  const money =['钱','财','收入','投资','生意','销售','预算','money'];
+  const health=['健康','身体','疾病','睡眠','焦虑','抑郁','体检','health'];
+  if(love.some(k=>q.includes(k))) return 'love';
+  if(career.some(k=>q.includes(k))) return 'career';
+  if(money.some(k=>q.includes(k))) return 'money';
+  if(health.some(k=>q.includes(k))) return 'health';
+  return 'general';
+}
 
-    // ---------- 生成星盘（写入 Airtable + 占位报告） ----------
-    async function generateChart(){
-      $("error").style.display="none";
-      const name = $("name").value.trim();
-      const gender = $("gender").value;
-      const date = $("birth_date").value;
-      const time = $("birth_time").value;
-      const place = $("birth_place").value.trim();
-      const cal = $("calendar").value;
+/* ==============
+   渲染棋盘
+================ */
+function cardNode(card, cls, posKey){
+  const div=document.createElement('div');
+  div.className=`card ${cls||''}`;
+  div.setAttribute('data-card-id', card.id);
+  div.setAttribute('data-reversed', card.reversed?'true':'false');
 
-      if(!date){ return showErr(t('err_need_birthdate')); }
+  const wrap=document.createElement('div'); wrap.className='imgwrap';
+  if(card.reversed) wrap.style.transform='rotate(180deg)';
+  const img=document.createElement('img'); img.className='card-img'; img.src=imgFor(card); img.alt=cardName(card);
+  img.onerror = ()=>{ img.onerror=null; img.src = `${IMG_BASE}/back.webp`; };
+  wrap.appendChild(img);
 
-      lock(true);
-      try{
-        const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(TABLE)}`, {
-          method:"POST",
-          headers:{ "Authorization":`Bearer ${TOKEN}`, "Content-Type":"application/json" },
-          body: JSON.stringify({ fields:{
-            Name: name, Gender: gender, BirthDate: date, BirthTime: time, BirthPlace: place,
-            Calendar: cal, SourcePage: "natal.html", CreatedAt: new Date().toISOString()
-          }})
-        });
-        if(!res.ok){
-          const tmsg = await res.text();
-          throw new Error(t('err_submit_fail') + tmsg);
-        }
+  const cap=document.createElement('div'); cap.className='cap';
+  cap.textContent = `【${posLabel(posKey)}】${cardName(card)}（${tagFor(card.reversed)}）`;
 
-        // 占位报告渲染
-        renderPreview({ name, gender, date, time, place, cal });
-        window.scrollTo({ top: $("preview").offsetTop - 10, behavior:"smooth" });
-        alert(t('msg_submit_ok'));  // 给出明确的成功反馈
-      }catch(e){
-        showErr(e.message);
-        console.error(e);
-      }finally{
-        lock(false);
+  const mean=document.createElement('div'); mean.className='mean';
+  mean.textContent = previewLineLocalized(card);
+
+  div.appendChild(wrap); div.appendChild(cap); div.appendChild(mean);
+  return div;
+}
+
+function renderBoard(n, cards){
+  const board = document.getElementById('board');
+  board.className='board';
+  const conf = SPREADS[n]; if(!conf){ board.innerHTML=''; return; }
+  board.classList.add(conf.layout);
+
+  if(n===10){
+    board.innerHTML = `<div class="row row-1"></div><div class="row row-2"></div><div class="row row-3"></div>`;
+    const rows = $$('#board .row'); const slots=[3,3,4];
+    let k=0;
+    slots.forEach((count,rowi)=>{
+      for(let j=0;j<count;j++){
+        const c = cards[k++];
+        const posKey = conf.positions[k-1].key;
+        rows[rowi].appendChild(cardNode(c, `c${k}`, posKey));
       }
+    });
+  }else{
+    board.innerHTML='';
+    cards.forEach((c,i)=>{
+      const pos=conf.positions[i];
+      board.appendChild(cardNode(c, `c${i+1} ${pos.cls||''}`, pos.key));
+    });
+  }
+}
+
+/* ==============
+   动态解读
+================ */
+function renderReadingLocalized(question, n, cards){
+  const domain = classifyQuestion(question);
+  const posKeys = (n===10)? ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10']
+              : (n===5)?  ['top','left','center','right','bottom']
+              : (n===3)?  ['past','present','future']
+              : ['single'];
+
+  const domAdv = I18N[CUR].domainAdvice[domain] || I18N[CUR].domainAdvice.general;
+
+  const segments = cards.map((card,i)=>{
+    const title = `【${posLabel(posKeys[i])}】${cardName(card)}（${tagFor(card.reversed)}）`;
+    const arch  = previewLineLocalized(card);
+    const hint  = I18N[CUR].posHint[posKeys[i]] ? `（${I18N[CUR].posHint[posKeys[i]]}）` : '';
+
+    let adv1='';
+    if(card.group==='major'){
+      adv1 = card.reversed ? domAdv.majorRev : domAdv.majorOk;
+    }else{
+      const mapKey = card.suit; // wands/cups/swords/pentacles
+      adv1 = domAdv[mapKey] || domAdv.general;
     }
 
-    function renderPreview(d){
-      const wrap = $("preview_content");
-      const gtxt = d.gender ? (d.gender==="male" ? t("gender_male") : t("gender_female")) : t("gender_unknown");
-      wrap.innerHTML = `
-        <div class="pill">
-          <span class="tag">${t("pv_basic")}</span>
-          <div style="margin-top:6px; line-height:1.8">
-            <div><span class="big">${t("pv_name")}：</span>${d.name || "—"}</div>
-            <div><span class="big">${t("pv_gender")}：</span>${gtxt}</div>
-            <div><span class="big">${t("pv_birth")}：</span>${d.date || "—"} ${d.time || ""}</div>
-            <div><span class="big">${t("pv_place")}：</span>${d.place || "—"}</div>
-            <div><span class="big">${t("pv_calendar")}：</span>${d.cal}</div>
-          </div>
-        </div>
-        <div class="pill">
-          <span class="tag">${t("pv_hint")}</span>
-          <div style="margin-top:6px; color:#cfd9e6">
-            ${t("pv_copy")}
-          </div>
-        </div>
-      `;
-      $("preview").style.display = "block";
+    let adv2='';
+    if(card.group!=='major'){
+      const tone = I18N[CUR].ranks.tone[card.rank];
+      adv2 = (CUR==='en-US')
+        ? `Plan one actionable step around “${tone}”.`
+        : `围绕“${tone}”制定一条可执行的小行动。`;
     }
 
-    // ---------- 多语言（与 index 同风格） ----------
-    const translations = {
-      "zh-CN": {
-        page_title:"命理供门 · 本命星盘（免费提交）",
-        site_title:"命理供门 · 本命星盘",
-        site_subtitle:"免费提交 · 风格与首页统一 | 后续可对接星历库",
-        lang_label:"语言",
-        form_title:"提交出生资料 · 生成星盘",
-        ph_name:"姓名（可选）",
-        ph_gender:"选择性别",
-        gender_male:"男性", gender_female:"女性", gender_unknown:"—",
-        ph_birthdate:"出生日期", ph_birthtime:"出生时间", ph_place:"出生地点 / Place",
-        calendar_g:"阳历 / Gregorian", calendar_l:"农历 / Lunar（即将支持）",
-        btn_gen:"生成星盘",
-        hint_tz:"提示：默认东八区时间。后续将支持城市时区与夏令时自动换算。",
-        preview_title:"占位版报告",
-        preview_note:"已记录你的资料。正式星盘与宫位、相位、行星解释将在对接星历库后展示。",
-        pv_basic:"基础信息",
-        pv_name:"姓名",
-        pv_gender:"性别",
-        pv_birth:"出生",
-        pv_place:"地点",
-        pv_calendar:"历法",
-        pv_hint:"进度说明",
-        pv_copy:"我们已保存你的资料用于生成正式星盘。完成对接后，页面将展示十二宫位、行星落宫、主轴、主要相位与简要解读。",
-        err_need_birthdate:"请填写出生日期",
-        err_submit_fail:"提交失败：",
-        msg_submit_ok:"已收到资料（测试存档），感谢提交！"
-      },
-      "zh-TW": {
-        page_title:"命理供門 · 本命星盤（免費提交）",
-        site_title:"命理供門 · 本命星盤",
-        site_subtitle:"免費提交 · 與首頁同風格 | 後續可串接星曆庫",
-        lang_label:"語言",
-        form_title:"提交出生資料 · 生成星盤",
-        ph_name:"姓名（可選）",
-        ph_gender:"選擇性別",
-        gender_male:"男性", gender_female:"女性", gender_unknown:"—",
-        ph_birthdate:"出生日期", ph_birthtime:"出生時間", ph_place:"出生地點 / Place",
-        calendar_g:"陽曆 / Gregorian", calendar_l:"農曆 / Lunar（即將支援）",
-        btn_gen:"生成星盤",
-        hint_tz:"提示：預設東八區時間。後續將支援城市時區與夏令時換算。",
-        preview_title:"占位版報告",
-        preview_note:"已記錄你的資料。正式星盤與宮位、相位、行星解讀將在串接星曆庫後展示。",
-        pv_basic:"基礎資訊", pv_name:"姓名", pv_gender:"性別", pv_birth:"出生", pv_place:"地點", pv_calendar:"曆法",
-        pv_hint:"進度說明", pv_copy:"我們已保存你的資料以生成正式星盤。完成串接後，將展示十二宮、行星落宮、主軸、主要相位與解讀。",
-        err_need_birthdate:"請填寫出生日期",
-        err_submit_fail:"提交失敗：",
-        msg_submit_ok:"已收到資料（測試存檔），感謝提交！"
-      },
-      "en": {
-        page_title:"Bazi Gate · Natal Chart (Free Submit)",
-        site_title:"Natal Chart · Astro Portal",
-        site_subtitle:"Free submission · Unified style | Ephemeris integration coming",
-        lang_label:"Language",
-        form_title:"Enter Birth Data · Generate Chart",
-        ph_name:"Name (optional)",
-        ph_gender:"Select gender",
-        gender_male:"Male", gender_female:"Female", gender_unknown:"—",
-        ph_birthdate:"Birth date", ph_birthtime:"Birth time", ph_place:"Place of birth",
-        calendar_g:"Gregorian", calendar_l:"Lunar (soon)",
-        btn_gen:"Generate Chart",
-        hint_tz:"Hint: assumes UTC+8 for now. City timezone & DST will be supported later.",
-        preview_title:"Preview (Placeholder)",
-        preview_note:"Your data is saved. Houses/planets/aspects will appear once ephemeris is connected.",
-        pv_basic:"Basic Info", pv_name:"Name", pv_gender:"Gender", pv_birth:"Birth", pv_place:"Place", pv_calendar:"Calendar",
-        pv_hint:"Progress", pv_copy:"We'll generate a full chart after ephemeris hookup: 12 houses, planets, angles, major aspects.",
-        err_need_birthdate:"Please enter your birth date",
-        err_submit_fail:"Submit failed: ",
-        msg_submit_ok:"Received (test log). Thank you!"
-      },
-      "ja": {
-        page_title:"四柱門 · ネイタル（無料送信）",
-        site_title:"ネイタルチャート",
-        site_subtitle:"無料送信 · 統一デザイン | 星暦連携予定",
-        lang_label:"言語",
-        form_title:"出生データ入力 · チャート生成",
-        ph_name:"氏名（任意）",
-        ph_gender:"性別を選択",
-        gender_male:"男性", gender_female:"女性", gender_unknown:"—",
-        ph_birthdate:"誕生日", ph_birthtime:"出生時刻", ph_place:"出生地",
-        calendar_g:"グレゴリオ暦", calendar_l:"旧暦（準備中）",
-        btn_gen:"生成する",
-        hint_tz:"注：現在はUTC+8想定。都市タイムゾーン/DSTに後日対応。",
-        preview_title:"プレースホルダー表示",
-        preview_note:"データを保存しました。ハウス/惑星/アスペクトは連携後に表示します。",
-        pv_basic:"基本情報", pv_name:"氏名", pv_gender:"性別", pv_birth:"出生", pv_place:"場所", pv_calendar:"暦",
-        pv_hint:"進捗", pv_copy:"星暦連携後、12ハウス/惑星/軸/主要アスペクトを表示します。",
-        err_need_birthdate:"誕生日を入力してください",
-        err_submit_fail:"送信失敗：",
-        msg_submit_ok:"受け取りました（テスト保存）。ありがとうございます。"
-      },
-      "th": {
-        page_title:"ดวงกำเนิด · ส่งฟรี",
-        site_title:"ดวงกำเนิด (Natal Chart)",
-        site_subtitle:"ส่งข้อมูลฟรี · สไตล์เดียวกับหน้าแรก | จะเชื่อมฐานข้อมูลดวงดาวภายหลัง",
-        lang_label:"ภาษา",
-        form_title:"กรอกข้อมูลเกิด · สร้างดวง",
-        ph_name:"ชื่อ (ไม่บังคับ)",
-        ph_gender:"เลือกเพศ",
-        gender_male:"ชาย", gender_female:"หญิง", gender_unknown:"—",
-        ph_birthdate:"วันเกิด", ph_birthtime:"เวลาเกิด", ph_place:"สถานที่เกิด",
-        calendar_g:"เกรกอเรียน", calendar_l:"จันทรคติ (เร็วๆ นี้)",
-        btn_gen:"สร้างดวง",
-        hint_tz:"หมายเหตุ: ตอนนี้ถือว่า UTC+8 ก่อน จะรองรับโซนเวลาเมืองและ DST ภายหลัง",
-        preview_title:"รายงานชั่วคราว",
-        preview_note:"บันทึกข้อมูลแล้ว จะแสดงเรือนดาว/ดาวเคราะห์/แง่มุมเมื่อเชื่อมฐานดาว",
-        pv_basic:"ข้อมูลพื้นฐาน", pv_name:"ชื่อ", pv_gender:"เพศ", pv_birth:"วันเวลาเกิด", pv_place:"สถานที่", pv_calendar:"ปฏิทิน",
-        pv_hint:"ความคืบหน้า", pv_copy:"หลังเชื่อมฐานดาว จะมี 12 เรือน ดาวเคราะห์ มุมสำคัญ และคำอธิบาย",
-        err_need_birthdate:"กรุณากรอกวันเกิด",
-        err_submit_fail:"ส่งไม่สำเร็จ: ",
-        msg_submit_ok:"รับข้อมูลแล้ว (ทดสอบบันทึก) ขอบคุณ!"
-      },
-      "ms": {
-        page_title:"Carta Kelahiran · Hantar Percuma",
-        site_title:"Carta Kelahiran",
-        site_subtitle:"Hantar data percuma · Gaya seragam | Integrasi efemeris akan datang",
-        lang_label:"Bahasa",
-        form_title:"Isi Data Kelahiran · Jana Carta",
-        ph_name:"Nama (pilihan)",
-        ph_gender:"Pilih jantina",
-        gender_male:"Lelaki", gender_female:"Perempuan", gender_unknown:"—",
-        ph_birthdate:"Tarikh lahir", ph_birthtime:"Masa lahir", ph_place:"Tempat lahir",
-        calendar_g:"Gregorian", calendar_l:"Lunar (segera)",
-        btn_gen:"Jana Carta",
-        hint_tz:"Nota: andaikan UTC+8 ชั่วคราว. Sokong zon waktu & DST kemudian.",
-        preview_title:"Laporan Sementara",
-        preview_note:"Data anda disimpan. Rumah, planet, aspek akan dipaparkan selepas integrasi efemeris.",
-        pv_basic:"Maklumat Asas", pv_name:"Nama", pv_gender:"Jantina", pv_birth:"Kelahiran", pv_place:"Tempat", pv_calendar:"Kalendar",
-        pv_hint:"Kemajuan", pv_copy:"Selepas integrasi, akan ada 12 rumah, planet, sudut dan aspek utama.",
-        err_need_birthdate:"Masukkan tarikh lahir",
-        err_submit_fail:"Hantar gagal: ",
-        msg_submit_ok:"Diterima (log ujian). Terima kasih!"
-      }
-    };
+    return `
+      <div style="margin:8px 0 12px">
+        <div style="font-weight:700">${title}</div>
+        <div class="muted" style="margin:4px 0">${arch} ${hint}</div>
+        <ul style="margin:6px 0 0 18px">
+          <li>${adv1}</li>${adv2?`<li>${adv2}</li>`:''}
+        </ul>
+      </div>`;
+  }).join('');
 
-    const LANG_KEY = "site_lang";
-    function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
-    function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
-    function t(key){
-      const L = translations[getLang()] || translations["zh-CN"];
-      return L[key] || (translations["zh-CN"][key] || key);
-    }
-    function applyI18n(){
-      document.querySelectorAll("[data-i18n]").forEach(el=>{
-        const key = el.getAttribute("data-i18n");
-        el.textContent = t(key);
-      });
-      document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
-        const key = el.getAttribute("data-i18n-ph");
-        el.setAttribute("placeholder", t(key));
-      });
-      const titleEl = document.querySelector("title[data-i18n]");
-      if (titleEl) titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
-    }
-    (function initLang(){
-      const select = $("langSelect");
-      const current = getLang();
-      select.value = current;
-      applyI18n();
-      select.addEventListener("change", ()=>{
-        setLang(select.value); applyI18n();
-      });
-    })();
-  </script>
+  const youLabel = t('ui.you','你');
+  const readingLabel = t('ui.reading','解读');
+
+  return `<div class="chat">
+    <div class="msg user"><div class="meta">${youLabel}</div>${escapeHTML(question||'')}</div>
+    <div class="msg assistant"><div class="meta">${readingLabel}</div>
+      ${segments}
+      <hr style="border:0;border-top:1px solid #273245;margin:12px 0">
+      ${I18N[CUR].nextSteps}
+    </div>
+  </div>`;
+}
+
+function escapeHTML(s){return (s||'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));}
+
+/* ==============
+   TTS（朗读切换，含多语言提示）
+================ */
+// ---- TTS: 清理符号 + 语速可调 ----
+window.__TTS_LANG  = window.__TTS_LANG || 'zh-CN';
+window.__TTS_RATE  = Number(localStorage.getItem('__TTS_RATE')||'0.90') || 0.90;
+
+function cleanForTTS(text){
+  if(!text) return '';
+  // 保留纯文字：移除括号/装饰符号，合并标点/空格（满足“朗读内容不要有符号”的要求）
+  let s = text.replace(/[【】\[\]（）()《》<>]/g, '');
+  s = s.replace(/[，。！？、；：,.!?;:]{2,}/g, m=>m[0]);
+  s = s.replace(/\s{2,}/g, ' ').trim();
+  return s;
+}
+
+function speakFromHTML(html){
+  const synth = window.speechSynt;
+  renderBoard(n, picks);
+
+  const q = qInput.value || t('ui.no_q');
+  const html = renderReadingLocalized(q, n, picks);
+  readingText.innerHTML = html;
+  readingPanel.style.display = 'block';
+
+  if (window.__I18N_REFRESH) window.__I18N_REFRESH();
+});
+
+/* 语言切换：应用 UI、重绘当前内容、切换 TTS 语言 */
+function refreshAll(){
+  applyStaticUI();
+  const picks = window.__LAST_PICKS || null;
+  if(picks){
+    const n = parseInt(spreadSel.value,10);
+    renderBoard(n, picks);
+    const q = qInput.value || '';
+    readingText.innerHTML = renderReadingLocalized(q, n, picks);
+    readingPanel.style.display = 'block';
+  }
+  if (window.__I18N_REFRESH) window.__I18N_REFRESH();
+}
+langSel.addEventListener('change', ()=>{
+  CUR = langSel.value in I18N ? langSel.value : FALLBACK;
+  window.__TTS_LANG = (CUR==='en-US' ? 'en-US' : 'zh-CN');
+  refreshAll();
+});
+
+/* 首次加载：按浏览器语言设置一次 UI */
+refreshAll();
+
+/* ============
+  GPT side panel (UI only)
+=========== */
+const chatFab = $('#chatFab');
+const chatPanel = $('#chatPanel');
+const chatClose = $('#chatClose');
+const chatInput = $('#chatInput');
+const chatSend = $('#chatSend');
+const chatBody = $('#chatBody');
+
+chatFab.addEventListener('click', ()=> chatPanel.setAttribute('aria-hidden','false'));
+chatClose.addEventListener('click', ()=> chatPanel.setAttribute('aria-hidden','true'));
+
+function addMsg(who, text){
+  const div = document.createElement('div');
+  div.className = 'ss-msg';
+  div.innerHTML = `<div class="meta">${who}</div>` + escapeHTML(text);
+  chatBody.appendChild(div); chatBody.scrollTop = chatBody.scrollHeight;
+}
+function sendGPT(text){
+  // DEMO：在此处接入你的后端
+  setTimeout(()=> addMsg('GPT', '（示例）收到：' + text), 150);
+}
+chatSend.addEventListener('click', ()=>{
+  const v = (chatInput.value||'').trim(); if(!v) return; chatInput.value='';
+  addMsg('You', v); sendGPT(v);
+});
+chatInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); chatSend.click(); } });
+</script>
 </body>
 </html>
-
-
-
