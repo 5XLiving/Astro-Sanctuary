@@ -79,24 +79,20 @@
     /* —— 隐藏“估时间”按钮：仅勾选不详时弹窗 —— */
     #guessTimeBtn{display:none !important; visibility:hidden !important;}
 
-    /* —— 右下角心怜管家（问） —— */
-    .ss-chat-fab{
-      position:fixed;right:18px;bottom:18px;z-index:50;width:56px;height:56px;border-radius:50%;
-      background:linear-gradient(180deg,#fff9e6,#e6c76e);color:#191919;display:grid;place-items:center;font-weight:800;
-      box-shadow:0 8px 30px rgba(0,0,0,.35);cursor:pointer;border:1px solid #e6c76e
-    }
-    .ss-chat-panel{
-      position:fixed;right:18px;bottom:88px;z-index:50;width:min(460px,92vw);display:none;
-      background:#0e1520;border:1px solid #243244;border-radius:14px;box-shadow:var(--shadow)
-    }
-    .ss-chat-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #243244}
+    /* —— GPT/心怜管家 —— */
+    .ss-chat-fab{position:fixed; right:18px; bottom:18px; z-index:50; background:linear-gradient(180deg,#fff9e6,#e6c76e); color:#191919; font-weight:800; padding:12px 16px; border-radius:999px; border:1px solid #e6c76e; box-shadow:var(--shadow); cursor:pointer}
+    .ss-chat-panel{position:fixed; right:18px; bottom:88px; width:min(460px,92vw); max-height:70vh; background:#0e1520; border:1px solid #243244; border-radius:16px; display:none; flex-direction:column; overflow:hidden; box-shadow:var(--shadow); z-index:50}
+    .ss-chat-panel[aria-hidden="false"]{display:flex}
+    .ss-chat-head{display:flex; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid #243244}
     .ss-chat-title{font-weight:700}
-    .ss-close{cursor:pointer;opacity:.8}
-    .ss-chat-body{max-height:300px;overflow:auto;padding:10px 12px}
-    .ss-msg{padding:8px 10px;background:#0f1624;border:1px solid #243244;border-radius:10px;margin:6px 0;max-width:80%}
-    .ss-msg.me{margin-left:auto;background:#132033}
-/* 聊天输入行：输入框撑满、按钮按内容自适应 */
-.ss-chat-input{
+    .ss-close{cursor:pointer; opacity:.8}
+    .ss-chat-body{padding:12px; overflow:auto; display:flex; flex-direction:column; gap:10px}
+    .ss-msg{background:#11161dcc; border:1px solid #243244; padding:10px; border-radius:10px; font-size:.95rem; max-width:80%}
+    .ss-msg .meta{font-size:.8rem; color:var(--muted); margin-bottom:4px}
+    .ss-msg.me{margin-left:auto; background:#132033}
+    .ss-chat-input{display:flex; gap:8px; padding:10px; border-top:1px solid #243244}
+    .ss-chat-input input{flex:1; padding:10px; border-radius:10px; border:1px solid #273245; background:#0b0f14; color:var(--text)}
+
   display:flex; align-items:center; gap:8px;
   padding:10px 12px; border-top:1px solid #243244;
 }
@@ -430,6 +426,23 @@ html { font-size: 16px; }
 
     <footer>© 5XLiving • Astro Sanctuary</footer>
   </main>
+
+    <!-- GPT / 心怜管家浮窗 -->
+  <div class="ss-chat-fab" id="chatFab">心怜管家</div>
+  <div class="ss-chat-panel" id="chatPanel" aria-hidden="true">
+    <div class="ss-chat-head">
+      <div class="ss-chat-title" id="chatTitle">心怜管家</div>
+      <div class="ss-close" id="chatClose">✕</div>
+    </div>
+<div class="ss-msg">
+  <div class="meta">心怜管家</div>
+  <p data-i18n="chat_greeting">你好，我是心怜管家。有什么我可以帮你？</p>
+</div>
+    <div class="ss-chat-input">
+      <input id="chatInput" placeholder="输入问题…"/>
+      <button class="btn" id="chatSend">发送</button>
+    </div>
+  </div>
 
   <!-- 估时间弹窗 -->
   <div class="tw-mask" id="twMask" aria-hidden="true">
@@ -1879,6 +1892,28 @@ document.addEventListener('DOMContentLoaded', ()=>{
     finally{ lock($('resetBtn'),false); }
   });
 });
+
+  // —— GPT demo ——
+  async function sendGPT(){
+    const input=$('#chatInput'); const txt=(input.value||'').trim(); if(!txt) return; addMsg(txt,true); input.value='';
+    try{
+      const r=await fetch(API_BASE+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'system',content:'你是心怜管家，回答访客关于网站功能、会员、以及占星/命理产品导航的问题。'}, {role:'user',content:txt}]})});
+      const data=await r.json().catch(()=>({}));
+      addMsg(data?.reply || data?.text || data?.choices?.[0]?.message?.content || '…');
+    }catch(e){ addMsg('网络异常，请稍后再试。'); }
+  }
+  function addMsg(text,me=false){ const div=document.createElement('div'); div.className='ss-msg'+(me?' me':''); div.textContent=text; $('#chatBody').appendChild(div); $('#chatBody').scrollTop=$('#chatBody').scrollHeight; }
+
+  // —— 示例与生成（占位） ——
+  function fillDemo(){ $('#name').value='Avery'; $('#gender').value='u'; $('#place').value='Taipei'; $('#birthdate').value='1992-08-15'; $('#birthtime').value='13:45'; }
+  function generateChart(){
+    const name=$('#name').value.trim(); const place=$('#place').value.trim(); const d=$('#birthdate').value; const t=$('#birthtime').value;
+    if(!d||!t||!place){ alert('请补全“日期/时间/地点”。'); return; }
+    const summary = `${name?name+' · ':''}${d} ${t} @ ${place}`;
+    $('#chartSummary').textContent = summary;
+    $('#result').style.display = 'block';
+    // TODO: 这里接入后端星盘绘制或本地算法
+  }  
 
 /* ================== 自测：1978-02-21 12:00 → 戊午 甲寅 甲寅 庚午 ================== */
 (function(){
