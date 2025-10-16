@@ -1,544 +1,338 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <title>本命星盘 · Natal Chart | 5XLiving</title>
-  <link rel="icon" href="data:,">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-
-  <style>
-    :root{
-      --bg:#0b0f14; --card:#11161dcc; --line:#1f2a36; --text:#e8edf3; --muted:#98a7b7;
-      --brand:#d4af37; --gold:#d4af37; --gold2:#f2d27a; --accent:#58b9ff;
-      --radius:14px; --shadow:0 8px 30px rgba(0,0,0,.35);
-    }
-    html,body{height:100%}
-    body{
-      margin:0; color:var(--text);
-      background: radial-gradient(1200px 600px at 70% -10%, #16202b 10%, transparent 60%) no-repeat,
-                  linear-gradient(180deg,#0b0f14,#0b0f14);
-      font-family: Inter,system-ui,-apple-system,"Noto Sans SC","Segoe UI",Roboto,Arial,sans-serif;
-      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-    }
-    body::before{content:""; position:fixed; inset:0; z-index:-2; background:#090d13 url('') center/cover no-repeat; filter:brightness(.45) saturate(.9) blur(2px)}
-    .container{max-width:1100px;margin:0 auto;padding:24px 16px 80px}
-
-    /* —— 统一头部 —— */
-    .site-header{position:sticky;top:0;z-index:10;background:#0b0f14cc;border-bottom:1px solid #0f1622;backdrop-filter:saturate(140%) blur(12px)}
-    .head-inner{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px}
-    .brand{display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--text)}
-    .brand-badge{display:inline-grid; place-items:center; width:34px; height:34px; border-radius:8px; background:linear-gradient(180deg,#0e1520,#0b1018); border:1px solid #2a3546; box-shadow:0 4px 14px rgba(0,0,0,.35); font-weight:800; color:#ffe084}
-    .title{font-family:"Noto Serif SC",serif; font-weight:700; letter-spacing:.02em}
-    .title a{ color: inherit; text-decoration: none; }
-    .title a:hover{ text-decoration: underline; text-underline-offset: 3px; }
-    .lang{display:flex; align-items:center; gap:8px}
-    .lang label{white-space:nowrap; color:var(--muted)}
-    .lang select{appearance:none; min-width:170px; border-radius:10px; border:1px solid #243244; background:#0e1520; color:#e8edf3; padding:10px 34px 10px 12px; font-size:.95rem; background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2398a7b7' stroke-width='2' fill='none'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:calc(100% - 12px) 50%}
-    @media (max-width:520px){ .title{font-size:1rem} .lang select{min-width:140px} }
-
-    /* —— 页面结构 —— */
-    .h1{margin:12px 0 6px; color:#ffe084; font-weight:800; font-size:1.8rem}
-    .sub{color:var(--muted)}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(10px);padding:18px;margin:16px 0}
-    .row{display:grid; gap:12px; grid-template-columns:1fr}
-    @media(min-width:760px){ .row.cols-2{grid-template-columns:1fr 1fr} .row.cols-3{grid-template-columns:1fr 1fr 1fr} }
-    label.muted{display:block;margin-bottom:4px}
-    input,select{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid #243244;background:#0e1520;color:var(--text);padding:12px 12px;font-size:15px;outline:none}
-    input::placeholder{color:#6f8092}
-    .btn{display:inline-grid;place-items:center;padding:12px 16px;border-radius:12px;border:1px solid #e6c76e;background:linear-gradient(180deg,#fff9e6,#e6c76e);color:#191919;font-weight:800;cursor:pointer}
-    .btn[disabled]{opacity:.6;cursor:not-allowed}
-    .btn.ghost{background:transparent;color:var(--gold2);border:1px solid rgba(212,175,55,.45);box-shadow:none}
-
-    /* —— 简易报告样式 —— */
-    .report{margin-top:12px;display:grid;gap:10px}
-    .report .sec{padding:12px;border:1px solid var(--line);background:#0e1520;border-radius:12px}
-    .report .sec h3{margin:0 0 6px;color:var(--gold2);font-size:1.05rem}
-    .report p,.report li{line-height:1.7}
-  </style>
-</head>
-<body>
-  <!-- 统一头部 -->
-  <header class="site-header">
-    <div class="head-inner container">
-      <a class="brand" href="#" target="_self" rel="nofollow">
-        <span class="brand-badge">5X</span>
-        <span class="title">5xLiving · <span data-i18n="page_title">本命星盘解析</span></span>
-      </a>
-
-      <div class="lang">
-        <label for="langSelect" class="muted" data-i18n="lang_label">语言</label>
-        <select id="langSelect" aria-label="Language">
-          <option value="zh-CN">简体中文</option>
-          <option value="zh-TW">繁體中文</option>
-          <option value="en">English</option>
-          <option value="ja">日本語</option>
-          <option value="th">ไทย</option>
-          <option value="ms">Bahasa Melayu</option>
-        </select>
-      </div>
-    </div>
-  </header>
-
-  <main class="container">
-    <h1 class="h1" data-i18n="page_title">本命星盘解析</h1>
-    <p class="sub" data-i18n="page_sub">请输入出生资料，我们将为你绘制专属的本命星图（演示版）。</p>
-
-    <!-- 表单区域 -->
-    <section class="card">
-      <div class="row cols-3">
-        <div>
-          <label class="muted" for="name" data-i18n="label_name">姓名（可选）</label>
-          <input id="name" type="text" data-i18n-ph="ph_name" placeholder="你的称呼（用于个性化）" />
-        </div>
-        <div>
-          <label class="muted" for="gender" data-i18n="gender_label">性别</label>
-          <select id="gender">
-            <option value="u" data-i18n="opt_gender_confidential">不透露</option>
-            <option value="m" data-i18n="opt_gender_male">男性</option>
-            <option value="f" data-i18n="opt_gender_female">女性</option>
-          </select>
-        </div>
-        <div>
-          <label class="muted" for="place" data-i18n="label_place">出生地点</label>
-          <input id="place" type="text" data-i18n-ph="ph_place" placeholder="城市或坐标，如：Taipei / 25.03,121.56" />
-        </div>
-      </div>
-      <div class="row cols-3" style="margin-top:10px">
-        <div>
-          <label class="muted" for="birthdate" data-i18n="label_birthdate">出生日期</label>
-          <input id="birthdate" type="date" />
-        </div>
-        <div>
-          <label class="muted" for="birthtime" data-i18n="label_birthtime">出生时间</label>
-          <!-- 默认 12:00，避免空导致不生成 -->
-          <input id="birthtime" type="time" value="12:00" step="60" />
-        </div>
-        <div style="display:flex;align-items:flex-end;gap:10px">
-          <button id="genBtn" class="btn" type="button" data-i18n="btn_generate">生成星盘</button>
-          <button id="demoBtn" class="btn ghost" type="button" data-i18n="btn_demo">示例</button>
-        </div>
-      </div>
-      <div id="formNote" class="muted" style="margin-top:8px" data-i18n="note_privacy">提示：仅在本地演示用，不会上传你的个人信息。</div>
-    </section>
-
-    <!-- 结果区域 -->
-    <section id="result" class="card" style="display:none">
-      <h2 style="margin:0 0 10px;color:var(--gold)">你的本命报告</h2>
-      <div id="chartSummary" class="muted"></div>
-      <div id="chartReport" class="report"></div>
-    </section>
-
-    <!-- 会员专区 -->
-    <section class="card section">
-      <h2 class="group-title" data-i18n="vip_title">🌙 会员区域 VIP Segment</h2>
-      <div class="columns">
-        <div class="list-block">
-          <div class="group-title" data-i18n="vip_mingli">🗝 命理空间专属内容</div>
-          <ul>
-            <li data-i18n="vip_love">姻缘方向：恋爱缘分、婚姻走势</li>
-            <li data-i18n="vip_career">事业方向：职场发展、创业潜力</li>
-            <li data-i18n="vip_wealth">财运方向：财位分析、理财时机</li>
-            <li data-i18n="vip_pet">宠物命理：伴侣动物的性格与缘分</li>
-            <li data-i18n="vip_hepan">合盘分析：婚期择日、新生择时</li>
-            <li data-i18n="vip_name">测名分析：公司名、宝宝名、命名改运</li>
-            <li data-i18n="vip_fengshui">财位合盘：住家 / 办公室动线配合</li>
-          </ul>
-        </div>
-        <div class="list-block">
-          <div class="group-title" data-i18n="vip_xinlian">🌙 心怜空间专属内容</div>
-          <ul>
-            <li data-i18n="vip_record">灵性记录：照片、梦境、声音、愿望祈祷</li>
-            <li data-i18n="vip_course">命理课程：八字 / 塔罗 / 占星 / 灵数 / 人类图</li>
-            <li data-i18n="vip_memorial">家族纪念系统：亲人灵性纪念 & 延续</li>
-            <li data-i18n="vip_tasks">每周能量练习 / 神明仪式任务</li>
-            <li data-i18n="vip_shop">能量商城专属折扣 & 御守订制</li>
-          </ul>
-        </div>
-      </div>
-
-      <div class="group-title" style="margin-top:14px" data-i18n="login_title">💎 登入 VIP 功能</div>
-
-      <section class="astro-auth">
-        <div class="auth-grid">
-          <!-- 左侧：输入 + 注册/登录 -->
-          <div class="panel">
-            <div class="head" data-i18n="panel_login_head">账户登录 / 注册</div>
-            <div class="body">
-              <div class="row" id="authFields">
-            <label for="email" class="sr-only" data-i18n="ph_email">邮箱 Email</label>
-            <input
-               id="email"
-               name="email"
-               type="email"
-               inputmode="email"
-               autocomplete="username"   <!-- 登录/注册建议用 username，密码管理器更容易配对 -->
-            <label for="password" class="sr-only" data-i18n="ph_label_password">密码 Password</label>    
-            <input 
-               id="password" 
-               type="password" 
-               autocomplete="new-password" 
-               placeholder="密码 Password（至少8位，含大小写数字符号）" data-i18n-ph="ph_password" required/>
-              </div>
-              <div class="spacer"></div>
-              <form id="loginForm" class="row one">
-                <button class="btn block" id="loginBtn" type="submit" data-i18n="btn_login">登入账户</button>
-              </form>
-              <div class="spacer"></div>
-              <div class="row one">
-                <button class="btn ghost block" id="resetBtn" type="button" data-i18n="btn_reset">🔑 重设密码</button>
-              </div>
-              <div class="spacer"></div>
-              <form class="row one" id="registerForm">
-                <button class="btn block" id="registerBtn" type="submit" data-i18n="btn_register">注册账户</button>
-                <div class="muted" data-i18n="note_price">注册账号赠送一次免费体验</div>
-                <div class="spacer"></div>
-                <div class="error-message" id="authError" style="display:none"></div>
-              </form>
-            </div>
-          </div>
-
-          <!-- 右侧：会员与返回 -->
-          <div class="panel">
-            <div class="head" data-i18n="panel_member_head">会员服务</div>
-            <div class="body">
-              <div class="row one">
-                <a class="btn btn-gold block" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener noreferrer" data-i18n="btn_upgrade">💎 升级为 VIP（月费）</a>
-              </div>
-              <div class="spacer"></div>
-              <div class="row one">
-                <a class="btn ghost block" href="https://yourshopifyshop.myshopify.com" target="_blank" rel="noopener noreferrer" data-i18n="btn_backshop">← 返回命理商城</a>
-              </div>
-              <div class="spacer"></div>
-              <div class="muted" data-i18n="note_price1">$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）</div>
-            </div>
-          </div>
-        </div>
-      </section>
-    </section>
-
-    <footer>© 5XLiving • Astro Sanctuary</footer>
-  </main>
-
 <script>
 (function(){
   'use strict';
 
-  var LANG_KEY = 'site_lang';
+  /* ============ 基础配置 ============ */
+  const API_BASE   = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+  const FREE_LIMIT = 1;  // 非 VIP 可免费使用 AI 次数
 
-  /* ===== i18n（多语） ===== */
-  var natalI18n = {
-    'zh-CN': {
-      lang_label:'语言',
-      btn_login:'登录账户', btn_register:'注册账户', btn_reset:'🔑 重设密码',
-      page_title:'本命星盘｜Natal Chart',
-      page_sub:'请输入出生资料，我们将为你绘制专属的本命星盘（演示版）。',
-      label_name:'姓名（可选）', ph_name:'你的称呼（用于个性化）',
-      gender_label:'性别', opt_gender_confidential:'不透露', opt_gender_male:'男性', opt_gender_female:'女性',
-      label_place:'出生地点', ph_place:'城市或坐标，例如：Beijing／39.90, 116.40',
-      label_birthdate:'出生日期', label_birthtime:'出生时间',
-      btn_generate:'生成星盘', btn_demo:'示例', note_privacy:'说明：仅为本地示范，不会上传任何个人数据。',
-      chart_title:'你的本命星盘', chart_placeholder:'（此处可接后端绘图或前端 Canvas，当前为占位）',
-      panel_login_head:'账户登录／注册', ph_email:'邮箱 Email',
-      ph_password:'密码 Password（至少 8 位，需包含大小写字母、数字与符号）', ph_label_password:'密码 Password',
-      chat_fab:'问', chat_placeholder:'想了解什么？（如：功能、会员说明）', chat_send:'发送',
-      err_need_ep:'请输入邮箱与密码', err_pwd_rule:'密码至少 8 位，需包含大写/小写/数字/符号',
-      err_email_empty:'邮箱不能为空', err_pwd_empty:'密码不能为空', err_login_fail:'登录失败：',
-      err_register_fail:'注册失败：', err_reset_fail:'重设失败：', err_no_account:'账户不存在，请先注册',
-      err_wrong_pwd:'密码错误', err_expired:'会员已到期，请续费', msg_reset_ok:'已更新密码，请用新密码登录。',
-      chat_greeting:'你好，我是心怜管家，需要我怎么协助你？'
-    },
-    'zh-TW': {
-      lang_label:'語言',
-      btn_login:'登入帳號', btn_register:'註冊帳號', btn_reset:'🔑 重設密碼',
-      page_title:'本命星盤｜Natal Chart',
-      page_sub:'請輸入出生資料，我們將為你繪製專屬的本命星盤（示範版）。',
-      label_name:'姓名（選填）', ph_name:'你的稱呼（用於個人化）',
-      gender_label:'性別', opt_gender_confidential:'不透露', opt_gender_male:'男性', opt_gender_female:'女性',
-      label_place:'出生地點', ph_place:'城市或座標，例如：Taipei／25.03, 121.56',
-      label_birthdate:'出生日期', label_birthtime:'出生時間',
-      btn_generate:'產生星盤', btn_demo:'範例', note_privacy:'提醒：僅為本機示範，不會上傳任何個資。',
-      chart_title:'你的本命星盤', chart_placeholder:'（此區可串接後端繪圖或前端 Canvas，現為佔位）',
-      panel_login_head:'帳號登入／註冊', ph_email:'電子郵件 Email',
-      ph_password:'密碼 Password（至少 8 碼，需包含大小寫字母、數字與符號）', ph_label_password:'密碼 Password',
-      chat_fab:'問', chat_placeholder:'想了解什麼？（例如：功能、會員說明）', chat_send:'傳送',
-      err_need_ep:'請輸入電子郵件與密碼', err_pwd_rule:'密碼至少 8 碼，需包含大小寫字母、數字與符號',
-      err_email_empty:'電子郵件不能為空', err_pwd_empty:'密碼不能為空', err_login_fail:'登入失敗：',
-      err_register_fail:'註冊失敗：', err_reset_fail:'重設失敗：', err_no_account:'查無帳號，請先註冊',
-      err_wrong_pwd:'密碼不正確', err_expired:'會員已到期，請續費', msg_reset_ok:'已更新密碼，請以新密碼登入。',
-      chat_greeting:'嗨，我是心怜管家。有什麼需要我協助？'
-    },
-    'en': {
-      lang_label:'Language',
-      btn_login:'Log in', btn_register:'Create Account', btn_reset:'🔑 Reset Password',
-      page_title:'Natal Chart',
-      page_sub:'Enter your birth data to generate your personal natal chart (demo).',
-      label_name:'Name (optional)', ph_name:'Your name (for personalization)',
-      gender_label:'Gender', opt_gender_confidential:'Prefer not to say', opt_gender_male:'Male', opt_gender_female:'Female',
-      label_place:'Place of Birth', ph_place:'City or coordinates, e.g., London / 51.50, -0.12',
-      label_birthdate:'Birth Date', label_birthtime:'Birth Time',
-      btn_generate:'Generate Chart', btn_demo:'Demo',
-      note_privacy:'Note: local demo only — no personal data is uploaded.',
-      chart_title:'Your Natal Chart',
-      chart_placeholder:'(Hook up a backend renderer or draw via Canvas; placeholder for now)',
-      panel_login_head:'Account Login / Sign-up', ph_email:'Email',
-      ph_password:'Password (min 8 chars with upper/lowercase, number & symbol)', ph_label_password:'Password',
-      chat_fab:'Chat', chat_placeholder:'What would you like to know? (e.g., features, membership)', chat_send:'Send',
-      err_need_ep:'Enter email and password', err_pwd_rule:'Password must be 8+ and include upper/lowercase, number, and symbol',
-      err_email_empty:'Email cannot be empty', err_pwd_empty:'Password cannot be empty',
-      err_login_fail:'Login failed: ', err_register_fail:'Registration failed: ', err_reset_fail:'Reset failed: ',
-      err_no_account:'Account not found. Please sign up first.', err_wrong_pwd:'Incorrect password',
-      err_expired:'Membership expired. Please renew.', msg_reset_ok:'Password updated. Please log in with the new one.',
-      chat_greeting:'Hi, I’m Xinlian Butler. How can I help?'
-    },
-    'ja': {
-      lang_label:'言語',
-      btn_login:'アカウントにログイン', btn_register:'アカウント登録', btn_reset:'🔑 パスワードをリセット',
-      page_title:'出生ホロスコープ｜Natal Chart',
-      page_sub:'生年月日などを入力すると、あなただけの出生ホロスコープを作成します（デモ）。',
-      label_name:'名前（任意）', ph_name:'お名前（パーソナライズ用）',
-      gender_label:'性別', opt_gender_confidential:'非公開', opt_gender_male:'男性', opt_gender_female:'女性',
-      label_place:'出生地', ph_place:'都市または座標 例：Tokyo／35.68, 139.76',
-      label_birthdate:'生年月日', label_birthtime:'出生時刻',
-      btn_generate:'チャートを生成', btn_demo:'デモ',
-      note_privacy:'注意：ローカルデモのみ。個人情報は送信されません。',
-      chart_title:'あなたの出生ホロスコープ',
-      chart_placeholder:'（バックエンド連携または Canvas 描画を想定したプレースホルダー）',
-      panel_login_head:'ログイン／新規登録', ph_email:'メールアドレス',
-      ph_password:'パスワード（8文字以上・英大小／数字／記号を含む）', ph_label_password:'パスワード',
-      chat_fab:'問', chat_placeholder:'何を知りたいですか？（例：機能・会員案内）', chat_send:'送信',
-      err_need_ep:'メールアドレスとパスワードを入力してください', err_pwd_rule:'パスワードは8文字以上で、英大小・数字・記号を含めてください',
-      err_email_empty:'メールアドレスは必須です', err_pwd_empty:'パスワードは必須です',
-      err_login_fail:'ログイン失敗：', err_register_fail:'登録失敗：', err_reset_fail:'リセットに失敗：',
-      err_no_account:'アカウントが見つかりません。先に登録してください。', err_wrong_pwd:'パスワードが正しくありません',
-      err_expired:'会員期限が切れています。更新してください。', msg_reset_ok:'パスワードを更新しました。新しい情報でログインしてください。',
-      chat_greeting:'こんにちは、心怜バトラーです。どうお手伝いできますか？'
-    },
-    'th': {
-      lang_label:'ภาษา',
-      btn_login:'เข้าสู่ระบบ', btn_register:'สมัครบัญชี', btn_reset:'🔑 รีเซ็ตรหัสผ่าน',
-      page_title:'ดวงกำเนิด｜Natal Chart',
-      page_sub:'กรอกข้อมูลวัน เวลา และสถานที่เกิด เพื่อสร้างดวงกำเนิดเฉพาะตัว (เดโม)',
-      label_name:'ชื่อ (ไม่บังคับ)', ph_name:'ชื่อของคุณ (เพื่อปรับให้เหมาะส่วนบุคคล)',
-      gender_label:'เพศ', opt_gender_confidential:'ไม่ระบุ', opt_gender_male:'ชาย', opt_gender_female:'หญิง',
-      label_place:'สถานที่เกิด', ph_place:'เมืองหรือพิกัด เช่น Bangkok / 13.75, 100.50',
-      label_birthdate:'วันเกิด', label_birthtime:'เวลาเกิด',
-      btn_generate:'สร้างแผนภูมิ', btn_demo:'เดโม',
-      note_privacy:'หมายเหตุ: เดโมภายในเครื่องเท่านั้น ไม่มีการอัปโหลดข้อมูลส่วนตัว',
-      chart_title:'ดวงกำเนิดของคุณ',
-      chart_placeholder:'(สามารถเชื่อมเรนเดอร์ฝั่งเซิร์ฟเวอร์หรือวาดด้วย Canvas — พื้นที่ตัวอย่าง)',
-      panel_login_head:'เข้าสู่ระบบ／สมัครสมาชิก', ph_email:'อีเมล',
-      ph_password:'รหัสผ่าน (อย่างน้อย 8 ตัว รวมตัวพิมพ์ใหญ่/เล็ก ตัวเลข และสัญลักษณ์)', ph_label_password:'รหัสผ่าน',
-      chat_fab:'ถาม', chat_placeholder:'อยากทราบเรื่องใด? (เช่น ฟีเจอร์หรือระบบสมาชิก)', chat_send:'ส่ง',
-      err_need_ep:'กรุณากรอกอีเมลและรหัสผ่าน', err_pwd_rule:'รหัสผ่านอย่างน้อย 8 ตัว และต้องมีตัวพิมพ์ใหญ่/เล็ก ตัวเลข และสัญลักษณ์',
-      err_email_empty:'อีเมลห้ามว่าง', err_pwd_empty:'รหัสผ่านห้ามว่าง',
-      err_login_fail:'เข้าสู่ระบบไม่สำเร็จ: ', err_register_fail:'สมัครสมาชิกไม่สำเร็จ: ',
-      err_reset_fail:'รีเซ็ตรหัสผ่านไม่สำเร็จ: ', err_no_account:'ไม่พบบัญชี กรุณาสมัครก่อน',
-      err_wrong_pwd:'รหัสผ่านไม่ถูกต้อง', err_expired:'สมาชิกหมดอายุ กรุณาต่ออายุ',
-      msg_reset_ok:'อัปเดตรหัสผ่านแล้ว โปรดเข้าสู่ระบบด้วยรหัสใหม่',
-      chat_greeting:'สวัสดีครับ/ค่ะ ฉันคือผู้ช่วยซินเหลียน มีอะไรให้ช่วยไหม'
-    },
-    'ms': {
-      lang_label:'Bahasa',
-      btn_login:'Log Masuk', btn_register:'Daftar Akaun', btn_reset:'🔑 Tetapkan Semula Kata Laluan',
-      page_title:'Carta Kelahiran｜Natal Chart',
-      page_sub:'Masukkan data kelahiran anda untuk jana carta kelahiran peribadi (demo).',
-      label_name:'Nama (pilihan)', ph_name:'Nama anda (untuk personalisasi)',
-      gender_label:'Jantina', opt_gender_confidential:'Rahsia', opt_gender_male:'Lelaki', opt_gender_female:'Perempuan',
-      label_place:'Tempat Lahir', ph_place:'Bandar atau koordinat, cth: Kuala Lumpur / 3.14, 101.69',
-      label_birthdate:'Tarikh Lahir', label_birthtime:'Masa Lahir',
-      btn_generate:'Jana Carta', btn_demo:'Demo',
-      note_privacy:'Nota: demo setempat sahaja — tiada data peribadi dihantar.',
-      chart_title:'Carta Kelahiran Anda',
-      chart_placeholder:'(Boleh sambung renderer belakang atau lukis melalui Canvas — tempat letak sementara)',
-      panel_login_head:'Log Masuk／Daftar', ph_email:'Emel',
-      ph_password:'Kata Laluan (≥8 aksara, huruf besar/kecil, nombor & simbol)', ph_label_password:'Kata Laluan',
-      chat_fab:'Chat', chat_placeholder:'Apa yang anda ingin tahu? (cth: fungsi, keahlian)', chat_send:'Hantar',
-      err_need_ep:'Masukkan emel dan kata laluan', err_pwd_rule:'Kata laluan mesti ≥8 dan mengandungi huruf besar/kecil, nombor dan simbol',
-      err_email_empty:'Emel tidak boleh kosong', err_pwd_empty:'Kata laluan tidak boleh kosong',
-      err_login_fail:'Gagal log masuk: ', err_register_fail:'Gagal mendaftar: ',
-      err_reset_fail:'Gagal tetapkan semula: ', err_no_account:'Akaun tidak ditemui. Sila daftar dahulu.',
-      err_wrong_pwd:'Kata laluan tidak sah', err_expired:'Keahlian tamat tempoh. Sila perbaharui.',
-      msg_reset_ok:'Kata laluan dikemas kini. Log masuk dengan yang baharu.',
-      chat_greeting:'Hai, saya Xinlian Butler. Bagaimana saya boleh bantu?'
+  /* ============ 小工具 ============ */
+  const $  = s => document.querySelector(s);
+  const $$ = s => Array.from(document.querySelectorAll(s));
+  const sleep = (ms)=>new Promise(r=>setTimeout(r,ms));
+
+  function scrollToAuth(){
+    const el = document.querySelector('.astro-auth') || document.querySelector('[data-i18n="vip_title"]') || document.body;
+    el.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+  function showAuthErr(msg){ const e=$('#authError'); if(!e) return; e.textContent = msg; e.style.display='block'; setTimeout(()=> e.style.display='none', 5000); }
+  function showToast(msg){
+    const t=document.createElement('div');
+    t.textContent=msg;
+    t.style.cssText='position:fixed;left:50%;top:18px;transform:translateX(-50%);padding:10px 14px;border-radius:10px;background:#0e1520;border:1px solid #2a3546;color:#e8edf3;z-index:9999';
+    document.body.appendChild(t); setTimeout(()=>t.remove(),1800);
+  }
+
+  /* ============ 本地存储的认证状态 ============ */
+  const AUTH_KEY = 'astro_auth_v1';
+  function saveAuth({token,email,vip,expiresAt}){
+    localStorage.setItem(AUTH_KEY, JSON.stringify({token,email,vip:!!vip,expiresAt:expiresAt||null,ts:Date.now()}));
+    localStorage.setItem('vipEmail', email||'');
+  }
+  function loadAuth(){
+    try{ return JSON.parse(localStorage.getItem(AUTH_KEY)||'{}'); }catch(_){ return {}; }
+  }
+  function clearAuth(){
+    localStorage.removeItem(AUTH_KEY);
+    localStorage.removeItem('vipEmail');
+  }
+  function isVIP(auth){
+    if(!auth || !auth.token) return false;
+    if(auth.expiresAt){ try{ if(new Date(auth.expiresAt).getTime() < Date.now()) return false; }catch(_){/* ignore */} }
+    return !!auth.vip;
+  }
+
+  /* ============ 会员 UI ============ */
+  function updateAuthUI(){
+    const auth = loadAuth();
+    const loggedIn = !!auth.token;
+    // 状态条（如果不存在就插入）
+    if(!$('#authStatus')){
+      const host = document.querySelector('.astro-auth .panel .head') || document.querySelector('.astro-auth .head');
+      if(host){ host.insertAdjacentHTML('afterend', `<div id="authStatus" class="muted" style="padding:10px 18px;border-bottom:1px solid rgba(212,175,55,.22)"></div>`); }
     }
-  };
+    const status = $('#authStatus');
+    if(status){
+      if(loggedIn){
+        status.innerHTML = `已登录：<b>${auth.email||'用户'}</b> · ${isVIP(auth)?'VIP ✅':'普通用户'}`;
+      }else{
+        status.textContent = '未登录';
+      }
+    }
+    // 注入 / 显示退出按钮
+    if(loggedIn && !$('#logoutBtn')){
+      const box = document.querySelector('.astro-auth .panel .body') || document.querySelector('.astro-auth');
+      if(box){
+        const wrap = document.createElement('div');
+        wrap.className = 'row one';
+        wrap.innerHTML = `<div class="spacer"></div><button class="btn ghost" id="logoutBtn" type="button">退出登录</button>`;
+        box.appendChild(wrap);
+        $('#logoutBtn')?.addEventListener('click', ()=>{ clearAuth(); updateAuthUI(); showToast('已退出'); });
+      }
+    }
+  }
 
-  var I18N = natalI18n;
+  /* ============ 接口请求 ============ */
+  async function apiLogin(email,password){
+    const r = await fetch(API_BASE+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    return r.json();
+  }
+  async function apiRegister(email,password){
+    const r = await fetch(API_BASE+'/api/register',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})});
+    return r.json();
+  }
+  async function apiReset(email,newPassword){
+    const r = await fetch(API_BASE+'/api/reset',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,newPassword})});
+    return r.json();
+  }
+  async function apiProfile(){
+    const auth=loadAuth(); if(!auth.token) return {};
+    const r = await fetch(API_BASE+'/api/profile',{headers:{'Authorization':'Bearer '+auth.token}});
+    return r.json();
+  }
 
-  /* ===== 太阳星座判定（近似日期段） ===== */
-  var SIGN_LIST = [
-    {key:'Aries',start:[3,21],end:[4,19],el:'fire', name:{'zh-CN':'白羊座','zh-TW':'牡羊座','en':'Aries'}},
-    {key:'Taurus',start:[4,20],end:[5,20],el:'earth',name:{'zh-CN':'金牛座','zh-TW':'金牛座','en':'Taurus'}},
-    {key:'Gemini',start:[5,21],end:[6,21],el:'air',  name:{'zh-CN':'双子座','zh-TW':'雙子座','en':'Gemini'}},
-    {key:'Cancer',start:[6,22],end:[7,22],el:'water',name:{'zh-CN':'巨蟹座','zh-TW':'巨蟹座','en':'Cancer'}},
-    {key:'Leo',start:[7,23],end:[8,22],el:'fire',   name:{'zh-CN':'狮子座','zh-TW':'獅子座','en':'Leo'}},
-    {key:'Virgo',start:[8,23],end:[9,22],el:'earth',name:{'zh-CN':'处女座','zh-TW':'處女座','en':'Virgo'}},
-    {key:'Libra',start:[9,23],end:[10,23],el:'air', name:{'zh-CN':'天秤座','zh-TW':'天秤座','en':'Libra'}},
-    {key:'Scorpio',start:[10,24],end:[11,22],el:'water',name:{'zh-CN':'天蝎座','zh-TW':'天蠍座','en':'Scorpio'}},
-    {key:'Sagittarius',start:[11,23],end:[12,21],el:'fire',name:{'zh-CN':'射手座','zh-TW':'射手座','en':'Sagittarius'}},
-    {key:'Capricorn',start:[12,22],end:[1,19],el:'earth',name:{'zh-CN':'摩羯座','zh-TW':'摩羯座','en':'Capricorn'}},
-    {key:'Aquarius',start:[1,20],end:[2,18],el:'air', name:{'zh-CN':'水瓶座','zh-TW':'水瓶座','en':'Aquarius'}},
-    {key:'Pisces',start:[2,19],end:[3,20],el:'water',name:{'zh-CN':'双鱼座','zh-TW':'雙魚座','en':'Pisces'}}
+  /* ============ 会员事件绑定 ============ */
+  function strongPwd(pw){ return pw.length>=8 && /[A-Z]/.test(pw) && /[a-z]/.test(pw) && /[0-9]/.test(pw) && /[^A-Za-z0-9]/.test(pw); }
+
+  $('#loginForm')?.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const email = $('#email')?.value.trim(); const password=$('#password')?.value.trim();
+    if(!email||!password) return showAuthErr('请输入邮箱与密码');
+    try{
+      const data = await apiLogin(email,password);
+      if(!data?.ok) {
+        const map = {wrong_pwd:'密码错误', no_account:'账户不存在，请先注册'};
+        return showAuthErr('登录失败：' + (map[data?.msg] || data?.msg || ''));
+      }
+      saveAuth({token:data.token||'token', email, vip: !!data.vip, expiresAt:data.expiresAt});
+      updateAuthUI(); showToast('登录成功'); 
+    }catch(err){ showAuthErr('登录失败：'+err.message); }
+  });
+
+  $('#registerForm')?.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const email = $('#email')?.value.trim(); const password=$('#password')?.value.trim();
+    if(!email||!password) return showAuthErr('请输入邮箱与密码');
+    if(!strongPwd(password)) return showAuthErr('密码至少 8 位，需包含大写/小写/数字/符号');
+    try{
+      const data = await apiRegister(email,password);
+      if(!data?.ok) return showAuthErr('注册失败：' + (data?.msg||''));
+      saveAuth({token:data.token||'token', email, vip: !!data.vip, expiresAt:data.expiresAt});
+      updateAuthUI(); showToast('注册成功，已登录');
+    }catch(err){ showAuthErr('注册失败：'+err.message); }
+  });
+
+  $('#resetBtn')?.addEventListener('click', async ()=>{
+    const email = prompt('邮箱 Email') || '';
+    if(!email) return showAuthErr('邮箱不能为空');
+    const newPassword = prompt('新密码（至少8位，含大小写数字符号）') || '';
+    if(!newPassword) return showAuthErr('密码不能为空');
+    if(!strongPwd(newPassword)) return showAuthErr('密码至少 8 位，需包含大写/小写/数字/符号');
+    try{
+      const data = await apiReset(email,newPassword);
+      if(!data?.ok) return showAuthErr('重设失败：' + (data?.msg||'')); 
+      showToast('已更新密码，请用新密码登录');
+    }catch(err){ showAuthErr('重设失败：'+err.message); }
+  });
+
+  // 启动时尝试刷新 VIP 状态（如果后端支持 /api/profile）
+  (async ()=>{
+    const auth=loadAuth();
+    if(auth?.token){
+      try{
+        const prof = await apiProfile();
+        if(prof?.ok){
+          saveAuth({token:auth.token,email:prof.email||auth.email,vip:!!prof.vip,expiresAt:prof.expiresAt||auth.expiresAt});
+        }
+      }catch(_){}
+    }
+    updateAuthUI();
+  })();
+
+  /* ============ 基础报告（本地） & AI 智能解读（含会员门槛） ============ */
+
+  // —— 太阳星座近似推断 —— //
+  const SIGNS = [
+    {k:'Aries', s:[3,21], e:[4,19], el:'fire',  n:{'zh-CN':'白羊座','zh-TW':'牡羊座','en':'Aries'}},
+    {k:'Taurus',s:[4,20], e:[5,20], el:'earth', n:{'zh-CN':'金牛座','zh-TW':'金牛座','en':'Taurus'}},
+    {k:'Gemini',s:[5,21], e:[6,21], el:'air',   n:{'zh-CN':'双子座','zh-TW':'雙子座','en':'Gemini'}},
+    {k:'Cancer',s:[6,22], e:[7,22], el:'water', n:{'zh-CN':'巨蟹座','zh-TW':'巨蟹座','en':'Cancer'}},
+    {k:'Leo',   s:[7,23], e:[8,22], el:'fire',  n:{'zh-CN':'狮子座','zh-TW':'獅子座','en':'Leo'}},
+    {k:'Virgo', s:[8,23], e:[9,22], el:'earth', n:{'zh-CN':'处女座','zh-TW':'處女座','en':'Virgo'}},
+    {k:'Libra', s:[9,23], e:[10,23],el:'air',   n:{'zh-CN':'天秤座','zh-TW':'天秤座','en':'Libra'}},
+    {k:'Scorpio',s:[10,24],e:[11,22],el:'water',n:{'zh-CN':'天蝎座','zh-TW':'天蠍座','en':'Scorpio'}},
+    {k:'Sagittarius',s:[11,23],e:[12,21],el:'fire',n:{'zh-CN':'射手座','zh-TW':'射手座','en':'Sagittarius'}},
+    {k:'Capricorn',s:[12,22],e:[1,19],el:'earth',n:{'zh-CN':'摩羯座','zh-TW':'摩羯座','en':'Capricorn'}},
+    {k:'Aquarius', s:[1,20], e:[2,18], el:'air',  n:{'zh-CN':'水瓶座','zh-TW':'水瓶座','en':'Aquarius'}},
+    {k:'Pisces',   s:[2,19], e:[3,20], el:'water',n:{'zh-CN':'双鱼座','zh-TW':'雙魚座','en':'Pisces'}}
   ];
-  function inRange(m,d,sm,sd,em,ed){
-    if (sm<em || (sm===em && sd<=ed)){
-      return (m>sm || (m===sm && d>=sd)) && (m<em || (m===em && d<=ed));
-    }
-    return (m>sm || (m===sm && d>=sd)) || (m<em || (m===em && d<=ed)); // 跨年
+  function inRange(m,d,S,E){
+    const [sm,sd]=S,[em,ed]=E;
+    if(sm<em || (sm===em && sd<=ed)) return (m>sm||(m===sm&&d>=sd)) && (m<em||(m===em&&d<=ed));
+    return (m>sm||(m===sm&&d>=sd)) || (m<em||(m===em&&d<=ed));
   }
   function getSunSign(dateStr){
-    var dt=new Date(dateStr); var m=dt.getMonth()+1, d=dt.getDate();
-    for(var i=0;i<SIGN_LIST.length;i++){
-      var s=SIGN_LIST[i];
-      if(inRange(m,d,s.start[0],s.start[1],s.end[0],s.end[1])) return s;
-    }
-    return SIGN_LIST[11];
+    const dt=new Date(dateStr), m=dt.getMonth()+1, d=dt.getDate();
+    return SIGNS.find(s=>inRange(m,d,s.s,s.e)) || SIGNS[11];
   }
-  var EL_TEXT={
+  const EL_TIPS = {
     'zh-CN':{fire:'火元素偏旺：行动力强，先做后想更常见；给自己留个停顿更准。',
              earth:'土元素偏旺：务实细致；别被完美卡住，先上路再优化。',
              air:'风元素偏旺：想法多善沟通；控制信息过载，用“落地清单”。',
-             water:'水元素偏旺：感受力强；写下来或动起来，让情绪流动。'},
-    'zh-TW':{fire:'火元素偏旺：行動力強；加個緩衝更穩。',
-             earth:'土元素偏旺：務實細緻；別被完美主義卡住。',
-             air:'風元素偏旺：點子多；用清單收束。',
-             water:'水元素偏旺：感受力強；書寫或運動讓情緒流動。'},
-    'en':{fire:'Fire-leaning: bold & fast—add a pause for precision.',
-          earth:'Earth-leaning: practical—ship then refine.',
-          air:'Air-leaning: ideas flow—tame overload with a list.',
-          water:'Water-leaning: sensitive—journal or move to keep emotions flowing.'}
+             water:'水元素偏旺：感受力强；写下来或动起来，让情绪流动。'}
   };
 
-  /* ===== 报告渲染 ===== */
-  function renderReport(obj){
-    var lang = obj.lang && I18N[obj.lang] ? obj.lang : 'zh-CN';
-    var sign=getSunSign(obj.date); var signName=sign.name[lang] || sign.name['zh-CN'];
-    var tips=EL_TEXT[lang][sign.el];
-    var disclaimer = (lang==='zh-TW') ? '＊示範：僅依日期推太陽星座，非完整本命盤。'
-                    : (lang==='en')   ? '*Demo: Sun sign only (not a full chart).'
-                                      : '＊演示：仅按日期推太阳星座，非完整本命盘。';
-
-    var container = document.querySelector('#chartReport') ||
-                    document.querySelector('#chartSummary');
-
-    if(!container){
-      var tmp = document.createElement('div');
-      tmp.id = 'chartReport';
-      tmp.className = 'report';
-      var result = document.querySelector('#result') || document.body;
-      result.appendChild(tmp);
-      container = tmp;
-    }
-
-    container.innerHTML =
-      '<div class="sec">'+
-        '<h3>'+(lang==='zh-TW'?'總覽':lang==='en'?'Overview':'概览')+'</h3>'+
-        '<p>'+(obj.name?obj.name+' · ':'')+obj.date+' '+obj.time+' @ '+obj.place+'</p>'+
-        '<p class="muted" style="opacity:.75">'+disclaimer+'</p>'+
-      '</div>'+
-      '<div class="sec">'+
-        '<h3>'+(lang==='zh-TW'?'太陽星座':lang==='en'?'Sun Sign':'太阳星座')+'</h3>'+
-        '<p>'+ (lang==='en'?'Your Sun is in ':'你的太阳在「') + signName + (lang==='en'?'.':'」。') + '</p>'+
-      '</div>'+
-      '<div class="sec">'+
-        '<h3>'+(lang==='zh-TW'?'能量提示':lang==='en'?'Energy Tip':'能量提示')+'</h3>'+
-        '<p>'+tips+'</p>'+
-      '</div>';
+  function renderBase({name,date,time,place,lang}){
+    const sign=getSunSign(date);
+    const signName=sign.n[lang]||sign.n['zh-CN'];
+    const tips=EL_TIPS['zh-CN'][sign.el];
+    const disclaimer='* 演示：仅按日期推太阳星座，非完整本命盘。';
+    const box=$('#chartReport');
+    box.innerHTML = `
+      <div class="sec"><h3>概览</h3>
+        <p>${name?name+' · ':''}${date} ${time} @ ${place}</p>
+        <p class="muted">${disclaimer}</p></div>
+      <div class="sec"><h3>太阳星座</h3>
+        <p>你的太阳在「${signName}」。</p></div>
+      <div class="sec"><h3>能量提示</h3>
+        <p>${tips}</p></div>`;
+    return {signKey:sign.k, signName, element:sign.el, tips};
   }
 
-  /* ===== 语言工具 ===== */
-  function getLang(){
-    var saved = localStorage.getItem(LANG_KEY);
-    if (saved && I18N[saved]) return saved;
-    var raw = (navigator.language || 'zh-CN').replace('_','-');
-    var map = {'zh':'zh-CN','zh-CN':'zh-CN','zh-SG':'zh-CN','zh-TW':'zh-TW','zh-HK':'zh-TW',
-               'en':'en','en-US':'en','en-GB':'en','en-AU':'en',
-               'ja':'ja','ja-JP':'ja','th':'th','ms':'ms'};
-    return map[raw] || 'zh-CN';
-  }
-  function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
-  function t(key){
-    var L = I18N[getLang()] || I18N['zh-CN'];
-    return L[key] || (I18N['zh-CN'][key] || key);
-  }
-  function applyI18n(){
-    function setTxt(sel,val){ var el=document.querySelector(sel); if(el) el.textContent=val; }
-    function setPh(sel,val){ var el=document.querySelector(sel); if(el) el.setAttribute('placeholder',val); }
-
-    setTxt('[data-i18n="lang_label"]', t('lang_label'));
-    var sel=document.querySelector('#langSelect'); if(sel) sel.value=getLang();
-    setTxt('[data-i18n="page_title"]', t('page_title'));
-    setTxt('[data-i18n="page_sub"]', t('page_sub'));
-    setTxt('[data-i18n="label_name"]', t('label_name')); setPh('#name', t('ph_name'));
-    setTxt('[data-i18n="gender_label"]', t('gender_label'));
-    var ou=document.querySelector('#gender option[value="u"]'); if(ou) ou.textContent=t('opt_gender_confidential');
-    var om=document.querySelector('#gender option[value="m"]'); if(om) om.textContent=t('opt_gender_male');
-    var of=document.querySelector('#gender option[value="f"]'); if(of) of.textContent=t('opt_gender_female');
-    setTxt('[data-i18n="label_place"]', t('label_place')); setPh('#place', t('ph_place'));
-    setTxt('[data-i18n="label_birthdate"]', t('label_birthdate'));
-    setTxt('[data-i18n="label_birthtime"]', t('label_birthtime'));
-    var gb=document.querySelector('#genBtn'); if(gb) gb.textContent=t('btn_generate');
-    var db=document.querySelector('#demoBtn'); if(db) db.textContent=t('btn_demo');
-    setTxt('#formNote', t('note_privacy'));
+  // 极简 Markdown -> HTML
+  function mdToHtml(md){
+    return md
+      .replace(/^###?\s+(.*)$/gm,'<h3>$1</h3>')
+      .replace(/^\s*[-*]\s+(.*)$/gm,'• $1')
+      .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+      .replace(/\n{2,}/g,'\n\n')
+      .replace(/\n/g,'<br/>');
   }
 
-  /* ===== 生成 ===== */
-  function generateChart(){
-    var nameEl=document.querySelector('#name');
-    var placeEl=document.querySelector('#place');
-    var dateEl=document.querySelector('#birthdate');
-    var timeEl=document.querySelector('#birthtime');
+  // AI 次数控制
+  function canUseAI(){
+    const auth = loadAuth();
+    if(isVIP(auth)) return true;
+    const used = +(localStorage.getItem('ai_used')||0);
+    return used < FREE_LIMIT;
+  }
+  function incrAI(){
+    const used = +(localStorage.getItem('ai_used')||0) + 1;
+    localStorage.setItem('ai_used', used);
+  }
 
-    var name = nameEl && nameEl.value ? nameEl.value.trim() : '';
-    var place = placeEl && placeEl.value ? placeEl.value.trim() : '';
-    var d = dateEl && dateEl.value ? dateEl.value : '';
-    var t = timeEl && timeEl.value ? timeEl.value : '';
+  async function runAI(payload){
+    const el=$('#aiContent');
+    $('#aiCard').style.display='block';
 
-    if(!d || !place){
-      alert('请补全“日期/地点”。（时间留空将默认为 12:00）');
+    // 门槛检查
+    if(!canUseAI()){
+      el.innerHTML = `<div class="muted">免费智能解读额度已用完。登录/升级 VIP 可继续使用无限次。</div>
+      <div style="margin-top:10px"><button class="btn" id="gotoVip">去登录/升级</button></div>`;
+      $('#gotoVip')?.addEventListener('click', scrollToAuth);
       return;
     }
-    if(!t) t='12:00';
 
-    var summaryEl=document.querySelector('#chartSummary');
-    if(summaryEl) summaryEl.textContent = (name?name+' · ':'') + d + ' ' + t + ' @ ' + place;
-    var resultEl=document.querySelector('#result'); if(resultEl) resultEl.style.display='block';
+    el.innerHTML = `<div class="skeleton">
+      <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
+      <div style="width:70%"></div><div style="width:50%"></div></div>`;
 
-    renderReport({name:name,date:d,time:t,place:place,lang:getLang()});
+    const auth = loadAuth();
+    const headers = {'Content-Type':'application/json'};
+    if(auth?.token) headers['Authorization'] = 'Bearer '+auth.token;
+
+    const system = [
+`你是「心怜管家」，一位温柔、务实、可操作的占星/灵性向生活教练。
+- 资料来源：仅有【太阳星座】【元素倾向】及用户填写的信息。不要臆造上升、宫位、相位等。
+- 语气：温柔、有画面；每段落给“可执行一步”。
+- 输出 Markdown（中文）。结构：
+  ## 人物画像（1 段）
+  ## 关系与沟通（2-4 条）
+  ## 事业与自我实现（2-4 条）
+  ## 金钱与物质（2-3 条）
+  ## 今日/本周可执行清单（3-5 条，动词开头，尽量量化）
+  ## 温柔提醒（1 段）
+- 避免医疗/法律结论。`
+    ].join('\n');
+
+    const user = `用户信息：
+- 姓名：${payload.name||'（未填）'}
+- 出生：${payload.date} ${payload.time} @ ${payload.place}
+- 太阳星座：${payload.signName}（元素：${payload.element}）
+- 元素提示：${payload.tips}
+请给出人性化、务实且可落地的建议。`;
+
+    try{
+      const r = await fetch(API_BASE + '/api/chat', {
+        method:'POST', headers,
+        body: JSON.stringify({messages:[
+          {role:'system', content: system},
+          {role:'user',   content: user}
+        ]})
+      });
+      const data = await r.json().catch(()=>({}));
+      const txt = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '（暂无回复）';
+      el.innerHTML = mdToHtml(txt);
+
+      // 只有非 VIP 才计数
+      if(!isVIP(auth)) incrAI();
+
+    }catch(e){
+      el.innerHTML = `<div class="muted">网络异常：${e.message}</div>`;
+    }
   }
 
-  /* ===== 示例填充 ===== */
+  // 生成报告 + 触发 AI
+  function getLang(){ return ($('#langSelect')?.value)||'zh-CN'; }
+  function generate(){
+    const name=$('#name').value.trim();
+    const place=$('#place').value.trim();
+    const d=$('#birthdate').value;
+    const t=$('#birthtime').value || '12:00';
+    if(!d || !place){ alert('请补全“日期/地点”。（时间留空默认 12:00）'); return; }
+    $('#chartSummary').textContent = `${name?name+' · ':''}${d} ${t} @ ${place}`;
+    $('#result').style.display='block';
+    const base = renderBase({name,date:d,time:t,place,lang:getLang()});
+    runAI({name, date:d, time:t, place, lang:getLang(), ...base});
+  }
   function fillDemo(){
-    var n=document.querySelector('#name'); if(n) n.value='Avery';
-    var g=document.querySelector('#gender'); if(g) g.value='u';
-    var p=document.querySelector('#place'); if(p) p.value='Taipei';
-    var d=document.querySelector('#birthdate'); if(d) d.value='1992-08-15';
-    var t=document.querySelector('#birthtime'); if(t) t.value='13:45';
-    generateChart(); // 直接出报告
+    $('#name').value='Avery';
+    $('#gender').value='u';
+    $('#place').value='Singapore';
+    $('#birthdate').value='1978-02-21';
+    $('#birthtime').value='12:45';
+    generate();
   }
 
-  /* ===== 页面逻辑 ===== */
-  document.addEventListener('DOMContentLoaded', function(){
-    var sel = document.querySelector('#langSelect');
-    var cur = getLang();
-    if (I18N[cur]) { if (sel) sel.value = cur; document.documentElement.lang = cur; }
-    else { if (sel) sel.value = 'zh-CN'; setLang('zh-CN'); }
-    applyI18n();
-    if (sel) sel.addEventListener('change', function(){ setLang(sel.value); applyI18n(); });
+  $('#genBtn')?.addEventListener('click', generate);
+  $('#demoBtn')?.addEventListener('click', fillDemo);
 
-    // Buttons
-    var genBtn=document.querySelector('#genBtn'); if(genBtn) genBtn.addEventListener('click', generateChart);
-    var demoBtn=document.querySelector('#demoBtn'); if(demoBtn) demoBtn.addEventListener('click', fillDemo);
-
-    // Default date today (若为空)
-    var bd=document.querySelector('#birthdate');
-    if(bd && !bd.value){ bd.value = new Date().toISOString().split('T')[0]; }
+  // 芯片追问（若超额则引导去会员）
+  document.addEventListener('click', e=>{
+    const chip = e.target.closest('.chip'); if(!chip) return;
+    if(!canUseAI()){ $('#aiContent').innerHTML = `<div class="muted">免费额度已用完，登录/升级 VIP 即可继续追问。</div><div style="margin-top:10px"><button class="btn" id="gotoVip2">去登录/升级</button></div>`; $('#gotoVip2')?.addEventListener('click', scrollToAuth); return; }
+    const q = chip.getAttribute('data-q') || chip.textContent;
+    const ai = $('#aiContent');
+    ai.innerHTML += `<br/><br/><b>你：</b>${q}<br/>`;
+    const auth = loadAuth();
+    const headers = {'Content-Type':'application/json'}; if(auth?.token) headers['Authorization']='Bearer '+auth.token;
+    fetch(API_BASE+'/api/chat',{
+      method:'POST',headers,
+      body: JSON.stringify({messages:[
+        {role:'system',content:'你是心怜管家，请承接上文，延续语气与格式，直接给出补充解读或更细的执行建议（中文 Markdown）。'},
+        {role:'user',content:q}
+      ]})
+    }).then(r=>r.json()).then(data=>{
+      const txt=data?.reply || data?.text || data?.choices?.[0]?.message?.content || '…';
+      ai.innerHTML += mdToHtml('\n\n'+txt);
+      const auth2=loadAuth(); if(!isVIP(auth2)) incrAI();
+    }).catch(err=>{
+      ai.innerHTML += `<div class="muted">网络异常：${err.message}</div>`;
+    });
   });
 
-})();</script>
-</body>
-</html>
+  // 默认日期：今天
+  const bd=$('#birthdate'); if(bd && !bd.value){ bd.value=new Date().toISOString().split('T')[0]; }
 
+})();
+</script>
