@@ -83,10 +83,10 @@
     footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0}
 
     /* —— 简易报告样式 —— */
-.report{margin-top:12px;display:grid;gap:10px}
-.report .sec{padding:12px;border:1px solid var(--line);background:#0e1520;border-radius:12px}
-.report .sec h3{margin:0 0 6px;color:var(--gold2);font-size:1.05rem}
-.report p,.report li{line-height:1.7}
+    .report{margin-top:12px;display:grid;gap:10px}
+    .report .sec{padding:12px;border:1px solid var(--line);background:#0e1520;border-radius:12px}
+    .report .sec h3{margin:0 0 6px;color:var(--gold2);font-size:1.05rem}
+    .report p,.report li{line-height:1.7}
   </style>
 </head>
 <body>
@@ -153,11 +153,11 @@
       <div id="formNote" class="muted" style="margin-top:8px" data-i18n="note_privacy">提示：仅在本地演示用，不会上传你的个人信息。</div>
     </section>
 
-<section id="result" class="card" style="display:none">
-  <h2 style="margin:0 0 10px;color:var(--gold)">你的本命报告</h2>
-  <div id="chartSummary" class="muted"></div>
-  <div id="chartReport" class="report"></div>
-</section>
+    <section id="result" class="card" style="display:none">
+      <h2 style="margin:0 0 10px;color:var(--gold)">你的本命报告</h2>
+      <div id="chartSummary" class="muted"></div>
+      <div id="chartReport" class="report"></div>
+    </section>
 
     <!-- 会员专区 -->
     <section class="card section">
@@ -604,8 +604,74 @@
     }
   };
 
-  // ✅ I18N 别名
-  const I18N = natalI18n;
+/* 让 t() 能用到你的字典：你之前用的是 natalI18n，别名一下 */
+const I18N = natalI18n;
+
+/* 12星座（近似日期段） */
+const SIGN_LIST = [
+  {key:'Aries',      start:[3,21],  end:[4,19],  el:'fire',  name:{'zh-CN':'白羊座','zh-TW':'牡羊座','en':'Aries'}},
+  {key:'Taurus',     start:[4,20],  end:[5,20],  el:'earth', name:{'zh-CN':'金牛座','zh-TW':'金牛座','en':'Taurus'}},
+  {key:'Gemini',     start:[5,21],  end:[6,21],  el:'air',   name:{'zh-CN':'双子座','zh-TW':'雙子座','en':'Gemini'}},
+  {key:'Cancer',     start:[6,22],  end:[7,22],  el:'water', name:{'zh-CN':'巨蟹座','zh-TW':'巨蟹座','en':'Cancer'}},
+  {key:'Leo',        start:[7,23],  end:[8,22],  el:'fire',  name:{'zh-CN':'狮子座','zh-TW':'獅子座','en':'Leo'}},
+  {key:'Virgo',      start:[8,23],  end:[9,22],  el:'earth', name:{'zh-CN':'处女座','zh-TW':'處女座','en':'Virgo'}},
+  {key:'Libra',      start:[9,23],  end:[10,23], el:'air',   name:{'zh-CN':'天秤座','zh-TW':'天秤座','en':'Libra'}},
+  {key:'Scorpio',    start:[10,24], end:[11,22], el:'water', name:{'zh-CN':'天蝎座','zh-TW':'天蠍座','en':'Scorpio'}},
+  {key:'Sagittarius',start:[11,23], end:[12,21], el:'fire',  name:{'zh-CN':'射手座','zh-TW':'射手座','en':'Sagittarius'}},
+  {key:'Capricorn',  start:[12,22], end:[1,19],  el:'earth', name:{'zh-CN':'摩羯座','zh-TW':'摩羯座','en':'Capricorn'}},
+  {key:'Aquarius',   start:[1,20],  end:[2,18],  el:'air',   name:{'zh-CN':'水瓶座','zh-TW':'水瓶座','en':'Aquarius'}},
+  {key:'Pisces',     start:[2,19],  end:[3,20],  el:'water', name:{'zh-CN':'双鱼座','zh-TW':'雙魚座','en':'Pisces'}},
+];
+function inRange(m,d,[sm,sd],[em,ed]){
+  if(sm<em || (sm===em && sd<=ed)){
+    return (m>sm || (m===sm && d>=sd)) && (m<em || (m===em && d<=ed));
+  }else{ return (m>sm || (m===sm && d>=sd)) || (m<em || (m===em && d<=ed)); }
+}
+function getSunSign(dateStr){
+  const dt=new Date(dateStr); const m=dt.getMonth()+1, d=dt.getDate();
+  return SIGN_LIST.find(s=>inRange(m,d,s.start,s.end)) || SIGN_LIST[11];
+}
+const EL_TEXT={
+  'zh-CN':{fire:'火元素偏旺：行动力强，先做后想更常见；给自己留个停顿更准。',earth:'土元素偏旺：务实细致；别被完美卡住，先上路再优化。',air:'风元素偏旺：想法多善沟通；控制信息过载，用“落地清单”。',water:'水元素偏旺：感受力强；写下来或动起来，让情绪流动。'},
+  'zh-TW':{fire:'火元素偏旺：行動力強；加個緩衝更穩。',earth:'土元素偏旺：務實細緻；別被完美主義卡住。',air:'風元素偏旺：點子多；用清單收束。',water:'水元素偏旺：感受力強；書寫或運動讓情緒流動。'},
+  'en':{fire:'Fire-leaning: bold & fast—add a pause for precision.',earth:'Earth-leaning: practical—ship then refine.',air:'Air-leaning: ideas flow—tame overload with a list.',water:'Water-leaning: sensitive—journal or move to keep emotions flowing.'}
+};
+/* 生成文字报告 */
+function renderReport({name,date,time,place,lang}){
+  const L = I18N[lang] ? lang : 'zh-CN';
+  const sign=getSunSign(date); const signName=sign.name[L];
+  const tips=EL_TEXT[L][sign.el];
+  const disclaimer = (L==='zh-TW')
+    ? '＊示範：僅依日期推太陽星座，非完整本命盤。'
+    : (L==='en')
+      ? '*Demo: Sun sign only (not a full chart).'
+      : '＊演示：仅按日期推太阳星座，非完整本命盘。';
+  $('#chartReport').innerHTML=`
+    <div class="sec">
+      <h3>${(L==='zh-TW'?'總覽':L==='en'?'Overview':'概览')}</h3>
+      <p>${name?name+' · ':''}${date} ${time} @ ${place}</p>
+      <p class="muted">${disclaimer}</p>
+    </div>
+    <div class="sec">
+      <h3>${(L==='zh-TW'?'太陽星座':L==='en'?'Sun Sign':'太阳星座')}</h3>
+      <p>${(L==='en'?'Your Sun is in ':'你的太阳在「')}${signName}${(L==='en'?'.':'」。')}</p>
+    </div>
+    <div class="sec">
+      <h3>${(L==='zh-TW'?'能量提示':L==='en'?'Energy Tip':'能量提示')}</h3>
+      <p>${tips}</p>
+    </div>`;
+}
+/* 替换你的 generateChart 函数 */
+function generateChart(){
+  const name=$('#name').value.trim();
+  const place=$('#place').value.trim();
+  const d=$('#birthdate').value;
+  const t=$('#birthtime').value;
+  if(!d||!t||!place){ alert('请补全“日期/时间/地点”。'); return; }
+  $('#chartSummary').textContent=`${name?name+' · ':''}${d} ${t} @ ${place}`;
+  $('#result').style.display='block';
+  renderReport({name,date:d,time:t,place,lang:getLang()});
+}
 
   // ✅ 语言归一：把 en-US/zh 等映射到已支持键
   function getLang() {
@@ -767,76 +833,8 @@
     $('#result').style.display = 'block';
     // TODO: 这里接入后端星盘绘制或本地算法
   }
-
-    /* 让 t() 能用到你的字典：你之前用的是 natalI18n，别名一下 */
-const I18N = natalI18n;
-
-/* 12星座（近似日期段） */
-const SIGN_LIST = [
-  {key:'Aries',      start:[3,21],  end:[4,19],  el:'fire',  name:{'zh-CN':'白羊座','zh-TW':'牡羊座','en':'Aries'}},
-  {key:'Taurus',     start:[4,20],  end:[5,20],  el:'earth', name:{'zh-CN':'金牛座','zh-TW':'金牛座','en':'Taurus'}},
-  {key:'Gemini',     start:[5,21],  end:[6,21],  el:'air',   name:{'zh-CN':'双子座','zh-TW':'雙子座','en':'Gemini'}},
-  {key:'Cancer',     start:[6,22],  end:[7,22],  el:'water', name:{'zh-CN':'巨蟹座','zh-TW':'巨蟹座','en':'Cancer'}},
-  {key:'Leo',        start:[7,23],  end:[8,22],  el:'fire',  name:{'zh-CN':'狮子座','zh-TW':'獅子座','en':'Leo'}},
-  {key:'Virgo',      start:[8,23],  end:[9,22],  el:'earth', name:{'zh-CN':'处女座','zh-TW':'處女座','en':'Virgo'}},
-  {key:'Libra',      start:[9,23],  end:[10,23], el:'air',   name:{'zh-CN':'天秤座','zh-TW':'天秤座','en':'Libra'}},
-  {key:'Scorpio',    start:[10,24], end:[11,22], el:'water', name:{'zh-CN':'天蝎座','zh-TW':'天蠍座','en':'Scorpio'}},
-  {key:'Sagittarius',start:[11,23], end:[12,21], el:'fire',  name:{'zh-CN':'射手座','zh-TW':'射手座','en':'Sagittarius'}},
-  {key:'Capricorn',  start:[12,22], end:[1,19],  el:'earth', name:{'zh-CN':'摩羯座','zh-TW':'摩羯座','en':'Capricorn'}},
-  {key:'Aquarius',   start:[1,20],  end:[2,18],  el:'air',   name:{'zh-CN':'水瓶座','zh-TW':'水瓶座','en':'Aquarius'}},
-  {key:'Pisces',     start:[2,19],  end:[3,20],  el:'water', name:{'zh-CN':'双鱼座','zh-TW':'雙魚座','en':'Pisces'}},
-];
-function inRange(m,d,[sm,sd],[em,ed]){
-  if(sm<em || (sm===em && sd<=ed)){
-    return (m>sm || (m===sm && d>=sd)) && (m<em || (m===em && d<=ed));
-  }else{ return (m>sm || (m===sm && d>=sd)) || (m<em || (m===em && d<=ed)); }
-}
-function getSunSign(dateStr){
-  const dt=new Date(dateStr); const m=dt.getMonth()+1, d=dt.getDate();
-  return SIGN_LIST.find(s=>inRange(m,d,s.start,s.end)) || SIGN_LIST[11];
-}
-const EL_TEXT={
-  'zh-CN':{fire:'火元素偏旺：行动力强，先做后想更常见；给自己留个停顿更准。',earth:'土元素偏旺：务实细致；别被完美卡住，先上路再优化。',air:'风元素偏旺：想法多善沟通；控制信息过载，用“落地清单”。',water:'水元素偏旺：感受力强；写下来或动起来，让情绪流动。'},
-  'zh-TW':{fire:'火元素偏旺：行動力強；加個緩衝更穩。',earth:'土元素偏旺：務實細緻；別被完美主義卡住。',air:'風元素偏旺：點子多；用清單收束。',water:'水元素偏旺：感受力強；書寫或運動讓情緒流動。'},
-  'en':{fire:'Fire-leaning: bold & fast—add a pause for precision.',earth:'Earth-leaning: practical—ship then refine.',air:'Air-leaning: ideas flow—tame overload with a list.',water:'Water-leaning: sensitive—journal or move to keep emotions flowing.'}
-};
-/* 生成文字报告 */
-function renderReport({name,date,time,place,lang}){
-  const L = I18N[lang] ? lang : 'zh-CN';
-  const sign=getSunSign(date); const signName=sign.name[L];
-  const tips=EL_TEXT[L][sign.el];
-  const disclaimer = (L==='zh-TW')
-    ? '＊示範：僅依日期推太陽星座，非完整本命盤。'
-    : (L==='en')
-      ? '*Demo: Sun sign only (not a full chart).'
-      : '＊演示：仅按日期推太阳星座，非完整本命盘。';
-  $('#chartReport').innerHTML=`
-    <div class="sec">
-      <h3>${(L==='zh-TW'?'總覽':L==='en'?'Overview':'概览')}</h3>
-      <p>${name?name+' · ':''}${date} ${time} @ ${place}</p>
-      <p class="muted">${disclaimer}</p>
-    </div>
-    <div class="sec">
-      <h3>${(L==='zh-TW'?'太陽星座':L==='en'?'Sun Sign':'太阳星座')}</h3>
-      <p>${(L==='en'?'Your Sun is in ':'你的太阳在「')}${signName}${(L==='en'?'.':'」。')}</p>
-    </div>
-    <div class="sec">
-      <h3>${(L==='zh-TW'?'能量提示':L==='en'?'Energy Tip':'能量提示')}</h3>
-      <p>${tips}</p>
-    </div>`;
-}
-/* 替换你的 generateChart 函数 */
-function generateChart(){
-  const name=$('#name').value.trim();
-  const place=$('#place').value.trim();
-  const d=$('#birthdate').value;
-  const t=$('#birthtime').value;
-  if(!d||!t||!place){ alert('请补全“日期/时间/地点”。'); return; }
-  $('#chartSummary').textContent=`${name?name+' · ':''}${d} ${t} @ ${place}`;
-  $('#result').style.display='block';
-  renderReport({name,date:d,time:t,place,lang:getLang()});
-}
   </script>
 </body>
 </html>
+
 
