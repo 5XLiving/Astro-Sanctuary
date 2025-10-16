@@ -158,244 +158,267 @@
 
   <footer>© 5XLiving • Astro Sanctuary</footer>
 
-  <script>
-    // ====== Airtable（临时直连，生产请改后端代理）======
-    const BASE_ID = "apphD4o8Efxs8h0fz";
-    const TABLE   = "natal_requests";
-    const TOKEN   = "patrciW8c0s9IIT2m.5fa42a27dc796b099b18f118bb640d96f1361a809a2a49d3dfffd2c81acf3553";
+<script>
+  // ====== Airtable（临时直连，生产请改后端代理）======
+  const BASE_ID = "apphD4o8Efxs8h0fz";
+  const TABLE   = "natal_requests";
+  const TOKEN   = "patrciW8c0s9IIT2m.5fa42a27dc796b099b18f118bb640d96f1361a809a2a49d3dfffd2c81acf3553";
 
-    const $ = id => document.getElementById(id);
-    const lock = v => { const b=$("btnSubmit"); if(b) b.disabled=v; };
-    function showErr(msg){ const e=$("error"); e.textContent=msg; e.style.display="block"; setTimeout(()=>e.style.display='none',4000); }
-    function safeEmailFilter(s){ return encodeURIComponent(String(s||"").replace(/'/g,"\\'")); } // 预留用
+  const $ = id => document.getElementById(id);
+  const lock = v => { const b=$("btnSubmit"); if(b) b.disabled=v; };
+  function showErr(msg){ const e=$("error"); e.textContent=msg; e.style.display="block"; setTimeout(()=>e.style.display='none',4000); }
+  function hideErr(){ const e=$("error"); if(e) e.style.display="none"; }
+  function safeEmailFilter(s){ return encodeURIComponent(String(s||"").replace(/'/g,"\\'")); } // 预留用
+  function log(...a){ console.log("[natal]", ...a); }
 
-    // ---------- 生成星盘（写入 Airtable + 占位报告） ----------
-    async function generateChart(){
-      $("error").style.display="none";
-      const name = $("name").value.trim();
-      const gender = $("gender").value;
-      const date = $("birth_date").value;
-      const time = $("birth_time").value;
-      const place = $("birth_place").value.trim();
-      const cal = $("calendar").value;
+  // ---------- 生成星盘（写入 Airtable + 占位报告） ----------
+  async function generateChart(){
+    hideErr();
+    const name  = $("name").value.trim();
+    const gender= $("gender").value;
+    const date  = $("birth_date").value;
+    const time  = $("birth_time").value;
+    const place = $("birth_place").value.trim();
+    const cal   = $("calendar").value;
 
-      if(!date){ return showErr(t('err_need_birthdate')); }
+    if(!date){ return showErr(t('err_need_birthdate')); }
 
-      lock(true);
-      try{
-        const res = await fetch(`https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(TABLE)}`, {
-          method:"POST",
-          headers:{ "Authorization":`Bearer ${TOKEN}`, "Content-Type":"application/json" },
-          body: JSON.stringify({ fields:{
-            Name: name, Gender: gender, BirthDate: date, BirthTime: time, BirthPlace: place,
-            Calendar: cal, SourcePage: "natal.html", CreatedAt: new Date().toISOString()
-          }})
-        });
-        if(!res.ok){
-          const tmsg = await res.text();
-          throw new Error(t('err_submit_fail') + tmsg);
+    lock(true);
+    try{
+      const url = `https://api.airtable.com/v0/${BASE_ID}/${encodeURIComponent(TABLE)}`;
+      const payload = {
+        fields:{
+          Name: name, Gender: gender, BirthDate: date, BirthTime: time, BirthPlace: place,
+          Calendar: cal, SourcePage: "natal.html", CreatedAt: new Date().toISOString()
         }
+      };
+      log("POST", url, payload);
 
-        // 占位报告渲染
-        renderPreview({ name, gender, date, time, place, cal });
-        window.scrollTo({ top: $("preview").offsetTop - 10, behavior:"smooth" });
-        alert(t('msg_submit_ok'));  // 给出明确的成功反馈
-      }catch(e){
-        showErr(e.message);
-        console.error(e);
-      }finally{
-        lock(false);
+      const res = await fetch(url, {
+        method:"POST",
+        headers:{ "Authorization":`Bearer ${TOKEN}`, "Content-Type":"application/json", "Accept":"application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      let data = null;
+      try{ data = await res.json(); }catch{ /* 某些错误不是 JSON */ }
+
+      if(!res.ok){
+        const tmsg = (data && (data.error?.message || data.message)) || (await res.text());
+        throw new Error(t('err_submit_fail') + (tmsg || res.status));
       }
-    }
 
-    function renderPreview(d){
-      const wrap = $("preview_content");
-      const gtxt = d.gender ? (d.gender==="male" ? t("gender_male") : t("gender_female")) : t("gender_unknown");
-      wrap.innerHTML = `
-        <div class="pill">
-          <span class="tag">${t("pv_basic")}</span>
-          <div style="margin-top:6px; line-height:1.8">
-            <div><span class="big">${t("pv_name")}：</span>${d.name || "—"}</div>
-            <div><span class="big">${t("pv_gender")}：</span>${gtxt}</div>
-            <div><span class="big">${t("pv_birth")}：</span>${d.date || "—"} ${d.time || ""}</div>
-            <div><span class="big">${t("pv_place")}：</span>${d.place || "—"}</div>
-            <div><span class="big">${t("pv_calendar")}：</span>${d.cal}</div>
-          </div>
-        </div>
-        <div class="pill">
-          <span class="tag">${t("pv_hint")}</span>
-          <div style="margin-top:6px; color:#cfd9e6">
-            ${t("pv_copy")}
-          </div>
-        </div>
-      `;
+      // 占位报告渲染
+      renderPreview({ name, gender, date, time, place, cal });
       $("preview").style.display = "block";
+      window.scrollTo({ top: $("preview").offsetTop - 10, behavior:"smooth" });
+      alert(t('msg_submit_ok'));  // 给出明确的成功反馈
+    }catch(e){
+      showErr(e.message || t('err_submit_fail'));
+      console.error(e);
+    }finally{
+      lock(false);
+    }
+  }
+  // 保证 inline 的 onclick="generateChart()" 能找到
+  window.generateChart = generateChart;
+
+  function renderPreview(d){
+    const wrap = $("preview_content");
+    const gtxt = d.gender ? (d.gender==="male" ? t("gender_male") : t("gender_female")) : t("gender_unknown");
+    wrap.innerHTML = `
+      <div class="pill">
+        <span class="tag">${t("pv_basic")}</span>
+        <div style="margin-top:6px; line-height:1.8">
+          <div><span class="big">${t("pv_name")}：</span>${d.name || "—"}</div>
+          <div><span class="big">${t("pv_gender")}：</span>${gtxt}</div>
+          <div><span class="big">${t("pv_birth")}：</span>${d.date || "—"} ${d.time || ""}</div>
+          <div><span class="big">${t("pv_place")}：</span>${d.place || "—"}</div>
+          <div><span class="big">${t("pv_calendar")}：</span>${d.cal}</div>
+        </div>
+      </div>
+      <div class="pill">
+        <span class="tag">${t("pv_hint")}</span>
+        <div style="margin-top:6px; color:#cfd9e6">
+          ${t("pv_copy")}
+        </div>
+      </div>
+    `;
+  }
+
+  // ---------- 多语言（与 index 同风格） ----------
+  const translations = {
+    "zh-CN": {
+      page_title:"命理供门 · 本命星盘（免费提交）",
+      site_title:"命理供门 · 本命星盘",
+      site_subtitle:"免费提交 · 风格与首页统一 | 后续可对接星历库",
+      lang_label:"语言",
+      form_title:"提交出生资料 · 生成星盘",
+      ph_name:"姓名（可选）",
+      ph_gender:"选择性别",
+      gender_male:"男性", gender_female:"女性", gender_unknown:"—",
+      ph_birthdate:"出生日期", ph_birthtime:"出生时间", ph_place:"出生地点 / Place",
+      calendar_g:"阳历 / Gregorian", calendar_l:"农历 / Lunar（即将支持）",
+      btn_gen:"生成星盘",
+      hint_tz:"提示：默认东八区时间。后续将支持城市时区与夏令时自动换算。",
+      preview_title:"占位版报告",
+      preview_note:"已记录你的资料。正式星盘与宫位、相位、行星解释将在对接星历库后展示。",
+      pv_basic:"基础信息",
+      pv_name:"姓名",
+      pv_gender:"性别",
+      pv_birth:"出生",
+      pv_place:"地点",
+      pv_calendar:"历法",
+      pv_hint:"进度说明",
+      pv_copy:"我们已保存你的资料用于生成正式星盘。完成对接后，页面将展示十二宫位、行星落宫、主轴、主要相位与简要解读。",
+      err_need_birthdate:"请填写出生日期",
+      err_submit_fail:"提交失败：",
+      msg_submit_ok:"已收到资料（测试存档），感谢提交！"
+    },
+    "zh-TW": {
+      page_title:"命理供門 · 本命星盤（免費提交）",
+      site_title:"命理供門 · 本命星盤",
+      site_subtitle:"免費提交 · 與首頁同風格 | 後續可串接星曆庫",
+      lang_label:"語言",
+      form_title:"提交出生資料 · 生成星盤",
+      ph_name:"姓名（可選）",
+      ph_gender:"選擇性別",
+      gender_male:"男性", gender_female:"女性", gender_unknown:"—",
+      ph_birthdate:"出生日期", ph_birthtime:"出生時間", ph_place:"出生地點 / Place",
+      calendar_g:"陽曆 / Gregorian", calendar_l:"農曆 / Lunar（即將支援）",
+      btn_gen:"生成星盤",
+      hint_tz:"提示：預設東八區時間。後續將支援城市時區與夏令時換算。",
+      preview_title:"占位版報告",
+      preview_note:"已記錄你的資料。正式星盤與宮位、相位、行星解讀將在串接星曆庫後展示。",
+      pv_basic:"基礎資訊", pv_name:"姓名", pv_gender:"性別", pv_birth:"出生", pv_place:"地點", pv_calendar:"曆法",
+      pv_hint:"進度說明", pv_copy:"我們已保存你的資料以生成正式星盤。完成串接後，將展示十二宮、行星落宮、主軸、主要相位與解讀。",
+      err_need_birthdate:"請填寫出生日期",
+      err_submit_fail:"提交失敗：",
+      msg_submit_ok:"已收到資料（測試存檔），感謝提交！"
+    },
+    "en": {
+      page_title:"Bazi Gate · Natal Chart (Free Submit)",
+      site_title:"Natal Chart · Astro Portal",
+      site_subtitle:"Free submission · Unified style | Ephemeris integration coming",
+      lang_label:"Language",
+      form_title:"Enter Birth Data · Generate Chart",
+      ph_name:"Name (optional)",
+      ph_gender:"Select gender",
+      gender_male:"Male", gender_female:"Female", gender_unknown:"—",
+      ph_birthdate:"Birth date", ph_birthtime:"Birth time", ph_place:"Place of birth",
+      calendar_g:"Gregorian", calendar_l:"Lunar (soon)",
+      btn_gen:"Generate Chart",
+      hint_tz:"Hint: assumes UTC+8 for now. City timezone & DST will be supported later.",
+      preview_title:"Preview (Placeholder)",
+      preview_note:"Your data is saved. Houses/planets/aspects will appear once ephemeris is connected.",
+      pv_basic:"Basic Info", pv_name:"Name", pv_gender:"Gender", pv_birth:"Birth", pv_place:"Place", pv_calendar:"Calendar",
+      pv_hint:"Progress", pv_copy:"We'll generate a full chart after ephemeris hookup: 12 houses, planets, angles, major aspects.",
+      err_need_birthdate:"Please enter your birth date",
+      err_submit_fail:"Submit failed: ",
+      msg_submit_ok:"Received (test log). Thank you!"
+    },
+    "ja": {
+      page_title:"四柱門 · ネイタル（無料送信）",
+      site_title:"ネイタルチャート",
+      site_subtitle:"無料送信 · 統一デザイン | 星暦連携予定",
+      lang_label:"言語",
+      form_title:"出生データ入力 · チャート生成",
+      ph_name:"氏名（任意）",
+      ph_gender:"性別を選択",
+      gender_male:"男性", gender_female:"女性", gender_unknown:"—",
+      ph_birthdate:"誕生日", ph_birthtime:"出生時刻", ph_place:"出生地",
+      calendar_g:"グレゴリオ暦", calendar_l:"旧暦（準備中）",
+      btn_gen:"生成する",
+      hint_tz:"注：現在はUTC+8想定。都市タイムゾーン/DSTに後日対応。",
+      preview_title:"プレースホルダー表示",
+      preview_note:"データを保存しました。ハウス/惑星/アスペクトは連携後に表示します。",
+      pv_basic:"基本情報", pv_name:"氏名", pv_gender:"性別", pv_birth:"出生", pv_place:"場所", pv_calendar:"暦",
+      pv_hint:"進捗", pv_copy:"星暦連携後、12ハウス/惑星/軸/主要アスペクトを表示します。",
+      err_need_birthdate:"誕生日を入力してください",
+      err_submit_fail:"送信失敗：",
+      msg_submit_ok:"受け取りました（テスト保存）。ありがとうございます。"
+    },
+    "th": {
+      page_title:"ดวงกำเนิด · ส่งฟรี",
+      site_title:"ดวงกำเนิด (Natal Chart)",
+      site_subtitle:"ส่งข้อมูลฟรี · สไตล์เดียวกับหน้าแรก | จะเชื่อมฐานข้อมูลดวงดาวภายหลัง",
+      lang_label:"ภาษา",
+      form_title:"กรอกข้อมูลเกิด · สร้างดวง",
+      ph_name:"ชื่อ (ไม่บังคับ)",
+      ph_gender:"เลือกเพศ",
+      gender_male:"ชาย", gender_female:"หญิง", gender_unknown:"—",
+      ph_birthdate:"วันเกิด", ph_birthtime:"เวลาเกิด", ph_place:"สถานที่เกิด",
+      calendar_g:"เกรกอเรียน", calendar_l:"จันทรคติ (เร็วๆ นี้)",
+      btn_gen:"สร้างดวง",
+      hint_tz:"หมายเหตุ: ตอนนี้ถือว่า UTC+8 ก่อน จะรองรับโซนเวลาเมืองและ DST ภายหลัง",
+      preview_title:"รายงานชั่วคราว",
+      preview_note:"บันทึกข้อมูลแล้ว จะแสดงเรือนดาว/ดาวเคราะห์/แง่มุมเมื่อเชื่อมฐานดาว",
+      pv_basic:"ข้อมูลพื้นฐาน", pv_name:"ชื่อ", pv_gender:"เพศ", pv_birth:"วันเวลาเกิด", pv_place:"สถานที่", pv_calendar:"ปฏิทิน",
+      pv_hint:"ความคืบหน้า", pv_copy:"หลังเชื่อมฐานดาว จะมี 12 เรือน ดาวเคราะห์ มุมสำคัญ และคำอธิบาย",
+      err_need_birthdate:"กรุณากรอกวันเกิด",
+      err_submit_fail:"ส่งไม่สำเร็จ: ",
+      msg_submit_ok:"รับข้อมูลแล้ว (ทดสอบบันทึก) ขอบคุณ!"
+    },
+    "ms": {
+      page_title:"Carta Kelahiran · Hantar Percuma",
+      site_title:"Carta Kelahiran",
+      site_subtitle:"Hantar data percuma · Gaya seragam | Integrasi efemeris akan datang",
+      lang_label:"Bahasa",
+      form_title:"Isi Data Kelahiran · Jana Carta",
+      ph_name:"Nama (pilihan)",
+      ph_gender:"Pilih jantina",
+      gender_male:"Lelaki", gender_female:"Perempuan", gender_unknown:"—",
+      ph_birthdate:"Tarikh lahir", ph_birthtime:"Masa lahir", ph_place:"Tempat lahir",
+      calendar_g:"Gregorian", calendar_l:"Lunar (segera)",
+      btn_gen:"Jana Carta",
+      hint_tz:"Nota: andaikan UTC+8 ชั่วคราว. Sokong zon waktu & DST kemudian.",
+      preview_title:"Laporan Sementara",
+      preview_note:"Data anda disimpan. Rumah, planet, aspek akan dipaparkan selepas integrasi efemeris.",
+      pv_basic:"Maklumat Asas", pv_name:"Nama", pv_gender:"Jantina", pv_birth:"Kelahiran", pv_place:"Tempat", pv_calendar:"Kalendar",
+      pv_hint:"Kemajuan", pv_copy:"Selepas integrasi, akan ada 12 rumah, planet, sudut dan aspek utama.",
+      err_need_birthdate:"Masukkan tarikh lahir",
+      err_submit_fail:"Hantar gagal: ",
+      msg_submit_ok:"Diterima (log ujian). Terima kasih!"
+    }
+  };
+
+  const LANG_KEY = "site_lang";
+  function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
+  function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
+  function t(key){
+    const L = translations[getLang()] || translations["zh-CN"];
+    return L[key] || (translations["zh-CN"][key] || key);
+  }
+  function applyI18n(){
+    document.querySelectorAll("[data-i18n]").forEach(el=>{
+      const key = el.getAttribute("data-i18n");
+      el.textContent = t(key);
+    });
+    document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
+      const key = el.getAttribute("data-i18n-ph");
+      el.setAttribute("placeholder", t(key));
+    });
+    // 更新浏览器标签
+    document.title = t("page_title");
+  }
+
+  (function init(){
+    // 语言
+    const select = $("langSelect");
+    const current = getLang();
+    if(select){ select.value = current; select.addEventListener("change", ()=>{ setLang(select.value); applyI18n(); }); }
+    applyI18n();
+
+    // 默认日期给今天（避免控件为空）
+    if($("birth_date") && !$("birth_date").value){
+      $("birth_date").value = new Date().toISOString().split("T")[0];
     }
 
-    // ---------- 多语言（与 index 同风格） ----------
-    const translations = {
-      "zh-CN": {
-        page_title:"命理供门 · 本命星盘（免费提交）",
-        site_title:"命理供门 · 本命星盘",
-        site_subtitle:"免费提交 · 风格与首页统一 | 后续可对接星历库",
-        lang_label:"语言",
-        form_title:"提交出生资料 · 生成星盘",
-        ph_name:"姓名（可选）",
-        ph_gender:"选择性别",
-        gender_male:"男性", gender_female:"女性", gender_unknown:"—",
-        ph_birthdate:"出生日期", ph_birthtime:"出生时间", ph_place:"出生地点 / Place",
-        calendar_g:"阳历 / Gregorian", calendar_l:"农历 / Lunar（即将支持）",
-        btn_gen:"生成星盘",
-        hint_tz:"提示：默认东八区时间。后续将支持城市时区与夏令时自动换算。",
-        preview_title:"占位版报告",
-        preview_note:"已记录你的资料。正式星盘与宫位、相位、行星解释将在对接星历库后展示。",
-        pv_basic:"基础信息",
-        pv_name:"姓名",
-        pv_gender:"性别",
-        pv_birth:"出生",
-        pv_place:"地点",
-        pv_calendar:"历法",
-        pv_hint:"进度说明",
-        pv_copy:"我们已保存你的资料用于生成正式星盘。完成对接后，页面将展示十二宫位、行星落宫、主轴、主要相位与简要解读。",
-        err_need_birthdate:"请填写出生日期",
-        err_submit_fail:"提交失败：",
-        msg_submit_ok:"已收到资料（测试存档），感谢提交！"
-      },
-      "zh-TW": {
-        page_title:"命理供門 · 本命星盤（免費提交）",
-        site_title:"命理供門 · 本命星盤",
-        site_subtitle:"免費提交 · 與首頁同風格 | 後續可串接星曆庫",
-        lang_label:"語言",
-        form_title:"提交出生資料 · 生成星盤",
-        ph_name:"姓名（可選）",
-        ph_gender:"選擇性別",
-        gender_male:"男性", gender_female:"女性", gender_unknown:"—",
-        ph_birthdate:"出生日期", ph_birthtime:"出生時間", ph_place:"出生地點 / Place",
-        calendar_g:"陽曆 / Gregorian", calendar_l:"農曆 / Lunar（即將支援）",
-        btn_gen:"生成星盤",
-        hint_tz:"提示：預設東八區時間。後續將支援城市時區與夏令時換算。",
-        preview_title:"占位版報告",
-        preview_note:"已記錄你的資料。正式星盤與宮位、相位、行星解讀將在串接星曆庫後展示。",
-        pv_basic:"基礎資訊", pv_name:"姓名", pv_gender:"性別", pv_birth:"出生", pv_place:"地點", pv_calendar:"曆法",
-        pv_hint:"進度說明", pv_copy:"我們已保存你的資料以生成正式星盤。完成串接後，將展示十二宮、行星落宮、主軸、主要相位與解讀。",
-        err_need_birthdate:"請填寫出生日期",
-        err_submit_fail:"提交失敗：",
-        msg_submit_ok:"已收到資料（測試存檔），感謝提交！"
-      },
-      "en": {
-        page_title:"Bazi Gate · Natal Chart (Free Submit)",
-        site_title:"Natal Chart · Astro Portal",
-        site_subtitle:"Free submission · Unified style | Ephemeris integration coming",
-        lang_label:"Language",
-        form_title:"Enter Birth Data · Generate Chart",
-        ph_name:"Name (optional)",
-        ph_gender:"Select gender",
-        gender_male:"Male", gender_female:"Female", gender_unknown:"—",
-        ph_birthdate:"Birth date", ph_birthtime:"Birth time", ph_place:"Place of birth",
-        calendar_g:"Gregorian", calendar_l:"Lunar (soon)",
-        btn_gen:"Generate Chart",
-        hint_tz:"Hint: assumes UTC+8 for now. City timezone & DST will be supported later.",
-        preview_title:"Preview (Placeholder)",
-        preview_note:"Your data is saved. Houses/planets/aspects will appear once ephemeris is connected.",
-        pv_basic:"Basic Info", pv_name:"Name", pv_gender:"Gender", pv_birth:"Birth", pv_place:"Place", pv_calendar:"Calendar",
-        pv_hint:"Progress", pv_copy:"We'll generate a full chart after ephemeris hookup: 12 houses, planets, angles, major aspects.",
-        err_need_birthdate:"Please enter your birth date",
-        err_submit_fail:"Submit failed: ",
-        msg_submit_ok:"Received (test log). Thank you!"
-      },
-      "ja": {
-        page_title:"四柱門 · ネイタル（無料送信）",
-        site_title:"ネイタルチャート",
-        site_subtitle:"無料送信 · 統一デザイン | 星暦連携予定",
-        lang_label:"言語",
-        form_title:"出生データ入力 · チャート生成",
-        ph_name:"氏名（任意）",
-        ph_gender:"性別を選択",
-        gender_male:"男性", gender_female:"女性", gender_unknown:"—",
-        ph_birthdate:"誕生日", ph_birthtime:"出生時刻", ph_place:"出生地",
-        calendar_g:"グレゴリオ暦", calendar_l:"旧暦（準備中）",
-        btn_gen:"生成する",
-        hint_tz:"注：現在はUTC+8想定。都市タイムゾーン/DSTに後日対応。",
-        preview_title:"プレースホルダー表示",
-        preview_note:"データを保存しました。ハウス/惑星/アスペクトは連携後に表示します。",
-        pv_basic:"基本情報", pv_name:"氏名", pv_gender:"性別", pv_birth:"出生", pv_place:"場所", pv_calendar:"暦",
-        pv_hint:"進捗", pv_copy:"星暦連携後、12ハウス/惑星/軸/主要アスペクトを表示します。",
-        err_need_birthdate:"誕生日を入力してください",
-        err_submit_fail:"送信失敗：",
-        msg_submit_ok:"受け取りました（テスト保存）。ありがとうございます。"
-      },
-      "th": {
-        page_title:"ดวงกำเนิด · ส่งฟรี",
-        site_title:"ดวงกำเนิด (Natal Chart)",
-        site_subtitle:"ส่งข้อมูลฟรี · สไตล์เดียวกับหน้าแรก | จะเชื่อมฐานข้อมูลดวงดาวภายหลัง",
-        lang_label:"ภาษา",
-        form_title:"กรอกข้อมูลเกิด · สร้างดวง",
-        ph_name:"ชื่อ (ไม่บังคับ)",
-        ph_gender:"เลือกเพศ",
-        gender_male:"ชาย", gender_female:"หญิง", gender_unknown:"—",
-        ph_birthdate:"วันเกิด", ph_birthtime:"เวลาเกิด", ph_place:"สถานที่เกิด",
-        calendar_g:"เกรกอเรียน", calendar_l:"จันทรคติ (เร็วๆ นี้)",
-        btn_gen:"สร้างดวง",
-        hint_tz:"หมายเหตุ: ตอนนี้ถือว่า UTC+8 ก่อน จะรองรับโซนเวลาเมืองและ DST ภายหลัง",
-        preview_title:"รายงานชั่วคราว",
-        preview_note:"บันทึกข้อมูลแล้ว จะแสดงเรือนดาว/ดาวเคราะห์/แง่มุมเมื่อเชื่อมฐานดาว",
-        pv_basic:"ข้อมูลพื้นฐาน", pv_name:"ชื่อ", pv_gender:"เพศ", pv_birth:"วันเวลาเกิด", pv_place:"สถานที่", pv_calendar:"ปฏิทิน",
-        pv_hint:"ความคืบหน้า", pv_copy:"หลังเชื่อมฐานดาว จะมี 12 เรือน ดาวเคราะห์ มุมสำคัญ และคำอธิบาย",
-        err_need_birthdate:"กรุณากรอกวันเกิด",
-        err_submit_fail:"ส่งไม่สำเร็จ: ",
-        msg_submit_ok:"รับข้อมูลแล้ว (ทดสอบบันทึก) ขอบคุณ!"
-      },
-      "ms": {
-        page_title:"Carta Kelahiran · Hantar Percuma",
-        site_title:"Carta Kelahiran",
-        site_subtitle:"Hantar data percuma · Gaya seragam | Integrasi efemeris akan datang",
-        lang_label:"Bahasa",
-        form_title:"Isi Data Kelahiran · Jana Carta",
-        ph_name:"Nama (pilihan)",
-        ph_gender:"Pilih jantina",
-        gender_male:"Lelaki", gender_female:"Perempuan", gender_unknown:"—",
-        ph_birthdate:"Tarikh lahir", ph_birthtime:"Masa lahir", ph_place:"Tempat lahir",
-        calendar_g:"Gregorian", calendar_l:"Lunar (segera)",
-        btn_gen:"Jana Carta",
-        hint_tz:"Nota: andaikan UTC+8 ชั่วคราว. Sokong zon waktu & DST kemudian.",
-        preview_title:"Laporan Sementara",
-        preview_note:"Data anda disimpan. Rumah, planet, aspek akan dipaparkan selepas integrasi efemeris.",
-        pv_basic:"Maklumat Asas", pv_name:"Nama", pv_gender:"Jantina", pv_birth:"Kelahiran", pv_place:"Tempat", pv_calendar:"Kalendar",
-        pv_hint:"Kemajuan", pv_copy:"Selepas integrasi, akan ada 12 rumah, planet, sudut dan aspek utama.",
-        err_need_birthdate:"Masukkan tarikh lahir",
-        err_submit_fail:"Hantar gagal: ",
-        msg_submit_ok:"Diterima (log ujian). Terima kasih!"
-      }
-    };
-
-    const LANG_KEY = "site_lang";
-    function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
-    function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
-    function t(key){
-      const L = translations[getLang()] || translations["zh-CN"];
-      return L[key] || (translations["zh-CN"][key] || key);
-    }
-    function applyI18n(){
-      document.querySelectorAll("[data-i18n]").forEach(el=>{
-        const key = el.getAttribute("data-i18n");
-        el.textContent = t(key);
-      });
-      document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
-        const key = el.getAttribute("data-i18n-ph");
-        el.setAttribute("placeholder", t(key));
-      });
-      const titleEl = document.querySelector("title[data-i18n]");
-      if (titleEl) titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
-    }
-    (function initLang(){
-      const select = $("langSelect");
-      const current = getLang();
-      select.value = current;
-      applyI18n();
-      select.addEventListener("change", ()=>{
-        setLang(select.value); applyI18n();
-      });
-    })();
-  </script>
+    // 初始按钮可用
+    lock(false);
+    log("ready");
+  })();
+</script>
 </body>
 </html>
+
