@@ -59,6 +59,38 @@
     .report .sec h3{margin:0 0 6px;color:var(--gold2);font-size:1.05rem}
     .report p,.report li{line-height:1.7}
 
+        /* —— 右下角心怜管家（问） —— */
+    .ss-chat-fab{
+      position:fixed;right:18px;bottom:18px;z-index:50;width:56px;height:56px;border-radius:50%;
+      background:linear-gradient(180deg,#fff9e6,#e6c76e);color:#191919;display:grid;place-items:center;font-weight:800;
+      box-shadow:0 8px 30px rgba(0,0,0,.35);cursor:pointer;border:1px solid #e6c76e
+    }
+    .ss-chat-panel{
+      position:fixed;right:18px;bottom:88px;z-index:50;width:min(460px,92vw);display:none;
+      background:#0e1520;border:1px solid #243244;border-radius:14px;box-shadow:var(--shadow)
+    }
+    .ss-chat-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #243244}
+    .ss-chat-title{font-weight:700}
+    .ss-close{cursor:pointer;opacity:.8}
+    .ss-chat-body{max-height:300px;overflow:auto;padding:10px 12px}
+    .ss-msg{padding:8px 10px;background:#0f1624;border:1px solid #243244;border-radius:10px;margin:6px 0;max-width:80%}
+    .ss-msg.me{margin-left:auto;background:#132033}
+    /* 聊天输入行：输入框撑满、按钮按内容自适应 */
+    .ss-chat-input{
+      display:flex; align-items:center; gap:8px;
+      padding:10px 12px; border-top:1px solid #243244;
+    }
+    .ss-chat-input input{
+      flex:1 1 auto; min-width:0;
+    }
+    .ss-chat-input .btn,
+    .ss-chat-input button{
+      flex:0 0 auto;
+      width:auto !important;
+      white-space:nowrap;
+      padding:10px 14px;
+    }
+
     /* —— 会员区布局 —— */
     .columns{display:grid;gap:12px;grid-template-columns:1fr}
     @media(min-width:900px){ .columns{grid-template-columns:1fr 1fr} }
@@ -73,6 +105,37 @@
     .panel .body{padding:18px}
     .spacer{height:12px}
     footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0}
+
+    /* —— 会员区布局 —— */
+    .columns{display:grid;gap:12px;grid-template-columns:1fr}
+    @media(min-width:900px){ .columns{grid-template-columns:1fr 1fr} }
+    .list-block{border:1px solid #263448;background:#0e1520;border-radius:12px;padding:16px}
+    .list-block ul{margin:.2rem 0 0;padding-left:1.1rem}
+    .group-title{font-size:1.05rem;color:#ffe084;margin:6px 0 14px}
+    .astro-auth{max-width:980px;margin:28px auto;padding:20px 18px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid rgba(212,175,55,.22);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+    .auth-grid{display:grid;gap:18px;grid-template-columns:1.2fr .8fr}
+    @media(max-width:860px){ .auth-grid{grid-template-columns:1fr} }
+    .panel{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid rgba(212,175,55,.22);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
+    .panel .head{padding:16px 18px;border-bottom:1px solid rgba(212,175,55,.22);color:var(--gold);font-weight:700;letter-spacing:.3px}
+    .panel .body{padding:18px}
+    .spacer{height:12px}
+    footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0}
+
+    /* —— 只保留一个 GPT 窗口：隐藏结果区的 GPT 抽屉 —— */
+    #gpt-drawer, #gpt-drawer[hidden], #gpt-drawer>summary{display:none !important}
+
+    /* —— 估时间弹窗 —— */
+    .tw-mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:60}
+    .tw-box{width:min(560px,94vw);background:#0e1520;border:1px solid #243244;border-radius:14px;box-shadow:var(--shadow)}
+    .tw-head{padding:12px 14px;border-bottom:1px solid #243244;font-weight:700}
+    .tw-body{padding:14px}
+    .tw-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    .tw-btn{padding:10px;border:1px solid #243244;border-radius:12px;background:#0f1624;color:var(--text);cursor:pointer}
+    .tw-btn.active{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(212,175,55,.25) inset}
+    .tw-foot{display:flex;gap:10px;justify-content:flex-end;padding:12px 14px;border-top:1px solid #243244}
+    /* 修复：Grid 子项允许收缩，避免内容把面板撑破 */
+    .auth-grid > * { min-width: 0; }
+    .panel .body .row.one > * { min-width: 0; }
   </style>
 </head>
 <body>
@@ -521,6 +584,107 @@
     renderReport({name:name,date:d,time:t,place:place,lang:getLang()});
   }
 
+  /* ================== 语言：初始化 + 切换后重渲染 ================== */
+function applyI18n(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>{ const key=el.getAttribute("data-i18n"); el.textContent=t(key);});
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ const key=el.getAttribute("data-i18n-ph"); el.setAttribute("placeholder", t(key));});
+}
+function applyChatI18n(){
+  const fab=$('ssChatFab'), inp=$('ssChatInput'), btn=$('ssChatSend');
+  if (fab) fab.textContent = t('chat_fab');
+  if (inp) inp.placeholder = t('chat_placeholder');
+  if (btn) btn.textContent = t('chat_send');
+}
+function initLangUI(){
+  const sel = document.getElementById('langSelect');
+  if(!sel) return;
+  const current = getLang();
+  sel.value = current;
+  document.documentElement.lang = current;
+  applyI18n();
+  applyChatI18n();
+
+  sel.addEventListener('change', ()=>{
+    setLang(sel.value);
+    applyI18n();
+    applyChatI18n();
+    rerenderReportsIfAny();
+  });
+}
+function rerenderReportsIfAny(){
+  const ctx = window.__last_report__;
+  if (!ctx) return;
+
+  const { pillars, percents, st, adv, tu } = ctx;
+
+  // 1) 重新渲染报告（免费+富报告）
+  mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
+  mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
+  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
+
+  // 2) 切语言后同步刷新“最强/最弱”提示
+  const E = ELABEL();
+  const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
+  const entries = Object.entries(percents || {});
+  const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
+  const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
+  setText(
+    'bazi-elements-balance',
+    t('elements_balance_tpl')
+      .replace('{max}', key2Locale[strongestK])
+      .replace('{min}', key2Locale[weakestK])
+  );
+
+  // 3) 强制刷新“心怜管家”标题与内容为当前语言
+  const titleEl = document.querySelector('#assistant-panel .butler-title');
+  if (titleEl) titleEl.textContent = t('butler_title');
+
+  // 再跑一次管家内容（确保分析与建议文本跟随语言）
+  const assistant = new XinLianAssistant();
+  assistant.generateAnalysis({
+    dayMaster: { stem: pillars.day.stem, element: pillars.day.element },
+    elements: percents,
+    strength: st,
+    season: st.season,
+    useful: adv,
+    timeUnknown: tu
+  });
+}
+
+/* ================== Chat 悬浮球 ================== */
+document.addEventListener('DOMContentLoaded', ()=>{
+  const chatFab=document.createElement('div'); chatFab.className='ss-chat-fab'; chatFab.id='ssChatFab'; chatFab.title='心怜管家';
+  const chatPanel=document.createElement('div'); chatPanel.className='ss-chat-panel'; chatPanel.id='ssChatPanel'; chatPanel.setAttribute('role','dialog'); chatPanel.setAttribute('aria-label','心怜管家');
+  chatPanel.innerHTML = `
+    <div class="ss-chat-head"><div class="ss-chat-title">心怜管家 · Chat</div><div class="ss-close" id="ssChatClose">✕</div></div>
+    <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
+    <div class="ss-chat-input"><input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/><button id="ssChatSend" class="btn">${t('chat_send')}</button></div>`;
+  document.body.appendChild(chatFab); document.body.appendChild(chatPanel);
+  applyChatI18n();
+
+  const $body=$('ssChatBody'), $input=$('ssChatInput'), $send=$('ssChatSend'), $close=$('ssChatClose');
+  const openPanel=()=>{ chatPanel.style.display='block'; $input&&$input.focus(); }; const closePanel=()=>{ chatPanel.style.display='none'; };
+  chatFab.addEventListener('click',openPanel); $close&&$close.addEventListener('click',closePanel);
+
+  function addMsg(text,me=false){ const div=document.createElement('div'); div.className='ss-msg'+(me?' me':''); div.textContent=text; $body.appendChild(div); $body.scrollTop=$body.scrollHeight; }
+  async function askChat(prompt){
+    addMsg(prompt,true); if($input){ $input.value=''; $input.focus(); }
+    try{
+      const r=await fetch(`${API_BASE}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'system',content:'你是“心怜管家”，帮助访客了解命理心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。'},{role:'user',content:prompt}]})});
+      let data,reply=''; try{data=await r.json()}catch{data={}} reply=data.reply??data.text??data?.choices?.[0]?.message?.content??"";
+      if(!reply) return addMsg('抱歉，服务暂时繁忙，请稍后重试。'); addMsg(reply);
+    }catch(e){ addMsg('网络异常，请稍后再试。'); }
+  }
+  $send&&$send.addEventListener('click',()=>{ const v=$input?.value.trim(); if(v) askChat(v); });
+  $input&&$input.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
+
+  // —— 页面初始：默认日期、按钮绑定、语言 UI
+  const today=new Date(); const def=today.toISOString().split('T')[0]; if($('birthdate')&&!$('birthdate').value) $('birthdate').value=def;
+  $('genBtn')?.addEventListener('click',genChart);
+  initLangUI();
+  });
+}
+
   /* ===== 页面逻辑 ===== */
   document.addEventListener('DOMContentLoaded', function(){
     var sel = document.querySelector('#langSelect');
@@ -538,11 +702,11 @@
     var bd=document.querySelector('#birthdate');
     if(bd && !bd.value){ bd.value = new Date().toISOString().split('T')[0]; }
   });
-
-})();
+}
 </script>
 </body>
 </html>
+
 
 
 
