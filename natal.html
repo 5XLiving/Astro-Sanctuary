@@ -304,10 +304,15 @@
 (function(){
   'use strict';
 
-  var LANG_KEY = 'site_lang';
+  /* ================= 基础常量/工具 ================= */
+  const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+  const LANG_KEY = 'site_lang';
+  const qs  = (s,root=document)=>root.querySelector(s);
+  const qsa = (s,root=document)=>Array.from(root.querySelectorAll(s));
+  const gid = (id)=>document.getElementById(id);
 
-  /* ===== i18n（多语） ===== */
-  var natalI18n = {
+  /* ================= i18n（与你的文案保持一致） ================= */
+  const I18N = {
     'zh-CN': {
       lang_label:'语言',
       btn_login:'登录账户', btn_register:'注册账户', btn_reset:'🔑 重设密码',
@@ -444,10 +449,70 @@
     }
   };
 
-  var I18N = natalI18n;
+  function getLang(){
+    const saved = localStorage.getItem(LANG_KEY);
+    if (saved && I18N[saved]) return saved;
+    const raw = (navigator.language || 'zh-CN').replace('_','-');
+    const map = {'zh':'zh-CN','zh-CN':'zh-CN','zh-SG':'zh-CN','zh-TW':'zh-TW','zh-HK':'zh-TW',
+                 'en':'en','en-US':'en','en-GB':'en','en-AU':'en',
+                 'ja':'ja','ja-JP':'ja','th':'th','ms':'ms'};
+    return map[raw] || 'zh-CN';
+  }
+  function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
+  function t(key){
+    const L = I18N[getLang()] || I18N['zh-CN'];
+    return L[key] || (I18N['zh-CN'][key] || key);
+  }
+  function applyI18n(){
+    const setTxt = (sel,val)=>{ const el=qs(sel); if(el) el.textContent = val; };
+    const setPh  = (sel,val)=>{ const el=qs(sel); if(el) el.setAttribute('placeholder', val); };
 
-  /* ===== 太阳星座判定（近似日期段） ===== */
-  var SIGN_LIST = [
+    setTxt('[data-i18n="lang_label"]', t('lang_label'));
+    const sel = gid('langSelect'); if(sel) sel.value = getLang();
+    setTxt('[data-i18n="page_title"]', t('page_title'));
+    setTxt('[data-i18n="page_sub"]', t('page_sub'));
+    setTxt('[data-i18n="label_name"]', t('label_name')); setPh('#name', t('ph_name'));
+    setTxt('[data-i18n="gender_label"]', t('gender_label'));
+    const ou=qs('#gender option[value="u"]'); if(ou) ou.textContent=t('opt_gender_confidential');
+    const om=qs('#gender option[value="m"]'); if(om) om.textContent=t('opt_gender_male');
+    const of=qs('#gender option[value="f"]'); if(of) of.textContent=t('opt_gender_female');
+    setTxt('[data-i18n="label_place"]', t('label_place')); setPh('#place', t('ph_place'));
+    setTxt('[data-i18n="label_birthdate"]', t('label_birthdate'));
+    setTxt('[data-i18n="label_birthtime"]', t('label_birthtime'));
+    const gb=gid('genBtn'); if(gb) gb.textContent=t('btn_generate');
+    setTxt('#formNote', t('note_privacy'));
+    document.title = t('page_title');
+  }
+  function applyChatI18n(){
+    if (gid('ssChatFab'))   gid('ssChatFab').textContent = t('chat_fab');
+    if (gid('ssChatInput')) gid('ssChatInput').placeholder = t('chat_placeholder');
+    if (gid('ssChatSend'))  gid('ssChatSend').textContent = t('chat_send');
+  }
+  function initLangUI(){
+    const sel = gid('langSelect');
+    if(!sel) return;
+    const current = getLang();
+    sel.value = current;
+    document.documentElement.lang = current;
+    applyI18n();
+    applyChatI18n();
+    sel.addEventListener('change', ()=>{
+      setLang(sel.value);
+      applyI18n();
+      applyChatI18n();
+      // 如果已有报告，则按新语言重渲染并重跑 AI
+      if (qs('#result')?.style.display !== 'none'){
+        const ctx = readForm();
+        if (ctx.date && ctx.place){
+          renderReport({...ctx, lang:getLang()});
+          runAI();
+        }
+      }
+    });
+  }
+
+  /* ================= 太阳星座（按日期近似） ================= */
+  const SIGN_LIST = [
     {key:'Aries',start:[3,21],end:[4,19],el:'fire', name:{'zh-CN':'白羊座','zh-TW':'牡羊座','en':'Aries'}},
     {key:'Taurus',start:[4,20],end:[5,20],el:'earth',name:{'zh-CN':'金牛座','zh-TW':'金牛座','en':'Taurus'}},
     {key:'Gemini',start:[5,21],end:[6,21],el:'air',  name:{'zh-CN':'双子座','zh-TW':'雙子座','en':'Gemini'}},
@@ -461,57 +526,46 @@
     {key:'Aquarius',start:[1,20],end:[2,18],el:'air', name:{'zh-CN':'水瓶座','zh-TW':'水瓶座','en':'Aquarius'}},
     {key:'Pisces',start:[2,19],end:[3,20],el:'water',name:{'zh-CN':'双鱼座','zh-TW':'雙魚座','en':'Pisces'}}
   ];
-  function inRange(m,d,sm,sd,em,ed){
-    if (sm<em || (sm===em && sd<=ed)){
-      return (m>sm || (m===sm && d>=sd)) && (m<em || (m===em && d<=ed));
-    }
-    return (m>sm || (m===sm && d>=sd)) || (m<em || (m===em && d<=ed)); // 跨年
+  function inRange(m,d,[sm,sd],[em,ed]){
+    return (sm<em || (sm===em && sd<=ed))
+      ? (m>sm || (m===sm && d>=sd)) && (m<em || (m===em && d<=ed))
+      : (m>sm || (m===sm && d>=sd)) || (m<em || (m===em && d<=ed));
   }
   function getSunSign(dateStr){
-    var dt=new Date(dateStr); var m=dt.getMonth()+1, d=dt.getDate();
-    for(var i=0;i<SIGN_LIST.length;i++){
-      var s=SIGN_LIST[i];
-      if(inRange(m,d,s.start[0],s.start[1],s.end[0],s.end[1])) return s;
-    }
-    return SIGN_LIST[11];
+    const dt=new Date(dateStr), m=dt.getMonth()+1, d=dt.getDate();
+    return SIGN_LIST.find(s=>inRange(m,d,s.start,s.end)) || SIGN_LIST[11];
   }
-  var EL_TEXT={
+  const EL_TEXT = {
     'zh-CN':{fire:'火元素偏旺：行动力强，先做后想更常见；给自己留个停顿更准。',
              earth:'土元素偏旺：务实细致；别被完美卡住，先上路再优化。',
              air:'风元素偏旺：想法多善沟通；控制信息过载，用“落地清单”。',
              water:'水元素偏旺：感受力强；写下来或动起来，让情绪流动。'},
-    'zh-TW':{fire:'火元素偏旺：行動力強；加個緩衝更穩。',
-             earth:'土元素偏旺：務實細緻；別被完美主義卡住。',
-             air:'風元素偏旺：點子多；用清單收束。',
-             water:'水元素偏旺：感受力強；書寫或運動讓情緒流動。'},
-    'en':{fire:'Fire-leaning: bold & fast—add a pause for precision.',
-          earth:'Earth-leaning: practical—ship then refine.',
-          air:'Air-leaning: ideas flow—tame overload with a list.',
-          water:'Water-leaning: sensitive—journal or move to keep emotions flowing.'}
+    'zh-TW':{fire:'火元素偏旺：行動力強；加個緩衝更穩。', earth:'土元素偏旺：務實細緻；別被完美主義卡住。',
+             air:'風元素偏旺：點子多；用清單收束。', water:'水元素偏旺：感受力強；書寫或運動讓情緒流動。'},
+    'en':   {fire:'Fire-leaning: bold & fast—add a pause for precision.',
+             earth:'Earth-leaning: practical—ship then refine.',
+             air:'Air-leaning: ideas flow—tame overload with a list.',
+             water:'Water-leaning: sensitive—journal or move to keep emotions flowing.'}
   };
 
-  /* ===== 报告渲染 ===== */
+  /* ================= 基础报告渲染 ================= */
   function renderReport(obj){
-    var lang = obj.lang && I18N[obj.lang] ? obj.lang : 'zh-CN';
-    var sign=getSunSign(obj.date); var signName=sign.name[lang] || sign.name['zh-CN'];
-    var tips=(EL_TEXT[lang] || EL_TEXT['zh-CN'])[sign.el]; // FIX: 非中/英语言回退到 zh-CN
-    var disclaimer = (lang==='zh-TW') ? '＊示範：僅依日期推太陽星座，非完整本命盤。'
-                    : (lang==='en')   ? '*Demo: Sun sign only (not a full chart).'
-                                      : '＊演示：仅按日期推太阳星座，非完整本命盘。';
+    const lang = obj.lang && I18N[obj.lang] ? obj.lang : getLang();
+    const sign = getSunSign(obj.date);
+    const signName = sign.name[lang] || sign.name['zh-CN'];
+    const tips = (EL_TEXT[lang] || EL_TEXT['zh-CN'])[sign.el];
+    const disclaimer = (lang==='zh-TW') ? '＊示範：僅依日期推太陽星座，非完整本命盤。'
+                     : (lang==='en')   ? '*Demo: Sun sign only (not a full chart).'
+                                       : '＊演示：仅按日期推太阳星座，非完整本命盘。';
 
-    var container = document.querySelector('#chartReport') ||
-                    document.querySelector('#chartSummary');
-
+    const container = gid('chartReport') || gid('chartSummary');
     if(!container){
-      var tmp = document.createElement('div');
+      const tmp = document.createElement('div');
       tmp.id = 'chartReport';
       tmp.className = 'report';
-      var result = document.querySelector('#result') || document.body;
-      result.appendChild(tmp);
-      container = tmp;
+      (gid('result') || document.body).appendChild(tmp);
     }
-
-    container.innerHTML =
+    gid('chartReport').innerHTML =
       '<div class="sec">'+
         '<h3>'+(lang==='zh-TW'?'總覽':lang==='en'?'Overview':'概览')+'</h3>'+
         '<p>'+(obj.name?obj.name+' · ':'')+obj.date+' '+obj.time+' @ '+obj.place+'</p>'+
@@ -527,185 +581,234 @@
       '</div>';
   }
 
-  /* ===== 语言工具 ===== */
-  function getLang(){
-    var saved = localStorage.getItem(LANG_KEY);
-    if (saved && I18N[saved]) return saved;
-    var raw = (navigator.language || 'zh-CN').replace('_','-');
-    var map = {'zh':'zh-CN','zh-CN':'zh-CN','zh-SG':'zh-CN','zh-TW':'zh-TW','zh-HK':'zh-TW',
-               'en':'en','en-US':'en','en-GB':'en','en-AU':'en',
-               'ja':'ja','ja-JP':'ja','th':'th','ms':'ms'};
-    return map[raw] || 'zh-CN';
-  }
-  function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
-  function t(key){
-    var L = I18N[getLang()] || I18N['zh-CN'];
-    return L[key] || (I18N['zh-CN'][key] || key);
-  }
-  function applyI18n(){
-    function setTxt(sel,val){ var el=document.querySelector(sel); if(el) el.textContent=val; }
-    function setPh(sel,val){ var el=document.querySelector(sel); if(el) el.setAttribute('placeholder',val); }
-
-    setTxt('[data-i18n="lang_label"]', t('lang_label'));
-    var sel=document.querySelector('#langSelect'); if(sel) sel.value=getLang();
-    setTxt('[data-i18n="page_title"]', t('page_title'));
-    setTxt('[data-i18n="page_sub"]', t('page_sub'));
-    setTxt('[data-i18n="label_name"]', t('label_name')); setPh('#name', t('ph_name'));
-    setTxt('[data-i18n="gender_label"]', t('gender_label'));
-    var ou=document.querySelector('#gender option[value="u"]'); if(ou) ou.textContent=t('opt_gender_confidential');
-    var om=document.querySelector('#gender option[value="m"]'); if(om) om.textContent=t('opt_gender_male');
-    var of=document.querySelector('#gender option[value="f"]'); if(of) of.textContent=t('opt_gender_female');
-    setTxt('[data-i18n="label_place"]', t('label_place')); setPh('#place', t('ph_place'));
-    setTxt('[data-i18n="label_birthdate"]', t('label_birthdate'));
-    setTxt('[data-i18n="label_birthtime"]', t('label_birthtime'));
-    var gb=document.querySelector('#genBtn'); if(gb) gb.textContent=t('btn_generate');
-    var db=document.querySelector('#demoBtn'); if(db) db.textContent=t('btn_demo');
-    setTxt('#formNote', t('note_privacy'));
-
-    document.title = t('page_title'); // FIX: 同步浏览器 Tab 标题
+  function readForm(){
+    const name = gid('name')?.value.trim() || '';
+    const place= gid('place')?.value.trim() || '';
+    const date = gid('birthdate')?.value || '';
+    const time = gid('birthtime')?.value || '12:00';
+    return {name, place, date, time};
   }
 
-  /* ===== 生成 ===== */
-  function generateChart(){
-    var nameEl=document.querySelector('#name');
-    var placeEl=document.querySelector('#place');
-    var dateEl=document.querySelector('#birthdate');
-    var timeEl=document.querySelector('#birthtime');
+  /* ================== AI 智能解读（增量卡片） ================== */
+  // 注入轻量样式
+  (function injectAiStyle(){
+    if (gid('ai-style')) return;
+    const style = document.createElement('style');
+    style.id='ai-style';
+    style.textContent = `
+      .ai-card{background:#11161dcc;border:1px solid #1f2a36;border-radius:14px;box-shadow:0 8px 30px rgba(0,0,0,.35);backdrop-filter:blur(10px);padding:18px;margin:16px 0}
+      .ai-card h2{margin:0 0 10px;color:#d4af37}
+      .ai-content{white-space:pre-wrap;line-height:1.75}
+      .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+      .chip{padding:8px 12px;border-radius:999px;border:1px solid #2a3546;background:#0e1520;color:#e8edf3;cursor:pointer}
+      .skeleton{display:grid;gap:8px}
+      .skeleton div{height:12px;background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);border-radius:6px;animation:sh 1.2s infinite}
+      @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
+      .ai-locked{position:relative}
+      .ai-locked .ai-lock-overlay{position:absolute;inset:40% 0 0;display:grid;place-items:center;background:linear-gradient(180deg,transparent,rgba(11,15,20,.9));border-radius:0 0 14px 14px;backdrop-filter:blur(3px)}
+      .ai-locked .ai-lock-overlay .tip{color:#ffd88a;font-weight:700;margin-bottom:6px}
+      .ai-locked .ai-lock-overlay .sub{color:#98a7b7}
+      .ai-locked .ai-lock-overlay .btn{margin-top:10px;display:inline-grid;place-items:center;padding:10px 14px;border-radius:10px;border:1px solid #e6c76e;background:linear-gradient(180deg,#fff9e6,#e6c76e);color:#191919;font-weight:800;cursor:pointer}
+    `;
+    document.head.appendChild(style);
+  })();
 
-    var name = nameEl && nameEl.value ? nameEl.value.trim() : '';
-    var place = placeEl && placeEl.value ? placeEl.value.trim() : '';
-    var d = dateEl && dateEl.value ? dateEl.value : '';
-    var t = timeEl && timeEl.value ? timeEl.value : '';
-
-    var summaryEl=document.querySelector('#chartSummary');
-    if(summaryEl) summaryEl.textContent = (name?name+' · ':'') + d + ' ' + t + ' @ ' + place;
-    var resultEl=document.querySelector('#result'); if(resultEl) resultEl.style.display='block';
-
-    renderReport({name:name,date:d,time:t,place:place,lang:getLang()});
+  function ensureAiCard(){
+    if (gid('aiCard')) return;
+    const sec = document.createElement('section');
+    sec.className='ai-card'; sec.id='aiCard';
+    sec.innerHTML = `
+      <h2>心怜管家 · 智能解读</h2>
+      <div id="aiContent" class="ai-content">
+        <div class="skeleton">
+          <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
+          <div style="width:70%"></div><div style="width:50%"></div>
+        </div>
+      </div>
+      <div class="chips" id="aiChips" style="display:none">
+        <button class="chip" data-q="继续解读事业与团队协作">事业解读</button>
+        <button class="chip" data-q="说说感情与长期关系">感情关系</button>
+        <button class="chip" data-q="给我财务习惯、盲区与改善建议">财务建议</button>
+        <button class="chip" data-q="给我一份本周可执行清单">本周执行清单</button>
+        <button class="chip" data-q="为我定一个30天成长计划">30天计划</button>
+      </div>`;
+    const result = gid('result') || document.body;
+    result.parentNode.insertBefore(sec, result.nextSibling);
+  }
+  function mdToHtml(md){
+    return (md||'')
+      .replace(/^###?\s+(.*)$/gm,'<h3 style="margin:12px 0 6px;color:#f2d27a">$1</h3>')
+      .replace(/^\s*[-*]\s+(.*)$/gm,'• $1')
+      .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+      .replace(/\n{2,}/g,'\n\n')
+      .replace(/\n/g,'<br/>');
+  }
+  function isVIP(){
+    return localStorage.getItem('vipStatus')==='active' || !!localStorage.getItem('vipEmail');
   }
 
-  /* ================== 语言：初始化 + 切换后重渲染 ================== */
-function applyI18n(){
-  document.querySelectorAll("[data-i18n]").forEach(el=>{ const key=el.getAttribute("data-i18n"); el.textContent=t(key);});
-  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ const key=el.getAttribute("data-i18n-ph"); el.setAttribute("placeholder", t(key));});
-}
-function applyChatI18n(){
-  const fab=$('ssChatFab'), inp=$('ssChatInput'), btn=$('ssChatSend');
-  if (fab) fab.textContent = t('chat_fab');
-  if (inp) inp.placeholder = t('chat_placeholder');
-  if (btn) btn.textContent = t('chat_send');
-}
-function initLangUI(){
-  const sel = document.getElementById('langSelect');
-  if(!sel) return;
-  const current = getLang();
-  sel.value = current;
-  document.documentElement.lang = current;
-  applyI18n();
-  applyChatI18n();
+  async function runAI(){
+    ensureAiCard();
+    const {name, place, date, time} = readForm();
+    if(!date || !place) return;
 
-  sel.addEventListener('change', ()=>{
-    setLang(sel.value);
-    applyI18n();
-    applyChatI18n();
-    rerenderReportsIfAny();
-  });
-}
-function rerenderReportsIfAny(){
-  const ctx = window.__last_report__;
-  if (!ctx) return;
+    const lang = getLang();
+    const sun = getSunSign(date);
+    const sunName = (sun.name[lang] || sun.name['zh-CN']);
+    const el = sun.el;
 
-  const { pillars, percents, st, adv, tu } = ctx;
+    const sys =
+`你是「心怜管家」，温柔、务实、可执行的生活教练兼占星译者。
+只能基于：用户信息 + 太阳星座与元素，不要臆造上升/宫位/相位。
+用 ${lang} 输出 Markdown，结构：
+## 人物画像（1段）
+## 关系与沟通（2–4条）
+## 事业与自我实现（2–4条）
+## 金钱与物质（2–3条）
+## 今日/本周可执行清单（3–5条，动词开头，尽量量化）
+## 温柔提醒（1段，安全与边界）
+不要给医疗/法律结论。`;
 
-  // 1) 重新渲染报告（免费+富报告）
-  mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
-  mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
-  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
+    const usr =
+`基础资料：
+- 姓名：${name||'（未填）'}
+- 出生：${date} ${time} @ ${place}
+- 太阳星座：${sunName}（元素：${el}）
+期望：人性化 + 具体可执行建议。`;
 
-  // 2) 切语言后同步刷新“最强/最弱”提示
-  const E = ELABEL();
-  const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
-  const entries = Object.entries(percents || {});
-  const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
-  const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
-  setText(
-    'bazi-elements-balance',
-    t('elements_balance_tpl')
-      .replace('{max}', key2Locale[strongestK])
-      .replace('{min}', key2Locale[weakestK])
-  );
+    const elC = gid('aiContent'), chips = gid('aiChips');
+    if (elC){
+      elC.innerHTML = `
+        <div class="skeleton">
+          <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
+          <div style="width:70%"></div><div style="width:50%"></div>
+        </div>`;
+    }
 
-  // 3) 强制刷新“心怜管家”标题与内容为当前语言
-  const titleEl = document.querySelector('#assistant-panel .butler-title');
-  if (titleEl) titleEl.textContent = t('butler_title');
-
-  // 再跑一次管家内容（确保分析与建议文本跟随语言）
-  const assistant = new XinLianAssistant();
-  assistant.generateAnalysis({
-    dayMaster: { stem: pillars.day.stem, element: pillars.day.element },
-    elements: percents,
-    strength: st,
-    season: st.season,
-    useful: adv,
-    timeUnknown: tu
-  });
-}
-
-/* ================== Chat 悬浮球 ================== */
-document.addEventListener('DOMContentLoaded', ()=>{
-  const chatFab=document.createElement('div'); chatFab.className='ss-chat-fab'; chatFab.id='ssChatFab'; chatFab.title='心怜管家';
-  const chatPanel=document.createElement('div'); chatPanel.className='ss-chat-panel'; chatPanel.id='ssChatPanel'; chatPanel.setAttribute('role','dialog'); chatPanel.setAttribute('aria-label','心怜管家');
-  chatPanel.innerHTML = `
-    <div class="ss-chat-head"><div class="ss-chat-title">心怜管家 · Chat</div><div class="ss-close" id="ssChatClose">✕</div></div>
-    <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
-    <div class="ss-chat-input"><input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/><button id="ssChatSend" class="btn">${t('chat_send')}</button></div>`;
-  document.body.appendChild(chatFab); document.body.appendChild(chatPanel);
-  applyChatI18n();
-
-  const $body=$('ssChatBody'), $input=$('ssChatInput'), $send=$('ssChatSend'), $close=$('ssChatClose');
-  const openPanel=()=>{ chatPanel.style.display='block'; $input&&$input.focus(); }; const closePanel=()=>{ chatPanel.style.display='none'; };
-  chatFab.addEventListener('click',openPanel); $close&&$close.addEventListener('click',closePanel);
-
-  function addMsg(text,me=false){ const div=document.createElement('div'); div.className='ss-msg'+(me?' me':''); div.textContent=text; $body.appendChild(div); $body.scrollTop=$body.scrollHeight; }
-  async function askChat(prompt){
-    addMsg(prompt,true); if($input){ $input.value=''; $input.focus(); }
     try{
-      const r=await fetch(`${API_BASE}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'system',content:'你是“心怜管家”，帮助访客了解命理心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。'},{role:'user',content:prompt}]})});
-      let data,reply=''; try{data=await r.json()}catch{data={}} reply=data.reply??data.text??data?.choices?.[0]?.message?.content??"";
-      if(!reply) return addMsg('抱歉，服务暂时繁忙，请稍后重试。'); addMsg(reply);
-    }catch(e){ addMsg('网络异常，请稍后再试。'); }
+      const r = await fetch(API_BASE+'/api/chat', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({messages:[{role:'system',content:sys},{role:'user',content:usr}]})
+      });
+      const data = await r.json().catch(()=>({}));
+      const raw = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
+      let html = mdToHtml(raw);
+
+      if(!isVIP()){
+        const parts = raw.split(/\n##\s+/);
+        const header = parts.shift() || '';
+        const kept = [header, ...(parts.slice(0,2).map(p=>'## '+p))].join('\n\n');
+        html = mdToHtml(kept) + `
+          <div class="ai-lock-overlay">
+            <div class="tip">🔒 VIP 解锁后可查看完整解读</div>
+            <div class="sub">包含「事业/财富/执行清单/温柔提醒」全部章节与持续追问</div>
+            <a class="btn" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener">立即解锁</a>
+          </div>`;
+      }
+
+      if(elC){
+        elC.classList.toggle('ai-locked', !isVIP());
+        elC.innerHTML = html;
+      }
+      if(chips) chips.style.display = 'flex';
+    }catch(e){
+      if(elC) elC.innerHTML = `<div style="color:#98a7b7">网络异常：${e.message}</div>`;
+    }
   }
-  $send&&$send.addEventListener('click',()=>{ const v=$input?.value.trim(); if(v) askChat(v); });
-  $input&&$input.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
 
-  // —— 页面初始：默认日期、按钮绑定、语言 UI
-  const today=new Date(); const def=today.toISOString().split('T')[0]; if($('birthdate')&&!$('birthdate').value) $('birthdate').value=def;
-  $('genBtn')?.addEventListener('click',genChart);
-  initLangUI();
+  // 追问芯片
+  document.addEventListener('click', (e)=>{
+    const chip = e.target.closest('.chip'); if(!chip) return;
+    const q = chip.getAttribute('data-q') || chip.textContent;
+    const el = gid('aiContent'); if(!el) return;
+    el.innerHTML += `<br/><br/><b>你：</b>${q}<br/>`;
+    fetch(API_BASE+'/api/chat',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({messages:[
+        {role:'system',content:'你是心怜管家，请承接上文语气与格式，直接输出补充解读或更细执行建议。'},
+        {role:'user',content:q}
+      ]})
+    }).then(r=>r.json()).then(data=>{
+      const txt=data?.reply || data?.text || data?.choices?.[0]?.message?.content || '…';
+      el.innerHTML += mdToHtml('\n\n'+txt);
+    }).catch(err=>{
+      el.innerHTML += `<div style="color:#98a7b7">网络异常：${err.message}</div>`;
+    });
   });
-}
 
-  /* ===== 页面逻辑 ===== */
-  document.addEventListener('DOMContentLoaded', function(){
-    var sel = document.querySelector('#langSelect');
-    var cur = getLang();
-    if (I18N[cur]) { if (sel) sel.value = cur; document.documentElement.lang = cur; }
-    else { if (sel) sel.value = 'zh-CN'; setLang('zh-CN'); }
-    applyI18n();
-    if (sel) sel.addEventListener('change', function(){ setLang(sel.value); applyI18n(); });
+  /* ================= 生成按钮：基础+AI ================= */
+  function generateChart(){
+    const {name, place, date, time} = readForm();
+    if (!date || !place){
+      alert('请补全“日期/地点”。（时间留空将默认为 12:00）');
+      return;
+    }
+    const summary = gid('chartSummary');
+    if (summary) summary.textContent = (name?name+' · ':'') + date + ' ' + (time||'12:00') + ' @ ' + place;
+    const resultEl = gid('result'); if (resultEl) resultEl.style.display = 'block';
+    renderReport({name, date, time: (time||'12:00'), place, lang: getLang()});
+    runAI(); // 增量：调用 AI 智能解读
+  }
 
-    // Buttons
-    var genBtn=document.querySelector('#genBtn'); if(genBtn) genBtn.addEventListener('click', generateChart);
-    var demoBtn=document.querySelector('#demoBtn'); if(demoBtn) demoBtn.addEventListener('click', fillDemo);
+  /* ================= 右下角 Chat 悬浮球 ================= */
+  function mountChat(){
+    if (gid('ssChatFab')) return;
+    const chatFab=document.createElement('div'); chatFab.className='ss-chat-fab'; chatFab.id='ssChatFab'; chatFab.title='心怜管家';
+    const chatPanel=document.createElement('div'); chatPanel.className='ss-chat-panel'; chatPanel.id='ssChatPanel'; chatPanel.setAttribute('role','dialog'); chatPanel.setAttribute('aria-label','心怜管家');
+    chatPanel.innerHTML = `
+      <div class="ss-chat-head"><div class="ss-chat-title">心怜管家 · Chat</div><div class="ss-close" id="ssChatClose">✕</div></div>
+      <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
+      <div class="ss-chat-input">
+        <input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/>
+        <button id="ssChatSend" class="btn">${t('chat_send')}</button>
+      </div>`;
+    document.body.appendChild(chatFab); document.body.appendChild(chatPanel);
+    applyChatI18n();
 
-    // Default date today (若为空)
-    var bd=document.querySelector('#birthdate');
-    if(bd && !bd.value){ bd.value = new Date().toISOString().split('T')[0]; }
+    const $body=gid('ssChatBody'), $input=gid('ssChatInput'), $send=gid('ssChatSend'), $close=gid('ssChatClose');
+    const openPanel=()=>{ chatPanel.style.display='block'; $input&&$input.focus(); };
+    const closePanel=()=>{ chatPanel.style.display='none'; };
+    chatFab.addEventListener('click',openPanel); $close&&$close.addEventListener('click',closePanel);
+
+    function addMsg(text,me=false){ const div=document.createElement('div'); div.className='ss-msg'+(me?' me':''); div.textContent=text; $body.appendChild(div); $body.scrollTop=$body.scrollHeight; }
+    async function askChat(prompt){
+      addMsg(prompt,true); if($input){ $input.value=''; $input.focus(); }
+      try{
+        const r=await fetch(`${API_BASE}/api/chat`,{
+          method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({messages:[
+            {role:'system',content:'你是“心怜管家”，帮助访客了解命理/心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。'},
+            {role:'user',content:prompt}
+          ]})
+        });
+        let data,reply=''; try{data=await r.json()}catch{data={}}
+        reply=data?.reply??data?.text??data?.choices?.[0]?.message?.content??'';
+        addMsg(reply || '抱歉，服务暂时繁忙，请稍后重试。');
+      }catch(e){ addMsg('网络异常，请稍后再试。'); }
+    }
+    $send&&$send.addEventListener('click',()=>{ const v=$input?.value.trim(); if(v) askChat(v); });
+    $input&&$input.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
+  }
+
+  /* ================= 页面初始化 ================= */
+  document.addEventListener('DOMContentLoaded', ()=>{
+    // 默认日期
+    if (gid('birthdate') && !gid('birthdate').value){
+      gid('birthdate').value = new Date().toISOString().split('T')[0];
+    }
+    // 语言 UI
+    initLangUI();
+    // 绑定生成按钮
+    gid('genBtn')?.addEventListener('click', generateChart);
+    // 安装 Chat
+    mountChat();
   });
-}
+
+})();
 </script>
 </body>
 </html>
+
 
 
 
