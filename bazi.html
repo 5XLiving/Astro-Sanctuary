@@ -1,6 +1,3 @@
-
-
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -456,1012 +453,1458 @@ html { font-size: 16px; }
   </div>
 
 <script>
+(function(){  
 'use strict';
 
-/* ================== 配置 & 工具 ================== */
+/* =====================================
+   Xinlian Butler + 八字排盘（整合版）
+   - 保留原有八字计算/报告
+   - 接入 Butler 智能解读卡片（多语言/芯片/VIP 锁定）
+   - 新增 zh-TW 文案
+   - 右下角 Butler Chat 悬浮球
+   ===================================== */
+
+/* ================== 基础配置/工具 ================== */
 const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+const LANG_KEY = 'site_lang';
 
-const $ = id => document.getElementById(id);
-function showErr(msg){ const e=$("error"); if(!e) return; e.textContent=msg; e.style.display="block"; setTimeout(()=>{e.style.display='none'},5000); }
-function hideErr(){ const e=$("error"); if(!e) return; e.style.display="none"; e.textContent=""; }
-function showAuthErr(msg){ const e=$("authError"); if(!e) return; e.textContent=msg; e.style.display="block"; setTimeout(()=>{e.style.display='none'},5000); }
-function hideAuthErr(){ const e=$("authError"); if(!e) return; e.style.display="none"; e.textContent=""; }
-function lock(el, v){ if(el) el.disabled = v; }
-function strongPwd(pw){ return pw.length>=8 && /[A-Z]/.test(pw) && /[a-z]/.test(pw) && /[0-9]/.test(pw) && /[^A-Za-z0-9]/.test(pw); }
-function setText(id, v){ const el=$(id); if(el) el.textContent=v; }
-function setBar(el, pct){ if(el) el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
+const $ = (id) => document.getElementById(id);
+const qs = (s, root = document) => root.querySelector(s);
 
-/* ================== 多语言（统一内核：zh-CN / en / ja / th / ms） ================== */
-const LANG_KEY="site_lang";
-function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
-function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
+function showErr(msg) {
+  const e = $('error');
+  if (!e) return;
+  e.textContent = msg;
+  e.style.display = 'block';
+  setTimeout(() => {
+    e.style.display = 'none';
+  }, 5000);
+}
+function hideErr() {
+  const e = $('error');
+  if (!e) return;
+  e.style.display = 'none';
+  e.textContent = '';
+}
+function showAuthErr(msg) {
+  const e = $('authError');
+  if (!e) return;
+  e.textContent = msg;
+  e.style.display = 'block';
+  setTimeout(() => {
+    e.style.display = 'none';
+  }, 5000);
+}
+function hideAuthErr() {
+  const e = $('authError');
+  if (!e) return;
+  e.style.display = 'none';
+  e.textContent = '';
+}
+function lock(el, v) {
+  if (el) el.disabled = v;
+}
+function strongPwd(pw) {
+  return (
+    pw.length >= 8 &&
+    /[A-Z]/.test(pw) &&
+    /[a-z]/.test(pw) &&
+    /[0-9]/.test(pw) &&
+    /[^A-Za-z0-9]/.test(pw)
+  );
+}
+function setText(id, v) {
+  const el = $(id);
+  if (el) el.textContent = v;
+}
+function setBar(el, pct) {
+  if (el) el.style.width = Math.max(0, Math.min(100, pct)) + '%';
+}
 
+/* ================== 多语言（扩展：含 zh-TW + Butler 词条） ================== */
 const translations = {
-  "zh-CN": {
-    // —— 通用 / 顶部与表单 ——
-    lang_label: "语言",
-    btn_register: "注册账户",
-    btn_login: "登入账户",
-    btn_reset: "🔑 重设密码",
-    note_price: "注册账号赠送一次免费体验",
-    note_price1: "$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）",
+  'zh-CN': {
+    lang_label: '语言',
+    btn_register: '注册账户',
+    btn_login: '登入账户',
+    btn_reset: '🔑 重设密码',
+    note_price: '注册账号赠送一次免费体验',
+    note_price1: '$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）',
 
-    err_need_ep: "请输入邮箱与密码",
-    err_pwd_rule: "密码至少8位，需包含大写/小写/数字/特殊符号",
-    err_no_account: "账户不存在，请先注册",
-    err_wrong_pwd: "密码错误",
-    err_expired: "会员已过期，请续费",
-    err_login_fail: "登入失败：",
-    err_register_fail: "注册失败：",
-    err_email_empty: "邮箱不能为空",
-    err_pwd_empty: "密码不能为空",
-    err_reset_fail: "重设密码失败：",
+    err_need_ep: '请输入邮箱与密码',
+    err_pwd_rule: '密码至少8位，需包含大写/小写/数字/特殊符号',
+    err_no_account: '账户不存在，请先注册',
+    err_wrong_pwd: '密码错误',
+    err_expired: '会员已过期，请续费',
+    err_login_fail: '登入失败：',
+    err_register_fail: '注册失败：',
+    err_email_empty: '邮箱不能为空',
+    err_pwd_empty: '密码不能为空',
+    err_reset_fail: '重设密码失败：',
+    err_network: '网络异常',
+    err_busy: '服务暂时繁忙，请稍后重试。',
 
-    prompt_email: "请输入注册邮箱：",
-    prompt_newpwd: "请输入新密码（至少8位，含大小写、数字、符号）：",
+    prompt_email: '请输入注册邮箱：',
+    prompt_newpwd: '请输入新密码（至少8位，含大小写、数字、符号）：',
 
-    btn_upgrade: "💎 升级为 VIP（月费）",
-    btn_backshop: "← 返回命理商城",
+    btn_upgrade: '💎 升级为 VIP（月费）',
+    btn_backshop: '← 返回命理商城',
 
-    vip_title: "🌙 会员区域 VIP Segment",
-    vip_mingli: "🗝 命理空间专属内容",
-    vip_xinlian: "🌙 心怜空间专属内容",
-    vip_love: "姻缘方向：恋爱缘分、婚姻走势",
-    vip_career: "事业方向：职场发展、创业潜力",
-    vip_wealth: "财运方向：财位分析、理财时机",
-    vip_pet: "宠物命理：伴侣动物的性格与缘分",
-    vip_hepan: "合盘分析：婚期择日、新生择时",
-    vip_name: "测名分析：公司名、宝宝名、命名改运",
-    vip_fengshui: "财位合盘：住家 / 办公室动线配合",
-    vip_record: "灵性记录：照片、梦境、声音、愿望祈祷",
-    vip_course: "命理课程：八字 / 塔罗 / 占星 / 灵数 / 人类图",
-    vip_memorial: "家族纪念系统：亲人灵性纪念 & 延续",
-    vip_tasks: "每周能量练习 / 神明仪式任务",
-    vip_shop: "能量商城专属折扣 & 御守订制",
-    login_title: "💎 登入 VIP 功能",
+    vip_title: '🌙 会员区域 VIP Segment',
+    vip_mingli: '🗝 命理空间专属内容',
+    vip_xinlian: '🌙 心怜空间专属内容',
+    vip_love: '姻缘方向：恋爱缘分、婚姻走势',
+    vip_career: '事业方向：职场发展、创业潜力',
+    vip_wealth: '财运方向：财位分析、理财时机',
+    vip_pet: '宠物命理：伴侣动物的性格与缘分',
+    vip_hepan: '合盘分析：婚期择日、新生择时',
+    vip_name: '测名分析：公司名、宝宝名、命名改运',
+    vip_fengshui: '财位合盘：住家 / 办公室动线配合',
+    vip_record: '灵性记录：照片、梦境、声音、愿望祈祷',
+    vip_course: '命理课程：八字 / 塔罗 / 占星 / 灵数 / 人类图',
+    vip_memorial: '家族纪念系统：亲人灵性纪念 & 延续',
+    vip_tasks: '每周能量练习 / 神明仪式任务',
+    vip_shop: '能量商城专属折扣 & 御守订制',
+    login_title: '💎 登入 VIP 功能',
 
-    chat_fab: "问",
-    chat_placeholder: "请问您想了解什么？（如：如何开始免费体验）",
-    chat_send: "发送",
-    msg_reset_ok: "密码已成功更新，请用新密码重新登入。",
+    chat_fab: '问',
+    chat_placeholder: '请问您想了解什么？（如：如何开始免费体验）',
+    chat_send: '发送',
+    butler_chat_title: '心怜管家 · Chat',
 
-    ph_email: "邮箱 Email",
-    ph_password: "密码 Password（至少8位，含大小写数字符号）",
-    ph_label_password: "密码 Password",
+    msg_reset_ok: '密码已成功更新，请用新密码重新登入。',
 
-    title_quickcalc: "八字命理 · 快速排盘",
-    title_bazi_brief: "八字简评",
-    label_name: "姓名（可选）",
-    ph_name: "你的称呼（用于个性化）",
-    gender_label: "性别",
-    label_calendar: "历法",
-    label_birthdate: "出生日期",
-    label_birthtime: "出生时间",
-    cb_time_unknown: "出生时间不详",
-    btn_generate_chart: "生成八字",
-    panel_login_head: "账户登录 / 注册",
-    panel_member_head: "会员服务",
+    ph_email: '邮箱 Email',
+    ph_password: '密码 Password（至少8位，含大小写数字符号）',
+    ph_label_password: '密码 Password',
+
+    title_quickcalc: '八字命理 · 快速排盘',
+    title_bazi_brief: '八字简评',
+    label_name: '姓名（可选）',
+    ph_name: '你的称呼（用于个性化）',
+    gender_label: '性别',
+    label_calendar: '历法',
+    label_birthdate: '出生日期',
+    label_birthtime: '出生时间',
+    cb_time_unknown: '出生时间不详',
+    btn_generate_chart: '生成八字',
+    panel_login_head: '账户登录 / 注册',
+    panel_member_head: '会员服务',
 
     // 下拉项（性别 / 历法）
-    opt_gender_confidential: "不透露",
-    opt_gender_male: "男性",
-    opt_gender_female: "女性",
-    opt_cal_gregorian: "阳历",
-    opt_cal_lunar: "农历",
+    opt_gender_confidential: '不透露',
+    opt_gender_male: '男性',
+    opt_gender_female: '女性',
+    opt_cal_gregorian: '阳历',
+    opt_cal_lunar: '农历',
 
-    elements_balance_tpl: "五行中{max}元素最强，{min}元素最弱。",
+    elements_balance_tpl: '五行中{max}元素最强，{min}元素最弱。',
 
-    // —— 5X 管家 keys（新增/覆盖） ——
-    butler_title: "5X 管家 · 洞见",
-    butler_keywords: "关键词",
-    butler_today: "今日行动",
-    butler_rhythm: "作息建议",
-    butler_space: "环境与配色",
-    kw_wood: "成长・学习・拓展",
-    kw_fire: "表达・热情・影响力",
-    kw_earth: "稳定・承载・耐心",
-    kw_metal: "秩序・效率・边界",
-    kw_water: "洞察・策略・流动",
-    butler_today_suggestion: "围绕“喜用元素”定一个可完成的小目标（如：沟通输出/复盘整理/学习练习）。",
+    // —— Butler / Report keys（中文） ——
+    butler_title: '心怜管家 · 解读',
+    day_master: '日主',
+    chart_strength: '命局',
+    season: '季节',
+    wuxing_distribution: '五行分布',
+    note: '注意',
+    time_unknown_checked: '已勾选“出生时间不详”',
+    hour_pillar_excluded: '未纳入时柱',
+    hint: '提示',
+    no_hour_tip: '无时柱，建议仅作参考。',
+    dev_strategy: '发展策略：',
+    useful_elements: '喜用元素：',
+    lucky_colors: '幸运颜色：',
+    lucky_directions: '适合方位：',
+    strength_strong: '偏强',
+    strength_weak: '偏弱',
+    strength_balanced: '平衡',
 
-    // —— 报告/通用 ——
-    day_master: "日主",
-    chart_strength: "命局",
-    season: "季节",
-    wuxing_distribution: "五行分布",
-    note: "注意",
-    time_unknown_checked: "已勾选“出生时间不详”",
-    hour_pillar_excluded: "未纳入时柱",
-    hint: "提示",
-    no_hour_tip: "无时柱，建议仅作参考。",
-    dev_strategy: "发展策略：",
-    useful_elements: "喜用元素：",
-    lucky_colors: "幸运颜色：",
-    lucky_directions: "适合方位：",
-    strength_strong: "偏强",
-    strength_weak: "偏弱",
-    strength_balanced: "平衡",
-    desc_strong: "潜力足、抗压好",
-    desc_weak: "需外援更能发挥",
-    desc_balanced: "均衡、适应性强",
-    desc_generic: "具有独特特点",
-    season_spring: "木旺生发",
-    season_summer: "火旺外放",
-    season_autumn: "金旺收敛",
-    season_winter: "水旺内藏",
-    season_generic: "季节对命局有一定影响",
-    el_wood: "木",
-    el_fire: "火",
-    el_earth: "土",
-    el_metal: "金",
-    el_water: "水",
-    dir_wood: "东方",
-    dir_fire: "南方",
-    dir_earth: "中央/东北/西南",
-    dir_metal: "西方",
-    dir_water: "北方",
-    color_wood: "绿色/青色",
-    color_fire: "红色/紫色",
-    color_earth: "黄色/棕色",
-    color_metal: "白色/金色",
-    color_water: "黑色/蓝色",
+    // —— Butler AI 芯片 ——
+    chip_career: '事业解读',
+    chip_love: '感情关系',
+    chip_money: '财务建议',
+    chip_list: '本周执行清单',
+    chip_30d: '30天计划',
+    q_career: '继续解读事业与团队协作',
+    q_love: '说说感情与长期关系',
+    q_money: '给我财务习惯、盲区与改善建议',
+    q_list: '给我一份本周可执行清单',
+    q_30d: '为我定一个30天成长计划',
+    vip_tip: '🔒 VIP 解锁后可查看完整解读',
+    vip_sub: '包含「事业/财富/执行清单/温柔提醒」全部章节与持续追问',
+    btn_unlock: '立即解锁',
 
     // 报告分段
-    rpt_free_title: "免费简报",
-    rpt_pillars_label: "四柱",
-    rpt_daymaster_label: "日主",
-    rpt_season_label: "季节",
-    rpt_chart_label: "命局",
-    rpt_strategy_label: "策略",
-    rpt_wuxing_label: "五行分布",
-    rpt_strongest_word: "偏旺",
-    rpt_weakest_word: "偏弱",
-    rpt_absent_prefix: "缺：",
-    rpt_fav_avoid_template: "喜用：{fav}｜忌：{avoid}",
-    rpt_balance_focus_label: "调衡要点",
-    rpt_time_hint: "提示：出生时间不详，未纳入时柱，仅供参考。",
-    rpt_time_unknown: "时间不详",
-    rpt_sec_overview_title: "一、命盘总览",
-    rpt_sec_elements_title: "二、五行能量分析",
-    rpt_sec_traits_title: "三、性格与天赋",
-    rpt_traits_intro: "依据日主、季节与强弱给出核心性格标签（模板化占位）。",
-    rpt_traits_adv: "优势能量：执行 / 创造 / 学习（模板化占位）。",
-    rpt_traits_chal: "潜在挑战：节奏 / 边界 / 过犹不及（模板化占位）。",
-    rpt_sec_structure_title: "四、格局与喜忌",
-    rpt_structure_line_template: "喜用：{fav}；忌讳：{avoid}",
-    rpt_sec_career_title: "五、事业与发展（免费试读）",
-    rpt_career_fields_placeholder: "适合领域：结合喜用与气质（模板化占位）。",
-    rpt_dev_strategy_prefix: "发展策略：",
-    rpt_sec_love_title: "六、感情与关系（免费试读）",
-    rpt_love_placeholder: "沟通节奏与边界建议（模板化占位）。",
-    rpt_sec_wealth_title: "七、财富与理财（免费试读）",
-    rpt_wealth_suggestion_template: "理财建议：以 {fav} 为主调，稳中求进。",
-    rpt_sec_health_title: "八、健康与作息",
-    rpt_health_placeholder_template: "围绕最弱五行（{weak}）做作息与环境优化（模板化占位）。",
-    rpt_sec_env_title: "九、环境与色彩",
-    rpt_env_placeholder: "有利方位与配色随喜用（模板化占位）。",
-    rpt_strategy_drain: "泄秀/制化",
-    rpt_strategy_support: "生扶/补助",
-    rpt_strategy_balance: "调和"
+    rpt_free_title: '免费简报',
+    rpt_pillars_label: '四柱',
+    rpt_daymaster_label: '日主',
+    rpt_season_label: '季节',
+    rpt_chart_label: '命局',
+    rpt_strategy_label: '策略',
+    rpt_wuxing_label: '五行分布',
+    rpt_strongest_word: '偏旺',
+    rpt_weakest_word: '偏弱',
+    rpt_absent_prefix: '缺：',
+    rpt_fav_avoid_template: '喜用：{fav}｜忌：{avoid}',
+    rpt_balance_focus_label: '调衡要点',
+    rpt_time_hint: '提示：出生时间不详，未纳入时柱，仅供参考。',
+    rpt_time_unknown: '时间不详',
+    rpt_sec_overview_title: '一、命盘总览',
+    rpt_sec_elements_title: '二、五行能量分析',
+    rpt_sec_traits_title: '三、性格与天赋',
+    rpt_traits_intro: '依据日主、季节与强弱给出核心性格标签（模板化占位）。',
+    rpt_traits_adv: '优势能量：执行 / 创造 / 学习（模板化占位）。',
+    rpt_traits_chal: '潜在挑战：节奏 / 边界 / 过犹不及（模板化占位）。',
+    rpt_sec_structure_title: '四、格局与喜忌',
+    rpt_structure_line_template: '喜用：{fav}；忌讳：{avoid}',
+    rpt_sec_career_title: '五、事业与发展（免费试读）',
+    rpt_career_fields_placeholder: '适合领域：结合喜用与气质（模板化占位）。',
+    rpt_dev_strategy_prefix: '发展策略：',
+    rpt_sec_love_title: '六、感情与关系（免费试读）',
+    rpt_love_placeholder: '沟通节奏与边界建议（模板化占位）。',
+    rpt_sec_wealth_title: '七、财富与理财（免费试读）',
+    rpt_wealth_suggestion_template: '理财建议：以 {fav} 为主调，稳中求进。',
+    rpt_sec_health_title: '八、健康与作息',
+    rpt_health_placeholder_template: '围绕最弱五行（{weak}）做作息与环境优化（模板化占位）。',
+    rpt_sec_env_title: '九、环境与色彩',
+    rpt_env_placeholder: '有利方位与配色随喜用（模板化占位）。',
+    rpt_strategy_drain: '泄秀/制化',
+    rpt_strategy_support: '生扶/补助',
+    rpt_strategy_balance: '调和'
   },
 
-  "en": {
-    // —— Common / Form ——
-    lang_label: "Language",
-    btn_register: "Create Account",
-    btn_login: "Log in",
-    btn_reset: "🔑 Reset Password",
-    note_price: "New account gets one free trial.",
-    note_price1: "$9.9 / month · VIP (Astro + Soul + Courses)",
+  // —— 繁体（新加） ——
+  'zh-TW': {
+    lang_label: '語言',
+    btn_register: '註冊帳號',
+    btn_login: '登入帳號',
+    btn_reset: '🔑 重設密碼',
+    note_price: '註冊帳號贈送一次免費體驗',
+    note_price1: '$9.9／月 VIP（命理空間＋心憐空間＋靈性課程）',
 
-    err_need_ep: "Enter email and password",
-    err_pwd_rule: "Password must be 8+ and include upper/lowercase, number, symbol",
-    err_no_account: "Account not found. Please register first.",
-    err_wrong_pwd: "Incorrect password",
-    err_expired: "Membership expired. Please renew.",
-    err_login_fail: "Login failed: ",
-    err_register_fail: "Registration failed: ",
-    err_email_empty: "Email cannot be empty",
-    err_pwd_empty: "Password cannot be empty",
-    err_reset_fail: "Password reset failed: ",
+    err_need_ep: '請輸入電子郵件與密碼',
+    err_pwd_rule: '密碼至少 8 碼，需包含大小寫、數字、符號',
+    err_no_account: '查無帳號，請先註冊',
+    err_wrong_pwd: '密碼不正確',
+    err_expired: '會員已到期，請續費',
+    err_login_fail: '登入失敗：',
+    err_register_fail: '註冊失敗：',
+    err_email_empty: '電子郵件不能為空',
+    err_pwd_empty: '密碼不能為空',
+    err_reset_fail: '重設失敗：',
+    err_network: '網路異常',
+    err_busy: '服務繁忙，請稍後再試。',
 
-    prompt_email: "Enter your registered email:",
-    prompt_newpwd: "Enter a new password (8+, upper/lower/digit/symbol):",
+    prompt_email: '請輸入註冊信箱：',
+    prompt_newpwd: '請輸入新密碼（至少 8 碼，含大小寫/數字/符號）：',
 
-    btn_upgrade: "💎 Upgrade to VIP (Monthly)",
-    btn_backshop: "← Back to Store",
+    btn_upgrade: '💎 升級為 VIP（月費）',
+    btn_backshop: '← 返回命理商城',
 
-    vip_title: "🌙 VIP Segment",
-    vip_mingli: "🗝 Astro Sanctuary · Exclusive",
-    vip_xinlian: "🌙 Soul Sanctuary · Exclusive",
-    vip_love: "Love: Dating Fate, Marriage Trend",
-    vip_career: "Career: Workplace, Entrepreneurship",
-    vip_wealth: "Wealth: Wealth Position, Timing",
-    vip_pet: "Pet Destiny: Temperament & Bond",
-    vip_hepan: "Synastry: Wedding Dates, Birthtime",
-    vip_name: "Name Reading: Company/Baby/Renaming",
-    vip_fengshui: "Wealth & Layout: Home / Office",
-    vip_record: "Spiritual Logs: Photos, Dreams, Voice, Prayers",
-    vip_course: "Courses: Bazi / Tarot / Astrology / Numerology / Human Design",
-    vip_memorial: "Family Memorial: Spiritual Archive & Legacy",
-    vip_tasks: "Weekly Energy Practices / Divine Ritual Tasks",
-    vip_shop: "Store Discounts & Omamori",
-    login_title: "💎 VIP Login",
+    vip_title: '🌙 會員區域 VIP Segment',
+    vip_mingli: '🗝 命理空間專屬內容',
+    vip_xinlian: '🌙 心憐空間專屬內容',
+    vip_love: '姻緣方向：戀愛緣分、婚姻走勢',
+    vip_career: '事業方向：職場發展、創業潛力',
+    vip_wealth: '財運方向：財位分析、理財時機',
+    vip_pet: '寵物命理：伴侶動物的性格與緣分',
+    vip_hepan: '合盤分析：婚期擇日、新生擇時',
+    vip_name: '測名分析：公司名、寶寶名、命名改運',
+    vip_fengshui: '財位合盤：住家／辦公室動線配合',
+    vip_record: '靈性記錄：照片、夢境、聲音、願望祈禱',
+    vip_course: '命理課程：八字／塔羅／占星／靈數／人類圖',
+    vip_memorial: '家族紀念系統：親人靈性紀念＆延續',
+    vip_tasks: '每週能量練習／神明儀式任務',
+    vip_shop: '能量商城專屬折扣＆御守訂製',
+    login_title: '💎 登入 VIP 功能',
 
-    chat_fab: "Chat",
-    chat_placeholder: "What would you like to know? (e.g., how to start the free trial)",
-    chat_send: "Send",
-    msg_reset_ok: "Password updated. Please log in with the new one.",
+    chat_fab: '問',
+    chat_placeholder: '想了解什麼？（如：如何開始免費體驗）',
+    chat_send: '傳送',
+    butler_chat_title: '心怜管家 · Chat',
 
-    ph_email: "Email",
-    ph_password: "Password (8+, upper/lower/digit/symbol)",
-    ph_label_password:"Password",
+    msg_reset_ok: '已更新密碼，請以新密碼登入。',
 
-    title_quickcalc: "Bazi · Quick Chart",
-    title_bazi_brief: "Bazi Quick Reading",
-    label_name: "Name (optional)",
-    ph_name: "Your name (for personalization)",
-    gender_label: "Gender",
-    label_calendar: "Calendar",
-    label_birthdate: "Birth Date",
-    label_birthtime: "Birth Time",
-    cb_time_unknown: "Birth time unknown",
-    btn_generate_chart: "Generate Chart",
-    panel_login_head: "Account Login / Sign-up",
-    panel_member_head: "Membership Services",
+    ph_email: '電子郵件',
+    ph_password: '密碼（至少 8 碼，含大小寫/數字/符號）',
+    ph_label_password: '密碼',
 
-    // Dropdown options
-    opt_gender_confidential: "Confidential",
-    opt_gender_male: "Male",
-    opt_gender_female: "Female",
-    opt_cal_gregorian: "Gregorian",
-    opt_cal_lunar: "Lunar",
+    title_quickcalc: '八字命理 · 快速排盤',
+    title_bazi_brief: '八字簡評',
+    label_name: '姓名（選填）',
+    ph_name: '你的稱呼（用於個人化）',
+    gender_label: '性別',
+    label_calendar: '曆法',
+    label_birthdate: '出生日期',
+    label_birthtime: '出生時間',
+    cb_time_unknown: '出生時間不詳',
+    btn_generate_chart: '生成八字',
+    panel_login_head: '帳號登入／註冊',
+    panel_member_head: '會員服務',
 
-    elements_balance_tpl: "Strongest: {max} · Weakest: {min}",
+    opt_gender_confidential: '不透露',
+    opt_gender_male: '男性',
+    opt_gender_female: '女性',
+    opt_cal_gregorian: '陽曆',
+    opt_cal_lunar: '農曆',
 
-    // —— 5X Butler keys ——
-    butler_title: "5X Butler · Insight",
-    butler_keywords: "Keywords",
-    butler_today: "Today",
-    butler_rhythm: "Rhythm",
-    butler_space: "Space & Palette",
-    kw_wood: "Growth · Learning · Expansion",
-    kw_fire: "Expression · Passion · Influence",
-    kw_earth: "Stability · Support · Patience",
-    kw_metal: "Order · Efficiency · Boundaries",
-    kw_water: "Insight · Strategy · Flow",
-    butler_today_suggestion: "Pick one micro-goal aligned with your favorable elements (e.g., share, review, or practice).",
+    elements_balance_tpl: '五行中{max}元素最強，{min}元素最弱。',
 
-    // —— Report / Common ——
-    day_master: "Day Master",
-    chart_strength: "Chart Strength",
-    season: "Season",
-    wuxing_distribution: "Five Elements",
-    note: "Note",
-    time_unknown_checked: "“Birth time unknown” is checked",
-    hour_pillar_excluded: "Hour pillar not included",
-    hint: "Hint",
-    no_hour_tip: "No hour pillar — treat as reference only.",
-    dev_strategy: "Development strategy: ",
-    useful_elements: "Favorable elements: ",
-    lucky_colors: "Lucky colors: ",
-    lucky_directions: "Lucky directions: ",
-    strength_strong: "Strong-leaning",
-    strength_weak: "Weak-leaning",
-    strength_balanced: "Balanced",
-    desc_strong: "High potential and stress-tolerant",
-    desc_weak: "Works better with external support",
-    desc_balanced: "Well-balanced and adaptable",
-    desc_generic: "Has unique characteristics",
-    season_spring: "Wood thrives; outward growth",
-    season_summer: "Fire thrives; expression/outflow",
-    season_autumn: "Metal thrives; organize/refine",
-    season_winter: "Water thrives; conserve/reflect",
-    season_generic: "Seasonal qi has some influence",
-    el_wood: "Wood",
-    el_fire: "Fire",
-    el_earth: "Earth",
-    el_metal: "Metal",
-    el_water: "Water",
-    dir_wood: "East",
-    dir_fire: "South",
-    dir_earth: "Center/NE/SW",
-    dir_metal: "West",
-    dir_water: "North",
-    color_wood: "Green/Teal",
-    color_fire: "Red/Purple",
-    color_earth: "Yellow/Brown",
-    color_metal: "White/Gold",
-    color_water: "Black/Blue",
+    butler_title: '心怜管家 · 解讀',
 
-    rpt_free_title: "Free Summary",
-    rpt_pillars_label: "Pillars",
-    rpt_daymaster_label: "Day Master",
-    rpt_season_label: "Season",
-    rpt_chart_label: "Chart",
-    rpt_strategy_label: "Strategy",
-    rpt_wuxing_label: "Five Elements",
-    rpt_strongest_word: "strongest",
-    rpt_weakest_word: "weakest",
-    rpt_absent_prefix: "Absent: ",
-    rpt_fav_avoid_template: "Favorable: {fav} | Avoid: {avoid}",
-    rpt_balance_focus_label: "Balance focus",
-    rpt_time_hint: "Note: birth time unknown; hour pillar excluded—use as reference only.",
-    rpt_time_unknown: "Unknown time",
-    rpt_sec_overview_title: "1) Overview",
-    rpt_sec_elements_title: "2) Element Analysis",
-    rpt_sec_traits_title: "3) Traits & Talents",
-    rpt_traits_intro: "Core trait tags based on DM, season, and strength (placeholder).",
-    rpt_traits_adv: "Advantages: Execution / Creativity / Learning (placeholder).",
-    rpt_traits_chal: "Challenges: Pace / Boundaries (placeholder).",
-    rpt_sec_structure_title: "4) Structure & Preferences",
-    rpt_structure_line_template: "Favorable: {fav}; Avoid: {avoid}",
-    rpt_sec_career_title: "5) Career (sample)",
-    rpt_career_fields_placeholder: "Suitable fields (placeholder).",
-    rpt_dev_strategy_prefix: "Development strategy: ",
-    rpt_sec_love_title: "6) Love (sample)",
-    rpt_love_placeholder: "Communication tempo & boundaries (placeholder).",
-    rpt_sec_wealth_title: "7) Wealth (sample)",
-    rpt_wealth_suggestion_template: "Wealth tip: prefer flows aligned with {fav}.",
-    rpt_sec_health_title: "8) Health",
-    rpt_health_placeholder_template: "Care for weakest element: {weak}.",
-    rpt_sec_env_title: "9) Environment & Colors",
-    rpt_env_placeholder: "Favorable directions & palette follow your favorable elements.",
-    rpt_strategy_drain: "Drain/Control",
-    rpt_strategy_support: "Support/Nourish",
-    rpt_strategy_balance: "Balance"
+    chip_career: '事業解讀',
+    chip_love: '感情關係',
+    chip_money: '財務建議',
+    chip_list: '本週執行清單',
+    chip_30d: '30天計畫',
+    q_career: '繼續解讀事業與團隊協作',
+    q_love: '說說感情與長期關係',
+    q_money: '給我財務習慣、盲點與改善建議',
+    q_list: '給我一份本週可執行清單',
+    q_30d: '為我訂一個30天成長計畫',
+    vip_tip: '🔒 升級 VIP 以查看完整解讀',
+    vip_sub: '包含「事業／財富／執行清單／溫柔提醒」所有章節與持續追問',
+    btn_unlock: '立即解鎖',
+
+    rpt_free_title: '免費簡報',
+    rpt_pillars_label: '四柱',
+    rpt_daymaster_label: '日主',
+    rpt_season_label: '季節',
+    rpt_chart_label: '命局',
+    rpt_strategy_label: '策略',
+    rpt_wuxing_label: '五行分佈',
+    rpt_strongest_word: '偏旺',
+    rpt_weakest_word: '偏弱',
+    rpt_absent_prefix: '缺：',
+    rpt_balance_focus_label: '調衡要點',
+    rpt_time_hint: '提示：出生時間不詳，未納入時柱，僅供參考。',
+    rpt_time_unknown: '時間不詳',
+    rpt_sec_overview_title: '一、命盤總覽',
+    rpt_sec_elements_title: '二、五行能量分析',
+    rpt_sec_traits_title: '三、性格與天賦',
+    rpt_traits_intro: '依據日主、季節與強弱給出核心性格標籤（占位）。',
+    rpt_traits_adv: '優勢能量：執行／創造／學習（占位）。',
+    rpt_traits_chal: '潛在挑戰：節奏／邊界／過猶不及（占位）。',
+    rpt_sec_structure_title: '四、格局與喜忌',
+    rpt_structure_line_template: '喜用：{fav}；忌諱：{avoid}',
+    rpt_sec_career_title: '五、事業與發展（試讀）',
+    rpt_career_fields_placeholder: '適合領域（占位）。',
+    rpt_dev_strategy_prefix: '發展策略：',
+    rpt_sec_love_title: '六、感情與關係（試讀）',
+    rpt_love_placeholder: '溝通節奏與邊界建議（占位）。',
+    rpt_sec_wealth_title: '七、財富與理財（試讀）',
+    rpt_wealth_suggestion_template: '理財建議：以 {fav} 為主調，穩中求進。',
+    rpt_sec_health_title: '八、健康與作息',
+    rpt_health_placeholder_template: '圍繞最弱五行（{weak}）做作息與環境優化（占位）。',
+    rpt_sec_env_title: '九、環境與色彩',
+    rpt_env_placeholder: '有利方位與配色隨喜用（占位）。',
+    rpt_strategy_drain: '洩秀/制化',
+    rpt_strategy_support: '生扶/補助',
+    rpt_strategy_balance: '調和'
   },
 
-  "ja": {
-    // —— 共通 ——
-    lang_label: "言語",
-    btn_register: "アカウント登録",
-    btn_login: "ログイン",
-    btn_reset: "🔑 パスワードをリセット",
-    note_price: "新規登録で無料体験を1回プレゼント",
-    note_price1: "$9.9 / 月 · VIP（命理スペース + 心怜スペース + スピリチュアル講座）",
+  'en': {
+    lang_label: 'Language',
+    btn_register: 'Create Account',
+    btn_login: 'Log in',
+    btn_reset: '🔑 Reset Password',
+    note_price: 'New account gets one free trial.',
+    note_price1: '$9.9 / month · VIP (Astro + Soul + Courses)',
 
-    err_need_ep: "メールとパスワードを入力してください",
-    err_pwd_rule: "パスワードは8文字以上で、大文字/小文字/数字/記号を含めてください",
-    err_no_account: "アカウントが見つかりません。先に登録してください",
-    err_wrong_pwd: "パスワードが正しくありません",
-    err_expired: "会員期限が切れました。更新してください",
-    err_login_fail: "ログイン失敗：",
-    err_register_fail: "登録に失敗しました：",
-    err_email_empty: "メールアドレスを入力してください",
-    err_pwd_empty: "パスワードを入力してください",
-    err_reset_fail: "リセットに失敗：",
+    err_need_ep: 'Enter email and password',
+    err_pwd_rule: 'Password must be 8+ and include upper/lowercase, number, symbol',
+    err_no_account: 'Account not found. Please register first.',
+    err_wrong_pwd: 'Incorrect password',
+    err_expired: 'Membership expired. Please renew.',
+    err_login_fail: 'Login failed: ',
+    err_register_fail: 'Registration failed: ',
+    err_email_empty: 'Email cannot be empty',
+    err_pwd_empty: 'Password cannot be empty',
+    err_reset_fail: 'Password reset failed: ',
+    err_network: 'Network error',
+    err_busy: 'Service is busy. Please try again later.',
 
-    prompt_email: "登録メールアドレスを入力してください：",
-    prompt_newpwd: "新しいパスワードを入力（8文字以上・大/小/数字/記号）：",
+    prompt_email: 'Enter your registered email:',
+    prompt_newpwd: 'Enter a new password (8+, upper/lower/digit/symbol):',
 
-    btn_upgrade: "💎 VIP（月額）にアップグレード",
-    btn_backshop: "← ストアに戻る",
+    btn_upgrade: '💎 Upgrade to VIP (Monthly)',
+    btn_backshop: '← Back to Store',
 
-    vip_title: "🌙 VIP セグメント",
-    vip_mingli: "🗝 命理スペース（会員専用）",
-    vip_xinlian: "🌙 心怜スペース（会員専用）",
-    vip_love: "縁結び：恋愛運・結婚運",
-    vip_career: "キャリア：職場発展・起業ポテンシャル",
-    vip_wealth: "財運：財位分析・タイミング",
-    vip_pet: "ペット命理：性格とご縁",
-    vip_hepan: "合盤：結婚日・出生時刻",
-    vip_name: "命名鑑定：社名・赤ちゃん名・改名",
-    vip_fengshui: "財位とレイアウト：住居 / オフィス",
-    vip_record: "スピリチュアル記録：写真・夢・声・祈り",
-    vip_course: "講座：八字 / タロット / 占星 / 数秘 / ヒューマンデザイン",
-    vip_memorial: "家族メモリアル：霊的アーカイブ & 継承",
-    vip_tasks: "毎週のエナジーワーク / 神事タスク",
-    vip_shop: "ストア割引 & 御守り",
-    login_title: "💎 VIP ログイン",
+    vip_title: '🌙 VIP Segment',
+    vip_mingli: '🗝 Astro Sanctuary · Exclusive',
+    vip_xinlian: '🌙 Soul Sanctuary · Exclusive',
+    vip_love: 'Love: Dating Fate, Marriage Trend',
+    vip_career: 'Career: Workplace, Entrepreneurship',
+    vip_wealth: 'Wealth: Wealth Position, Timing',
+    vip_pet: 'Pet Destiny: Temperament & Bond',
+    vip_hepan: 'Synastry: Wedding Dates, Birthtime',
+    vip_name: 'Name Reading: Company/Baby/Renaming',
+    vip_fengshui: 'Wealth & Layout: Home / Office',
+    vip_record: 'Spiritual Logs: Photos, Dreams, Voice, Prayers',
+    vip_course: 'Courses: Bazi / Tarot / Astrology / Numerology / Human Design',
+    vip_memorial: 'Family Memorial: Spiritual Archive & Legacy',
+    vip_tasks: 'Weekly Energy Practices / Divine Ritual Tasks',
+    vip_shop: 'Store Discounts & Omamori',
+    login_title: '💎 VIP Login',
 
-    chat_fab: "問",
-    chat_placeholder: "何を知りたいですか？（例：無料体験の始め方）",
-    chat_send: "送信",
-    msg_reset_ok: "パスワードを更新しました。新しいパスワードでログインしてください。",
+    chat_fab: 'Chat',
+    chat_placeholder: 'What would you like to know? (e.g., how to start the free trial)',
+    chat_send: 'Send',
+    butler_chat_title: 'Xinlian Butler · Chat',
 
-    ph_email: "メールアドレス",
-    ph_password: "パスワード（8文字以上・大/小/数字/記号）",
-    ph_label_password: "パスワード",
+    msg_reset_ok: 'Password updated. Please log in with the new one.',
 
-    title_quickcalc: "八字 · クイックチャート",
-    title_bazi_brief: "八字簡評",
-    label_name: "名前（任意）",
-    ph_name: "あなたの呼称（パーソナライズ用）",
-    gender_label: "性別",
-    label_calendar: "暦法",
-    label_birthdate: "生年月日",
-    label_birthtime: "出生時間",
-    cb_time_unknown: "出生時間が不明",
-    btn_generate_chart: "命盤を生成",
-    panel_login_head: "アカウント ログイン / 登録",
-    panel_member_head: "会員サービス",
+    ph_email: 'Email',
+    ph_password: 'Password (8+, upper/lower/digit/symbol)',
+    ph_label_password: 'Password',
 
-    // ドロップダウン
-    opt_gender_confidential: "非公開",
-    opt_gender_male: "男性",
-    opt_gender_female: "女性",
-    opt_cal_gregorian: "太陽暦",
-    opt_cal_lunar: "旧暦",
+    title_quickcalc: 'Bazi · Quick Chart',
+    title_bazi_brief: 'Bazi Quick Reading',
+    label_name: 'Name (optional)',
+    ph_name: 'Your name (for personalization)',
+    gender_label: 'Gender',
+    label_calendar: 'Calendar',
+    label_birthdate: 'Birth Date',
+    label_birthtime: 'Birth Time',
+    cb_time_unknown: 'Birth time unknown',
+    btn_generate_chart: 'Generate Chart',
+    panel_login_head: 'Account Login / Sign-up',
+    panel_member_head: 'Membership Services',
 
-    elements_balance_tpl: "{max}が最も強く、{min}が最も弱い。",
+    opt_gender_confidential: 'Confidential',
+    opt_gender_male: 'Male',
+    opt_gender_female: 'Female',
+    opt_cal_gregorian: 'Gregorian',
+    opt_cal_lunar: 'Lunar',
 
-    // —— 5X バトラー keys ——
-    butler_title: "5X 管家 · インサイト",
-    butler_keywords: "キーワード",
-    butler_today: "今日の行動",
-    butler_rhythm: "リズム",
-    butler_space: "環境と配色",
-    kw_wood: "成長・学習・拡張",
-    kw_fire: "表現・情熱・影響力",
-    kw_earth: "安定・支え・忍耐",
-    kw_metal: "秩序・効率・境界",
-    kw_water: "洞察・戦略・流れ",
-    butler_today_suggestion: "喜用要素に沿った小さな目標を1つ（共有・振り返り・練習 など）。",
+    elements_balance_tpl: 'Strongest: {max} · Weakest: {min}',
 
-    // —— Report ——
-    day_master: "日主",
-    chart_strength: "チャートの強さ",
-    season: "季節",
-    wuxing_distribution: "五行分布",
-    note: "注意",
-    time_unknown_checked: "「出生時間が不明」を選択",
-    hour_pillar_excluded: "時柱は含まれていません",
-    hint: "ヒント",
-    no_hour_tip: "時柱なし—参考情報としてご利用ください。",
-    dev_strategy: "発展戦略：",
-    useful_elements: "有利な要素：",
-    lucky_colors: "ラッキーカラー：",
-    lucky_directions: "吉方位：",
-    strength_strong: "強め",
-    strength_weak: "弱め",
-    strength_balanced: "バランス",
-    desc_strong: "潜在力が高く、ストレス耐性が強い",
-    desc_weak: "外部支援があるとより力を発揮",
-    desc_balanced: "均衡が取れ、適応力が高い",
-    desc_generic: "独自の特性を持つ",
-    season_spring: "木が旺盛・生発",
-    season_summer: "火が旺盛・表出",
-    season_autumn: "金が旺盛・収斂",
-    season_winter: "水が旺盛・内蔵",
-    season_generic: "季節の気は一定の影響を与えます",
-    el_wood: "木", el_fire: "火", el_earth: "土", el_metal: "金", el_water: "水",
-    dir_wood: "東", dir_fire: "南", dir_earth: "中央/北東/南西", dir_metal: "西", dir_water: "北",
-    color_wood: "緑/青緑", color_fire: "赤/紫", color_earth: "黄/茶", color_metal: "白/金", color_water: "黒/青",
+    butler_title: 'Xinlian Butler · Insight',
 
-    // レポート
-    rpt_free_title: "無料サマリー",
-    rpt_pillars_label: "四柱",
-    rpt_daymaster_label: "日主",
-    rpt_season_label: "季節",
-    rpt_chart_label: "チャート",
-    rpt_strategy_label: "戦略",
-    rpt_wuxing_label: "五行",
-    rpt_strongest_word: "が最強",
-    rpt_weakest_word: "が最弱",
-    rpt_absent_prefix: "欠：",
-    rpt_fav_avoid_template: "有利：{fav}｜不利：{avoid}",
-    rpt_balance_focus_label: "バランスの焦点",
-    rpt_time_hint: "注：出生時間不明のため時柱は除外。参考としてご利用ください。",
-    rpt_time_unknown: "時間不明",
-    rpt_sec_overview_title: "1）概要",
-    rpt_sec_elements_title: "2）五行の分析",
-    rpt_sec_traits_title: "3）性質と才能",
-    rpt_traits_intro: "日主・季節・強弱に基づくコア特性タグ（プレースホルダ）。",
-    rpt_traits_adv: "強み：実行 / クリエイティビティ / 学習（プレースホルダ）。",
-    rpt_traits_chal: "課題：ペース / 境界 / 行き過ぎ（プレースホルダ）。",
-    rpt_sec_structure_title: "4）格局と喜忌",
-    rpt_structure_line_template: "有利：{fav}；不利：{avoid}",
-    rpt_sec_career_title: "5）キャリア（試読）",
-    rpt_career_fields_placeholder: "適性分野（プレースホルダ）。",
-    rpt_dev_strategy_prefix: "発展戦略：",
-    rpt_sec_love_title: "6）恋愛（試読）",
-    rpt_love_placeholder: "コミュニケーションのテンポと境界（プレースホルダ）。",
-    rpt_sec_wealth_title: "7）財運（試読）",
-    rpt_wealth_suggestion_template: "資産アドバイス：{fav}を基調に、堅実に。",
-    rpt_sec_health_title: "8）健康と生活",
-    rpt_health_placeholder_template: "最弱の五行（{weak）を意識した生活と環境最適化（プレースホルダ）。",
-    rpt_sec_env_title: "9）環境と色彩",
-    rpt_env_placeholder: "吉方位と配色は喜用に従います。",
-    rpt_strategy_drain: "洩らす/制御",
-    rpt_strategy_support: "扶ける/補助",
-    rpt_strategy_balance: "調和"
+    chip_career: 'Career',
+    chip_love: 'Relationships',
+    chip_money: 'Money Advice',
+    chip_list: 'Weekly To-Dos',
+    chip_30d: '30-Day Plan',
+    q_career: 'Continue with career and teamwork insights',
+    q_love: 'Talk about love and long-term relationships',
+    q_money: 'Give me money habits, blind spots and improvements',
+    q_list: 'Give me an actionable list for this week',
+    q_30d: 'Make me a 30-day growth plan',
+    vip_tip: '🔒 Unlock VIP to read the full analysis',
+    vip_sub: 'Includes all sections: Career / Wealth / Action List / Gentle Reminder, plus follow-ups',
+    btn_unlock: 'Unlock now',
+
+    rpt_free_title: 'Free Summary',
+    rpt_pillars_label: 'Pillars',
+    rpt_daymaster_label: 'Day Master',
+    rpt_season_label: 'Season',
+    rpt_chart_label: 'Chart',
+    rpt_strategy_label: 'Strategy',
+    rpt_wuxing_label: 'Five Elements',
+    rpt_strongest_word: 'strongest',
+    rpt_weakest_word: 'weakest',
+    rpt_absent_prefix: 'Absent: ',
+    rpt_balance_focus_label: 'Balance focus',
+    rpt_time_hint: 'Note: birth time unknown; hour pillar excluded—use as reference only.',
+    rpt_time_unknown: 'Unknown time',
+    rpt_sec_overview_title: '1) Overview',
+    rpt_sec_elements_title: '2) Element Analysis',
+    rpt_sec_traits_title: '3) Traits & Talents',
+    rpt_traits_intro: 'Core trait tags based on DM, season, and strength (placeholder).',
+    rpt_traits_adv: 'Advantages: Execution / Creativity / Learning (placeholder).',
+    rpt_traits_chal: 'Challenges: Pace / Boundaries (placeholder).',
+    rpt_sec_structure_title: '4) Structure & Preferences',
+    rpt_structure_line_template: 'Favorable: {fav}; Avoid: {avoid}',
+    rpt_sec_career_title: '5) Career (sample)',
+    rpt_career_fields_placeholder: 'Suitable fields (placeholder).',
+    rpt_dev_strategy_prefix: 'Development strategy: ',
+    rpt_sec_love_title: '6) Love (sample)',
+    rpt_love_placeholder: 'Communication tempo & boundaries (placeholder).',
+    rpt_sec_wealth_title: '7) Wealth (sample)',
+    rpt_wealth_suggestion_template: 'Wealth tip: prefer flows aligned with {fav}.',
+    rpt_sec_health_title: '8) Health',
+    rpt_health_placeholder_template: 'Care for weakest element: {weak}.',
+    rpt_sec_env_title: '9) Environment & Colors',
+    rpt_env_placeholder: 'Favorable directions & palette follow your favorable elements.',
+    rpt_strategy_drain: 'Drain/Control',
+    rpt_strategy_support: 'Support/Nourish',
+    rpt_strategy_balance: 'Balance'
   },
 
-  "th": {
-    // —— Common ——
-    lang_label: "ภาษา",
-    btn_register: "สมัครบัญชี",
-    btn_login: "เข้าสู่ระบบ",
-    btn_reset: "🔑 รีเซ็ตรหัสผ่าน",
-    note_price: "สมัครใหม่รับสิทธิ์ทดลองฟรี 1 ครั้ง",
-    note_price1: "$9.9 / เดือน · VIP (โหราศาสตร์ + จิตวิญญาณ + คอร์สเรียน)",
+  'ja': {
+    lang_label: '言語',
+    btn_register: 'アカウント作成',
+    btn_login: 'ログイン',
+    btn_reset: '🔑 パスワードをリセット',
+    note_price: '新規登録で無料体験を1回プレゼント',
+    note_price1: '$9.9／月 VIP（命理スペース＋心怜スペース＋スピリチュアル講座）',
 
-    err_need_ep: "กรุณากรอกอีเมลและรหัสผ่าน",
-    err_pwd_rule: "รหัสผ่านอย่างน้อย 8 ตัว ต้องมีตัวพิมพ์ใหญ่/เล็ก ตัวเลข และสัญลักษณ์",
-    err_no_account: "ไม่พบบัญชี กรุณาสมัครก่อน",
-    err_wrong_pwd: "รหัสผ่านไม่ถูกต้อง",
-    err_expired: "สมาชิกหมดอายุ กรุณาต่ออายุ",
-    err_login_fail: "เข้าสู่ระบบล้มเหลว: ",
-    err_register_fail: "สมัครสมาชิกไม่สำเร็จ: ",
-    err_email_empty: "อีเมลห้ามว่าง",
-    err_pwd_empty: "รหัสผ่านห้ามว่าง",
-    err_reset_fail: "รีเซ็ตรหัสผ่านไม่สำเร็จ: ",
+    err_need_ep: 'メールとパスワードを入力してください',
+    err_pwd_rule: 'パスワードは8文字以上で、大文字/小文字/数字/記号を含めてください',
+    err_no_account: 'アカウントが見つかりません。先に登録してください',
+    err_wrong_pwd: 'パスワードが正しくありません',
+    err_expired: '会員期限が切れました。更新してください',
+    err_login_fail: 'ログイン失敗：',
+    err_register_fail: '登録に失敗しました：',
+    err_email_empty: 'メールアドレスを入力してください',
+    err_pwd_empty: 'パスワードを入力してください',
+    err_reset_fail: 'リセットに失敗：',
+    err_network: 'ネットワークエラー',
+    err_busy: '混み合っています。しばらくしてからお試しください。',
 
-    prompt_email: "กรุณากรอกอีเมลที่สมัครไว้:",
-    prompt_newpwd: "กรอกรหัสผ่านใหม่ (อย่างน้อย 8 ตัว มีตัวพิมพ์ใหญ่/เล็ก ตัวเลข และสัญลักษณ์):",
+    prompt_email: '登録メールアドレスを入力してください：',
+    prompt_newpwd: '新しいパスワードを入力（8文字以上・大/小/数字/記号）：',
 
-    btn_upgrade: "💎 อัปเกรดเป็น VIP (รายเดือน)",
-    btn_backshop: "← กลับไปยังร้านค้า",
+    btn_upgrade: '💎 VIP（月額）にアップグレード',
+    btn_backshop: '← ストアに戻る',
 
-    vip_title: "🌙 โซนสมาชิก VIP",
-    vip_mingli: "🗝 ห้องโหราศาสตร์ · เฉพาะสมาชิก",
-    vip_xinlian: "🌙 ห้องจิตวิญญาณ · เฉพาะสมาชิก",
-    vip_love: "ความรัก: ดวงความรัก แนวโน้มการแต่งงาน",
-    vip_career: "การงาน: เส้นทางอาชีพ/ผู้ประกอบการ",
-    vip_wealth: "การเงิน: ทำเลทรัพย์ เวลาเหมาะสม",
-    vip_pet: "ดวงสัตว์เลี้ยง: นิสัย & ความผูกพัน",
-    vip_hepan: "ดวงคู่/ฤกษ์: วันแต่งงาน เวลาเกิดทารก",
-    vip_name: "ตั้งชื่อ: บริษัท/ทารก/เปลี่ยนชื่อ",
-    vip_fengshui: "ฮวงจุ้ยทรัพย์: บ้าน / สำนักงาน",
-    vip_record: "บันทึกทางจิตวิญญาณ: รูป ฝัน เสียง คำอธิษฐาน",
-    vip_course: "คอร์สเรียน: ปาจื่อ / ทาโรต์ / โหราศาสตร์ / ตัวเลข / ฮิวแมนดีไซน์",
-    vip_memorial: "บันทึกครอบครัว: อนุสรณ์วิญญาณ & มรดกใจ",
-    vip_tasks: "การฝึกพลังรายสัปดาห์ / พิธีกรรมเทพ",
-    vip_shop: "ส่วนลดร้านค้า & เครื่องรางสั่งทำ",
-    login_title: "💎 เข้าสู่ระบบ VIP",
+    vip_title: '🌙 VIP セグメント',
+    vip_mingli: '🗝 命理スペース（会員専用）',
+    vip_xinlian: '🌙 心怜スペース（会員専用）',
+    vip_love: '縁結び：恋愛運・結婚運',
+    vip_career: 'キャリア：職場発展・起業ポテンシャル',
+    vip_wealth: '財運：財位分析・タイミング',
+    vip_pet: 'ペット命理：性格とご縁',
+    vip_hepan: '合盤：結婚日・出生時刻',
+    vip_name: '命名鑑定：社名・赤ちゃん名・改名',
+    vip_fengshui: '財位とレイアウト：住居 / オフィス',
+    vip_record: 'スピリチュアル記録：写真・夢・声・祈り',
+    vip_course: '講座：八字 / タロット / 占星 / 数秘 / ヒューマンデザイン',
+    vip_memorial: '家族メモリアル：霊的アーカイブ & 継承',
+    vip_tasks: '毎週のエナジーワーク / 神事タスク',
+    vip_shop: 'ストア割引 & 御守り',
+    login_title: '💎 VIP ログイン',
 
-    chat_fab: "ถาม",
-    chat_placeholder: "อยากทราบเรื่องใด? (เช่น เริ่มทดลองฟรีอย่างไร)",
-    chat_send: "ส่ง",
-    msg_reset_ok: "อัปเดตรหัสผ่านแล้ว กรุณาเข้าสู่ระบบด้วยรหัสใหม่",
+    chat_fab: '問',
+    chat_placeholder: '何を知りたいですか？（例：無料体験の始め方）',
+    chat_send: '送信',
+    butler_chat_title: '心怜バトラー · チャット',
 
-    ph_email: "อีเมล",
-    ph_password: "รหัสผ่าน (≥8 ตัว รวมตัวพิมพ์ใหญ่/เล็ก ตัวเลข สัญลักษณ์)",
-    ph_label_password: "รหัสผ่าน",
+    msg_reset_ok: 'パスワードを更新しました。新しいパスワードでログインしてください。',
 
-    title_quickcalc: "ปาจื่อ · คำนวณด่วน",
-    title_bazi_brief: "ปาจื่อแบบย่อ",
-    label_name: "ชื่อ (ไม่บังคับ)",
-    ph_name: "ชื่อคุณ (เพื่อปรับให้เหมาะส่วนบุคคล)",
-    gender_label: "เพศ",
-    label_calendar: "ปฏิทิน",
-    label_birthdate: "วันเกิด",
-    label_birthtime: "เวลาเกิด",
-    cb_time_unknown: "ไม่ทราบเวลาเกิด",
-    btn_generate_chart: "สร้างดวง",
-    panel_login_head: "เข้าสู่ระบบ / สมัครสมาชิก",
-    panel_member_head: "บริการสมาชิก",
+    ph_email: 'メールアドレス',
+    ph_password: 'パスワード（8文字以上・大/小/数字/記号）',
+    ph_label_password: 'パスワード',
 
-    // Dropdown
-    opt_gender_confidential: "ไม่ระบุ",
-    opt_gender_male: "ชาย",
-    opt_gender_female: "หญิง",
-    opt_cal_gregorian: "สุริยคติ",
-    opt_cal_lunar: "จันทรคติ",
+    title_quickcalc: '八字 · クイックチャート',
+    title_bazi_brief: '八字簡評',
+    label_name: '名前（任意）',
+    ph_name: 'あなたの呼称（パーソナライズ用）',
+    gender_label: '性別',
+    label_calendar: '暦法',
+    label_birthdate: '生年月日',
+    label_birthtime: '出生時間',
+    cb_time_unknown: '出生時間が不明',
+    btn_generate_chart: '命盤を生成',
+    panel_login_head: 'アカウント ログイン / 登録',
+    panel_member_head: '会員サービス',
 
-    elements_balance_tpl: "เด่นสุด: {max} · อ่อนสุด: {min}",
+    opt_gender_confidential: '非公開',
+    opt_gender_male: '男性',
+    opt_gender_female: '女性',
+    opt_cal_gregorian: '太陽暦',
+    opt_cal_lunar: '旧暦',
 
-    // —— ผู้ช่วย 5X keys ——
-    butler_title: "ผู้ช่วย 5X · วิเคราะห์",
-    butler_keywords: "คีย์เวิร์ด",
-    butler_today: "วันนี้",
-    butler_rhythm: "จังหวะชีวิต",
-    butler_space: "สภาพแวดล้อม & โทนสี",
-    kw_wood: "เติบโต·เรียนรู้·ขยาย",
-    kw_fire: "สื่อสาร·ไฟแรง·อิทธิพล",
-    kw_earth: "มั่นคง·พยุงรับ·อดทน",
-    kw_metal: "ระเบียบ·ประสิทธิภาพ·ขอบเขต",
-    kw_water: "洞察·กลยุทธ์·ไหลลื่น",
-    butler_today_suggestion: "ตั้งเป้าขนาดเล็กให้สอดคล้องกับธาตุเกื้อหนุน (เช่น แบ่งปัน/ทบทวน/ฝึกฝน)",
+    elements_balance_tpl: '{max}が最も強く、{min}が最も弱い。',
 
-    // —— Report / Common ——
-    day_master: "Day Master",
-    chart_strength: "ความแข็งแรงของดวง",
-    season: "ฤดูกาล",
-    wuxing_distribution: "ธาตุทั้งห้า",
-    note: "หมายเหตุ",
-    time_unknown_checked: "เลือก “ไม่ทราบเวลาเกิด”",
-    hour_pillar_excluded: "ไม่รวมเสาเวลา",
-    hint: "คำแนะนำ",
-    no_hour_tip: "ไม่มีเสาเวลา — ใช้เพื่ออ้างอิงเท่านั้น",
-    dev_strategy: "กลยุทธ์พัฒนา: ",
-    useful_elements: "ธาตุเกื้อหนุน: ",
-    lucky_colors: "สีมงคล: ",
-    lucky_directions: "ทิศที่เหมาะ: ",
-    strength_strong: "ค่อนข้างแข็งแรง",
-    strength_weak: "ค่อนข้างอ่อน",
-    strength_balanced: "สมดุล",
-    desc_strong: "ศักยภาพสูง ทนแรงกดดันได้ดี",
-    desc_weak: "ทำได้ดีเมื่อมีการสนับสนุนภายนอก",
-    desc_balanced: "สมดุลและปรับตัวได้ดี",
-    desc_generic: "มีเอกลักษณ์เฉพาะตัว",
-    season_spring: "ไม้เด่น งอกงาม",
-    season_summer: "ไฟเด่น การแสดงออก",
-    season_autumn: "โลหะเด่น จัดระเบียบ/ขัดเกลา",
-    season_winter: "น้ำเด่น สงบ/สะท้อน",
-    season_generic: "ฤดูกาลมีอิทธิพลต่อดวงระดับหนึ่ง",
-    el_wood: "ไม้", el_fire: "ไฟ", el_earth: "ดิน", el_metal: "โลหะ", el_water: "น้ำ",
-    dir_wood: "ตะวันออก", dir_fire: "ใต้", dir_earth: "กึ่งกลาง/ตอ.เฉียงเหนือ/ตต.เฉียงใต้", dir_metal: "ตะวันตก", dir_water: "เหนือ",
-    color_wood: "เขียว/เขียวอมฟ้า", color_fire: "แดง/ม่วง", color_earth: "เหลือง/น้ำตาล", color_metal: "ขาว/ทอง", color_water: "ดำ/น้ำเงิน",
+    butler_title: '心怜バトラー · インサイト',
 
-    // 报告
-    rpt_free_title: "สรุปฟรี",
-    rpt_pillars_label: "เสา",
-    rpt_daymaster_label: "Day Master",
-    rpt_season_label: "ฤดูกาล",
-    rpt_chart_label: "ดวงชะตา",
-    rpt_strategy_label: "กลยุทธ์",
-    rpt_wuxing_label: "ธาตุทั้งห้า",
-    rpt_strongest_word: "เด่นสุด",
-    rpt_weakest_word: "อ่อนสุด",
-    rpt_absent_prefix: "ขาด: ",
-    rpt_fav_avoid_template: "เกื้อหนุน: {fav} | หลีกเลี่ยง: {avoid}",
-    rpt_balance_focus_label: "จุดโฟกัสการถ่วงดุล",
-    rpt_time_hint: "หมายเหตุ: ไม่ทราบเวลาเกิด ไม่รวมเสาเวลา — ใช้อ้างอิงเท่านั้น",
-    rpt_time_unknown: "ไม่ทราบเวลา",
-    rpt_sec_overview_title: "1) ภาพรวม",
-    rpt_sec_elements_title: "2) วิเคราะห์ธาตุ",
-    rpt_sec_traits_title: "3) บุคลิก & ความถนัด",
-    rpt_traits_intro: "แท็กบุคลิกหลักจาก DM ฤดูกาล และความแข็งแรง (ตัวอย่าง).",
-    rpt_traits_adv: "พลังเด่น: ลงมือทำ / สร้างสรรค์ / เรียนรู้ (ตัวอย่าง).",
-    rpt_traits_chal: "ความท้าทาย: จังหวะ / ขอบเขต (ตัวอย่าง).",
-    rpt_sec_structure_title: "4) โครงสร้าง & ความชอบ",
-    rpt_structure_line_template: "เกื้อหนุน: {fav}; หลีกเลี่ยง: {avoid}",
-    rpt_sec_career_title: "5) การงาน (ตัวอย่าง)",
-    rpt_career_fields_placeholder: "สายงานที่เหมาะ (ตัวอย่าง).",
-    rpt_dev_strategy_prefix: "กลยุทธ์พัฒนา: ",
-    rpt_sec_love_title: "6) ความรัก (ตัวอย่าง)",
-    rpt_love_placeholder: "จังหวะการสื่อสาร & ขอบเขต (ตัวอย่าง).",
-    rpt_sec_wealth_title: "7) การเงิน (ตัวอย่าง)",
-    rpt_wealth_suggestion_template: "ทิปการเงิน: เอนเอียงตาม {fav}.",
-    rpt_sec_health_title: "8) สุขภาพ",
-    rpt_health_placeholder_template: "ดูแลธาตุที่อ่อนที่สุด: {weak}.",
-    rpt_sec_env_title: "9) สิ่งแวดล้อม & สีสัน",
-    rpt_env_placeholder: "ทิศและโทนสีที่ส่งเสริมสอดคล้องกับธาตุเกื้อหนุน.",
-    rpt_strategy_drain: "ระบาย/ควบคุม",
-    rpt_strategy_support: "เสริม/เกื้อหนุน",
-    rpt_strategy_balance: "ถ่วงดุล"
+    chip_career: 'キャリア',
+    chip_love: '人間関係',
+    chip_money: 'お金のアドバイス',
+    chip_list: '今週のタスク',
+    chip_30d: '30日プラン',
+    q_career: 'キャリアやチームワークの洞察を続けて',
+    q_love: '恋愛や長期的な関係について',
+    q_money: '金銭習慣・盲点・改善案を教えて',
+    q_list: '今週の実行リストを作って',
+    q_30d: '30日間の成長プランを作って',
+    vip_tip: '🔒 VIPで全文表示を解放',
+    vip_sub: 'キャリア／金銭／行動リスト／優しいリマインドの全セクション＋追質問',
+    btn_unlock: '今すぐ解放',
+
+    rpt_free_title: '無料サマリー',
+    rpt_pillars_label: '四柱',
+    rpt_daymaster_label: '日主',
+    rpt_season_label: '季節',
+    rpt_chart_label: 'チャート',
+    rpt_strategy_label: '戦略',
+    rpt_wuxing_label: '五行',
+    rpt_strongest_word: 'が最強',
+    rpt_weakest_word: 'が最弱',
+    rpt_absent_prefix: '欠：',
+    rpt_balance_focus_label: 'バランスの焦点',
+    rpt_time_hint: '注：出生時間不明のため時柱は除外。参考としてご利用ください。',
+    rpt_time_unknown: '時間不明',
+    rpt_sec_overview_title: '1）概要',
+    rpt_sec_elements_title: '2）五行の分析',
+    rpt_sec_traits_title: '3）性質と才能',
+    rpt_traits_intro: '日主・季節・強弱に基づくコア特性タグ（プレースホルダ）。',
+    rpt_traits_adv: '強み：実行 / クリエイティビティ / 学習（プレースホルダ）。',
+    rpt_traits_chal: '課題：ペース / 境界 / 行き過ぎ（プレースホルダ）。',
+    rpt_sec_structure_title: '4）格局と喜忌',
+    rpt_structure_line_template: '有利：{fav}；不利：{avoid}',
+    rpt_sec_career_title: '5）キャリア（試読）',
+    rpt_career_fields_placeholder: '適性分野（プレースホルダ）。',
+    rpt_dev_strategy_prefix: '発展戦略：',
+    rpt_sec_love_title: '6）恋愛（試読）',
+    rpt_love_placeholder: 'コミュニケーションのテンポと境界（プレースホルダ）。',
+    rpt_sec_wealth_title: '7）財運（試読）',
+    rpt_wealth_suggestion_template: '資産アドバイス：{fav}を基調に、堅実に。',
+    rpt_sec_health_title: '8）健康と生活',
+    rpt_health_placeholder_template: '最弱の五行（{weak}）を意識した生活と環境最適化（プレースホルダ）。',
+    rpt_sec_env_title: '9）環境と色彩',
+    rpt_env_placeholder: '吉方位と配色は喜用に従います。',
+    rpt_strategy_drain: '洩らす/制御',
+    rpt_strategy_support: '扶ける/補助',
+    rpt_strategy_balance: '調和'
   },
 
-  "ms": {
-    // —— Umum ——
-    lang_label: "Bahasa",
-    btn_register: "Daftar Akaun",
-    btn_login: "Log Masuk",
-    btn_reset: "🔑 Tetapkan Semula Kata Laluan",
-    note_price: "Daftar akaun baharu untuk satu percubaan percuma",
-    note_price1: "$9.9 / bulan · VIP (Ruang Astro + Soul Sanctuary + Kursus)",
+  'th': {
+    lang_label: 'ภาษา',
+    btn_register: 'สมัครบัญชี',
+    btn_login: 'เข้าสู่ระบบ',
+    btn_reset: '🔑 รีเซ็ตรหัสผ่าน',
+    note_price: 'สมัครใหม่รับสิทธิ์ทดลองฟรี 1 ครั้ง',
+    note_price1: '$9.9 / เดือน · VIP (โหราศาสตร์ + จิตวิญญาณ + คอร์สเรียน)',
 
-    err_need_ep: "Masukkan emel dan kata laluan",
-    err_pwd_rule: "Kata laluan mestilah 8+ aksara serta ada huruf besar/kecil, nombor, simbol",
-    err_no_account: "Akaun tidak ditemui. Sila daftar dahulu.",
-    err_wrong_pwd: "Kata laluan tidak sah",
-    err_expired: "Keahlian tamat tempoh. Sila perbaharui.",
-    err_login_fail: "Gagal log masuk: ",
-    err_register_fail: "Gagal mendaftar: ",
-    err_email_empty: "Emel tidak boleh kosong",
-    err_pwd_empty: "Kata laluan tidak boleh kosong",
-    err_reset_fail: "Tetapan semula gagal: ",
+    err_need_ep: 'กรุณากรอกอีเมลและรหัสผ่าน',
+    err_pwd_rule:
+      'รหัสผ่านอย่างน้อย 8 ตัว ต้องมีตัวพิมพ์ใหญ่/เล็ก ตัวเลข และสัญลักษณ์',
+    err_no_account: 'ไม่พบบัญชี กรุณาสมัครก่อน',
+    err_wrong_pwd: 'รหัสผ่านไม่ถูกต้อง',
+    err_expired: 'สมาชิกหมดอายุ กรุณาต่ออายุ',
+    err_login_fail: 'เข้าสู่ระบบล้มเหลว: ',
+    err_register_fail: 'สมัครสมาชิกไม่สำเร็จ: ',
+    err_email_empty: 'อีเมลห้ามว่าง',
+    err_pwd_empty: 'รหัสผ่านห้ามว่าง',
+    err_reset_fail: 'รีเซ็ตรหัสผ่านไม่สำเร็จ: ',
+    err_network: 'เครือข่ายผิดพลาด',
+    err_busy: 'ระบบหนาแน่น โปรดลองใหม่ภายหลัง',
 
-    prompt_email: "Masukkan emel berdaftar anda:",
-    prompt_newpwd: "Masukkan kata laluan baharu (8+, huruf besar/kecil/nombor/simbol):",
+    prompt_email: 'กรุณากรอกอีเมลที่สมัครไว้:',
+    prompt_newpwd:
+      'กรอกรหัสผ่านใหม่ (อย่างน้อย 8 ตัว มีตัวพิมพ์ใหญ่/เล็ก ตัวเลข และสัญลักษณ์):',
 
-    btn_upgrade: "💎 Naik Taraf ke VIP (Bulanan)",
-    btn_backshop: "← Kembali ke Kedai",
+    btn_upgrade: '💎 อัปเกรดเป็น VIP (รายเดือน)',
+    btn_backshop: '← กลับไปยังร้านค้า',
 
-    vip_title: "🌙 Segmen VIP",
-    vip_mingli: "🗝 Ruang Astro · Eksklusif",
-    vip_xinlian: "🌙 Soul Sanctuary · Eksklusif",
-    vip_love: "Cinta: Jodoh & Arah Perkahwinan",
-    vip_career: "Kerjaya: Perkembangan & Usahawan",
-    vip_wealth: "Kekayaan: Kedudukan Harta & Masa",
-    vip_pet: "Nasib Haiwan: Perangai & Ikatan",
-    vip_hepan: "Keserasian: Tarikh Nikah, Waktu Lahir",
-    vip_name: "Analisis Nama: Syarikat/Bayi/Penamaan Semula",
-    vip_fengshui: "Kedudukan Harta & Susun Atur: Rumah / Pejabat",
-    vip_record: "Log Spiritual: Foto, Mimpi, Suara, Doa",
-    vip_course: "Kursus: Bazi / Tarot / Astrologi / Nombor / Human Design",
-    vip_memorial: "Peringatan Keluarga: Arkib Rohani & Legasi",
-    vip_tasks: "Amalan Tenaga Mingguan / Tugas Ritual",
-    vip_shop: "Diskaun Kedai & Omamori",
-    login_title: "💎 Log Masuk VIP",
+    vip_title: '🌙 โซนสมาชิก VIP',
+    vip_mingli: '🗝 ห้องโหราศาสตร์ · เฉพาะสมาชิก',
+    vip_xinlian: '🌙 ห้องจิตวิญญาณ · เฉพาะสมาชิก',
+    vip_love: 'ความรัก: ดวงความรัก แนวโน้มการแต่งงาน',
+    vip_career: 'การงาน: เส้นทางอาชีพ/ผู้ประกอบการ',
+    vip_wealth: 'การเงิน: ทำเลทรัพย์ เวลาเหมาะสม',
+    vip_pet: 'ดวงสัตว์เลี้ยง: นิสัย & ความผูกพัน',
+    vip_hepan: 'ดวงคู่/ฤกษ์: วันแต่งงาน เวลาเกิดทารก',
+    vip_name: 'ตั้งชื่อ: บริษัท/ทารก/เปลี่ยนชื่อ',
+    vip_fengshui: 'ฮวงจุ้ยทรัพย์: บ้าน / สำนักงาน',
+    vip_record: 'บันทึกทางจิตวิญญาณ: รูป ฝัน เสียง คำอธิษฐาน',
+    vip_course:
+      'คอร์สเรียน: ปาจื่อ / ทาโรต์ / โหราศาสตร์ / ตัวเลข / ฮิวแมนดีไซน์',
+    vip_memorial: 'บันทึกครอบครัว: อนุสรณ์วิญญาณ & มรดกใจ',
+    vip_tasks: 'การฝึกพลังรายสัปดาห์ / พิธีกรรมเทพ',
+    vip_shop: 'ส่วนลดร้านค้า & เครื่องราง',
+    login_title: '💎 เข้าสู่ระบบ VIP',
 
-    chat_fab: "Chat",
-    chat_placeholder: "Apa yang anda mahu tahu? (cth: cara mula percubaan percuma)",
-    chat_send: "Hantar",
-    msg_reset_ok: "Kata laluan dikemas kini. Log masuk dengan yang baharu.",
+    chat_fab: 'ถาม',
+    chat_placeholder: 'อยากทราบเรื่องใด? (เช่น เริ่มทดลองฟรีอย่างไร)',
+    chat_send: 'ส่ง',
+    butler_chat_title: 'ผู้ช่วยซินเหลียน · แชต',
 
-    ph_email: "Emel",
-    ph_password: "Kata Laluan (8+, huruf besar/kecil/nombor/simbol)",
-    ph_label_password: "Kata Laluan",
+    msg_reset_ok: 'อัปเดตรหัสผ่านแล้ว กรุณาเข้าสู่ระบบด้วยรหัสใหม่',
 
-    title_quickcalc: "Bazi · Carta Pantas",
-    title_bazi_brief: "Bazi · Ringkasan",
-    label_name: "Nama (pilihan)",
-    ph_name: "Nama anda (untuk personalisasi)",
-    gender_label: "Jantina",
-    label_calendar: "Kalendar",
-    label_birthdate: "Tarikh Lahir",
-    label_birthtime: "Masa Lahir",
-    cb_time_unknown: "Masa lahir tidak diketahui",
-    btn_generate_chart: "Jana Carta",
-    panel_login_head: "Log Masuk / Daftar Akaun",
-    panel_member_head: "Perkhidmatan Keahlian",
+    ph_email: 'อีเมล',
+    ph_password:
+      'รหัสผ่าน (≥8 ตัว รวมตัวพิมพ์ใหญ่/เล็ก ตัวเลข สัญลักษณ์)',
+    ph_label_password: 'รหัสผ่าน',
 
-    // Pilihan dropdown
-    opt_gender_confidential: "Rahsia",
-    opt_gender_male: "Lelaki",
-    opt_gender_female: "Perempuan",
-    opt_cal_gregorian: "Gregorian",
-    opt_cal_lunar: "Lunar",
+    title_quickcalc: 'ปาจื่อ · คำนวณด่วน',
+    title_bazi_brief: 'ปาจื่อแบบย่อ',
+    label_name: 'ชื่อ (ไม่บังคับ)',
+    ph_name: 'ชื่อคุณ (เพื่อปรับให้เหมาะส่วนบุคคล)',
+    gender_label: 'เพศ',
+    label_calendar: 'ปฏิทิน',
+    label_birthdate: 'วันเกิด',
+    label_birthtime: 'เวลาเกิด',
+    cb_time_unknown: 'ไม่ทราบเวลาเกิด',
+    btn_generate_chart: 'สร้างดวง',
+    panel_login_head: 'เข้าสู่ระบบ / สมัครสมาชิก',
+    panel_member_head: 'บริการสมาชิก',
 
-    elements_balance_tpl: "Terkuat: {max} · Terlemah: {min}",
+    opt_gender_confidential: 'ไม่ระบุ',
+    opt_gender_male: 'ชาย',
+    opt_gender_female: 'หญิง',
+    opt_cal_gregorian: 'สุริยคติ',
+    opt_cal_lunar: 'จันทรคติ',
 
-    // —— Butler 5X keys ——
-    butler_title: "Butler 5X · Insight",
-    butler_keywords: "Kata kunci",
-    butler_today: "Hari ini",
-    butler_rhythm: "Ritma",
-    butler_space: "Ruang & Warna",
-    kw_wood: "Tumbuh · Belajar · Kembang",
-    kw_fire: "Ekspresi · Semangat · Pengaruh",
-    kw_earth: "Stabil · Menopang · Sabar",
-    kw_metal: "Tertib · Efisien · Batas",
-    kw_water: "Wawasan · Strategi · Aliran",
-    butler_today_suggestion: "Tetapkan mikro-matlamat selaras unsur baik (contoh: berkongsi, semak, atau berlatih).",
+    elements_balance_tpl: 'เด่นสุด: {max} · อ่อนสุด: {min}',
 
-    // —— Report / Common ——
-    day_master: "Day Master",
-    chart_strength: "Kekuatan Carta",
-    season: "Musim",
-    wuxing_distribution: "Lima Unsur",
-    note: "Nota",
-    time_unknown_checked: "“Masa lahir tidak diketahui” dipilih",
-    hour_pillar_excluded: "Tiang jam tidak disertakan",
-    hint: "Petua",
-    no_hour_tip: "Tiada tiang jam — rujukan sahaja.",
-    dev_strategy: "Strategi pembangunan: ",
-    useful_elements: "Unsur baik: ",
-    lucky_colors: "Warna bertuah: ",
-    lucky_directions: "Arah bertuah: ",
-    strength_strong: "Cenderung kuat",
-    strength_weak: "Cenderung lemah",
-    strength_balanced: "Seimbang",
-    desc_strong: "Potensi tinggi, tahan tekanan",
-    desc_weak: "Lebih baik dengan sokongan luar",
-    desc_balanced: "Seimbang dan mudah menyesuaikan",
-    desc_generic: "Mempunyai ciri tersendiri",
-    season_spring: "Kayu kuat; pertumbuhan",
-    season_summer: "Api kuat; ekspresi",
-    season_autumn: "Logam kuat; pengumpulan/penyusunan",
-    season_winter: "Air kuat; penjimatan/refleksi",
-    season_generic: "Tenaga musim memberi sedikit pengaruh",
-    el_wood: "Kayu", el_fire: "Api", el_earth: "Tanah", el_metal: "Logam", el_water: "Air",
-    dir_wood: "Timur", dir_fire: "Selatan", dir_earth: "Tengah/Timur Laut/Barat Daya", dir_metal: "Barat", dir_water: "Utara",
-    color_wood: "Hijau/Teal", color_fire: "Merah/Ungu", color_earth: "Kuning/Coklat", color_metal: "Putih/Emas", color_water: "Hitam/Biru",
+    butler_title: 'ผู้ช่วยซินเหลียน · วิเคราะห์',
 
-    // Laporan
-    rpt_free_title: "Ringkasan Percuma",
-    rpt_pillars_label: "Empat Tiang",
-    rpt_daymaster_label: "Day Master",
-    rpt_season_label: "Musim",
-    rpt_chart_label: "Carta",
-    rpt_strategy_label: "Strategi",
-    rpt_wuxing_label: "Lima Unsur",
-    rpt_strongest_word: "paling kuat",
-    rpt_weakest_word: "paling lemah",
-    rpt_absent_prefix: "Tiada: ",
-    rpt_fav_avoid_template: "Unsur baik: {fav} | Elak: {avoid}",
-    rpt_balance_focus_label: "Fokus keseimbangan",
-    rpt_time_hint: "Nota: masa lahir tidak diketahui; tiang jam dikecualikan — rujukan sahaja.",
-    rpt_time_unknown: "Masa tidak diketahui",
-    rpt_sec_overview_title: "1) Gambaran Umum",
-    rpt_sec_elements_title: "2) Analisis Unsur",
-    rpt_sec_traits_title: "3) Sifat & Bakat",
-    rpt_traits_intro: "Tag sifat teras berdasarkan DM, musim, dan kekuatan (placeholder).",
-    rpt_traits_adv: "Kelebihan: Pelaksanaan / Kreativiti / Pembelajaran (placeholder).",
-    rpt_traits_chal: "Cabaran: Tempo / Sempadan / Berlebihan (placeholder).",
-    rpt_sec_structure_title: "4) Struktur & Kecenderungan",
-    rpt_structure_line_template: "Baik: {fav}; Elak: {avoid}",
-    rpt_sec_career_title: "5) Kerjaya (contoh)",
-    rpt_career_fields_placeholder: "Bidang yang sesuai (placeholder).",
-    rpt_dev_strategy_prefix: "Strategi pembangunan: ",
-    rpt_sec_love_title: "6) Cinta (contoh)",
-    rpt_love_placeholder: "Tempo komunikasi & sempadan (placeholder).",
-    rpt_sec_wealth_title: "7) Kekayaan (contoh)",
-    rpt_wealth_suggestion_template: "Tip kekayaan: utamakan aliran yang sejajar dengan {fav}.",
-    rpt_sec_health_title: "8) Kesihatan",
-    rpt_health_placeholder_template: "Jaga unsur paling lemah: {weak}.",
-    rpt_sec_env_title: "9) Persekitaran & Warna",
-    rpt_env_placeholder: "Arah & palet yang baik mengikuti unsur pilihan anda.",
-    rpt_strategy_drain: "Leraikan/Kawal",
-    rpt_strategy_support: "Sokong/Perkuat",
-    rpt_strategy_balance: "Seimbangkan"
+    chip_career: 'การงาน',
+    chip_love: 'ความสัมพันธ์',
+    chip_money: 'คำแนะนำการเงิน',
+    chip_list: 'รายการทำสัปดาห์นี้',
+    chip_30d: 'แผน 30 วัน',
+    q_career: 'ช่วยวิเคราะห์การงานและการทำงานเป็นทีมต่อ',
+    q_love: 'พูดถึงความรักและความสัมพันธ์ระยะยาว',
+    q_money: 'บอกนิสัยการเงิน จุดบอด และแนวทางปรับปรุง',
+    q_list: 'ขอรายการปฏิบัติได้จริงสำหรับสัปดาห์นี้',
+    q_30d: 'วางแผนพัฒนา 30 วันให้ฉัน',
+    vip_tip: '🔒 ปลดล็อก VIP เพื่ออ่านฉบับเต็ม',
+    vip_sub:
+      'รวมทุกหัวข้อ: งาน / การเงิน / รายการลงมือทำ / คำเตือนอ่อนโยน และการถามต่อ',
+    btn_unlock: 'ปลดล็อกทันที',
+
+    rpt_free_title: 'สรุปฟรี',
+    rpt_pillars_label: 'เสา',
+    rpt_daymaster_label: 'Day Master',
+    rpt_season_label: 'ฤดูกาล',
+    rpt_chart_label: 'ดวงชะตา',
+    rpt_strategy_label: 'กลยุทธ์',
+    rpt_wuxing_label: 'ธาตุทั้งห้า',
+    rpt_strongest_word: 'เด่นสุด',
+    rpt_weakest_word: 'อ่อนสุด',
+    rpt_absent_prefix: 'ขาด: ',
+    rpt_balance_focus_label: 'จุดโฟกัสการถ่วงดุล',
+    rpt_time_hint:
+      'หมายเหตุ: ไม่ทราบเวลาเกิด ไม่รวมเสาเวลา — ใช้อ้างอิงเท่านั้น',
+    rpt_time_unknown: 'ไม่ทราบเวลา',
+    rpt_sec_overview_title: '1) ภาพรวม',
+    rpt_sec_elements_title: '2) วิเคราะห์ธาตุ',
+    rpt_sec_traits_title: '3) บุคลิก & ความถนัด',
+    rpt_traits_intro:
+      'แท็กบุคลิกหลักจาก DM ฤดูกาล และความแข็งแรง (ตัวอย่าง).',
+    rpt_traits_adv: 'พลังเด่น: ลงมือทำ / สร้างสรรค์ / เรียนรู้ (ตัวอย่าง).',
+    rpt_traits_chal: 'ความท้าทาย: จังหวะ / ขอบเขต (ตัวอย่าง).',
+    rpt_sec_structure_title: '4) โครงสร้าง & ความชอบ',
+    rpt_structure_line_template: 'เกื้อหนุน: {fav}; หลีกเลี่ยง: {avoid}',
+    rpt_sec_career_title: '5) การงาน (ตัวอย่าง)',
+    rpt_career_fields_placeholder: 'สายงานที่เหมาะ (ตัวอย่าง).',
+    rpt_dev_strategy_prefix: 'กลยุทธ์พัฒนา: ',
+    rpt_sec_love_title: '6) ความรัก (ตัวอย่าง)',
+    rpt_love_placeholder: 'จังหวะการสื่อสาร & ขอบเขต (ตัวอย่าง).',
+    rpt_sec_wealth_title: '7) การเงิน (ตัวอย่าง)',
+    rpt_wealth_suggestion_template: 'ทิปการเงิน: เอนเอียงตาม {fav}.',
+    rpt_sec_health_title: '8) สุขภาพ',
+    rpt_health_placeholder_template: 'ดูแลธาตุที่อ่อนที่สุด: {weak}.',
+    rpt_sec_env_title: '9) สิ่งแวดล้อม & สีสัน',
+    rpt_env_placeholder:
+      'ทิศและโทนสีที่ส่งเสริมสอดคล้องกับธาตุเกื้อหนุน.',
+    rpt_strategy_drain: 'ระบาย/ควบคุม',
+    rpt_strategy_support: 'เสริม/เกื้อหนุน',
+    rpt_strategy_balance: 'ถ่วงดุล'
+  },
+
+  'ms': {
+    lang_label: 'Bahasa',
+    btn_register: 'Daftar Akaun',
+    btn_login: 'Log Masuk',
+    btn_reset: '🔑 Tetapkan Semula Kata Laluan',
+    note_price: 'Daftar akaun baharu untuk satu percubaan percuma',
+    note_price1:
+      '$9.9 / bulan · VIP (Ruang Astro + Soul Sanctuary + Kursus)',
+
+    err_need_ep: 'Masukkan emel dan kata laluan',
+    err_pwd_rule:
+      'Kata laluan mestilah 8+ aksara serta ada huruf besar/kecil, nombor, simbol',
+    err_no_account: 'Akaun tidak ditemui. Sila daftar dahulu.',
+    err_wrong_pwd: 'Kata laluan tidak sah',
+    err_expired: 'Keahlian tamat tempoh. Sila perbaharui.',
+    err_login_fail: 'Gagal log masuk: ',
+    err_register_fail: 'Gagal mendaftar: ',
+    err_email_empty: 'Emel tidak boleh kosong',
+    err_pwd_empty: 'Kata laluan tidak boleh kosong',
+    err_reset_fail: 'Tetapan semula gagal: ',
+    err_network: 'Ralat rangkaian',
+    err_busy: 'Perkhidmatan sibuk. Cuba lagi kemudian.',
+
+    prompt_email: 'Masukkan emel berdaftar anda:',
+    prompt_newpwd:
+      'Masukkan kata laluan baharu (8+, huruf besar/kecil/nombor/simbol):',
+
+    btn_upgrade: '💎 Naik Taraf ke VIP (Bulanan)',
+    btn_backshop: '← Kembali ke Kedai',
+
+    vip_title: '🌙 Segmen VIP',
+    vip_mingli: '🗝 Ruang Astro · Eksklusif',
+    vip_xinlian: '🌙 Soul Sanctuary · Eksklusif',
+    vip_love: 'Cinta: Jodoh & Arah Perkahwinan',
+    vip_career: 'Kerjaya: Perkembangan & Usahawan',
+    vip_wealth: 'Kekayaan: Kedudukan Harta & Masa',
+    vip_pet: 'Nasib Haiwan: Perangai & Ikatan',
+    vip_hepan: 'Keserasian: Wedding Dates, Birthtime',
+    vip_name: 'Analisis Nama: Syarikat/Bayi/Penamaan Semula',
+    vip_fengshui: 'Kedudukan Harta & Susun Atur: Rumah / Pejabat',
+    vip_record: 'Log Spiritual: Foto, Mimpi, Audio, Doa',
+    vip_course:
+      'Kursus: Bazi / Tarot / Astrologi / Numerologi / Human Design',
+    vip_memorial: 'Peringatan Keluarga: Arkib Rohani & Legasi',
+    vip_tasks: 'Amalan Tenaga Mingguan / Tugas Ritual',
+    vip_shop: 'Diskaun Kedai & Omamori',
+    login_title: '💎 Sign in for VIP features',
+
+    chat_fab: 'Chat',
+    chat_placeholder:
+      'Apa yang anda ingin tahu? (cth: cara mula percubaan percuma)',
+    chat_send: 'Hantar',
+    butler_chat_title: 'Xinlian Butler · Chat',
+
+    msg_reset_ok: 'Kata laluan dikemas kini. Log masuk dengan yang baharu.',
+
+    ph_email: 'Emel',
+    ph_password:
+      'Kata Laluan (8+, huruf besar/kecil/nombor/simbol)',
+    ph_label_password: 'Kata Laluan',
+
+    title_quickcalc: 'Bazi · Carta Pantas',
+    title_bazi_brief: 'Bazi · Ringkasan',
+    label_name: 'Nama (pilihan)',
+    ph_name: 'Nama anda (untuk personalisasi)',
+    gender_label: 'Jantina',
+    label_calendar: 'Kalendar',
+    label_birthdate: 'Tarikh Lahir',
+    label_birthtime: 'Masa Lahir',
+    cb_time_unknown: 'Masa lahir tidak diketahui',
+    btn_generate_chart: 'Jana Carta',
+    panel_login_head: 'Log Masuk / Daftar Akaun',
+    panel_member_head: 'Perkhidmatan Keahlian',
+
+    opt_gender_confidential: 'Rahsia',
+    opt_gender_male: 'Lelaki',
+    opt_gender_female: 'Perempuan',
+    opt_cal_gregorian: 'Gregorian',
+    opt_cal_lunar: 'Lunar',
+
+    elements_balance_tpl: 'Terkuat: {max} · Terlemah: {min}',
+
+    butler_title: 'Xinlian Butler · Insight',
+
+    chip_career: 'Kerjaya',
+    chip_love: 'Hubungan',
+    chip_money: 'Nasihat Kewangan',
+    chip_list: 'Senarai Mingguan',
+    chip_30d: 'Pelan 30 Hari',
+    q_career: 'Teruskan dengan wawasan kerjaya dan kerja berpasukan',
+    q_love: 'Bincang cinta dan hubungan jangka panjang',
+    q_money: 'Berikan tabiat kewangan, titik buta dan penambahbaikan',
+    q_list: 'Berikan senarai tindakan minggu ini',
+    q_30d: 'Buat pelan perkembangan 30 hari',
+    vip_tip: '🔒 Buka VIP untuk melihat analisis penuh',
+    vip_sub:
+      'Termasuk semua seksyen: Kerjaya / Kekayaan / Senarai Tindakan / Peringatan Lembut + soalan susulan',
+    btn_unlock: 'Buka sekarang',
+
+    rpt_free_title: 'Ringkasan Percuma',
+    rpt_pillars_label: 'Empat Tiang',
+    rpt_daymaster_label: 'Day Master',
+    rpt_season_label: 'Musim',
+    rpt_chart_label: 'Carta',
+    rpt_strategy_label: 'Strategi',
+    rpt_wuxing_label: 'Lima Unsur',
+    rpt_strongest_word: 'paling kuat',
+    rpt_weakest_word: 'paling lemah',
+    rpt_absent_prefix: 'Tiada: ',
+    rpt_balance_focus_label: 'Fokus keseimbangan',
+    rpt_time_hint:
+      'Nota: masa lahir tidak diketahui; tiang jam dikecualikan — rujukan sahaja.',
+    rpt_time_unknown: 'Masa tidak diketahui',
+    rpt_sec_overview_title: '1) Gambaran Umum',
+    rpt_sec_elements_title: '2) Analisis Unsur',
+    rpt_sec_traits_title: '3) Sifat & Bakat',
+    rpt_traits_intro:
+      'Tag sifat teras berdasarkan DM, musim, dan kekuatan (placeholder).',
+    rpt_traits_adv:
+      'Kelebihan: Pelaksanaan / Kreativiti / Pembelajaran (placeholder).',
+    rpt_traits_chal: 'Cabaran: Tempo / Sempadan / Berlebihan (placeholder).',
+    rpt_sec_structure_title: '4) Struktur & Kecenderungan',
+    rpt_structure_line_template: 'Baik: {fav}; Elak: {avoid}',
+    rpt_sec_career_title: '5) Kerjaya (contoh)',
+    rpt_career_fields_placeholder: 'Bidang yang sesuai (placeholder).',
+    rpt_dev_strategy_prefix: 'Strategi pembangunan: ',
+    rpt_sec_love_title: '6) Cinta (contoh)',
+    rpt_love_placeholder: 'Tempo komunikasi & sempadan (placeholder).',
+    rpt_sec_wealth_title: '7) Kekayaan (contoh)',
+    rpt_wealth_suggestion_template:
+      'Tip kekayaan: utamakan aliran yang sejajar dengan {fav}.',
+    rpt_sec_health_title: '8) Kesihatan',
+    rpt_health_placeholder_template: 'Jaga unsur paling lemah: {weak}.',
+    rpt_sec_env_title: '9) Persekitaran & Warna',
+    rpt_env_placeholder: 'Arah & palet yang baik mengikuti unsur pilihan anda.',
+    rpt_strategy_drain: 'Leraikan/Kawal',
+    rpt_strategy_support: 'Sokong/Perkuat',
+    rpt_strategy_balance: 'Seimbangkan'
   }
 };
 
-/* —— i18n 内核：唯一版本 —— */
-function t(key){
-  const L = translations[getLang()] || translations["zh-CN"];
-  return L[key] || translations["zh-CN"][key] || key;
+const BUTLER_LANG_NAME = {
+  'zh-CN': 'Simplified Chinese',
+  'zh-TW': 'Traditional Chinese',
+  en: 'English',
+  ja: 'Japanese',
+  th: 'Thai',
+  ms: 'Malay'
+};
+
+function getLang() {
+  const saved = localStorage.getItem(LANG_KEY);
+  if (saved && translations[saved]) return saved;
+  const raw = (navigator.language || 'zh-CN').replace('_', '-');
+  const map = {
+    zh: 'zh-CN',
+    'zh-CN': 'zh-CN',
+    'zh-SG': 'zh-CN',
+    'zh-TW': 'zh-TW',
+    'zh-HK': 'zh-TW',
+    en: 'en',
+    'en-US': 'en',
+    'en-GB': 'en',
+    'en-AU': 'en',
+    ja: 'ja',
+    'ja-JP': 'ja',
+    th: 'th',
+    ms: 'ms'
+  };
+  return map[raw] || 'zh-CN';
 }
-function applyI18n(){
-  document.querySelectorAll("[data-i18n]").forEach(el=>{
-    const key = el.getAttribute("data-i18n");
-    el.textContent = t(key);
-  });
-  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
-    const key = el.getAttribute("data-i18n-ph");
-    el.setAttribute("placeholder", t(key));
-  });
-  const titleEl = document.querySelector("title[data-i18n]");
-  if (titleEl) titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
+function setLang(code) {
+  localStorage.setItem(LANG_KEY, code);
+  document.documentElement.lang = code;
 }
-function applyChatI18n(){
-  const fab=$('ssChatFab'), inp=$('ssChatInput'), btn=$('ssChatSend');
+function t(key) {
+  const L = translations[getLang()] || translations['zh-CN'];
+  return L[key] || translations['zh-CN'][key] || key;
+}
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach((el) => {
+    const key = el.getAttribute('data-i18n');
+    const val = t(key);
+    if (val != null) el.textContent = val;
+  });
+  document.querySelectorAll('[data-i18n-ph]').forEach((el) => {
+    const key = el.getAttribute('data-i18n-ph');
+    const val = t(key);
+    if (val != null) el.setAttribute('placeholder', val);
+  });
+}
+function applyChatI18n() {
+  const fab = $('ssChatFab');
+  const inp = $('ssChatInput');
+  const btn = $('ssChatSend');
+  const title = qs('.ss-chat-title');
   if (fab) fab.textContent = t('chat_fab');
   if (inp) inp.placeholder = t('chat_placeholder');
   if (btn) btn.textContent = t('chat_send');
+  if (title) title.textContent = t('butler_chat_title');
 }
-function initLangUI(){
+function initLangUI() {
   const sel = document.getElementById('langSelect');
-  if(!sel) return;
+  if (!sel) return;
   const current = getLang();
   sel.value = current;
   document.documentElement.lang = current;
   applyI18n();
   applyChatI18n();
-  sel.addEventListener('change', ()=>{
+
+  sel.addEventListener('change', () => {
     setLang(sel.value);
     applyI18n();
     applyChatI18n();
-    rerenderReportsIfAny();   // 重渲染动态内容（报告+管家）
+    // 切换语言后：重渲报告 + Butler
+    rerenderReportsIfAny();
+    rerunButlerIfAny();
   });
 }
 
 /* ================== 八字计算器（简化） ================== */
-class BaziCalculator{
-  constructor(){
-    this.HEAVENLY_STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
-    this.EARTHLY_BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-    this.ZODIAC=['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
-    this.NAYIN=['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','屋上土','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];
+class BaziCalculator {
+  constructor() {
+    this.HEAVENLY_STEMS = [
+      '甲',
+      '乙',
+      '丙',
+      '丁',
+      '戊',
+      '己',
+      '庚',
+      '辛',
+      '壬',
+      '癸'
+    ];
+    this.EARTHLY_BRANCHES = [
+      '子',
+      '丑',
+      '寅',
+      '卯',
+      '辰',
+      '巳',
+      '午',
+      '未',
+      '申',
+      '酉',
+      '戌',
+      '亥'
+    ];
+    this.ZODIAC = [
+      '鼠',
+      '牛',
+      '虎',
+      '兔',
+      '龙',
+      '蛇',
+      '马',
+      '羊',
+      '猴',
+      '鸡',
+      '狗',
+      '猪'
+    ];
+    this.NAYIN = [
+      '海中金',
+      '炉中火',
+      '大林木',
+      '路旁土',
+      '剑锋金',
+      '山头火',
+      '涧下水',
+      '城头土',
+      '白蜡金',
+      '杨柳木',
+      '泉中水',
+      '屋上土',
+      '霹雳火',
+      '松柏木',
+      '长流水',
+      '砂石金',
+      '山下火',
+      '平地木',
+      '壁上土',
+      '金箔金',
+      '佛灯火',
+      '天河水',
+      '大驿土',
+      '钗钏金',
+      '桑柘木',
+      '大溪水',
+      '沙中土',
+      '天上火',
+      '石榴木',
+      '大海水'
+    ];
   }
-  calculateYearPillar(year){ const s=(year-4)%10,b=(year-4)%12; return{stem:this.HEAVENLY_STEMS[(s+10)%10],branch:this.EARTHLY_BRANCHES[(b+12)%12],zodiac:this.ZODIAC[(b+12)%12]}; }
-  solarMonthIndex(y,m,d){ const mmdd=m*100+d; const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]]; let idx=11; for(const [thr,val] of gates) if(mmdd>=thr) idx=val; const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'}; return{index:idx,branch:branchBy[idx]}; }
-  calculateMonthPillar(year,month,day){ const {index,branch}=this.solarMonthIndex(year,month,day); const yStemIdx=this.HEAVENLY_STEMS.indexOf(this.calculateYearPillar(year).stem); const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0}; const stemIdx=(startMap[yStemIdx]+(index-1))%10; return{stem:this.HEAVENLY_STEMS[stemIdx],branch}; }
-  calculateDayPillar(year,month,day){ const baseUTC=Date.UTC(1900,0,31); const targetUTC=Date.UTC(year,month-1,day); const dayDiff=Math.floor((targetUTC-baseUTC)/86400000); const stemIdx=(0+dayDiff)%10; const branchIdx=(4+dayDiff)%12; return{stem:this.HEAVENLY_STEMS[(stemIdx+10)%10],branch:this.EARTHLY_BRANCHES[(branchIdx+12)%12]}; }
-  calculateHourPillar(dayStem,hour){ const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'}; const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8}; const dayIdx=this.HEAVENLY_STEMS.indexOf(dayStem); const hourIndex=Math.floor((hour+1)/2)%12; const stemIdx=(startMap[dayIdx]+hourIndex)%10; return{stem:this.HEAVENLY_STEMS[stemIdx],branch:branchMap[hour]}; }
-  getElement(stem,branch){ const s={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'}; const b={子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'}; return `${s[stem]}${b[branch]}`; }
-  getNayin(stem,branch){ const si=this.HEAVENLY_STEMS.indexOf(stem), bi=this.EARTHLY_BRANCHES.indexOf(branch); return this.NAYIN[(si*2+bi)%this.NAYIN.length]; }
-  getStemElement(stem){ return ({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[stem]; }
-  getBranchElement(branch){ return ({子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'})[branch]; }
-  calculateBazi(year,month,day,hour=12,timeUnknown=false){
-    const yearP=this.calculateYearPillar(year), monthP=this.calculateMonthPillar(year,month,day), dayP=this.calculateDayPillar(year,month,day);
-    const hourP=timeUnknown?{stem:'？',branch:'？'}:this.calculateHourPillar(dayP.stem,hour);
-    const dayElement=this.getStemElement(dayP.stem);
-    const pillars={year:yearP,month:monthP,day:{...dayP,element:dayElement},hour:hourP};
-    const cnt={木:0,火:0,土:0,金:0,水:0};
-    (timeUnknown?[yearP,monthP,dayP]:[yearP,monthP,dayP,hourP]).forEach(p=>{ if(p.stem&&p.stem!=='？')cnt[this.getStemElement(p.stem)]+=1; if(p.branch&&p.branch!=='？')cnt[this.getBranchElement(p.branch)]+=1; });
-    const total=Object.values(cnt).reduce((a,b)=>a+b,0)||1;
-    const pct={wood:cnt['木']/total*100,fire:cnt['火']/total*100,earth:cnt['土']/total*100,metal:cnt['金']/total*100,water:cnt['水']/total*100};
-    return {pillars,counts:cnt,percents:pct,timeUnknown};
+  calculateYearPillar(year) {
+    const s = (year - 4) % 10,
+      b = (year - 4) % 12;
+    return {
+      stem: this.HEAVENLY_STEMS[(s + 10) % 10],
+      branch: this.EARTHLY_BRANCHES[(b + 12) % 12],
+      zodiac: this.ZODIAC[(b + 12) % 12]
+    };
+  }
+  solarMonthIndex(y, m, d) {
+    const mmdd = m * 100 + d;
+    const gates = [
+      [106, 12],
+      [204, 1],
+      [306, 2],
+      [405, 3],
+      [506, 4],
+      [606, 5],
+      [707, 6],
+      [808, 7],
+      [908, 8],
+      [1008, 9],
+      [1107, 10],
+      [1207, 11]
+    ];
+    let idx = 11;
+    for (const [thr, val] of gates) if (mmdd >= thr) idx = val;
+    const branchBy = {
+      1: '寅',
+      2: '卯',
+      3: '辰',
+      4: '巳',
+      5: '午',
+      6: '未',
+      7: '申',
+      8: '酉',
+      9: '戌',
+      10: '亥',
+      11: '子',
+      12: '丑'
+    };
+    return { index: idx, branch: branchBy[idx] };
+  }
+  calculateMonthPillar(year, month, day) {
+    const { index, branch } = this.solarMonthIndex(year, month, day);
+    const yStemIdx = this.HEAVENLY_STEMS.indexOf(
+      this.calculateYearPillar(year).stem
+    );
+    const startMap = { 0: 2, 1: 4, 2: 6, 3: 8, 4: 0, 5: 2, 6: 4, 7: 6, 8: 8, 9: 0 };
+    const stemIdx = (startMap[yStemIdx] + (index - 1)) % 10;
+    return { stem: this.HEAVENLY_STEMS[stemIdx], branch };
+  }
+  calculateDayPillar(year, month, day) {
+    const baseUTC = Date.UTC(1900, 0, 31);
+    const targetUTC = Date.UTC(year, month - 1, day);
+    const dayDiff = Math.floor((targetUTC - baseUTC) / 86400000);
+    const stemIdx = (0 + dayDiff) % 10;
+    const branchIdx = (4 + dayDiff) % 12;
+    return {
+      stem: this.HEAVENLY_STEMS[(stemIdx + 10) % 10],
+      branch: this.EARTHLY_BRANCHES[(branchIdx + 12) % 12]
+    };
+  }
+  calculateHourPillar(dayStem, hour) {
+    const branchMap = {
+      23: '子',
+      0: '子',
+      1: '丑',
+      2: '丑',
+      3: '寅',
+      4: '寅',
+      5: '卯',
+      6: '卯',
+      7: '辰',
+      8: '辰',
+      9: '巳',
+      10: '巳',
+      11: '午',
+      12: '午',
+      13: '未',
+      14: '未',
+      15: '申',
+      16: '申',
+      17: '酉',
+      18: '酉',
+      19: '戌',
+      20: '戌',
+      21: '亥',
+      22: '亥'
+    };
+    const startMap = { 0: 0, 1: 2, 2: 4, 3: 6, 4: 8, 5: 0, 6: 2, 7: 4, 8: 6, 9: 8 };
+    const dayIdx = this.HEAVENLY_STEMS.indexOf(dayStem);
+    const hourIndex = Math.floor((hour + 1) / 2) % 12;
+    const stemIdx = (startMap[dayIdx] + hourIndex) % 10;
+    return { stem: this.HEAVENLY_STEMS[stemIdx], branch: branchMap[hour] };
+  }
+  getElement(stem, branch) {
+    const s = {
+      甲: '木',
+      乙: '木',
+      丙: '火',
+      丁: '火',
+      戊: '土',
+      己: '土',
+      庚: '金',
+      辛: '金',
+      壬: '水',
+      癸: '水'
+    };
+    const b = {
+      子: '水',
+      丑: '土',
+      寅: '木',
+      卯: '木',
+      辰: '土',
+      巳: '火',
+      午: '火',
+      未: '土',
+      申: '金',
+      酉: '金',
+      戌: '土',
+      亥: '水'
+    };
+    return `${s[stem]}${b[branch]}`;
+  }
+  getNayin(stem, branch) {
+    const si = this.HEAVENLY_STEMS.indexOf(stem),
+      bi = this.EARTHLY_BRANCHES.indexOf(branch);
+    return this.NAYIN[(si * 2 + bi) % this.NAYIN.length];
+  }
+  getStemElement(stem) {
+    return (
+      {
+        甲: '木',
+        乙: '木',
+        丙: '火',
+        丁: '火',
+        戊: '土',
+        己: '土',
+        庚: '金',
+        辛: '金',
+        壬: '水',
+        癸: '水'
+      }[stem]
+    );
+  }
+  getBranchElement(branch) {
+    return (
+      {
+        子: '水',
+        丑: '土',
+        寅: '木',
+        卯: '木',
+        辰: '土',
+        巳: '火',
+        午: '火',
+        未: '土',
+        申: '金',
+        酉: '金',
+        戌: '土',
+        亥: '水'
+      }[branch]
+    );
+  }
+  calculateBazi(year, month, day, hour = 12, timeUnknown = false) {
+    const yearP = this.calculateYearPillar(year),
+      monthP = this.calculateMonthPillar(year, month, day),
+      dayP = this.calculateDayPillar(year, month, day);
+    const hourP = timeUnknown
+      ? { stem: '？', branch: '？' }
+      : this.calculateHourPillar(dayP.stem, hour);
+    const dayElement = this.getStemElement(dayP.stem);
+    const pillars = { year: yearP, month: monthP, day: { ...dayP, element: dayElement }, hour: hourP };
+    const cnt = { 木: 0, 火: 0, 土: 0, 金: 0, 水: 0 };
+    (timeUnknown ? [yearP, monthP, dayP] : [yearP, monthP, dayP, hourP]).forEach((p) => {
+      if (p.stem && p.stem !== '？') cnt[this.getStemElement(p.stem)] += 1;
+      if (p.branch && p.branch !== '？') cnt[this.getBranchElement(p.branch)] += 1;
+    });
+    const total = Object.values(cnt).reduce((a, b) => a + b, 0) || 1;
+    const pct = {
+      wood: (cnt['木'] / total) * 100,
+      fire: (cnt['火'] / total) * 100,
+      earth: (cnt['土'] / total) * 100,
+      metal: (cnt['金'] / total) * 100,
+      water: (cnt['水'] / total) * 100
+    };
+    return { pillars, counts: cnt, percents: pct, timeUnknown };
   }
 }
 const baziCalculator = new BaziCalculator();
 
 /* ================== 规则/渲染 ================== */
-function renderPillars(root,p,timeUnknown=false){
-  if(!root) return; root.innerHTML='';
-  [['年柱',p.year],['月柱',p.month],['日柱',p.day],['时柱',p.hour]].forEach(([tit,v])=>{
-    const u=(tit==='时柱'&&timeUnknown); const stem=u?'？':v.stem,branch=u?'？':v.branch;
-    const div=document.createElement('div'); div.className='pillar'; div.innerHTML=`<div class="tit">${tit}</div><div class="gz">${stem}${branch}</div>`; root.appendChild(div);
+function renderPillars(root, p, timeUnknown = false) {
+  if (!root) return;
+  root.innerHTML = '';
+  [
+    ['年柱', p.year],
+    ['月柱', p.month],
+    ['日柱', p.day],
+    ['时柱', p.hour]
+  ].forEach(([tit, v]) => {
+    const u = tit === '时柱' && timeUnknown;
+    const stem = u ? '？' : v.stem,
+      branch = u ? '？' : v.branch;
+    const div = document.createElement('div');
+    div.className = 'pillar';
+    div.innerHTML = `<div class="tit">${tit}</div><div class="gz">${stem}${branch}</div>`;
+    root.appendChild(div);
   });
 }
-function displayClassicArea(p,timeUnknown){
-  const ge=(s,b)=>baziCalculator.getElement(s,b), ny=(s,b)=>baziCalculator.getNayin(s,b);
-  setText('year-stem',p.year.stem); setText('year-branch',p.year.branch);
-  setText('month-stem',p.month.stem); setText('month-branch',p.month.branch);
-  setText('day-stem',p.day.stem); setText('day-branch',p.day.branch);
-  setText('hour-stem',timeUnknown?'？':p.hour.stem); setText('hour-branch',timeUnknown?'？':p.hour.branch);
-  const setIf=(id,val)=>{const el=$(id); if(el) el.textContent=val; };
-  setIf('year-element',ge(p.year.stem,p.year.branch)); setIf('month-element',ge(p.month.stem,p.month.branch));
-  setIf('day-element',ge(p.day.stem,p.day.branch)); setIf('hour-element',timeUnknown?'未知':ge(p.hour.stem,p.hour.branch));
-  setIf('year-nayin',ny(p.year.stem,p.year.branch)); setIf('month-nayin',ny(p.month.stem,p.month.branch));
-  setIf('day-nayin',ny(p.day.stem,p.day.branch)); setIf('hour-nayin',timeUnknown?'未知':ny(p.hour.stem,p.hour.branch));
+function displayClassicArea(p, timeUnknown) {
+  const ge = (s, b) => baziCalculator.getElement(s, b),
+    ny = (s, b) => baziCalculator.getNayin(s, b);
+  setText('year-stem', p.year.stem);
+  setText('year-branch', p.year.branch);
+  setText('month-stem', p.month.stem);
+  setText('month-branch', p.month.branch);
+  setText('day-stem', p.day.stem);
+  setText('day-branch', p.day.branch);
+  setText('hour-stem', timeUnknown ? '？' : p.hour.stem);
+  setText('hour-branch', timeUnknown ? '？' : p.hour.branch);
+  const setIf = (id, val) => {
+    const el = $(id);
+    if (el) el.textContent = val;
+  };
+  setIf('year-element', ge(p.year.stem, p.year.branch));
+  setIf('month-element', ge(p.month.stem, p.month.branch));
+  setIf('day-element', ge(p.day.stem, p.day.branch));
+  setIf('hour-element', timeUnknown ? '未知' : ge(p.hour.stem, p.hour.branch));
+  setIf('year-nayin', ny(p.year.stem, p.year.branch));
+  setIf('month-nayin', ny(p.month.stem, p.month.branch));
+  setIf('day-nayin', ny(p.day.stem, p.day.branch));
+  setIf('hour-nayin', timeUnknown ? '未知' : ny(p.hour.stem, p.hour.branch));
 }
-function judgeStrength(dayGan,monthZhi,cnt){
-  const STEM_ELEM={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
-  const SEASON_BY_MONTH_BRANCH={寅:'春',卯:'春',辰:'春',巳:'夏',午:'夏',未:'夏',申:'秋',酉:'秋',戌:'秋',亥:'冬',子:'冬',丑:'冬'};
-  const dmEl=STEM_ELEM[dayGan], season=SEASON_BY_MONTH_BRANCH[monthZhi]||'-';
-  let score=0;
-  if((season==='春'&&'木火'.includes(dmEl))||(season==='夏'&&'火土'.includes(dmEl))||(season==='秋'&&dmEl==='金')||(season==='冬'&&dmEl==='水')) score+=2;
-  score+=(cnt[dmEl]||0)*1.2;
-  const mark=score>=3?'偏强':(score<=1?'偏弱':'平衡');
-  const focus=mark==='偏强'?'泄秀/制化':(mark==='偏弱'?'生扶/补助':'调和'); return{season,mark,focus};
+function judgeStrength(dayGan, monthZhi, cnt) {
+  const STEM_ELEM = {
+    甲: '木',
+    乙: '木',
+    丙: '火',
+    丁: '火',
+    戊: '土',
+    己: '土',
+    庚: '金',
+    辛: '金',
+    壬: '水',
+    癸: '水'
+  };
+  const SEASON_BY_MONTH_BRANCH = {
+    寅: '春',
+    卯: '春',
+    辰: '春',
+    巳: '夏',
+    午: '夏',
+    未: '夏',
+    申: '秋',
+    酉: '秋',
+    戌: '秋',
+    亥: '冬',
+    子: '冬',
+    丑: '冬'
+  };
+  const dmEl = STEM_ELEM[dayGan],
+    season = SEASON_BY_MONTH_BRANCH[monthZhi] || '-';
+  let score = 0;
+  if (
+    (season === '春' && '木火'.includes(dmEl)) ||
+    (season === '夏' && '火土'.includes(dmEl)) ||
+    (season === '秋' && dmEl === '金') ||
+    (season === '冬' && dmEl === '水')
+  )
+    score += 2;
+  score += (cnt[dmEl] || 0) * 1.2;
+  const mark = score >= 3 ? '偏强' : score <= 1 ? '偏弱' : '平衡';
+  const focus = mark === '偏强' ? '泄秀/制化' : mark === '偏弱' ? '生扶/补助' : '调和';
+  return { season, mark, focus };
 }
-function chooseUseful(strength,dmElem){
-  if(strength==='偏强') return {strategy:'泄秀/制化', useful:({木:['火','土','金'],火:['土','金','水'],土:['金','水','木'],金:['水','木','火'],水:['木','火','土']})[dmElem], avoid:[dmElem]};
-  if(strength==='偏弱') return {strategy:'生扶/补助', useful:({木:['木','水'],火:['火','木'],土:['土','火'],金:['金','土'],水:['水','金']})[dmElem], avoid:[]};
-  return {strategy:'调和', useful:['木','火','土','金','水'], avoid:[]};
+function chooseUseful(strength, dmElem) {
+  if (strength === '偏强')
+    return {
+      strategy: '泄秀/制化',
+      useful: {
+        木: ['火', '土', '金'],
+        火: ['土', '金', '水'],
+        土: ['金', '水', '木'],
+        金: ['水', '木', '火'],
+        水: ['木', '火', '土']
+      }[dmElem],
+      avoid: [dmElem]
+    };
+  if (strength === '偏弱')
+    return {
+      strategy: '生扶/补助',
+      useful: { 木: ['木', '水'], 火: ['火', '木'], 土: ['土', '火'], 金: ['金', '土'], 水: ['水', '金'] }[dmElem],
+      avoid: []
+    };
+  return { strategy: '调和', useful: ['木', '火', '土', '金', '水'], avoid: [] };
 }
 
-/* ================== 多语言帮助函数（报告用） ================== */
-const EL_CHAR_TO_KEY = { '木':'wood', '火':'fire', '土':'earth', '金':'metal', '水':'water' };
-function ELABEL(){ return { wood:t('el_wood'), fire:t('el_fire'), earth:t('el_earth'), metal:t('el_metal'), water:t('el_water') }; }
-function elCharsToLocale(arr){ const L=ELABEL(); return (arr||[]).map(ch=>L[EL_CHAR_TO_KEY[ch]] || ch); }
-function listJoin(arr){ const lang=(getLang()||'').toLowerCase(); const sep=lang.startsWith('zh')?'、':', '; return (arr||[]).filter(Boolean).join(sep); }
-function seasonName(s){ const map={'春':t('season_spring'),'夏':t('season_summer'),'秋':t('season_autumn'),'冬':t('season_winter')}; return map[s] || t('season_generic'); }
-function strategyName(s){
-  const map = { '泄秀/制化': translations[getLang()]?.rpt_strategy_drain || '泄秀/制化',
-                '生扶/补助': translations[getLang()]?.rpt_strategy_support || '生扶/补助',
-                '调和': translations[getLang()]?.rpt_strategy_balance || '调和' };
+/* ================== 多语言帮助（报告用） ================== */
+const EL_CHAR_TO_KEY = { 木: 'wood', 火: 'fire', 土: 'earth', 金: 'metal', 水: 'water' };
+function ELABEL() {
+  return {
+    wood: t('el_wood') || '木',
+    fire: t('el_fire') || '火',
+    earth: t('el_earth') || '土',
+    metal: t('el_metal') || '金',
+    water: t('el_water') || '水'
+  };
+}
+function elCharsToLocale(arr) {
+  const L = ELABEL();
+  return (arr || []).map((ch) => L[EL_CHAR_TO_KEY[ch]] || ch);
+}
+function listJoin(arr) {
+  const lang = (getLang() || '').toLowerCase();
+  const sep = lang.startsWith('zh') ? '、' : ', ';
+  return (arr || []).filter(Boolean).join(sep);
+}
+function seasonName(s) {
+  const map = {
+    春: translations[getLang()]?.season_spring || '春',
+    夏: translations[getLang()]?.season_summer || '夏',
+    秋: translations[getLang()]?.season_autumn || '秋',
+    冬: translations[getLang()]?.season_winter || '冬'
+  };
+  return map[s] || translations[getLang()]?.season_generic || '季节对命局有一定影响';
+}
+function strategyName(s) {
+  const L = translations[getLang()] || translations['zh-CN'];
+  const map = { '泄秀/制化': L.rpt_strategy_drain || '泄秀/制化', '生扶/补助': L.rpt_strategy_support || '生扶/补助', 调和: L.rpt_strategy_balance || '调和' };
   return map[s] || s;
 }
 
-/* ============ 报告：免费 + 富报告 ============ */
-function buildFreeReportHTML({pillars, percents, st, adv, timeUnknown}){
+/* ============ 报告：免费 + 富报告（维持原功能） ============ */
+function buildFreeReportHTML({ pillars, percents, st, adv, timeUnknown }) {
   const E = ELABEL();
-  const entries = Object.entries(percents||{});
-  const strongestK = entries.reduce((a,b)=>a[1]>b[1]?a:b, ['wood',0])[0];
-  const weakestK   = entries.reduce((a,b)=>a[1]<b[1]?a:b, ['wood',0])[0];
+  const entries = Object.entries(percents || {});
+  const strongestK = entries.reduce((a, b) => (a[1] > b[1] ? a : b), ['wood', 0])[0];
+  const weakestK = entries.reduce((a, b) => (a[1] < b[1] ? a : b), ['wood', 0])[0];
   const strongest = E[strongestK] || '';
-  const weakest   = E[weakestK] || '';
-  const absents = Object.keys(percents||{}).filter(k=>Math.round(percents[k]||0)===0).map(k=>E[k]).filter(Boolean);
-  const fmt = k => `${E[k]} ${Math.round(percents[k]||0)}%`;
-  const lang = (getLang()||'').toLowerCase();
-  const sep  = lang.startsWith('zh') ? '　' : ' · ';
-  const line = ['wood','fire','earth','metal','water'].map(fmt).join(sep);
+  const weakest = E[weakestK] || '';
+  const absents = Object.keys(percents || {})
+    .filter((k) => Math.round(percents[k] || 0) === 0)
+    .map((k) => E[k])
+    .filter(Boolean);
+  const fmt = (k) => `${E[k]} ${Math.round(percents[k] || 0)}%`;
+  const lang = (getLang() || '').toLowerCase();
+  const sep = lang.startsWith('zh') ? '　' : ' · ';
+  const line = ['wood', 'fire', 'earth', 'metal', 'water'].map(fmt).join(sep);
 
-  const favLoc   = elCharsToLocale(adv?.useful||[]);
-  const avoidLoc = elCharsToLocale(adv?.avoid||[]);
-  const favText   = favLoc.length ? listJoin(favLoc) : (lang.startsWith('zh')?'—':'—');
-  const avoidText = avoidLoc.length ? listJoin(avoidLoc) : (lang.startsWith('zh')?'—':'—');
+  const favLoc = elCharsToLocale(adv?.useful || []);
+  const avoidLoc = elCharsToLocale(adv?.avoid || []);
+  const favText = favLoc.length ? listJoin(favLoc) : lang.startsWith('zh') ? '—' : '—';
+  const avoidText = avoidLoc.length ? listJoin(avoidLoc) : lang.startsWith('zh') ? '—' : '—';
 
-  const hourTxt = timeUnknown ? t('rpt_time_unknown') : (pillars.hour.stem + pillars.hour.branch);
+  const hourTxt = timeUnknown ? t('rpt_time_unknown') : pillars.hour.stem + pillars.hour.branch;
   const dmElemKey = EL_CHAR_TO_KEY[pillars.day.element] || 'wood';
   const dmElemName = E[dmElemKey];
   const stName = strategyName(st.focus);
 
   const favAvoidLine = t('rpt_fav_avoid_template').replace('{fav}', favText).replace('{avoid}', avoidText);
-  const absStr = absents.length ? (lang.startsWith('zh') ? `（${t('rpt_absent_prefix')}${listJoin(absents)}）` : ` (${t('rpt_absent_prefix')}${listJoin(absents)})`) : '';
+  const absStr = absents.length
+    ? (lang.startsWith('zh')
+        ? `（${t('rpt_absent_prefix')}${listJoin(absents)}）`
+        : ` (${t('rpt_absent_prefix')}${listJoin(absents)})`)
+    : '';
 
   return `
     <div class="xl-card" style="margin-top:12px;padding:16px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
       <h3 style="margin:0 0 8px;color:var(--brand)">${t('rpt_free_title')}</h3>
       <p style="margin:6px 0;">${t('rpt_pillars_label')}：<strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${hourTxt}</strong></p>
-      <p style="margin:6px 0;">${t('rpt_daymaster_label')}：<strong>${pillars.day.stem}</strong>（<strong>${dmElemName}</strong>）｜${t('rpt_season_label')}：<strong>${seasonName(st.season)||'-'}</strong>｜${t('rpt_chart_label')}：<strong>${t('strength_'+(st.mark==='偏强'?'strong':st.mark==='偏弱'?'weak':'balanced'))}</strong> · <strong>${t('rpt_strategy_label')}：${stName}</strong></p>
+      <p style="margin:6px 0;">${t('rpt_daymaster_label')}：<strong>${pillars.day.stem}</strong>（<strong>${dmElemName}</strong>）｜${t('rpt_season_label')}：<strong>${seasonName(st.season) || '-'}</strong>｜${t('rpt_chart_label')}：<strong>${t('strength_' + (st.mark === '偏强' ? 'strong' : st.mark === '偏弱' ? 'weak' : 'balanced'))}</strong> · <strong>${t('rpt_strategy_label')}：${stName}</strong></p>
       <p style="margin:8px 0;">${t('rpt_wuxing_label')}：${line}</p>
       <p style="margin:4px 0;"><strong>${strongest}</strong>${t('rpt_strongest_word')}；<strong>${weakest}</strong>${t('rpt_weakest_word')}。${absStr}</p>
       <ul style="margin:6px 0 0 18px;line-height:1.6">
         <li>${favAvoidLine}</li>
         <li>${t('rpt_balance_focus_label')}：${stName}</li>
       </ul>
-      ${timeUnknown?`<p class="muted" style="margin-top:6px;">${t('rpt_time_hint')}</p>`:''}
+      ${timeUnknown ? `<p class="muted" style="margin-top:6px;">${t('rpt_time_hint')}</p>` : ''}
     </div>`;
 }
 
-function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}){
+function buildRichReportHTML({ pillars, percents, st, adv, timeUnknown }) {
   const E = ELABEL();
-  const lang = (getLang()||'').toLowerCase();
-  const sep  = lang.startsWith('zh') ? '' : ' ';
-  const line = ['wood','fire','earth','metal','water'].map(k=>`${E[k]}${sep}${Math.round(percents[k]||0)}%`).join(lang.startsWith('zh') ? ' ' : ' · ');
+  const lang = (getLang() || '').toLowerCase();
+  const sep = lang.startsWith('zh') ? '' : ' ';
+  const line = ['wood', 'fire', 'earth', 'metal', 'water']
+    .map((k) => `${E[k]}${sep}${Math.round(percents[k] || 0)}%`)
+    .join(lang.startsWith('zh') ? ' ' : ' · ');
 
-  const entries = Object.entries(percents||{});
-  const strongestK = entries.reduce((a,b)=>a[1]>b[1]?a:b, ['wood',0])[0];
-  const weakestK   = entries.reduce((a,b)=>a[1]<b[1]?a:b, ['wood',0])[0];
-  const strongest  = E[strongestK]||'—';
-  const weakest    = E[weakestK]||'—';
-  const absentsArr = Object.keys(percents||{}).filter(k=>Math.round(percents[k]||0)===0).map(k=>E[k]);
-  const absentsStr = absentsArr.length ? (lang.startsWith('zh')?`（${t('rpt_absent_prefix')}${listJoin(absentsArr)}）`:` (${t('rpt_absent_prefix')}${listJoin(absentsArr)})`) : '';
+  const entries = Object.entries(percents || {});
+  const strongestK = entries.reduce((a, b) => (a[1] > b[1] ? a : b), ['wood', 0])[0];
+  const weakestK = entries.reduce((a, b) => (a[1] < b[1] ? a : b), ['wood', 0])[0];
+  const strongest = E[strongestK] || '—';
+  const weakest = E[weakestK] || '—';
+  const absentsArr = Object.keys(percents || {})
+    .filter((k) => Math.round(percents[k] || 0) === 0)
+    .map((k) => E[k]);
+  const absentsStr = absentsArr.length
+    ? lang.startsWith('zh')
+      ? `（${t('rpt_absent_prefix')}${listJoin(absentsArr)}）`
+      : ` (${t('rpt_absent_prefix')}${listJoin(absentsArr)})`
+    : '';
 
-  const favLoc   = elCharsToLocale(adv?.useful||[]);
-  const avoidLoc = elCharsToLocale(adv?.avoid||[]);
-  const favList   = favLoc.length ? listJoin(favLoc) : (lang.startsWith('zh')?'—':'—');
-  const avoidList = avoidLoc.length ? listJoin(avoidLoc) : (lang.startsWith('zh')?'—':'—');
+  const favLoc = elCharsToLocale(adv?.useful || []);
+  const avoidLoc = elCharsToLocale(adv?.avoid || []);
+  const favList = favLoc.length ? listJoin(favLoc) : lang.startsWith('zh') ? '—' : '—';
+  const avoidList = avoidLoc.length ? listJoin(avoidLoc) : lang.startsWith('zh') ? '—' : '—';
 
-  const hourTxt = timeUnknown ? t('rpt_time_unknown') : (pillars.hour.stem+pillars.hour.branch);
+  const hourTxt = timeUnknown ? t('rpt_time_unknown') : pillars.hour.stem + pillars.hour.branch;
   const dmElemKey = EL_CHAR_TO_KEY[pillars.day.element] || 'wood';
   const dmElemName = E[dmElemKey];
   const stName = strategyName(st.focus);
@@ -1472,8 +1915,8 @@ function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}){
       <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;font-size:14px;">
         <div>${t('rpt_pillars_label')}：<strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${hourTxt}</strong></div>
         <div>${t('rpt_daymaster_label')}：<strong>${pillars.day.stem}</strong>（<strong>${dmElemName}</strong>）</div>
-        <div>${t('rpt_season_label')}：<strong>${seasonName(st.season)||'-'}</strong></div>
-        <div>${t('rpt_chart_label')}：<strong>${t('strength_'+(st.mark==='偏强'?'strong':st.mark==='偏弱'?'weak':'balanced'))}</strong> · ${t('rpt_strategy_label')}：<strong>${stName}</strong></div>
+        <div>${t('rpt_season_label')}：<strong>${seasonName(st.season) || '-'}</strong></div>
+        <div>${t('rpt_chart_label')}：<strong>${t('strength_' + (st.mark === '偏强' ? 'strong' : st.mark === '偏弱' ? 'weak' : 'balanced'))}</strong> · ${t('rpt_strategy_label')}：<strong>${stName}</strong></div>
       </div>
     </section>
 
@@ -1485,7 +1928,7 @@ function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}){
         <li>${t('useful_elements')}${listJoin(favLoc)}</li>
         <li>${t('rpt_balance_focus_label')}：${stName}</li>
       </ul>
-      ${timeUnknown?`<p class="muted" style="margin-top:8px;">${t('rpt_time_hint')}</p>`:''}
+      ${timeUnknown ? `<p class="muted" style="margin-top:8px;">${t('rpt_time_hint')}</p>` : ''}
     </section>
 
     <section class="card" style="padding:20px;">
@@ -1530,80 +1973,7 @@ function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}){
   `;
 }
 
-/* ================== 5X 管家卡片（人性化） ================== */
-class FiveXButler{
-  _join(list){ const lang=(getLang()||'').toLowerCase(); return list.filter(Boolean).join(lang.startsWith('zh')?'、':', '); }
-  _EL(){ return { wood: t('el_wood'), fire: t('el_fire'), earth: t('el_earth'), metal: t('el_metal'), water: t('el_water') }; }
-  _DIR(){ return { wood: t('dir_wood'), fire: t('dir_fire'), earth: t('dir_earth'), metal: t('dir_metal'), water: t('dir_water') }; }
-  _COLOR(){ return { wood: t('color_wood'), fire: t('color_fire'), earth: t('color_earth'), metal: t('color_metal'), water: t('color_water') }; }
-  _strengthLabel(m){ const map={'偏强':t('strength_strong'),'偏弱':t('strength_weak'),'平衡':t('strength_balanced')}; return map[m]||m; }
-  _kwByElem(ch){
-    const map={ '木':t('kw_wood'), '火':t('kw_fire'), '土':t('kw_earth'), '金':t('kw_metal'), '水':t('kw_water') };
-    return map[ch] || '';
-  }
-  _lucky(list, table){
-    const m={ '木':table.wood, '火':table.fire, '土':table.earth, '金':table.metal, '水':table.water };
-    return this._join((list||[]).map(x=>m[x]).filter(Boolean));
-  }
-  _strongestWeakest(percents){
-    const entries=Object.entries(percents||{});
-    if(!entries.length) return {strong:'wood',weak:'wood'};
-    const strong=entries.reduce((a,b)=>a[1]>b[1]?a:b)[0];
-    const weak  =entries.reduce((a,b)=>a[1]<b[1]?a:b)[0];
-    return {strong,weak};
-  }
-  _distText(percents){
-    const E=this._EL(); const lang=(getLang()||'').toLowerCase();
-    const sep=lang.startsWith('zh')?' ':' · ';
-    return ['wood','fire','earth','metal','water'].map(k=>`${E[k]}${lang.startsWith('zh')?'': ' '}${Math.round(percents[k]||0)}%`).join(sep);
-  }
-
-  generateAnalysis(ctx){
-    const a=$('assistant-analysis'), b=$('assistant-advice');
-    if (a) a.innerHTML=this._renderAnalysis(ctx);
-    if (b) b.innerHTML=this._renderAdvice(ctx);
-  }
-
-  _renderAnalysis({dayMaster,elements,strength,season,timeUnknown}){
-    const E = ELABEL(); // 全局已有
-    const dmKw    = this._kwByElem(dayMaster.element);
-    const timeNote = timeUnknown ? `<li><strong>${t('note')}</strong>：${t('time_unknown_checked')}，<strong>${t('hour_pillar_excluded')}</strong>。</li>` : '';
-    return `
-      <ul class="ul">
-        <li>${t('day_master')}：<strong>${dayMaster.stem}</strong>（<strong>${E[EL_CHAR_TO_KEY[dayMaster.element]]}</strong>）</li>
-        <li>${t('chart_strength')}：<strong>${this._strengthLabel(strength.mark)}</strong></li>
-        <li>${t('season')}：<strong>${seasonName(season)}</strong></li>
-        <li>${t('butler_keywords')}：${dmKw}</li>
-        <li>${t('wuxing_distribution')}：${this._distText(elements)}</li>
-        ${timeNote}
-      </ul>`;
-  }
-
-  _renderAdvice({strength,useful,timeUnknown,elements}){
-    const colors = this._COLOR();
-    const dirs   = this._DIR();
-    const {weak} = this._strongestWeakest(elements);
-    const weakName = (this._EL())[weak];
-
-    const luckyColors = this._lucky(useful.useful||[], this._COLOR());
-    const luckyDirs   = this._lucky(useful.useful||[], this._DIR());
-    const strategyLocalized = strategyName(strength.focus);
-
-    const warn = timeUnknown ? `<li><strong>${t('hint')}</strong>：${t('no_hour_tip')}</li>` : '';
-    return `
-      <ul class="ul">
-        <li><strong>${t('dev_strategy')}</strong>${strategyLocalized}</li>
-        <li><strong>${t('useful_elements')}</strong>${this._join(elCharsToLocale(useful.useful||[]))}</li>
-        <li><strong>${t('butler_today')}</strong>${t('butler_today_suggestion')}</li>
-        <li><strong>${t('butler_rhythm')}</strong>${t('rpt_health_placeholder_template').replace('{weak}', weakName)}</li>
-        <li><strong>${t('butler_space')}</strong>${t('lucky_colors')}：${luckyColors}；${t('lucky_directions')}：${luckyDirs}</li>
-        ${warn}
-      </ul>`;
-  }
-}
-
-/* ================== 管家卡片（容器） ================== */
-function buildButlerHTML(){
+function buildButlerHTML() {
   return `
     <div id="assistant-panel" class="xl-card"
          style="margin-top:12px;padding:16px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
@@ -1613,8 +1983,7 @@ function buildButlerHTML(){
     </div>`;
 }
 
-/* —— 挂载“免费报告 + 5X 管家卡片”并生成管家内容 —— */
-function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
+function mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown }) {
   const resultEl = $('result');
   if (!resultEl) return;
 
@@ -1624,113 +1993,14 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
     freeNode.id = 'xl-free-report';
     resultEl.appendChild(freeNode);
   }
-  freeNode.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown});
-
-  let butler = $('assistant-panel');
-  if (!butler) {
-    const wrap = document.createElement('div');
-    wrap.innerHTML = buildButlerHTML();
-    resultEl.appendChild(wrap.firstElementChild);
-    applyI18n(); // 标题随语言
-  }
-
-  const assistant = new FiveXButler();
-  assistant.generateAnalysis({
-    dayMaster: { stem: pillars.day.stem, element: pillars.day.element },
-    elements: percents,
-    strength: st,
-    season: st.season,
-    useful: adv,
-    timeUnknown
-  });
+  freeNode.innerHTML = buildFreeReportHTML({ pillars, percents, st, adv, timeUnknown });
 }
 
-/* —— 全局：把管家卡片移动到锚点（#butler-anchor）之后 —— */
-function relocateButlerPanel(){
-  const panel  = document.getElementById('assistant-panel');
+function relocateButlerPanel() {
+  const panel = document.getElementById('assistant-panel');
   const anchor = document.getElementById('butler-anchor');
-  if (panel && anchor && anchor.parentNode){
+  if (panel && anchor && anchor.parentNode) {
     anchor.parentNode.insertBefore(panel, anchor.nextSibling);
-  }
-}
-
-/* ================== 生成命盘 ================== */
-async function genChart(){
-  const birth = ($('birthdate')?.value || '').trim();
-  const timeUnknown = $('timeUnknown')?.checked || false;
-  if (!birth){ showErr('请填写出生日期。'); return; }
-
-  const btn=$('genBtn'), tx=$('genBtnText'), ld=$('genBtnLoading');
-  if(btn) btn.disabled = true;
-  if(tx) tx.style.display = 'none';
-  if(ld) ld.style.display = 'inline-block';
-
-  try{
-    const [Y,M,D] = birth.split('-').map(Number);
-    let hour = 12;
-    if (!timeUnknown){
-      const t = ($('birthtime')?.value || '').trim();
-      if (t){
-        const h = parseInt(t.split(':')[0], 10);
-        if (!Number.isNaN(h)) hour = h;
-      }
-    }
-
-    const { pillars, counts, percents, timeUnknown: tu } =
-      baziCalculator.calculateBazi(Y, M, D, hour, timeUnknown);
-
-    $('result')?.style.setProperty('display','block');
-    const timeText = tu ? '时间不详' : (hour + '时');
-    setText('bazi-date', `出生日期: ${Y}年${M}月${D}日 ${timeText}`);
-    if (tu){ const el=$('bazi-date'); if(el) el.innerHTML += ' <span class="badge-warn">未纳入时柱</span>'; }
-
-    renderPillars($('bazi-pillars'), pillars, tu);
-    displayClassicArea(pillars, tu);
-
-    setBar($('bar-木'), percents.wood);  setText('pct-木',  Math.round(percents.wood)  + '%');
-    setBar($('bar-火'), percents.fire);  setText('pct-火',  Math.round(percents.fire)  + '%');
-    setBar($('bar-土'), percents.earth); setText('pct-土',  Math.round(percents.earth) + '%');
-    setBar($('bar-金'), percents.metal); setText('pct-金',  Math.round(percents.metal) + '%');
-    setBar($('bar-水'), percents.water); setText('pct-水',  Math.round(percents.water) + '%');
-
-    const st  = judgeStrength(pillars.day.stem, pillars.month.branch, counts);
-    const adv = chooseUseful(st.mark, pillars.day.element);
-
-    const keys = Object.keys(counts);
-    const maxK = keys.reduce((a,b)=> counts[a] > counts[b] ? a : b);
-    const minK = keys.reduce((a,b)=> counts[a] < counts[b] ? a : b);
-
-    // 本地化“最强/最弱”提示
-    {
-      const E = ELABEL();
-      const char2Locale = { 木: E.wood, 火: E.fire, 土: E.earth, 金: E.metal, 水: E.water };
-      setText(
-        'bazi-elements-balance',
-        t('elements_balance_tpl')
-          .replace('{max}', char2Locale[maxK])
-          .replace('{min}', char2Locale[minK])
-      );
-    }
-
-    window.__last_report__ = { pillars, percents, st, adv, tu };
-
-    mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
-    mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
-
-    console.log(
-      '实际 →',
-      pillars.year.stem+pillars.year.branch,
-      pillars.month.stem+pillars.month.branch,
-      pillars.day.stem+pillars.day.branch,
-      tu ? '？' : (pillars.hour.stem+pillars.hour.branch)
-    );
-  } catch (err){
-    console.error(err);
-    showErr('计算八字时出现错误，请重试');
-  } finally {
-    if(btn) btn.disabled = false;
-    if(tx)  tx.style.display = 'inline';
-    if(ld)  ld.style.display = 'none';
   }
 }
 
@@ -1743,179 +2013,539 @@ function mountRichReport({ pillars, percents, st, adv, timeUnknown }) {
     if (result) result.appendChild(host);
   }
   host.innerHTML = buildRichReportHTML({ pillars, percents, st, adv, timeUnknown });
-  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
 }
 
-/* ================== 语言：切换后重渲染 ================== */
-function rerenderReportsIfAny(){
-  const ctx = window.__last_report__;
-  if (!ctx) return;
-
-  const { pillars, percents, st, adv, tu } = ctx;
-
-  // 1) 重新渲染报告（免费+富报告）
-  mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
-  mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
-  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
-
-  // 2) 切语言后同步刷新“最强/最弱”提示
-  const E = ELABEL();
-  const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
-  const entries = Object.entries(percents || {});
-  const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
-  const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
-  setText(
-    'bazi-elements-balance',
-    t('elements_balance_tpl')
-      .replace('{max}', key2Locale[strongestK])
-      .replace('{min}', key2Locale[weakestK])
-  );
-
-  // 3) 强制刷新“5X 管家”标题与内容为当前语言
-  const titleEl = document.querySelector('#assistant-panel .butler-title');
-  if (titleEl) titleEl.textContent = t('butler_title');
-
-  const assistant = new FiveXButler();
-  assistant.generateAnalysis({
-    dayMaster: { stem: pillars.day.stem, element: pillars.day.element },
-    elements: percents,
-    strength: st,
-    season: st.season,
-    useful: adv,
-    timeUnknown: tu
-  });
-}
-
-/* ================== Chat 悬浮球（标题与系统提示改为 5X 管家） ================== */
-document.addEventListener('DOMContentLoaded', ()=>{
-  const chatFab=document.createElement('div'); chatFab.className='ss-chat-fab'; chatFab.id='ssChatFab'; chatFab.title='5X 管家';
-  const chatPanel=document.createElement('div'); chatPanel.className='ss-chat-panel'; chatPanel.id='ssChatPanel'; chatPanel.setAttribute('role','dialog'); chatPanel.setAttribute('aria-label','5X 管家');
-  chatPanel.innerHTML = `
-    <div class="ss-chat-head"><div class="ss-chat-title">5X 管家 · Chat</div><div class="ss-close" id="ssChatClose">✕</div></div>
-    <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
-    <div class="ss-chat-input"><input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/><button id="ssChatSend" class="btn">${t('chat_send')}</button></div>`;
-  document.body.appendChild(chatFab); document.body.appendChild(chatPanel);
-  applyChatI18n();
-
-  const $body=$('ssChatBody'), $input=$('ssChatInput'), $send=$('ssChatSend'), $close=$('ssChatClose');
-  const openPanel=()=>{ chatPanel.style.display='block'; $input&&$input.focus(); }; const closePanel=()=>{ chatPanel.style.display='none'; };
-  chatFab.addEventListener('click',openPanel); $close&&$close.addEventListener('click',closePanel);
-
-  function addMsg(text,me=false){ const div=document.createElement('div'); div.className='ss-msg'+(me?' me':''); div.textContent=text; $body.appendChild(div); $body.scrollTop=$body.scrollHeight; }
-  async function askChat(prompt){
-    addMsg(prompt,true); if($input){ $input.value=''; $input.focus(); }
-    try{
-      const r=await fetch(`${API_BASE}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'system',content:'你是“5X 管家”，帮助访客了解命理与心灵空间的功能、导航与会员说明，语气温暖专业、简洁有条理。'},{role:'user',content:prompt}]})});
-      let data,reply=''; try{data=await r.json()}catch{data={}} reply=data.reply??data.text??data?.choices?.[0]?.message?.content??"";
-      if(!reply) return addMsg('抱歉，服务暂时繁忙，请稍后重试。'); addMsg(reply);
-    }catch(e){ addMsg('网络异常，请稍后再试。'); }
-  }
-  $send&&$send.addEventListener('click',()=>{ const v=$input?.value.trim(); if(v) askChat(v); });
-  $input&&$input.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
-
-  // —— 页面初始：默认日期、按钮绑定、语言 UI
-  const today=new Date(); const def=today.toISOString().split('T')[0]; if($('birthdate')&&!$('birthdate').value) $('birthdate').value=def;
-  $('genBtn')?.addEventListener('click',genChart);
-  initLangUI();
-});
-
-/* ================== 估时间向导（仅勾选不详时触发） ================== */
-(function initBirthtimeWizard(){
-  const tChk=$('timeUnknown'), tInput=$('birthtime'), btn=$('guessTimeBtn');
-  const twMask=$('twMask'), twGrid=$('twGrid'), twApply=$('twApply'), twCancel=$('twCancel');
-  if(!tInput||!tChk||!twMask||!twGrid||!twApply||!twCancel) return;
-
-  const DZ=[
-    ['子','23:00–01:00','00:00'],['丑','01:00–03:00','02:00'],['寅','03:00–05:00','04:00'],['卯','05:00–07:00','06:00'],
-    ['辰','07:00–09:00','08:00'],['巳','09:00–11:00','10:00'],['午','11:00–13:00','12:00'],['未','13:00–15:00','14:00'],
-    ['申','15:00–17:00','16:00'],['酉','17:00–19:00','18:00'],['戌','19:00–21:00','20:00'],['亥','21:00–23:00','22:00']
-  ];
-  let selected=null;
-
-  function openWizard(){
-    twMask.style.display='flex'; selected=null; twApply.disabled=true;
-    if(!twGrid.dataset.built){
-      DZ.forEach(([z,range])=>{
-        const b=document.createElement('button'); b.type='button'; b.className='tw-btn'; b.textContent=`${z}（${range}）`;
-        b.addEventListener('click',()=>{ [...twGrid.children].forEach(x=>x.classList.remove('active')); b.classList.add('active'); selected=z; twApply.disabled=false;});
-        twGrid.appendChild(b);
-      }); twGrid.dataset.built='1';
-    }else{ [...twGrid.children].forEach(x=>x.classList.remove('active')); }
-  }
-  function closeWizard(){ twMask.style.display='none'; }
-
-  tChk.addEventListener('change', ()=>{ tInput.disabled=tChk.checked; if(tChk.checked) openWizard(); else closeWizard(); });
-  btn && btn.addEventListener('click', openWizard);
-  twCancel.addEventListener('click', closeWizard);
-  twApply.addEventListener('click', ()=>{
-    if(!selected) return;
-    const mid=Object.fromEntries(DZ.map(([z,_,m])=>[z,m]))[selected];
-    tInput.value=mid; tInput.disabled=false; tChk.checked=false; closeWizard();
-  });
-  tInput.disabled=tChk.checked;
+/* ================== Butler AI 卡片（芯片/锁定/多语言） ================== */
+(function injectAiStyle() {
+  const old = document.getElementById('ai-style');
+  if (old) old.remove();
+  const style = document.createElement('style');
+  style.id = 'ai-style';
+  style.textContent = `
+    .ai-content{white-space:pre-wrap;line-height:1.7}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .chip{padding:6px 10px;border-radius:999px;border:1px solid #2a3546;background:#0e1520;color:#e8edf3;cursor:pointer}
+    .skeleton{display:grid;gap:8px}
+    .skeleton div{height:12px;border-radius:6px;background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);animation:sh 1.2s infinite}
+    @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
+    .ai-lock-overlay{position:static;inset:auto;background:none;backdrop-filter:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);text-align:center}
+    .ai-lock-overlay .tip{color:#ffd88a;font-weight:700;margin-bottom:4px}
+    .ai-lock-overlay .sub{color:var(--muted)}
+  `;
+  document.head.appendChild(style);
 })();
 
-/* ================== 登录流程 ================== */
-async function safeJson(resp){ try{return await resp.json()}catch{return{ok:false,msg:'upstream_error'}} }
-async function loginFlow(email,password){
-  const res=await safeJson(await fetch(`${API_BASE}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}));
-  const msg=(res.msg||"").toString().toLowerCase(); let expired=false;
-  if(res.expired===true) expired=true; else if(msg==='expired') expired=true; else if(res.expiresAt){ const ts=Date.parse(res.expiresAt); if(!Number.isNaN(ts)&&ts<Date.now()) expired=true; }
-  if(expired){ const go=confirm(t('err_expired')+'。是否前往续费？'); if(go) window.open('https://yourshopifyshop.com/products/monthly-vip','_blank'); return; }
-  if(res.ok===true){ localStorage.setItem('vipEmail',res.email||email); location.href='https://astro.5xliving.com/vip_soul_sanctuary.html'; return; }
-  if(msg==='no_account') return showAuthErr(t('err_no_account'));
-  if(msg==='wrong_pwd') return showAuthErr(t('err_wrong_pwd'));
-  return showAuthErr(t('err_login_fail')+(res.msg?` ${res.msg}`:''));
+function mdToHtml(md) {
+  return (md || '')
+    .replace(/^###?\s+(.*)$/gm, '<h3 style="margin:12px 0 6px;color:#f2d27a">$1</h3>')
+    .replace(/^\s*[-*]\s+(.*)$/gm, '• $1')
+    .replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+    .replace(/\n{2,}/g, '\n\n')
+    .replace(/\n/g, '<br/>');
+}
+function isVIP() {
+  return localStorage.getItem('vipStatus') === 'active' || !!localStorage.getItem('vipEmail');
+}
+function ensureAiCard() {
+  if ($('aiCard')) return;
+  const wrap = $('rich-report') || $('result');
+  if (!wrap) return;
+  const sec = document.createElement('div');
+  sec.className = 'sec';
+  sec.id = 'aiCard';
+  sec.innerHTML = `
+    <h3 id="butlerTitle" data-i18n="butler_title">${t('butler_title')}</h3>
+    <div id="aiContent" class="ai-content">
+      <div class="skeleton">
+        <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
+        <div style="width:70%"></div><div style="width:50%"></div>
+      </div>
+    </div>
+    <div class="chips" id="aiChips"></div>`;
+  wrap.appendChild(sec);
+  renderChips();
+}
+function renderChips() {
+  const wrap = $('aiChips');
+  if (!wrap) return;
+  wrap.innerHTML = '';
+  const items = [
+    { k: 'chip_career', q: 'q_career' },
+    { k: 'chip_love', q: 'q_love' },
+    { k: 'chip_money', q: 'q_money' },
+    { k: 'chip_list', q: 'q_list' },
+    { k: 'chip_30d', q: 'q_30d' }
+  ];
+  items.forEach((it) => {
+    const btn = document.createElement('button');
+    btn.className = 'chip';
+    btn.textContent = t(it.k);
+    btn.setAttribute('data-q', t(it.q));
+    wrap.appendChild(btn);
+  });
 }
 
-document.addEventListener('DOMContentLoaded', ()=>{
-  $('registerForm')?.addEventListener('submit', async (e)=>{
-    e.preventDefault(); hideAuthErr();
-    const email=$('email')?.value.trim(); const password=$('password')?.value.trim();
-    if(!email||!password) return showAuthErr(t('err_need_ep'));
-    if(!strongPwd(password)) return showAuthErr(t('err_pwd_rule'));
-    lock($('registerBtn'),true);
-    try{
-      const res=await safeJson(await fetch(`${API_BASE}/api/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}));
-      if(res.ok===true){ localStorage.setItem('vipEmail',email); location.href='vip_trial.html'; return; }
-      if((res.msg||"").toString()==='exists'){ await loginFlow(email,password); return; }
-      return showAuthErr((res.msg&&(res.msg+''))||t('err_register_fail'));
-    }catch(err){ showAuthErr(t('err_register_fail')+(err?.message||'')); }
-    finally{ lock($('registerBtn'),false); }
-  });
+function buildButlerSystemPrompt(lang) {
+  const ln = BUTLER_LANG_NAME[lang] || BUTLER_LANG_NAME['zh-CN'];
+  const HEADER_MAP = {
+    'zh-CN': ['人物画像', '关系与沟通', '事业与自我实现', '金钱与物质', '今日/本周可执行清单', '温柔提醒'],
+    'zh-TW': ['人物画像', '關係與溝通', '事業與自我實現', '金錢與物質', '今日/本週可執行清單', '溫柔提醒'],
+    en: ['Persona', 'Relationships & Communication', 'Career & Self-Actualization', 'Money & Material', 'Actionable To-Dos (Today/This Week)', 'Gentle Reminder'],
+    ja: ['人物像', '関係とコミュニケーション', 'キャリアと自己実現', 'お金と物質', '今日/今週の実行リスト', 'やさしいリマインド'],
+    th: ['ภาพบุคคล', 'ความสัมพันธ์ & การสื่อสาร', 'การงาน & การเติมเต็มตนเอง', 'การเงิน & วัตถุ', 'รายการปฏิบัติ (วันนี้/สัปดาห์นี้)', 'คำเตือนอ่อนโยน'],
+    ms: ['Persona', 'Hubungan & Komunikasi', 'Kerjaya & Aktualisasi Diri', 'Wang & Material', 'Senarai Tindakan (Hari/Minggu Ini)', 'Peringatan Lembut']
+  };
+  const headers = HEADER_MAP[lang] || HEADER_MAP['zh-CN'];
 
-  $('loginForm')?.addEventListener('submit', async (e)=>{
-    e.preventDefault(); hideAuthErr();
-    const email=$('email')?.value.trim(); const password=$('password')?.value.trim();
-    if(!email||!password) return showAuthErr(t('err_need_ep'));
-    lock($('loginBtn'),true);
-    try{ await loginFlow(email,password); }
-    catch(err){ showAuthErr(t('err_login_fail')+(err?.message||'')); }
-    finally{ lock($('loginBtn'),false); }
-  });
+  return [
+    `You are "Xinlian Butler". OUTPUT LANGUAGE: ${ln}. Reply strictly in ${ln} only.`,
+    'Warm, practical, actionable. No medical/legal conclusions.',
+    'Markdown structure:',
+    `## ${headers[0]}`,
+    `## ${headers[1]} (2–4 bullets)`,
+    `## ${headers[2]} (2–4 bullets)`,
+    `## ${headers[3]} (2–3 bullets)`,
+    `## ${headers[4]} (3–5 bullets; start with verbs; quantify if possible)`,
+    `## ${headers[5]}`
+  ].join('\n');
+}
 
-  $('resetBtn')?.addEventListener('click', async ()=>{
+function buildBaziUserPrompt(ctx) {
+  // ctx 包含：name,date,time,place(可无),pillars,percents,st,adv,timeUnknown
+  const { name, date, time, place, pillars, percents, st, adv, timeUnknown } = ctx;
+  const fav = listJoin(elCharsToLocale(adv?.useful || []));
+  const avoid = listJoin(elCharsToLocale(adv?.avoid || []));
+  const elementsLine = `wood ${Math.round(percents.wood)}% · fire ${Math.round(percents.fire)}% · earth ${Math.round(percents.earth)}% · metal ${Math.round(percents.metal)}% · water ${Math.round(percents.water)}%`;
+  const hourTxt = timeUnknown ? t('rpt_time_unknown') : pillars.hour.stem + pillars.hour.branch;
+  return [
+    `Name: ${name || '-'}`,
+    `Birth: ${date || '-'} ${time || '—'}${place ? ' @ ' + place : ''}`,
+    `Bazi pillars: Year ${pillars.year.stem}${pillars.year.branch} · Month ${pillars.month.stem}${pillars.month.branch} · Day ${pillars.day.stem}${pillars.day.branch} · Hour ${hourTxt}`,
+    `Day Master: ${pillars.day.stem} (${pillars.day.element})`,
+    `Season: ${st.season}; Chart Strength: ${st.mark}; Strategy: ${st.focus}`,
+    `Favorable elements: ${fav || '—'}; Avoid: ${avoid || '—'}`,
+    `Five elements distribution: ${elementsLine}`,
+    'Expectation: human, concrete, and immediately actionable advice.'
+  ].join('\n');
+}
+
+async function runButlerAI(ctx) {
+  ensureAiCard();
+  const title = $('butlerTitle');
+  if (title) title.textContent = t('butler_title');
+
+  const elC = $('aiContent');
+  if (elC) {
+    elC.innerHTML = `
+      <div class="skeleton">
+        <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
+        <div style="width:70%"></div><div style="width:50%"></div>
+      </div>`;
+  }
+
+  const lang = getLang();
+  const sys = buildButlerSystemPrompt(lang);
+  const usr = buildBaziUserPrompt(ctx);
+
+  try {
+    const r = await fetch(API_BASE + '/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'system', content: sys }, { role: 'user', content: usr }] })
+    });
+    const data = await r.json().catch(() => ({}));
+    const raw = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
+    let html = mdToHtml(raw);
+
+    if (!isVIP()) {
+      const parts = raw.split(/\n##\s+/);
+      const header = parts.shift() || '';
+      const kept = [header, ...(parts.slice(0, 2).map((p) => '## ' + p))].join('\n\n');
+      html = mdToHtml(kept) + `
+        <div class="ai-lock-overlay" style="text-align:center;padding:14px 10px;border-top:1px solid #1f2a36;margin-top:10px">
+          <div class="tip">${t('vip_tip')}</div>
+          <div class="sub" style="margin-top:4px">${t('vip_sub')}</div>
+          <a class="btn" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener" style="margin-top:10px">${t('btn_unlock')}</a>
+        </div>`;
+    }
+
+    if (elC) elC.innerHTML = html;
+    renderChips();
+  } catch (e) {
+    if (elC) elC.innerHTML = `<div style="color:#98a7b7">${t('err_network')}</div>`;
+  }
+}
+
+function rerunButlerIfAny() {
+  if (!window.__bazi_ctx__) return;
+  runButlerAI(window.__bazi_ctx__);
+}
+
+// 追问芯片点击
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest('.chip');
+  if (!chip) return;
+  const q = chip.getAttribute('data-q') || chip.textContent;
+  const el = $('aiContent');
+  if (!el) return;
+  el.innerHTML += `<br/><br/><b>—</b> ${q}<br/>`;
+  const sys = buildButlerSystemPrompt(getLang());
+  fetch(API_BASE + '/api/chat', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ messages: [{ role: 'system', content: sys + '\n(Continue previous tone. Add concrete steps.)' }, { role: 'user', content: q }] })
+  })
+    .then((r) => r.json())
+    .then((data) => {
+      const txt = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
+      el.innerHTML += mdToHtml('\n\n' + (txt || '\n\n' + t('err_busy')));
+    })
+    .catch((err) => {
+      el.innerHTML += `<div style=\"color:#98a7b7\">${t('err_network')}</div>`;
+    });
+});
+
+/* ================== 生成命盘（整合 Butler） ================== */
+async function genChart() {
+  const birth = ($('birthdate')?.value || '').trim();
+  const timeUnknown = $('timeUnknown')?.checked || false;
+  const name = $('name')?.value?.trim() || '';
+  const place = $('place')?.value?.trim() || '';
+  if (!birth) {
+    showErr('请填写出生日期。');
+    return;
+  }
+
+  const btn = $('genBtn'),
+    tx = $('genBtnText'),
+    ld = $('genBtnLoading');
+  if (btn) btn.disabled = true;
+  if (tx) tx.style.display = 'none';
+  if (ld) ld.style.display = 'inline-block';
+
+  try {
+    const [Y, M, D] = birth.split('-').map(Number);
+    let hour = 12;
+    if (!timeUnknown) {
+      const tval = ($('birthtime')?.value || '').trim();
+      if (tval) {
+        const h = parseInt(tval.split(':')[0], 10);
+        if (!Number.isNaN(h)) hour = h;
+      }
+    }
+
+    const { pillars, counts, percents, timeUnknown: tu } = baziCalculator.calculateBazi(Y, M, D, hour, timeUnknown);
+
+    $('result')?.style.setProperty('display', 'block');
+    const timeText = tu ? '时间不详' : hour + '时';
+    setText('bazi-date', `出生日期: ${Y}年${M}月${D}日 ${timeText}`);
+    if (tu) {
+      const el = $('bazi-date');
+      if (el) el.innerHTML += ' <span class="badge-warn">未纳入时柱</span>';
+    }
+
+    renderPillars($('bazi-pillars'), pillars, tu);
+    displayClassicArea(pillars, tu);
+
+    setBar($('bar-木'), percents.wood);
+    setText('pct-木', Math.round(percents.wood) + '%');
+    setBar($('bar-火'), percents.fire);
+    setText('pct-火', Math.round(percents.fire) + '%');
+    setBar($('bar-土'), percents.earth);
+    setText('pct-土', Math.round(percents.earth) + '%');
+    setBar($('bar-金'), percents.metal);
+    setText('pct-金', Math.round(percents.metal) + '%');
+    setBar($('bar-水'), percents.water);
+    setText('pct-水', Math.round(percents.water) + '%');
+
+    const st = judgeStrength(pillars.day.stem, pillars.month.branch, counts);
+    const adv = chooseUseful(st.mark, pillars.day.element);
+
+    // 更新“最强/最弱”提示（本地化）
+    {
+      const E = ELABEL();
+      const keys = Object.keys(counts);
+      const maxK = keys.reduce((a, b) => (counts[a] > counts[b] ? a : b));
+      const minK = keys.reduce((a, b) => (counts[a] < counts[b] ? a : b));
+      const char2Locale = { 木: E.wood, 火: E.fire, 土: E.earth, 金: E.metal, 水: E.water };
+      setText(
+        'bazi-elements-balance',
+        t('elements_balance_tpl').replace('{max}', char2Locale[maxK]).replace('{min}', char2Locale[minK])
+      );
+    }
+
+    // 缓存上下文，供语言切换/继续追问使用
+    window.__last_report__ = { pillars, percents, st, adv, tu };
+
+    mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
+    mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
+
+    // Butler AI 卡片
+    const ctx = { name, place, date: `${Y}-${String(M).padStart(2, '0')}-${String(D).padStart(2, '0')}`, time: timeUnknown ? '—' : `${String(hour).padStart(2, '0')}:00`, pillars, percents, st, adv, timeUnknown: tu };
+    window.__bazi_ctx__ = ctx;
+    await runButlerAI(ctx);
+
+    // 控制台校验
+    console.log(
+      '实际 →',
+      pillars.year.stem + pillars.year.branch,
+      pillars.month.stem + pillars.month.branch,
+      pillars.day.stem + pillars.day.branch,
+      tu ? '？' : pillars.hour.stem + pillars.hour.branch
+    );
+  } catch (err) {
+    console.error(err);
+    showErr('计算八字时出现错误，请重试');
+  } finally {
+    if (btn) btn.disabled = false;
+    if (tx) tx.style.display = 'inline';
+    if (ld) ld.style.display = 'none';
+  }
+}
+
+function rerenderReportsIfAny() {
+  const ctx = window.__last_report__;
+  if (!ctx) return;
+  const { pillars, percents, st, adv, tu } = ctx;
+  mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
+  mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
+}
+
+/* ================== 右下角 Chat 悬浮球（多语言） ================== */
+function mountChat() {
+  if ($('ssChatFab')) return;
+  const chatFab = document.createElement('div');
+  chatFab.className = 'ss-chat-fab';
+  chatFab.id = 'ssChatFab';
+  chatFab.title = t('butler_chat_title');
+  const chatPanel = document.createElement('div');
+  chatPanel.className = 'ss-chat-panel';
+  chatPanel.id = 'ssChatPanel';
+  chatPanel.setAttribute('role', 'dialog');
+  chatPanel.setAttribute('aria-label', t('butler_chat_title'));
+  chatPanel.innerHTML = `
+    <div class="ss-chat-head"><div class="ss-chat-title">${t('butler_chat_title')}</div><div class="ss-close" id="ssChatClose">✕</div></div>
+    <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
+    <div class="ss-chat-input">
+      <input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/>
+      <button id="ssChatSend" class="btn">${t('chat_send')}</button>
+    </div>`;
+  document.body.appendChild(chatFab);
+  document.body.appendChild(chatPanel);
+  applyChatI18n();
+
+  const $body = $('ssChatBody'),
+    $input = $('ssChatInput'),
+    $send = $('ssChatSend'),
+    $close = $('ssChatClose');
+  const openPanel = () => {
+    chatPanel.style.display = 'block';
+    $input && $input.focus();
+  };
+  const closePanel = () => {
+    chatPanel.style.display = 'none';
+  };
+  chatFab.addEventListener('click', openPanel);
+  $close && $close.addEventListener('click', closePanel);
+
+  function addMsg(text, me = false) {
+    const div = document.createElement('div');
+    div.className = 'ss-msg' + (me ? ' me' : '');
+    div.textContent = text;
+    $body.appendChild(div);
+    $body.scrollTop = $body.scrollHeight;
+  }
+  async function askChat(prompt) {
+    addMsg(prompt, true);
+    if ($input) {
+      $input.value = '';
+      $input.focus();
+    }
+    const sys = [
+      `You are "Xinlian Butler". OUTPUT LANGUAGE: ${BUTLER_LANG_NAME[getLang()] || 'Simplified Chinese'}.`,
+      'Help visitors understand features, navigation and VIP. Tone: warm, concise, professional.'
+    ].join('\n');
+    try {
+      const r = await fetch(`${API_BASE}/api/chat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [{ role: 'system', content: sys }, { role: 'user', content: prompt }] })
+      });
+      let data, reply = '';
+      try {
+        data = await r.json();
+      } catch {
+        data = {};
+      }
+      reply = data?.reply ?? data?.text ?? data?.choices?.[0]?.message?.content ?? '';
+      addMsg(reply || t('err_busy'));
+    } catch (e) {
+      addMsg(`${t('err_network')}，${t('err_busy')}`);
+    }
+  }
+  $send &&
+    $send.addEventListener('click', () => {
+      const v = $input?.value.trim();
+      if (v) askChat(v);
+    });
+  $input &&
+    $input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const v = $input.value.trim();
+        if (v) askChat(v);
+      }
+    });
+}
+
+/* ================== 登录流程（原功能保留） ================== */
+async function safeJson(resp) {
+  try {
+    return await resp.json();
+  } catch {
+    return { ok: false, msg: 'upstream_error' };
+  }
+}
+async function loginFlow(email, password) {
+  const res = await safeJson(
+    await fetch(`${API_BASE}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password })
+    })
+  );
+  const msg = (res.msg || '').toString().toLowerCase();
+  let expired = false;
+  if (res.expired === true) expired = true;
+  else if (msg === 'expired') expired = true;
+  else if (res.expiresAt) {
+    const ts = Date.parse(res.expiresAt);
+    if (!Number.isNaN(ts) && ts < Date.now()) expired = true;
+  }
+  if (expired) {
+    const go = confirm(t('err_expired') + '。是否前往续费？');
+    if (go) window.open('https://yourshopifyshop.com/products/monthly-vip', '_blank');
+    return;
+  }
+  if (res.ok === true) {
+    localStorage.setItem('vipEmail', res.email || email);
+    location.href = 'https://astro.5xliving.com/vip_soul_sanctuary.html';
+    return;
+  }
+  if (msg === 'no_account') return showAuthErr(t('err_no_account'));
+  if (msg === 'wrong_pwd') return showAuthErr(t('err_wrong_pwd'));
+  return showAuthErr(t('err_login_fail') + (res.msg ? ` ${res.msg}` : ''));
+}
+
+/* ================== 页面初始化 ================== */
+document.addEventListener('DOMContentLoaded', () => {
+  // 默认日期
+  if ($('birthdate') && !$('birthdate').value) $('birthdate').value = new Date().toISOString().split('T')[0];
+
+  // 语言 UI + 初始文案
+  initLangUI();
+  applyI18n();
+  applyChatI18n();
+
+  // 绑定生成按钮
+  $('genBtn')?.addEventListener('click', genChart);
+
+  // 右下角 Butler Chat
+  mountChat();
+
+  // 登录/注册/重置（若页面存在对应表单）
+  $('registerForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
     hideAuthErr();
-    let email=prompt(t('prompt_email')); if(email===null) return; email=email.trim(); if(!email) return showAuthErr(t('err_email_empty'));
-    let newPassword=prompt(t('prompt_newpwd')); if(newPassword===null) return; newPassword=newPassword.trim(); if(!newPassword) return showAuthErr(t('err_pwd_empty'));
-    if(!strongPwd(newPassword)) return showAuthErr(t('err_pwd_rule'));
-    lock($('resetBtn'),true);
-    try{
-      const res=await safeJson(await fetch(`${API_BASE}/api/reset`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,newPassword})}));
-      if(!res.ok) return showAuthErr((res.msg&&(res.msg+''))||t('err_reset_fail'));
+    const email = $('email')?.value.trim();
+    const password = $('password')?.value.trim();
+    if (!email || !password) return showAuthErr(t('err_need_ep'));
+    if (!strongPwd(password)) return showAuthErr(t('err_pwd_rule'));
+    lock($('registerBtn'), true);
+    try {
+      const res = await safeJson(
+        await fetch(`${API_BASE}/api/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        })
+      );
+      if (res.ok === true) {
+        localStorage.setItem('vipEmail', email);
+        location.href = 'vip_trial.html';
+        return;
+      }
+      if ((res.msg || '').toString() === 'exists') {
+        await loginFlow(email, password);
+        return;
+      }
+      return showAuthErr((res.msg && res.msg + '') || t('err_register_fail'));
+    } catch (err) {
+      showAuthErr(t('err_register_fail') + (err?.message || ''));
+    } finally {
+      lock($('registerBtn'), false);
+    }
+  });
+
+  $('loginForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    hideAuthErr();
+    const email = $('email')?.value.trim();
+    const password = $('password')?.value.trim();
+    if (!email || !password) return showAuthErr(t('err_need_ep'));
+    lock($('loginBtn'), true);
+    try {
+      await loginFlow(email, password);
+    } catch (err) {
+      showAuthErr(t('err_login_fail') + (err?.message || ''));
+    } finally {
+      lock($('loginBtn'), false);
+    }
+  });
+
+  $('resetBtn')?.addEventListener('click', async () => {
+    hideAuthErr();
+    let email = prompt(t('prompt_email'));
+    if (email === null) return;
+    email = email.trim();
+    if (!email) return showAuthErr(t('err_email_empty'));
+    let newPassword = prompt(t('prompt_newpwd'));
+    if (newPassword === null) return;
+    newPassword = newPassword.trim();
+    if (!newPassword) return showAuthErr(t('err_pwd_empty'));
+    if (!strongPwd(newPassword)) return showAuthErr(t('err_pwd_rule'));
+    lock($('resetBtn'), true);
+    try {
+      const res = await safeJson(
+        await fetch(`${API_BASE}/api/reset`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, newPassword })
+        })
+      );
+      if (!res.ok) return showAuthErr((res.msg && res.msg + '') || t('err_reset_fail'));
       alert(t('msg_reset_ok'));
-    }catch(err){ showAuthErr(t('err_reset_fail')+(err?.message||'')); }
-    finally{ lock($('resetBtn'),false); }
+    } catch (err) {
+      showAuthErr(t('err_reset_fail') + (err?.message || ''));
+    } finally {
+      lock($('resetBtn'), false);
+    }
   });
 });
 
 /* ================== 自测：1978-02-21 12:00 → 戊午 甲寅 甲寅 庚午 ================== */
-(function(){
-  const c=new BaziCalculator(); const Y=c.calculateYearPillar(1978); const M=c.calculateMonthPillar(1978,2,21); const D=c.calculateDayPillar(1978,2,21); const H=c.calculateHourPillar(D.stem,12);
+(function () {
+  const c = new BaziCalculator();
+  const Y = c.calculateYearPillar(1978);
+  const M = c.calculateMonthPillar(1978, 2, 21);
+  const D = c.calculateDayPillar(1978, 2, 21);
+  const H = c.calculateHourPillar(D.stem, 12);
   console.log('应为 → 年 戊午｜月 甲寅｜日 甲寅｜时 庚午');
-  console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+H.branch);
+  console.log('实际 →', Y.stem + Y.branch, M.stem + M.branch, D.stem + D.branch, H.stem + H.branch);
 })();
 </script>
-
 </body>
 </html>
+  
+
+
+
