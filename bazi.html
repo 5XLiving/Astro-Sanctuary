@@ -495,10 +495,7 @@ function setText(id,v){ const el=$(id); if(el) el.textContent=v; }
 function setBar(el, pct){ if(el) el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
 
 /* ================== 多语言（含默认键） ================== */
-const translations = {/* ……（你原有的大对象，我保持不动）…… */};
-
-// —— 五行/季节 默认键，防止 data-i18n 找不到时显示 key 文本 ——
-// 如需自定义到 translations 内，保留此 DEFAULT_KEYS 也不会冲突。
+// —— 五行/季节 默认键 ——（找不到时也能兜底）
 const DEFAULT_KEYS = {
   'zh-CN': { el_wood:'木', el_fire:'火', el_earth:'土', el_metal:'金', el_water:'水',
              season_spring:'春', season_summer:'夏', season_autumn:'秋', season_winter:'冬',
@@ -520,8 +517,84 @@ const DEFAULT_KEYS = {
              btn_generate_chart:'Jana Carta' }
 };
 
+// —— 主翻译表：先完整补齐 zh-CN，其它语言先回退到中文，避免报错 —— 
+const translations = {
+  'zh-CN': {
+    // 顶部/表单
+    title_bazi_brief:'八字简评', lang_label:'语言', label_name:'姓名（可选）', ph_name:'你的称呼（用于个性化）',
+    gender_label:'性别', opt_gender_confidential:'不透露', opt_gender_male:'男性', opt_gender_female:'女性',
+    label_calendar:'历法', opt_cal_gregorian:'阳历', opt_cal_lunar:'农历',
+    label_birthdate:'出生日期', label_birthtime:'出生时间', cb_time_unknown:'出生时间不详',
+    btn_generate_chart:'生成八字', title_quickcalc:'八字命理 · 快速排盘',
+    // 五行/季节（与 DEFAULT_KEYS 一致）
+    el_wood:'木', el_fire:'火', el_earth:'土', el_metal:'金', el_water:'水',
+    season_spring:'春', season_summer:'夏', season_autumn:'秋', season_winter:'冬',
+    // 报告
+    rpt_sec_elements_title:'五行能量分析', elements_balance_tpl:'五行中{max}元素最强，{min}元素最弱。',
+    rpt_free_title:'免费简报', rpt_pillars_label:'四柱', rpt_daymaster_label:'日主', rpt_season_label:'季节', rpt_chart_label:'命局',
+    strength_strong:'偏强', strength_weak:'偏弱', strength_balanced:'平衡',
+    rpt_strategy_label:'策略', rpt_strategy_drain:'泄秀/制化', rpt_strategy_support:'生扶/补助', rpt_strategy_balance:'调和',
+    rpt_wuxing_label:'五行', rpt_strongest_word:'偏旺', rpt_weakest_word:'偏弱', rpt_absent_prefix:'缺：',
+    rpt_fav_avoid_template:'喜用：{fav}｜忌：{avoid}', rpt_balance_focus_label:'调衡要点',
+    rpt_time_unknown:'时间不详', rpt_time_hint:'提示：出生时间不详，未纳入时柱，仅供参考。',
+    rpt_sec_overview_title:'一、命盘总览', rpt_sec_traits_title:'三、性格与天赋',
+    rpt_sec_structure_title:'四、格局与喜忌', rpt_structure_line_template:'喜用：{fav}；忌讳：{avoid}',
+    rpt_sec_career_title:'五、事业与发展（免费试读）', rpt_career_fields_placeholder:'可胜任的领域：管理、教育、咨询、产品、设计、内容与传播等；在喜用元素的行业更容易被看见与提携。',
+    rpt_sec_love_title:'六、感情与关系（免费试读）', rpt_love_placeholder:'关系节奏：坦诚沟通、给对方空间；在水能量不足时更要注意倾听和共情。',
+    rpt_sec_wealth_title:'七、财富与理财（免费试读）', rpt_wealth_suggestion_template:'理财建议：以 {fav} 为主调，稳中求进。',
+    rpt_sec_health_title:'八、健康与作息', rpt_health_placeholder_template:'围绕最弱五行（{weak}）做优化。',
+    rpt_sec_env_title:'九、环境与色彩', rpt_env_placeholder:'生活配色与方位可顺应喜用元素；衣物饰品与办公环境可适度加入相应颜色与材质。',
+    useful_elements:'喜用元素：',
+    // 管家 Butler
+    butler_title:'心怜管家 · 解读', butler_chat_title:'心怜管家 · Chat',
+    chat_placeholder:'请问您想了解什么？', chat_send:'发送', chat_fab:'问',
+    chip_career:'事业建议', chip_love:'感情建议', chip_money:'财富建议', chip_list:'今日清单', chip_30d:'30天计划',
+    q_career:'结合我的命盘，给出三条切实可行的职业发展建议，并指出本月可执行的一步。',
+    q_love:'结合我的命盘，如何改善亲密关系？请给出两条具体沟通练习。',
+    q_money:'结合我的命盘，未来三个月的理财动作应该怎么安排？控制风险的关键是什么？',
+    q_list:'给我一个今天可以马上执行的3—5条清单。', q_30d:'以我的命盘为参考，拟一个30天的自我提升计划（每周聚焦不同主题）。',
+    vip_tip:'🔒 升级 VIP 以查看完整解读', vip_sub:'解锁事业/感情/财富/健康等全部章节与每周练习', btn_unlock:'立即解锁',
+    // 会员区
+    vip_title:'🌙 会员区域 VIP Segment', vip_mingli:'🗝 命理空间专属内容', vip_xinlian:'🌙 心怜空间专属内容',
+    vip_love:'姻缘方向：恋爱缘分、婚姻走势', vip_career:'事业方向：职场发展、创业潜力', vip_wealth:'财运方向：财位分析、理财时机',
+    vip_pet:'宠物命理：伴侣动物的性格与缘分', vip_hepan:'合盘分析：婚期择日、新生择时', vip_name:'测名分析：公司名、宝宝名、命名改运',
+    vip_fengshui:'财位合盘：住家 / 办公室动线配合', vip_record:'灵性记录：照片、梦境、声音、愿望祈祷',
+    vip_course:'命理课程：八字 / 塔罗 / 占星 / 灵数 / 人类图', vip_memorial:'家族纪念系统：亲人灵性纪念 & 延续',
+    vip_tasks:'每周能量练习 / 神明仪式任务', vip_shop:'能量商城专属折扣 & 御守订制',
+    panel_login_head:'账户登录 / 注册', panel_member_head:'会员服务',
+    btn_upgrade:'💎 升级为 VIP（月费）', btn_backshop:'← 返回命理商城', note_price1:'$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）',
+    btn_login:'登入账户', btn_reset:'🔑 重设密码', btn_register:'注册账户', note_price:'注册账号赠送一次免费体验',
+    // 提示/错误
+    err_network:'网络异常', err_busy:'服务繁忙', err_email_empty:'邮箱不能为空', err_pwd_empty:'密码不能为空',
+    err_login_fail:'登入失败：', err_need_ep:'请输入邮箱与密码', err_pwd_rule:'密码至少8位，含大小写字母、数字、符号',
+    err_register_fail:'注册失败：', prompt_email:'请输入注册邮箱：', prompt_newpwd:'请输入新密码：',
+    msg_reset_ok:'已更新密码', err_reset_fail:'重设失败：'
+  },
+  'zh-TW': null, 'en': null, 'ja': null, 'th': null, 'ms': null
+};
+// 回退：把 null 的语言都指向 zh-CN
+for (const k of Object.keys(translations)) {
+  if (translations[k] === null) translations[k] = translations['zh-CN'];
+}
+
+/* —— 加固 t()：缺失键不再返回 key，自带多层回退 —— */
+function t(key){
+  const lang = getLang();
+  const pack = translations[lang] || {};
+  const zh   = translations['zh-CN'] || {};
+  const D    = DEFAULT_KEYS[lang] || DEFAULT_KEYS['zh-CN'] || {};
+  const val  = (pack[key] ?? zh[key] ?? D[key]);
+  if (val == null) {
+    console.warn('[i18n missing]', lang, key);
+    return ''; // 关键：返回空串，避免把 key 显示到页面
+  }
+  return val;
+}
+
+// —— 仅保留一份 —— 
 const BUTLER_LANG_NAME = {
-  'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese', en:'English', ja:'Japanese', th:'Thai', ms:'Malay'
+  'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese',
+  en:'English', ja:'Japanese', th:'Thai', ms:'Malay'
 };
 
 function getLang(){
