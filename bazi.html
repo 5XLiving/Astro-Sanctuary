@@ -465,15 +465,15 @@ html { font-size: 16px; }
   </div>
 
 <script>
-(function(){  
+(function(){
 'use strict';
 
 /* =====================================
    Xinlian Butler + 八字排盘（整合版 · 完整）
    - 右下角 Butler Chat 完整实现
-   - i18n：补齐五行/季节默认键，避免 data-i18n=el_wood 等显示 key
+   - i18n：默认键兜底（五行/季节/按钮）
    - 语言切换：重渲报告 + 重新跑 Butler
-   - 最小可用的 登录/注册/重置 处理（接你后端可直改 API）
+   - 最小可用的 登录/注册/重置 处理
    ===================================== */
 
 /* ================== 基础配置/工具 ================== */
@@ -483,31 +483,17 @@ const LANG_KEY = 'site_lang';
 const $ = (id) => document.getElementById(id);
 const qs = (s, root = document) => root.querySelector(s);
 
-function showErr(msg) {
-  const e = $('error');
-  if (!e) return;
-  e.textContent = msg;
-  e.style.display = 'block';
-  setTimeout(() => { e.style.display = 'none'; }, 5000);
-}
+function showErr(msg){ const e=$('error'); if(!e) return; e.textContent=msg; e.style.display='block'; setTimeout(()=>{e.style.display='none';},5000); }
 function hideErr(){ const e=$('error'); if(e){ e.style.display='none'; e.textContent=''; } }
-function showAuthErr(msg) {
-  const e = $('authError');
-  if (!e) return;
-  e.textContent = msg;
-  e.style.display = 'block';
-  setTimeout(() => { e.style.display = 'none'; }, 5000);
-}
+function showAuthErr(msg){ const e=$('authError'); if(!e) return; e.textContent=msg; e.style.display='block'; setTimeout(()=>{ e.style.display='none'; },5000); }
 function hideAuthErr(){ const e=$('authError'); if(e){ e.style.display='none'; e.textContent=''; } }
-function lock(el, v){ if(el) el.disabled = v; }
-function strongPwd(pw){
-  return pw.length>=8 && /[A-Z]/.test(pw) && /[a-z]/.test(pw) && /[0-9]/.test(pw) && /[^A-Za-z0-9]/.test(pw);
-}
+function lock(el, v){ if(el) el.disabled=v; }
+function strongPwd(pw){ return pw.length>=8 && /[A-Z]/.test(pw) && /[a-z]/.test(pw) && /[0-9]/.test(pw) && /[^A-Za-z0-9]/.test(pw); }
 function setText(id,v){ const el=$(id); if(el) el.textContent=v; }
 function setBar(el, pct){ if(el) el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
 
 /* ================== 多语言（含默认键） ================== */
-// —— 五行/季节 默认键 ——（找不到时也能兜底）
+// —— 默认键（兜底） ——
 const DEFAULT_KEYS = {
   'zh-CN': {
     el_wood:'木', el_fire:'火', el_earth:'土', el_metal:'金', el_water:'水',
@@ -541,7 +527,7 @@ const DEFAULT_KEYS = {
   }
 };
 
-// —— 主翻译表：先完整补齐 zh-CN，其它语言先回退到中文，避免报错 —— 
+// —— 主翻译表（完整 zh-CN，其它语言回退到中文） ——
 const translations = {
   'zh-CN': {
     // 顶部/表单
@@ -608,7 +594,7 @@ const translations = {
     panel_login_head: "账户登录 / 注册",
     panel_member_head: "会员服务",
 
-    // 下拉项（性别 / 历法）
+    // 下拉项
     opt_gender_confidential: "不透露",
     opt_gender_male: "男性",
     opt_gender_female: "女性",
@@ -617,7 +603,7 @@ const translations = {
 
     elements_balance_tpl: "五行中{max}元素最强，{min}元素最弱。",
 
-    // —— Butler / Report keys（中文） ——
+    // 报告/Butler
     butler_title: "心怜管家 · 解读",
     day_master: "日主",
     chart_strength: "命局",
@@ -644,21 +630,9 @@ const translations = {
     season_autumn: "金旺收敛",
     season_winter: "水旺内藏",
     season_generic: "季节对命局有一定影响",
-    el_wood: "木",
-    el_fire: "火",
-    el_earth: "土",
-    el_metal: "金",
-    el_water: "水",
-    dir_wood: "东方",
-    dir_fire: "南方",
-    dir_earth: "中央/东北/西南",
-    dir_metal: "西方",
-    dir_water: "北方",
-    color_wood: "绿色/青色",
-    color_fire: "红色/紫色",
-    color_earth: "黄色/棕色",
-    color_metal: "白色/金色",
-    color_water: "黑色/蓝色",
+    el_wood: "木", el_fire: "火", el_earth: "土", el_metal: "金", el_water: "水",
+    dir_wood: "东方", dir_fire: "南方", dir_earth: "中央/东北/西南", dir_metal: "西方", dir_water: "北方",
+    color_wood: "绿色/青色", color_fire: "红色/紫色", color_earth: "黄色/棕色", color_metal: "白色/金色", color_water: "黑色/蓝色",
 
     // 报告分段
     rpt_free_title: "免费简报",
@@ -696,43 +670,35 @@ const translations = {
     rpt_env_placeholder: "有利方位与配色随喜用（模板化占位）。",
     rpt_strategy_drain: "泄秀/制化",
     rpt_strategy_support: "生扶/补助",
-    rpt_strategy_balance: "调和"
+    rpt_strategy_balance: "调和",
 
-    butler_chat_title: "心怜管家 · Chat",
-    chip_career:"事业建议", chip_love:"感情建议", chip_money:"财富建议",
-    chip_list:"今日清单", chip_30d:"近30天运势",
-    q_career:"基于我的命盘给出3-5条职业发展建议（包含可执行步骤）。",
-    q_love:"基于我的命盘给出沟通与相处建议（边界、节奏、注意事项）。",
-    q_money:"基于我的命盘给出近期理财/开源建议（节奏与风险提示）。",
-    q_list:"给我今天/本周的可执行清单（分早晚/工作/生活）。",
-    q_30d:"结合命盘，概述未来30天的能量与建议。",
-    vip_tip:"🔒 升级 VIP 以查看完整解读",
-    vip_sub:"解锁全部章节与后续追问",
-    btn_unlock:"立即解锁",
-    err_network:"网络异常",
-    err_busy:"服务繁忙，请稍后再试",
-    
-    // —— Butler 快捷芯片（中文）——
+    // —— Butler Chat & 快捷芯片 —— 
     butler_chat_title: "心怜管家 · Chat",
     chip_career: "事业建议",
     chip_love: "感情建议",
     chip_money: "财富建议",
     chip_list: "今日清单",
     chip_30d: "近30天运势",
-
     q_career: "结合我的命盘，给出 3–5 条职业/发展建议，并写出可执行步骤与优先级。",
     q_love: "结合我的命盘，给出沟通与相处建议（节奏、边界、注意事项），尽量可操作。",
     q_money: "结合我的命盘，给出近期理财/开源建议（风险提示、节奏与简单计划）。",
     q_list: "请给我今天/本周的可执行清单（分早/晚、工作/生活），量化并可在 30–60 分钟完成。",
-    q_30d: "概述未来 30 天的能量主题、关键机会与避坑建议，附 3–5 条行动项。"
+    q_30d: "概述未来 30 天的能量主题、关键机会与避坑建议，附 3–5 条行动项。",
+
+    vip_tip:"🔒 升级 VIP 以查看完整解读",
+    vip_sub:"解锁全部章节与后续追问",
+    btn_unlock:"立即解锁",
+    err_network:"网络异常",
+    err_busy:"服务繁忙，请稍后再试"
   },
   'zh-TW': null, 'en': null, 'ja': null, 'th': null, 'ms': null
 };
-// 回退：把 null 的语言都指向 zh-CN
+// 回退：把 null 的语言置为空对象（让 t() 统一兜底到 zh-CN 或 DEFAULT_KEYS）
 for (const k of Object.keys(translations)) {
   if (translations[k] === null) translations[k] = {};
 }
 
+/* —— t()：多层回退 —— */
 function t(key){
   const lang = getLang();
   const pack = translations[lang] || {};
@@ -748,7 +714,7 @@ function t(key){
   return val;
 }
 
-// —— 仅保留一份 —— 
+// —— 语言名映射 —— 
 const BUTLER_LANG_NAME = {
   'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese',
   en:'English', ja:'Japanese', th:'Thai', ms:'Malay'
@@ -768,15 +734,14 @@ function applyI18n(){
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const key = el.getAttribute('data-i18n');
     const val = t(key);
-    if (val !== '' && val !== key) el.textContent = val; // ✅ 多了 val !== ''
+    if (val !== '' && val !== key) el.textContent = val;
   });
   document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
     const key = el.getAttribute('data-i18n-ph');
     const val = t(key);
-    if (val !== '' && val !== key) el.setAttribute('placeholder', val); // ✅ 多了 val !== ''
+    if (val !== '' && val !== key) el.setAttribute('placeholder', val);
   });
 }
-  
 function applyChatI18n(){
   const fab=$('ssChatFab'), inp=$('ssChatInput'), btn=$('ssChatSend'), title=qs('.ss-chat-title');
   if(fab) fab.textContent=t('chat_fab');
@@ -1045,7 +1010,25 @@ function renderChips(){
   const wrap = $('aiChips');
   if (!wrap) return;
   wrap.innerHTML = '';
-  
+  const chips = [
+    {k:'chip_career', q:'q_career'},
+    {k:'chip_love',   q:'q_love'},
+    {k:'chip_money',  q:'q_money'},
+    {k:'chip_list',   q:'q_list'},
+    {k:'chip_30d',    q:'q_30d'}
+  ];
+  chips.forEach(it=>{
+    const btn=document.createElement('button');
+    btn.className='chip';
+    const label=t(it.k) || it.k;
+    btn.textContent=label;
+    const dq=t(it.q) || label;
+    btn.setAttribute('data-q', dq);
+    wrap.appendChild(btn);
+  });
+}
+
+/* ===== Butler 对话提示生成 ===== */
 function buildButlerSystemPrompt(lang){
   const ln = BUTLER_LANG_NAME[lang] || BUTLER_LANG_NAME['zh-CN'];
   const HEADER_MAP={
@@ -1122,7 +1105,7 @@ async function genChart(){
   const birth=($('birthdate')?.value||'').trim();
   const timeUnknown=$('timeUnknown')?.checked || false;
   const name=$('name')?.value?.trim() || '';
-  const place=$('place')?.value?.trim() || ''; // 你页面没有 place，也没关系
+  const place=$('place')?.value?.trim() || '';
   if(!birth){ showErr('请填写出生日期。'); return; }
 
   const btn=$('genBtn'), tx=$('genBtnText'), ld=$('genBtnLoading');
@@ -1130,7 +1113,11 @@ async function genChart(){
 
   try{
     const [Y,M,D]=birth.split('-').map(Number);
-    let hour=12; if(!timeUnknown){ const tval=($('birthtime')?.value||'').trim(); if(tval){ const h=parseInt(tval.split(':')[0],10); if(!Number.isNaN(h)) hour=h; } }
+    let hour=12;
+    if(!timeUnknown){
+      const tval=($('birthtime')?.value||'').trim();
+      if(tval){ const h=parseInt(tval.split(':')[0],10); if(!Number.isNaN(h)) hour=h; }
+    }
     const {pillars, counts, percents, timeUnknown:tu}=baziCalculator.calculateBazi(Y,M,D,hour,timeUnknown);
 
     $('result')?.style.setProperty('display','block');
