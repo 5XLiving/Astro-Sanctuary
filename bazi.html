@@ -1393,17 +1393,24 @@ function isVIP(){
 
 /* 3) 卡片挂载 & 芯片 */
 function ensureAiCard(){
-  if(document.getElementById('aiCard')) return;
-
-  const wrap =
+  const target =
     document.getElementById('butler-host') ||
     document.getElementById('rich-report') ||
     document.getElementById('result');
-  if(!wrap) return;
+  if (!target) return;
 
-  const sec=document.createElement('div');
-  sec.className='sec'; sec.id='aiCard';
-  sec.innerHTML=`
+  let card = document.getElementById('aiCard');
+  if (card) {
+    // 若已存在但位置不对，搬到 target，确保排在报告之后
+    if (card.parentElement !== target) target.appendChild(card);
+    return;
+  }
+
+  // 首次创建
+  const sec = document.createElement('div');
+  sec.className = 'sec';
+  sec.id = 'aiCard';
+  sec.innerHTML = `
     <h3 id="butlerTitle" data-i18n="butler_title">${t('butler_title')||'心怜管家 · 解读'}</h3>
     <div id="aiContent" class="ai-content">
       <div class="skeleton">
@@ -1411,10 +1418,12 @@ function ensureAiCard(){
         <div style="width:70%"></div><div style="width:50%"></div>
       </div>
     </div>
-    <div class="chips" id="aiChips"></div>`;
-  wrap.appendChild(sec);
+    <div class="chips" id="aiChips"></div>
+  `;
+  target.appendChild(sec);
   renderChips();
 }
+  
 function renderChips(){
   const wrap=document.getElementById('aiChips'); if(!wrap) return;
   wrap.innerHTML='';
@@ -1547,12 +1556,11 @@ document.addEventListener('click', (e)=>{
   }
 });
 
-// —— 只保留这一版：免费报告 + AI 卡片 —— 
 function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
   const resultEl = document.getElementById('result');
   if (!resultEl) return;
 
-  // 免费报告（fallback 确保已注入）
+  // 免费报告
   let freeNode = document.getElementById('xl-free-report');
   if (!freeNode) {
     freeNode = document.createElement('div');
@@ -1560,7 +1568,7 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
     resultEl.appendChild(freeNode);
   }
   freeNode.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown});
-} // ←←← 关键：补上这个大括号并结束函数
+} // ←←← 必须有这一行，结束函数
 
 function mountButlerCard(){
   ensureAiCard();
