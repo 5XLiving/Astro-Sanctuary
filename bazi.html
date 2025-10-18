@@ -1478,52 +1478,62 @@ function buildUserPrompt(topic, ctx){
 
 /* 5) 请求与渲染 */
 async function askAi(topic){
-  try{
-    ensureAiCard();
-    const out=document.getElementById('aiContent');
-    if(out){
-      out.innerHTML=`
-        <div class="skeleton">
-          <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
-          <div style="width:70%"></div><div style="width:50%"></div>
-        </div>`;
-    }
+  // 先确保卡片存在，并记录“上一次主题”
+  ensureAiCard();
+  const card = document.getElementById('aiCard');
+  if (card) card.dataset.lastQ = topic;  // 记住最近的主题
 
-    const ctx = window.__last_report__ || {};
-    const lang = (getLang&&getLang()) || 'zh-CN';
-    const sys = buildButlerSystemPrompt(lang);
+  // 骨架屏
+  const out = document.getElementById('aiContent');
+  if (out) {
+    out.innerHTML = `
+      <div class="skeleton">
+        <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
+        <div style="width:70%"></div><div style="width:50%"></div>
+      </div>`;
+  }
+
+  try{
+    // 组 Prompt（含语言）
+    const ctx  = window.__last_report__ || {};
+    const lang = (getLang && getLang()) || 'zh-CN';
+    const sys  = buildButlerSystemPrompt(lang);
     const user = buildUserPrompt(topic, ctx);
 
     const r = await fetch(`${API_BASE}/api/chat`, {
       method:'POST',
-      headers:{'Content-Type':'application/json'},
+      headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({ messages: [
-        {role:'system', content: sys},
-        {role:'user', content: user}
+        { role:'system', content: sys },
+        { role:'user',   content: user }
       ]})
     });
+
     let data; try{ data = await r.json(); }catch{ data = {}; }
     let text = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
 
     if(!text){
-      text = (lang.startsWith('zh') ? '抱歉，暂时没有生成到内容，请稍后再试。' : 'Sorry, no content generated. Please try again.');
+      text = lang.startsWith('zh')
+        ? '抱歉，暂时没有生成到内容，请稍后再试。'
+        : 'Sorry, no content generated. Please try again.';
     }
 
-    // VIP 锁定：非会员展示前几行 + 引导
+    // 非会员只显示前几行 + 引导
     if(!isVIP()){
       const teaser = text.split('\n').slice(0,6).join('\n');
       out.innerHTML = mdToHtml(teaser) + `
         <div class="ai-lock-overlay">
-          <div class="tip">💎 ${t('vip_title')||'VIP Segment'}</div>
-          <div class="sub">${lang.startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'}</div>
+          <div class="tip">💎 ${t('vip_title') || 'VIP Segment'}</div>
+          <div class="sub">${
+            lang.startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'
+          }</div>
         </div>`;
     }else{
       out.innerHTML = mdToHtml(text);
     }
   }catch(e){
-    const out=document.getElementById('aiContent');
     if(out){
-      out.innerHTML = (getLang&&getLang()).startsWith('zh')
+      out.innerHTML = (getLang && getLang()).startsWith('zh')
         ? '网络异常或服务繁忙，请稍后重试。'
         : 'Network error or service busy. Please try again later.';
     }
@@ -1572,8 +1582,14 @@ function mountButlerCard(){
     // 刷新 AI 卡片标题与芯片
     const titleEl = document.getElementById('butlerTitle');
     if(titleEl) titleEl.textContent = t('butler_title');
-
     renderChips();
+
+    // 👉 关键：切语言后，按“上一次主题”或默认主题，重新生成对应语言内容
+    const aiCard = document.getElementById('aiCard');
+    if (aiCard) {
+      const lastQ = aiCard.dataset.lastQ || t('q_career');
+      askAi(lastQ);
+    }
   };
 })();
 
