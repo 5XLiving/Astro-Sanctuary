@@ -1396,8 +1396,13 @@ function isVIP(){
 /* 3) 卡片挂载 & 芯片 */
 function ensureAiCard(){
   if(document.getElementById('aiCard')) return;
-  const wrap=document.getElementById('rich-report')||document.getElementById('result');
+
+  const wrap =
+    document.getElementById('butler-host') ||
+    document.getElementById('rich-report') ||
+    document.getElementById('result');
   if(!wrap) return;
+
   const sec=document.createElement('div');
   sec.className='sec'; sec.id='aiCard';
   sec.innerHTML=`
@@ -1549,14 +1554,12 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
   }
   freeNode.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown});
 
-  // 心怜管家卡片
+function mountButlerCard(){
   ensureAiCard();
-
-  // ✅ 仅首次自动生成一段“事业”建议（以后点击芯片切换）
   const aiCard = document.getElementById('aiCard');
   if (aiCard && !aiCard.dataset.autorun) {
     aiCard.dataset.autorun = '1';
-    askAi(t('q_career'));
+    askAi(t('q_career'));  // 默认先给“事业”建议
   }
 }
 
@@ -1806,9 +1809,10 @@ async function genChart(){
     // 存入上下文（修正字段名：timeUnknown）
     window.__last_report__ = { pillars, percents, st, adv, timeUnknown: tu };
 
-    // 渲染免费 + 富报告 + AI 卡片
+    // 顺序很重要：免费/富报告 → 管家
     mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
     mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
+    mountButlerCard(); // <- 新增这一行，确保管家在最下方
 
     console.log(
       '实际 →',
@@ -1836,6 +1840,15 @@ function mountRichReport({ pillars, percents, st, adv, timeUnknown }) {
     if (result) result.appendChild(host);
   }
   host.innerHTML = buildRichReportHTML({ pillars, percents, st, adv, timeUnknown });
+
+  // 👉 确保“管家”容器在报告之后
+  let bhost = document.getElementById('butler-host');
+  if (!bhost && host.parentNode) {
+    bhost = document.createElement('div');
+    bhost.id = 'butler-host';
+    host.parentNode.insertBefore(bhost, host.nextSibling);
+  }
+
   if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
 }
 
