@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1550,7 +1548,6 @@ document.addEventListener('click', (e)=>{
 });
 
 // —— 只保留这一版：免费报告 + AI 卡片 —— 
-// —— 只保留这一版：免费报告 + AI 卡片 —— 
 function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
   const resultEl = document.getElementById('result');
   if (!resultEl) return;
@@ -1563,6 +1560,7 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
     resultEl.appendChild(freeNode);
   }
   freeNode.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown});
+} // ←←← 关键：补上这个大括号并结束函数
 
 function mountButlerCard(){
   ensureAiCard();
@@ -1573,7 +1571,7 @@ function mountButlerCard(){
   }
 }
 
-// 语言切换时，刷新标题与芯片文案
+// 语言切换时，仅刷新标题与芯片文案（不自动翻译/重生管家内容）
 (function patchRerenderForAi(){
   const _orig = (typeof rerenderReportsIfAny==='function') ? rerenderReportsIfAny : null;
   window.rerenderReportsIfAny = function(){
@@ -1584,11 +1582,12 @@ function mountButlerCard(){
     if(titleEl) titleEl.textContent = t('butler_title');
     renderChips();
 
-    // 👉 关键：切语言后，按“上一次主题”或默认主题，重新生成对应语言内容
-    const aiCard = document.getElementById('aiCard');
-    if (aiCard) {
-      const lastQ = aiCard.dataset.lastQ || t('q_career');
-      askAi(lastQ);
+    // ❌ 不自动调用 askAi()，避免把既有内容换成新语言
+    // ✅ 只有在从未生成过内容（骨架屏）时，才自动一次
+    const out = document.getElementById('aiContent');
+    const hasRealContent = out && !out.querySelector('.skeleton') && out.textContent.trim().length > 0;
+    if (!hasRealContent) {
+      askAi(t('q_career'));
     }
   };
 })();
