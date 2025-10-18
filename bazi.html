@@ -1696,65 +1696,141 @@ function initLangUI(){
 
 /* ================== Chat 悬浮球 ================== */
 document.addEventListener('DOMContentLoaded', ()=>{
-  const chatFab=document.createElement('div'); 
-  chatFab.className='ss-chat-fab'; 
-  chatFab.id='ssChatFab'; 
-  chatFab.title='心怜管家';
-  const chatPanel=document.createElement('div'); 
-  chatPanel.className='ss-chat-panel'; 
-  chatPanel.id='ssChatPanel'; 
-  chatPanel.setAttribute('role','dialog'); 
+  // 1) 构建悬浮球与面板
+  const chatFab = document.createElement('div');
+  chatFab.className = 'ss-chat-fab';
+  chatFab.id = 'ssChatFab';
+  chatFab.title = '心怜管家';
+  // 无障碍
+  chatFab.setAttribute('role','button');
+  chatFab.setAttribute('aria-controls','ssChatPanel');
+  chatFab.setAttribute('aria-expanded','false');
+  chatFab.tabIndex = 0;
+
+  const chatPanel = document.createElement('div');
+  chatPanel.className = 'ss-chat-panel';
+  chatPanel.id = 'ssChatPanel';
+  chatPanel.setAttribute('role','dialog');
   chatPanel.setAttribute('aria-label','心怜管家');
+
   chatPanel.innerHTML = `
-  <div class="ss-chat-head">
-    <div class="ss-chat-title">${t('butler_chat_title')}</div>
-    <div class="ss-close" id="ssChatClose">✕</div>
-  </div>
-  ...
-`;
-    <div class="ss-chat-head"><div class="ss-chat-title">心怜管家 · Chat</div><div class="ss-close" id="ssChatClose">✕</div></div>
+    <div class="ss-chat-head">
+      <div class="ss-chat-title">${t('butler_chat_title')}</div>
+      <div class="ss-close" id="ssChatClose" role="button" aria-label="Close">✕</div>
+    </div>
     <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
-    <div class="ss-chat-input"><input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/><button id="ssChatSend" class="btn">${t('chat_send')}</button></div>`;
-    document.body.appendChild(chatFab); 
+    <div class="ss-chat-input">
+      <input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}" />
+      <button id="ssChatSend" class="btn" type="button">${t('chat_send')}</button>
+    </div>
+  `;
+
+  document.body.appendChild(chatFab);
   document.body.appendChild(chatPanel);
+  // 本地化浮层文案（fab 文案、placeholder、按钮文字、头部标题）
   applyChatI18n();
 
-  const $body=$('ssChatBody'), $input=$('ssChatInput'), $send=$('ssChatSend'), $close=$('ssChatClose');
-  const openPanel=()=>{ chatPanel.style.display='block'; $input&&$input.focus(); }; 
-  const closePanel=()=>{ chatPanel.style.display='none'; };
-  chatFab.addEventListener('click',openPanel); 
-  $close&&$close.addEventListener('click',closePanel);
+  // 2) 选择器与开关
+  const $body  = $('ssChatBody');
+  const $input = $('ssChatInput');
+  const $send  = $('ssChatSend');
+  const $close = $('ssChatClose');
 
-  function addMsg(text,me=false){ 
-    const div=document.createElement('div'); 
-    div.className='ss-msg'+(me?' me':''); 
-    div.textContent=text; 
-    $body.appendChild(div); 
-    $body.scrollTop=$body.scrollHeight; 
+  const togglePanel = (open) => {
+    chatPanel.style.display = open ? 'block' : 'none';
+    chatFab.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) { $input && $input.focus(); }
+  };
+  const openPanel  = () => togglePanel(true);
+  const closePanel = () => togglePanel(false);
+
+  chatFab.addEventListener('click', openPanel);
+  $close && $close.addEventListener('click', closePanel);
+
+  // 键盘可用：Enter/Space 打开，Esc 关闭
+  chatFab.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPanel(); }
+  });
+  document.addEventListener('keydown', (e)=>{
+    if (e.key === 'Escape' && chatPanel.style.display === 'block') closePanel();
+  });
+  // 点击面板外关闭
+  document.addEventListener('click', (e)=>{
+    if (chatPanel.style.display !== 'block') return;
+    const inside = chatPanel.contains(e.target) || chatFab.contains(e.target);
+    if (!inside) closePanel();
+  });
+
+  // 3) 消息渲染
+  function addMsg(text, me=false){
+    const div = document.createElement('div');
+    div.className = 'ss-msg' + (me ? ' me' : '');
+    div.textContent = text;
+    $body.appendChild(div);
+    $body.scrollTop = $body.scrollHeight;
   }
-  
+
+  // 4) 发送逻辑（支持中英文系统提示，防止重复点击）
+  let sending = false;
+  const sysPromptMap = {
+    'zh-CN': '你是"心怜管家"，帮助访客了解命理心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。',
+    'en': 'You are "Xinlian Butler". Help visitors with features, navigation and VIP info of the site. Warm, concise, and well-structured.',
+  };
+  const getSysPrompt = () => sysPromptMap[getLang()] || sysPromptMap['zh-CN'];
+
   async function askChat(prompt){
-    addMsg(prompt,true); 
-    if($input){ $input.value=''; $input.focus(); }
-    try{
-      const r=await fetch(`${API_BASE}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[{role:'system',content:'你是"心怜管家"，帮助访客了解命理心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。'},{role:'user',content:prompt}]})});
-      let data,reply=''; 
-      try{data=await r.json()}catch{data={}} 
-      reply=data.reply??data.text??data?.choices?.[0]?.message?.content??"";
-      if(!reply) return addMsg('抱歉，服务暂时繁忙，请稍后重试。'); 
-      addMsg(reply);
-    }catch(e){ addMsg('网络异常，请稍后再试。'); }
-  }
-  
-  $send&&$send.addEventListener('click',()=>{ const v=$input?.value.trim(); if(v) askChat(v); });
-  $input&&$input.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
+    if (sending) return;
+    sending = true;
+    $send && ($send.disabled = true);
 
-  // —— 页面初始：默认日期、按钮绑定、语言 UI
-  const today=new Date(); 
-  const def=today.toISOString().split('T')[0]; 
-  if($('birthdate')&&!$('birthdate').value) $('birthdate').value=def;
-  $('genBtn')?.addEventListener('click',genChart);
-  initLangUI();
+    addMsg(prompt, true);
+    if ($input) { $input.value = ''; $input.focus(); }
+
+    try{
+      const r = await fetch(`${API_BASE}/api/chat`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          messages: [
+            { role:'system', content: getSysPrompt() },
+            { role:'user',   content: prompt }
+          ]
+        })
+      });
+      let data = {};
+      try { data = await r.json(); } catch {}
+      const reply = data.reply ?? data.text ?? data?.choices?.[0]?.message?.content ?? '';
+      addMsg(reply || (t('err_busy') || '服务繁忙'));
+    }catch(e){
+      addMsg(t('err_network') || '网络异常，请稍后再试。');
+    }finally{
+      sending = false;
+      $send && ($send.disabled = false);
+    }
+  }
+
+  // 5) 发送按钮 / Enter 发送（IME 组合输入不误触）
+  let composing = false;
+  $input && $input.addEventListener('compositionstart', ()=> composing = true);
+  $input && $input.addEventListener('compositionend',   ()=> composing = false);
+
+  $send && $send.addEventListener('click', ()=>{
+    const v = $input?.value.trim();
+    if (v) askChat(v);
+  });
+  $input && $input.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter' && !composing){
+      const v = $input.value.trim();
+      if (v) askChat(v);
+    }
+  });
+
+  // 6) 页面初始：默认日期、按钮绑定、语言 UI
+  const today = new Date();
+  const def = today.toISOString().split('T')[0];
+  if ($('birthdate') && !$('birthdate').value) $('birthdate').value = def;
+  $('genBtn')?.addEventListener('click', genChart);
+  initLangUI(); // 切换语言后会再次调用 applyChatI18n()
 });
 
 /* ================== 登录流程 ================== */
