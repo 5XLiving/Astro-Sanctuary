@@ -229,7 +229,30 @@ html { font-size: 16px; }
   letter-spacing: .02em;
   font-size: 1.1rem !important;
   line-height: 1.25;
-}    
+}
+    /* —— 简易报告样式 —— */
+    .report{margin-top:12px;display:grid;gap:10px}
+    .report .sec{padding:12px;border:1px solid var(--line);background:#0e1520;border-radius:12px}
+    .report .sec h3{margin:0 0 6px;color:var(--gold2);font-size:1.05rem}
+    .report p,.report li{line-height:1.7}  
+
+        /* —— 估时间弹窗 —— */
+    .tw-mask{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:60}
+    .tw-box{width:min(560px,94vw);background:#0e1520;border:1px solid #243244;border-radius:14px;box-shadow:var(--shadow)}
+    .tw-head{padding:12px 14px;border-bottom:1px solid #243244;font-weight:700}
+    .tw-body{padding:14px}
+    .tw-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+    .tw-btn{padding:10px;border:1px solid #243244;border-radius:12px;background:#0f1624;color:#e8edf3;cursor:pointer}
+    .tw-btn.active{border-color:var(--gold2);box-shadow:0 0 0 2px rgba(212,175,55,.25) inset}
+    .tw-foot{display:flex;gap:10px;justify-content:flex-end;padding:12px 14px;border-top:1px solid #243244}
+    .auth-grid > * { min-width: 0; }
+    .panel .body .row.one > * { min-width: 0; }
+  
+    .sr-only{
+      position:absolute !important;
+      width:1px;height:1px;padding:0;margin:-1px;
+      overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
+    }    
   </style>
 </head>
 <body>
@@ -978,6 +1001,110 @@ function chooseUseful(strength,dmElem){
   if(strength==='偏弱') return {strategy:'生扶/补助', useful:({木:['木','水'],火:['火','木'],土:['土','火'],金:['金','土'],水:['水','金']})[dmElem], avoid:[]};
   return {strategy:'调和', useful:['木','火','土','金','水'], avoid:[]};
 }
+
+/* =========================
+   多语言辅助
+   ========================= */
+const EL_CHAR_TO_KEY={木:'wood',火:'fire',土:'earth',金:'metal',水:'water'};
+function ELABEL(){ return {
+  wood: t('el_wood')||'木', fire: t('el_fire')||'火', earth: t('el_earth')||'土', metal: t('el_metal')||'金', water: t('el_water')||'水'
+};}
+function elCharsToLocale(arr){ const L=ELABEL(); return (arr||[]).map(ch=>L[EL_CHAR_TO_KEY[ch]]||ch); }
+function listJoin(arr){ const lang=(getLang()||'').toLowerCase(); const sep=lang.startsWith('zh')?'、':', '; return (arr||[]).filter(Boolean).join(sep); }
+function seasonName(s){
+  const map={ 春:t('season_spring')||'春', 夏:t('season_summer')||'夏', 秋:t('season_autumn')||'秋', 冬:t('season_winter')||'冬' };
+  return map[s]||s||'—';
+}
+function strategyName(s){
+  const map={ '泄秀/制化':t('rpt_strategy_drain')||'泄秀/制化', '生扶/补助':t('rpt_strategy_support')||'生扶/补助', '调和':t('rpt_strategy_balance')||'调和' };
+  return map[s]||s;
+}
+
+/* =========================
+   报告构建（免费 & 富报告）
+   ========================= */
+function buildFreeReportHTML({ pillars, percents, st, adv, timeUnknown }){
+  const E=ELABEL(), entries=Object.entries(percents||{});
+  const strongestK=entries.reduce((a,b)=>(a[1]>b[1]?a:b),['wood',0])[0];
+  const weakestK=entries.reduce((a,b)=>(a[1]<b[1]?a:b),['wood',0])[0];
+  const strongest=E[strongestK]||'', weakest=E[weakestK]||'';
+  const absents=Object.keys(percents||{}).filter(k=>Math.round(percents[k]||0)===0).map(k=>E[k]).filter(Boolean);
+  const lang=(getLang()||'').toLowerCase(), sep=lang.startsWith('zh')?'　':' · ';
+  const line=['wood','fire','earth','metal','water'].map(k=>`${E[k]} ${Math.round(percents[k]||0)}%`).join(sep);
+  const favLoc=elCharsToLocale(adv?.useful||[]), avoidLoc=elCharsToLocale(adv?.avoid||[]);
+  const favText=favLoc.length?listJoin(favLoc):'—', avoidText=avoidLoc.length?listJoin(avoidLoc):'—';
+  const hourTxt=timeUnknown?t('rpt_time_unknown'):(pillars.hour.stem + pillars.hour.branch);
+  const dmElemName=E[EL_CHAR_TO_KEY[pillars.day.element]||'wood'];
+  const stName=strategyName(st.focus);
+  const favAvoidLine=(t('rpt_fav_avoid_template')||'喜用：{fav}｜忌：{avoid}').replace('{fav}',favText).replace('{avoid}',avoidText);
+  const absStr=absents.length? (lang.startsWith('zh')? `（${t('rpt_absent_prefix')||'缺：'}${listJoin(absents)}）` : ` (${t('rpt_absent_prefix')||'Absent: '}${listJoin(absents)})`) : '';
+  return `
+    <div class="xl-card" style="margin-top:12px;padding:16px;border-radius:10px;background:var(--card);box-shadow:var(--shadow);">
+      <h3 style="margin:0 0 8px;color:var(--brand)">${t('rpt_free_title')||'免费简报'}</h3>
+      <p style="margin:6px 0;">${t('rpt_pillars_label')||'四柱'}：<strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${hourTxt}</strong></p>
+      <p style="margin:6px 0;">${t('rpt_daymaster_label')||'日主'}：<strong>${pillars.day.stem}</strong>（<strong>${dmElemName}</strong>）｜${t('rpt_season_label')||'季节'}：<strong>${seasonName(st.season)||'-'}</strong>｜${t('rpt_chart_label')||'命局'}：<strong>${t('strength_'+(st.mark==='偏强'?'strong':st.mark==='偏弱'?'weak':'balanced'))||st.mark}</strong> · <strong>${t('rpt_strategy_label')||'策略'}：${stName}</strong></p>
+      <p style="margin:8px 0;">${t('rpt_wuxing_label')||'五行'}：${line}</p>
+      <p style="margin:4px 0;"><strong>${strongest}</strong>${t('rpt_strongest_word')||'偏旺'}；<strong>${weakest}</strong>${t('rpt_weakest_word')||'偏弱'}。${absStr}</p>
+      <ul style="margin:6px 0 0 18px;line-height:1.6">
+        <li>${favAvoidLine}</li>
+        <li>${t('rpt_balance_focus_label')||'调衡要点'}：${stName}</li>
+      </ul>
+      ${timeUnknown?`<p class="muted" style="margin-top:6px;">${t('rpt_time_hint')||'提示：出生时间不详，未纳入时柱，仅供参考。'}</p>`:''}
+    </div>`;
+}
+function buildRichReportHTML({ pillars, percents, st, adv, timeUnknown }){
+  const E=ELABEL(), lang=(getLang()||'').toLowerCase();
+  const line=['wood','fire','earth','metal','water'].map(k=>`${E[k]}${lang.startsWith('zh')?'':' '}${Math.round(percents[k]||0)}%`).join(lang.startsWith('zh')?' ':' · ');
+  const entries=Object.entries(percents||{}); const strongestK=entries.reduce((a,b)=>(a[1]>b[1]?a:b),['wood',0])[0];
+  const weakestK=entries.reduce((a,b)=>(a[1]<b[1]?a:b),['wood',0])[0];
+  const strongest=E[strongestK]||'—', weakest=E[weakestK]||'—';
+  const absentsArr=Object.keys(percents||{}).filter(k=>Math.round(percents[k]||0)===0).map(k=>E[k]);
+  const absentsStr=absentsArr.length ? (lang.startsWith('zh')? `（${t('rpt_absent_prefix')||'缺：'}${listJoin(absentsArr)}）` : ` (${t('rpt_absent_prefix')||'Absent: '}${listJoin(absentsArr)})`) : '';
+  const favLoc=elCharsToLocale(adv?.useful||[]), avoidLoc=elCharsToLocale(adv?.avoid||[]);
+  const favList=favLoc.length?listJoin(favLoc):'—', avoidList=avoidLoc.length?listJoin(avoidLoc):'—';
+  const hourTxt=timeUnknown?t('rpt_time_unknown'):(pillars.hour.stem + pillars.hour.branch);
+  const dmElemName=E[EL_CHAR_TO_KEY[pillars.day.element]||'wood'];
+  const stName=strategyName(st.focus);
+  return `
+    <section class="card" style="padding:20px;">
+      <h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_overview_title')}</h3>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;font-size:14px;">
+        <div>${t('rpt_pillars_label')}：<strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${hourTxt}</strong></div>
+        <div>${t('rpt_daymaster_label')}：<strong>${pillars.day.stem}</strong>（<strong>${dmElemName}</strong>）</div>
+        <div>${t('rpt_season_label')}：<strong>${seasonName(st.season)||'-'}</strong></div>
+        <div>${t('rpt_chart_label')}：<strong>${t('strength_'+(st.mark==='偏强'?'strong':st.mark==='偏弱'?'weak':'balanced'))||st.mark}</strong> · ${t('rpt_strategy_label')}：<strong>${stName}</strong></div>
+      </div>
+    </section>
+    <section class="card" style="padding:20px;">
+      <h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_elements_title')}</h3>
+      <div style="font-size:14px;">${line}</div>
+      <p style="margin:10px 0 0;"><strong>${strongest}</strong>${t('rpt_strongest_word')}；<strong>${weakest}</strong>${t('rpt_weakest_word')}。${absentsStr}</p>
+      <ul style="margin:10px 0 0 18px;line-height:1.6">
+        <li>${t('useful_elements')}${favList}</li>
+        <li>${t('rpt_balance_focus_label')}：${stName}</li>
+      </ul>
+      ${timeUnknown?`<p class="muted" style="margin-top:8px;">${t('rpt_time_hint')}</p>`:''}
+    </section>
+    <section class="card" style="padding:20px;"><h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_traits_title')}</h3><p>${t('rpt_traits_intro')}</p><p>${t('rpt_traits_adv')}</p><p>${t('rpt_traits_chal')||''}</p></section>
+    <section class="card" style="padding:20px;"><h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_structure_title')}</h3><p>${(t('rpt_structure_line_template')||'喜用：{fav}；忌讳：{avoid}').replace('{fav}',favList).replace('{avoid}',avoidList)}</p></section>
+    <section class="card" style="padding:20px;"><h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_career_title')}</h3><p>${t('rpt_career_fields_placeholder')}</p></section>
+    <section class="card" style="padding:20px;"><h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_love_title')}</h3><p>${t('rpt_love_placeholder')}</p></section>
+    <section class="card" style="padding:20px;"><h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_wealth_title')}</h3><p>${(t('rpt_wealth_suggestion_template')||'理财建议：以 {fav} 为主调，稳中求进。').replace('{fav}',favList)}</p></section>
+    <section class="card" style="padding:20px;"><h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_health_title')}</h3><p>${(t('rpt_health_placeholder_template')||'围绕最弱五行（{weak}）做优化。').replace('{weak}',weakest)}</p></section>
+    <section class="card" style="padding:20px;"><h3 style="margin-top:0;color:var(--brand)">${t('rpt_sec_env_title')}</h3><p>${t('rpt_env_placeholder')}</p></section>
+    <div id="butler-anchor"></div>`;
+}  
+
+function mountExtensionsIntoResult(ctx){
+  const resultEl=$('result'); if(!resultEl) return;
+  let freeNode=$('xl-free-report');
+  if(!freeNode){ freeNode=document.createElement('div'); freeNode.id='xl-free-report'; resultEl.appendChild(freeNode); }
+  freeNode.innerHTML=buildFreeReportHTML(ctx);
+}
+function mountRichReport(ctx){
+  let host=$('rich-report'); if(!host){ host=document.createElement('div'); host.id='rich-report'; $('result')?.appendChild(host); }
+  host.innerHTML=buildRichReportHTML(ctx);
+}  
 
 /* ================== 心怜管家（分析器｜多语言） ================== */
 class XinLianAssistant{
