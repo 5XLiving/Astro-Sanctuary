@@ -1535,6 +1535,7 @@ document.addEventListener('click', (e)=>{
 });
 
 // —— 只保留这一版：免费报告 + AI 卡片 —— 
+// —— 只保留这一版：免费报告 + AI 卡片 —— 
 function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
   const resultEl = document.getElementById('result');
   if (!resultEl) return;
@@ -1548,9 +1549,15 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
   }
   freeNode.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown});
 
-  // 新版 AI 管家卡片（芯片触发 AI）
+  // 心怜管家卡片
   ensureAiCard();
-  // 如需默认自动生成：可在此处调用 -> askAi(t('q_career'));
+
+  // ✅ 仅首次自动生成一段“事业”建议（以后点击芯片切换）
+  const aiCard = document.getElementById('aiCard');
+  if (aiCard && !aiCard.dataset.autorun) {
+    aiCard.dataset.autorun = '1';
+    askAi(t('q_career'));
+  }
 }
 
 // 语言切换时，刷新标题与芯片文案
@@ -1574,8 +1581,12 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
       const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
       const E = ELABEL();
       const p = percents || {};
-      const ym = `${esc(pillars?.year?.stem||'')}${esc(pillars?.year?.branch||'')}`, mm = `${esc(pillars?.month?.stem||'')}${esc(pillars?.month?.branch||'')}`, dm = `${esc(pillars?.day?.stem||'')}${esc(pillars?.day?.branch||'')}`, hm = timeUnknown ? t('rpt_time_unknown') : `${esc(pillars?.hour?.stem||'')}${esc(pillars?.hour?.branch||'')}`;
+      const ym = `${esc(pillars?.year?.stem||'')}${esc(pillars?.year?.branch||'')}`;
+      const mm = `${esc(pillars?.month?.stem||'')}${esc(pillars?.month?.branch||'')}`;
+      const dm = `${esc(pillars?.day?.stem||'')}${esc(pillars?.day?.branch||'')}`;
+      const hm = timeUnknown ? t('rpt_time_unknown') : `${esc(pillars?.hour?.stem||'')}${esc(pillars?.hour?.branch||'')}`;
       const fav = (adv?.useful||[]).join('/'), avoid = (adv?.avoid||[]).join('/');
+
       return `
         <div class="card">
           <div class="h2">${esc(t('rpt_free_title'))}</div>
@@ -1589,10 +1600,75 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
       `;
     };
   }
+
+  // ✅ 关键：给出“1–9 段”的完整 fallback
   if (typeof window.buildRichReportHTML !== 'function') {
-    window.buildRichReportHTML = function(){ return ''; };
+    window.buildRichReportHTML = function({ pillars, percents, st, adv, timeUnknown } = {}) {
+      const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+      const E = ELABEL(); const p = percents || {};
+      const kv = [[E.wood,p.wood||0],[E.fire,p.fire||0],[E.earth,p.earth||0],[E.metal,p.metal||0],[E.water,p.water||0]];
+      const strongest = kv.reduce((a,b)=> a[1]>=b[1]?a:b)[0];
+      const weakest   = kv.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
+      const absent    = kv.filter(([,v])=>Math.round(v)===0).map(([k])=>k);
+
+      const ym = `${esc(pillars?.year?.stem||'')}${esc(pillars?.year?.branch||'')}`;
+      const mm = `${esc(pillars?.month?.stem||'')}${esc(pillars?.month?.branch||'')}`;
+      const dm = `${esc(pillars?.day?.stem||'')}${esc(pillars?.day?.branch||'')}`;
+      const hm = timeUnknown ? t('rpt_time_unknown') : `${esc(pillars?.hour?.stem||'')}${esc(pillars?.hour?.branch||'')}`;
+      const fav=(adv?.useful||[]).join('/'), avoid=(adv?.avoid||[]).join('/');
+
+      const sec=(title,body)=>`<div class="sec"><h3>${esc(title)}</h3><div class="ai-content">${body}</div></div>`;
+      const bullet = arr => (arr||[]).map(x=>`• ${esc(x)}`).join('<br>');
+
+      return [
+        // 1) 总览
+        sec(t('rpt_sec_overview_title'),
+          `${esc(t('rpt_pillars_label'))}：${ym}｜${mm}｜${dm}｜${hm}<br>`+
+          `${esc(t('rpt_daymaster_label'))}：${esc(pillars?.day?.stem||'')}（${esc(pillars?.day?.element||'')}）<br>`+
+          `${esc(t('rpt_season_label'))}：${esc(st?.season||'-')} ｜ ${esc(t('rpt_chart_label'))}：${esc(st?.mark||'-')}`+
+          (timeUnknown?`<br><span class="muted">${esc(t('rpt_time_hint'))}</span>`:'')
+        ),
+
+        // 2) 五行能量
+        sec(t('rpt_sec_elements_title'),
+          `${E.wood} ${Math.round(p.wood||0)}% · ${E.fire} ${Math.round(p.fire||0)}% · ${E.earth} ${Math.round(p.earth||0)}% · ${E.metal} ${Math.round(p.metal||0)}% · ${E.water} ${Math.round(p.water||0)}%<br>`+
+          `${esc(t('rpt_balance_focus_label'))}：${esc(strongest)} ${esc(t('rpt_strongest_word'))}，${esc(weakest)} ${esc(t('rpt_weakest_word'))}`+
+          (absent.length?`，${esc(t('rpt_absent_prefix'))}${esc(absent.join('/'))}`:'')
+        ),
+
+        // 3) 性格与天赋（占位）
+        sec(t('rpt_sec_traits_title'),
+          bullet([t('rpt_traits_intro'), t('rpt_traits_adv'), t('rpt_traits_chal')])
+        ),
+
+        // 4) 格局与喜忌
+        sec(t('rpt_sec_structure_title'),
+          `${esc(t('rpt_structure_line_template').replace('{fav}', fav||'-').replace('{avoid}', avoid||'-'))}<br>`+
+          `${esc(t('rpt_strategy_label'))} ${esc(st?.focus||'-')}`
+        ),
+
+        // 5) 事业与发展（试读）
+        sec(t('rpt_sec_career_title'),
+          `${esc(t('rpt_career_fields_placeholder'))}<br>`+
+          `${esc(t('rpt_dev_strategy_prefix'))}${esc(st?.focus||'-')}`
+        ),
+
+        // 6) 感情（试读）
+        sec(t('rpt_sec_love_title'), esc(t('rpt_love_placeholder'))),
+
+        // 7) 财富（试读）
+        sec(t('rpt_sec_wealth_title'), esc(t('rpt_wealth_suggestion_template').replace('{fav}', fav||'-'))),
+
+        // 8) 健康
+        sec(t('rpt_sec_health_title'), esc(t('rpt_health_placeholder_template').replace('{weak}', weakest))),
+
+        // 9) 环境与色彩
+        sec(t('rpt_sec_env_title'), esc(t('rpt_env_placeholder')))
+      ].join('');
+    };
   }
 })();
+
 
 /* ================== 八字计算器（简化） ================== */
 class BaziCalculator{
@@ -1890,6 +1966,16 @@ async function loginFlow(email,password){
 /* —— 表单事件绑定（合并为一次 DOMContentLoaded） —— */
 document.addEventListener('DOMContentLoaded', ()=>{
   initLangUI();
+
+    // —— 最小防自动填充（不预设邮箱/密码）——
+  (() => {
+    const form = document.getElementById('loginForm');
+    if (form) form.setAttribute('autocomplete','off');
+    const email = document.getElementById('email');
+    const pwd   = document.getElementById('password');
+    if (email) email.setAttribute('autocomplete','off');
+    if (pwd)   pwd.setAttribute('autocomplete','new-password');
+  })();
 
   // 生成命盘按钮和输入回车
   const genBtn = $('genBtn');
