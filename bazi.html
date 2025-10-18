@@ -1462,13 +1462,24 @@ function buildButlerSystemPrompt(lang){
   ].join('\n');
 }
 function buildUserPrompt(topic, ctx){
-  const {pillars, percents, st, adv, timeUnknown} = ctx||{};
-  const E = { wood:t('el_wood'), fire:t('el_fire'), earth:t('el_earth'), metal:t('el_metal'), water:t('el_water') };
+  const {pillars, percents, st, adv, timeUnknown} = ctx || {};
+
+  // 显式指定回复语言
+  const ln = BUTLER_LANG_NAME[(getLang && getLang()) || 'zh-CN'] || 'Simplified Chinese';
+
+  const E = {
+    wood:  t('el_wood'),
+    fire:  t('el_fire'),
+    earth: t('el_earth'),
+    metal: t('el_metal'),
+    water: t('el_water')
+  };
   const elemLine = ['wood','fire','earth','metal','water']
-    .map(k=>`${E[k]} ${Math.round((percents||{})[k]||0)}%`).join(' · ');
-  const fav = (adv?.useful||[]).join('/');
-  const avoid = (adv?.avoid||[]).join('/');
-  const hourTxt = timeUnknown ? t('rpt_time_unknown') : (pillars?.hour?.stem + pillars?.hour?.branch);
+    .map(k => `${E[k]} ${Math.round((percents || {})[k] || 0)}%`).join(' · ');
+  const fav   = (adv?.useful || []).join('/');
+  const avoid = (adv?.avoid  || []).join('/');
+  const hourTxt = timeUnknown ? t('rpt_time_unknown') : ((pillars?.hour?.stem || '') + (pillars?.hour?.branch || ''));
+
   const lines = [
     `Bazi summary:`,
     `Year ${pillars?.year?.stem||''}${pillars?.year?.branch||''} · Month ${pillars?.month?.stem||''}${pillars?.month?.branch||''} · Day ${pillars?.day?.stem||''}${pillars?.day?.branch||''} · Hour ${hourTxt||''}`,
@@ -1478,9 +1489,18 @@ function buildUserPrompt(topic, ctx){
     `Favorable: ${fav||'-'}; Avoid: ${avoid||'-'}`,
     timeUnknown ? `Caution: hour pillar excluded.` : ``,
     ``,
-    `Task: ${topic}`
+    `Task: ${topic}`,
+    // 语言强约束（很多后端更听 user 指令）
+    `Language: ${ln}. Reply ONLY in ${ln}.`,
+    `Do not translate previously shown content; generate fresh guidance in ${ln}.`
   ].filter(Boolean);
+
   return lines.join('\n');
+}
+
+  const ln = BUTLER_LANG_NAME[(getLang && getLang()) || 'zh-CN'] || 'Simplified Chinese';
+lines.push(`Language: ${ln}. Reply ONLY in ${ln}.`);
+lines.push(`Do not translate previously shown content; generate fresh guidance in ${ln}.`);
 }
 
 /* 5) 请求与渲染 */
@@ -1585,16 +1605,15 @@ function mountButlerCard(){
   window.rerenderReportsIfAny = function(){
     if(_orig) _orig();
 
-    // 刷新 AI 卡片标题与芯片
+    // 更新标题与芯片文案
     const titleEl = document.getElementById('butlerTitle');
-    if(titleEl) titleEl.textContent = t('butler_title');
+    if (titleEl) titleEl.textContent = t('butler_title');
     renderChips();
 
-    // ❌ 不自动调用 askAi()，避免把既有内容换成新语言
-    // ✅ 只有在从未生成过内容（骨架屏）时，才自动一次
+    // 不自动翻译已有内容；仅当尚未生成（还在骨架）时，自动按当前语言生成一次
     const out = document.getElementById('aiContent');
-    const hasRealContent = out && !out.querySelector('.skeleton') && out.textContent.trim().length > 0;
-    if (!hasRealContent) {
+    const needsFirstRun = out && out.querySelector('.skeleton');
+    if (needsFirstRun) {
       askAi(t('q_career'));
     }
   };
