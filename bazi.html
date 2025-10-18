@@ -1523,6 +1523,9 @@ async function askAi(topic){
   const card = document.getElementById('aiCard');
   if (card) card.dataset.lastQ = topic;  // 记住最近的主题
 
+  // remember which language this content was generated in
+ if (card) card.dataset.lang = (getLang && getLang()) || 'zh-CN';
+
   // 骨架屏
   const out = document.getElementById('aiContent');
   if (out) {
@@ -1615,19 +1618,32 @@ function mountButlerCard(){
 // 语言切换时，仅刷新标题与芯片文案（不自动翻译/重生管家内容）
 (function patchRerenderForAi(){
   const _orig = (typeof rerenderReportsIfAny==='function') ? rerenderReportsIfAny : null;
+
   window.rerenderReportsIfAny = function(){
     if(_orig) _orig();
 
-    // 更新标题与芯片文案
+    // refresh title & chips text
     const titleEl = document.getElementById('butlerTitle');
     if (titleEl) titleEl.textContent = t('butler_title');
     renderChips();
 
-    // 不自动翻译已有内容；仅当尚未生成（还在骨架）时，自动按当前语言生成一次
+    // if language changed, regenerate Butler with the last topic
+    const aiCard = document.getElementById('aiCard');
+    const newLang = (getLang && getLang()) || 'zh-CN';
+    const lastQ   = (aiCard && aiCard.dataset.lastQ) || t('q_career');
+
+    if (!aiCard) return;
+
+    if (aiCard.dataset.lang !== newLang) {
+      aiCard.dataset.lang = newLang;
+      askAi(lastQ); // <- regenerate in the new language
+      return;
+    }
+
+    // If content hasn't been generated yet (still skeleton), generate once
     const out = document.getElementById('aiContent');
-    const needsFirstRun = out && out.querySelector('.skeleton');
-    if (needsFirstRun) {
-      askAi(t('q_career'));
+    if (out && out.querySelector('.skeleton')) {
+      askAi(lastQ);
     }
   };
 })();
