@@ -324,10 +324,10 @@ html { font-size: 16px; }
   </div>
 
   <div class="gen-wrap">
-    <button class="btn" id="genBtn">
-      <span id="genBtnText" data-i18n="btn_generate_chart">生成八字</span>
-      <span id="genBtnLoading" style="display:none">计算中...</span>
-      </div>
+  <button class="btn" id="genBtn">
+    <span id="genBtnText" data-i18n="btn_generate_chart">生成八字</span>
+    <span id="genBtnLoading" style="display:none">计算中...</span>
+  </button>
 </div>
 
       <div id="error" class="error-message"></div>
@@ -400,11 +400,12 @@ html { font-size: 16px; }
               <div class="row" id="authFields">
             <label for="email" class="sr-only" data-i18n="ph_email">邮箱 Email</label>
             <input
-               id="email"
-               name="email"
-               type="email"
-               inputmode="email"
-               autocomplete="username"   <!-- 登录/注册建议用 username，密码管理器更容易配对 -->
+              id="email"
+              name="email"
+              type="email"
+              inputmode="email"
+              autocomplete="username"
+            /> <!-- 登录/注册建议用 username，密码管理器更容易配对 -->
             <label for="password" class="sr-only" data-i18n="ph_label_password">密码 Password</label>    
             <input 
                id="password" 
@@ -488,12 +489,27 @@ function setBar(el, pct){ if(el) el.style.width = Math.max(0, Math.min(100, pct)
 
 /* ================== 多语言（仅 zh-CN / en） ================== */
 const LANG_KEY="site_lang";
-function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
+function getLang(){
+  const saved = localStorage.getItem(LANG_KEY);
+  if (saved && translations[saved]) return saved;
+  const raw = (navigator.language||'zh-CN').replace('_','-');
+  const map = { zh:'zh-CN','zh-CN':'zh-CN','zh-SG':'zh-CN','zh-TW':'zh-TW','zh-HK':'zh-TW',
+                en:'en','en-US':'en','en-GB':'en','en-AU':'en',
+                ja:'ja','ja-JP':'ja', th:'th', ms:'ms' };
+  return map[raw] || 'zh-CN';
+}
 function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
+
 
 const translations = {
   "zh-CN": {
     // —— 通用 / 顶部与表单 ——
+        butler_chat_title: "心怜管家 · Chat",
+    chip_career: "事业建议",
+    chip_love: "感情建议",
+    chip_money: "财富建议",
+    chip_list: "今日清单",
+    chip_30d: "近30天运势",
     lang_label: "语言",
     btn_register: "注册账户",
     btn_login: "登入账户",
@@ -658,22 +674,31 @@ const translations = {
     chip_money: "财运分析",
     chip_list: "行动清单",
     chip_30d: "近期运势",
+    // AI 芯片问答（只保留一份，避免重复定义）
     q_career: "请针对我的八字格局，给出具体的事业发展建议和适合的行业方向",
     q_love: "根据我的命盘，分析感情方面的特点和需要注意的事项",
     q_money: "请分析我的财运特点和适合的理财方式",
     q_list: "基于我的八字，列出近期可以执行的具体行动建议",
-    q_30d: "分析我未来30天的运势重点和需要注意的时机"
+    q_30d: "分析我未来30天的运势重点和需要注意的时机",
+    // 其它报错/提示/表单/报告键……
+    err_need_ep: "请输入邮箱与密码",
+    err_pwd_rule: "密码至少8位，需包含大写/小写/数字/特殊符号",
+    // ……（此处省略你已有的键，照搬即可，不要再重复 chip_* / q_*）
   },
 
   "en": {
     // —— Common / Form ——
-    lang_label: "Language",
+    butler_chat_title: "Butler · Chat",
+    chip_career: "Career Advice",
+    chip_love: "Love Guidance",
+    chip_money: "Wealth Analysis",
+    chip_list: "Action List",
+    chip_30d: "30-day Forecast",
     btn_register: "Create Account",
     btn_login: "Log in",
     btn_reset: "🔑 Reset Password",
     note_price: "New account gets one free trial.",
     note_price1: "$9.9 / month · VIP (Astro + Soul + Courses)",
-
     err_need_ep: "Enter email and password",
     err_pwd_rule: "Password must be 8+ and include upper/lowercase, number, symbol",
     err_no_account: "Account not found. Please register first.",
@@ -834,8 +859,16 @@ const translations = {
     q_love: "Analyze relationship characteristics and precautions based on my birth chart",
     q_money: "Analyze my wealth characteristics and suitable financial management methods",
     q_list: "List specific actionable recommendations for the near future based on my Bazi",
-    q_30d: "Analyze key运势 trends and timing considerations for the next 30 days"
-  }
+    q_30d: "Analyze key 30-day trends and timing considerations",
+
+    // ……（其余 en 键照搬）
+  },
+
+  // 其它语言先留空对象，后面慢慢补
+  "zh-TW": {},
+  "ja": {},
+  "th": {},
+  "ms": {}
 };
 
 // 其他语言部分保持不变，为了简洁这里省略，你可以保留原有的 ja, th, ms 翻译
@@ -1104,7 +1137,7 @@ function mountExtensionsIntoResult(ctx){
 function mountRichReport(ctx){
   let host=$('rich-report'); if(!host){ host=document.createElement('div'); host.id='rich-report'; $('result')?.appendChild(host); }
   host.innerHTML=buildRichReportHTML(ctx);
-}  
+}
 
 /* ================== 心怜管家（分析器｜多语言） ================== */
 class XinLianAssistant{
@@ -1389,23 +1422,6 @@ function buildRichReportHTML({pillars, percents, st, adv, timeUnknown}){
   `;
 }
 
-// 添加缺失的函数
-function mountExtensionsIntoResult(data) {
-  const resultEl = $('result');
-  if (!resultEl) return;
-  
-  // 这里可以添加将报告插入到结果区域的逻辑
-  console.log('Mounting extensions with data:', data);
-}
-
-function mountRichReport(data) {
-  const richReportEl = $('rich-report');
-  if (!richReportEl) return;
-  
-  // 这里可以添加将富报告插入到对应区域的逻辑
-  console.log('Mounting rich report with data:', data);
-}
-
 /* ================== Butler AI 卡片（芯片/锁定/多语言） ================== */
 (function injectAiStyle(){
   const old=$('ai-style'); if(old) old.remove();
@@ -1650,10 +1666,15 @@ function rerenderReportsIfAny(){
 
 /* ================== 语言：初始化 + 切换后重渲染 ================== */
 function applyChatI18n(){
-  const fab=$('ssChatFab'), inp=$('ssChatInput'), btn=$('ssChatSend');
+  const fab  = $('ssChatFab');
+  const inp  = $('ssChatInput');
+  const btn  = $('ssChatSend');
+  const head = document.querySelector('.ss-chat-title');
   if (fab) fab.textContent = t('chat_fab');
   if (inp) inp.placeholder = t('chat_placeholder');
   if (btn) btn.textContent = t('chat_send');
+  if (head) head.textContent = t('butler_chat_title'); // 关键
+  renderChips();
 }
 
 function initLangUI(){
@@ -1685,10 +1706,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
   chatPanel.setAttribute('role','dialog'); 
   chatPanel.setAttribute('aria-label','心怜管家');
   chatPanel.innerHTML = `
+  <div class="ss-chat-head">
+    <div class="ss-chat-title">${t('butler_chat_title')}</div>
+    <div class="ss-close" id="ssChatClose">✕</div>
+  </div>
+  ...
+`;
     <div class="ss-chat-head"><div class="ss-chat-title">心怜管家 · Chat</div><div class="ss-close" id="ssChatClose">✕</div></div>
     <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
     <div class="ss-chat-input"><input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/><button id="ssChatSend" class="btn">${t('chat_send')}</button></div>`;
-  document.body.appendChild(chatFab); 
+    document.body.appendChild(chatFab); 
   document.body.appendChild(chatPanel);
   applyChatI18n();
 
