@@ -475,6 +475,30 @@ function strongPwd(pw){ return pw.length>=8 && /[A-Z]/.test(pw) && /[a-z]/.test(
 function setText(id, v){ const el=$(id); if(el) el.textContent=v; }
 function setBar(el, pct){ if(el) el.style.width = Math.max(0, Math.min(100, pct)) + '%'; }
 
+/* ---------- 更稳的网络助手：状态码/超时/非 JSON ---------- */
+async function fetchJSON(path, payload, { timeout = 12000 } = {}) {
+  const ctrl = new AbortController();
+  const timer = setTimeout(()=>ctrl.abort(), timeout);
+  try{
+    const resp = await fetch(`${API_BASE}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      // credentials: 'include',
+      mode: 'cors',
+      body: JSON.stringify(payload),
+      signal: ctrl.signal
+    });
+    const raw = await resp.text();
+    let data; try { data = raw ? JSON.parse(raw) : {}; } catch { data = { ok:false, msg:'invalid_json', raw }; }
+    if(!resp.ok) return { ok:false, status:resp.status, ...data };
+    return data;
+  }catch(e){
+    return { ok:false, msg: e?.name==='AbortError' ? 'timeout' : (e?.message || 'network_error') };
+  }finally{
+    clearTimeout(timer);
+  }
+}
+
 /* ================== 多语言（仅 zh-CN / en / ja / th / ms） ================== */
 const LANG_KEY="site_lang";
 function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
@@ -1515,7 +1539,7 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
   const resultEl = document.getElementById('result');
   if (!resultEl) return;
 
-  // 免费报告（沿用你现有的 buildFreeReportHTML）
+  // 免费报告（fallback 确保已注入）
   let freeNode = document.getElementById('xl-free-report');
   if (!freeNode) {
     freeNode = document.createElement('div');
@@ -1541,6 +1565,33 @@ function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
 
     renderChips();
   };
+})();
+
+/* ================== 报告函数最小实现（兜底） ================== */
+(function ensureReportFallbacks(){
+  if (typeof window.buildFreeReportHTML !== 'function') {
+    window.buildFreeReportHTML = function({ pillars, percents, st, adv, timeUnknown } = {}) {
+      const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+      const E = ELABEL();
+      const p = percents || {};
+      const ym = `${esc(pillars?.year?.stem||'')}${esc(pillars?.year?.branch||'')}`, mm = `${esc(pillars?.month?.stem||'')}${esc(pillars?.month?.branch||'')}`, dm = `${esc(pillars?.day?.stem||'')}${esc(pillars?.day?.branch||'')}`, hm = timeUnknown ? t('rpt_time_unknown') : `${esc(pillars?.hour?.stem||'')}${esc(pillars?.hour?.branch||'')}`;
+      const fav = (adv?.useful||[]).join('/'), avoid = (adv?.avoid||[]).join('/');
+      return `
+        <div class="card">
+          <div class="h2">${esc(t('rpt_free_title'))}</div>
+          <div>${esc(t('rpt_pillars_label'))}：${ym}｜${mm}｜${dm}｜${hm}</div>
+          <div>${esc(t('rpt_daymaster_label'))}：${esc(pillars?.day?.stem||'')}（${esc(pillars?.day?.element||'')}）</div>
+          <div>${esc(t('rpt_season_label'))}：${esc(st?.season||'-')} ｜ ${esc(t('rpt_chart_label'))}：${esc(st?.mark||'-')}</div>
+          <div style="margin-top:8px">${esc(t('rpt_wuxing_label'))}：${E.wood} ${Math.round(p.wood||0)}% · ${E.fire} ${Math.round(p.fire||0)}% · ${E.earth} ${Math.round(p.earth||0)}% · ${E.metal} ${Math.round(p.metal||0)}% · ${E.water} ${Math.round(p.water||0)}%</div>
+          ${timeUnknown ? `<div class="muted" style="margin-top:6px">${esc(t('rpt_time_hint'))}</div>` : ''}
+          <div style="margin-top:8px">${esc(t('rpt_fav_avoid_template').replace('{fav}', fav||'-').replace('{avoid}', avoid||'-'))}</div>
+        </div>
+      `;
+    };
+  }
+  if (typeof window.buildRichReportHTML !== 'function') {
+    window.buildRichReportHTML = function(){ return ''; };
+  }
 })();
 
 /* ================== 八字计算器（简化） ================== */
@@ -1801,22 +1852,58 @@ function rerenderReportsIfAny(){
   tInput.disabled=tChk.checked;
 })();
 
-/* ================== 登录流程 ================== */
-async function safeJson(resp){ try{return await resp.json()}catch{return{ok:false,msg:'upstream_error'}} }
+/* ================== 登录流程（统一使用 fetchJSON） ================== */
 async function loginFlow(email,password){
-  const res=await safeJson(await fetch(`${API_BASE}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}));
-  const msg=(res.msg||"").toString().toLowerCase(); let expired=false;
-  if(res.expired===true) expired=true; else if(msg==='expired') expired=true; else if(res.expiresAt){ const ts=Date.parse(res.expiresAt); if(!Number.isNaN(ts)&&ts<Date.now()) expired=true; }
-  if(expired){ const go=confirm(t('err_expired')+'。是否前往续费？'); if(go) window.open('https://yourshopifyshop.com/products/monthly-vip','_blank'); return; }
-  if(res.ok===true){ localStorage.setItem('vipEmail',res.email||email); location.href='https://astro.5xliving.com/vip_soul_sanctuary.html'; return; }
+  const res = await fetchJSON('/api/login', { email, password });
+  const msg=(res.msg||"").toString().toLowerCase();
+  let expired=false;
+  if(res.expired===true) expired=true;
+  else if(msg==='expired') expired=true;
+  else if(res.expiresAt){
+    const ts=Date.parse(res.expiresAt);
+    if(!Number.isNaN(ts)&&ts<Date.now()) expired=true;
+  }
+
+  if(expired){
+    const go=confirm(t('err_expired')+'。是否前往续费？');
+    if(go){
+      const a=document.createElement('a');
+      a.href='https://yourshopifyshop.com/products/monthly-vip';
+      a.target='_blank'; a.rel='noopener noreferrer';
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+    return;
+  }
+
+  if(res.ok===true){
+    localStorage.setItem('vipEmail',res.email||email);
+    location.href='https://astro.5xliving.com/vip_soul_sanctuary.html';
+    return;
+  }
+
   if(msg==='no_account') return showAuthErr(t('err_no_account'));
   if(msg==='wrong_pwd') return showAuthErr(t('err_wrong_pwd'));
-  return showAuthErr(t('err_login_fail')+(res.msg?` ${res.msg}`:''));
+  const extra = res.msg ? ` ${(typeof res.msg==='string')?res.msg:JSON.stringify(res.msg)}` : '';
+  return showAuthErr(t('err_login_fail')+extra);
 }
 
+/* —— 表单事件绑定（合并为一次 DOMContentLoaded） —— */
 document.addEventListener('DOMContentLoaded', ()=>{
   initLangUI();
 
+  // 生成命盘按钮和输入回车
+  const genBtn = $('genBtn');
+  if (genBtn && typeof genChart === 'function') {
+    genBtn.addEventListener('click', genChart);
+  }
+  ['birthdate','birthtime'].forEach(id=>{
+    const el=$(id);
+    if(el) el.addEventListener('keydown', e=>{
+      if(e.key==='Enter' && typeof genChart === 'function') genChart();
+    });
+  });
+
+  // 注册
   $('registerForm')?.addEventListener('submit', async (e)=>{
     e.preventDefault(); hideAuthErr();
     const email=$('email')?.value.trim(); const password=$('password')?.value.trim();
@@ -1824,14 +1911,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(!strongPwd(password)) return showAuthErr(t('err_pwd_rule'));
     lock($('registerBtn'),true);
     try{
-      const res=await safeJson(await fetch(`${API_BASE}/api/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}));
+      const res=await fetchJSON('/api/register',{email,password});
       if(res.ok===true){ localStorage.setItem('vipEmail',email); location.href='vip_trial.html'; return; }
-      if((res.msg||"").toString()==='exists'){ await loginFlow(email,password); return; }
+      if((res.msg||"").toString().toLowerCase()==='exists'){ await loginFlow(email,password); return; }
       return showAuthErr((res.msg&&(res.msg+''))||t('err_register_fail'));
     }catch(err){ showAuthErr(t('err_register_fail')+(err?.message||'')); }
     finally{ lock($('registerBtn'),false); }
   });
 
+  // 登录
   $('loginForm')?.addEventListener('submit', async (e)=>{
     e.preventDefault(); hideAuthErr();
     const email=$('email')?.value.trim(); const password=$('password')?.value.trim();
@@ -1842,6 +1930,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     finally{ lock($('loginBtn'),false); }
   });
 
+  // 重置密码
   $('resetBtn')?.addEventListener('click', async ()=>{
     hideAuthErr();
     let email=prompt(t('prompt_email')); if(email===null) return; email=email.trim(); if(!email) return showAuthErr(t('err_email_empty'));
@@ -1849,8 +1938,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if(!strongPwd(newPassword)) return showAuthErr(t('err_pwd_rule'));
     lock($('resetBtn'),true);
     try{
-      const res=await safeJson(await fetch(`${API_BASE}/api/reset`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,newPassword})}));
-      if(!res.ok) return showAuthErr((res.msg&&(res.msg+''))||t('err_reset_fail'));
+      const res=await fetchJSON('/api/reset',{email,newPassword});
+      if(!res.ok){ const extra=res.msg?` ${(typeof res.msg==='string')?res.msg:JSON.stringify(res.msg)}`:''; return showAuthErr(extra||t('err_reset_fail')); }
       alert(t('msg_reset_ok'));
     }catch(err){ showAuthErr(t('err_reset_fail')+(err?.message||'')); }
     finally{ lock($('resetBtn'),false); }
