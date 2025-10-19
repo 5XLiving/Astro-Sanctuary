@@ -408,12 +408,18 @@ function applyI18n(){
 
 /* ===== 九星算法（节分 2/4 换年） ===== */
 function reduce1(n){let s=Math.abs(n).toString().split('').reduce((a,b)=>a+Number(b),0);while(s>9)s=s.toString().split('').reduce((a,b)=>a+Number(b),0);return s;}
-function isBeforeSetsubun(d){const m=d.getMonth(),day=d.getDate();return (m===0)||(m===1&&day<=3);} // Jan OR (Feb and <=3)
+function isBeforeSetsubun(d){
+  // Jan OR (Feb and <=3)
+  const m = d.getMonth(), day = d.getDate();
+  return (m === 0) || (m === 1 && day <= 3);
+}
 function calcHonmei(dateStr){
-  const d=new Date(dateStr); if(isNaN(d))return null;
-  const root=reduce1(d.getFullYear());
-  let num=(isBeforeSetsubun(d)?12:11)-root;
-  while(num<=0)num+=9;
+  // Force local-noon to avoid UTC parsing quirks on YYYY-MM-DD
+  const d = new Date(dateStr + 'T12:00:00');
+  if (isNaN(d)) return null;
+  const root = (function reduce1(n){ let s = Math.abs(n).toString().split('').reduce((a,b)=>a+Number(b),0); while(s>9) s = s.toString().split('').reduce((a,b)=>a+Number(b),0); return s; })(d.getFullYear());
+  let num = (isBeforeSetsubun(d) ? 12 : 11) - root;
+  while (num <= 0) num += 9;
   return num;
 }
 
@@ -582,23 +588,30 @@ $('go').addEventListener('click', async ()=>{
   const langName = ({'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu'})[getLang()] || '简体中文';
   const prompt=buildPrompt({langName, star:STARS[n], topic, question});
 
-  $('aiText').textContent = L.generating;
-  $('aiCard').style.display='block';
-  try{
-    const txt = await askAI(prompt);
-    $('aiText').textContent = txt || L.retry;
+$('aiText').textContent = L.generating;
+$('aiCard').style.display = 'block';
 
-    // 温和抓取“推举/推荐/VIP/许愿/课程/预约/笔记/御守”等
-    const recos=[]; (txt||'').split('\n').forEach(l=>{
-      if(/推举|推薦|推荐|VIP|許願|课程|課程|预约|預約|御守|笔记|筆記/i.test(l)) recos.push(l.trim());
-    });
-    $('aiReco').innerHTML = recos.length
-      ? `<div class="h2">${L.reco_title}</div><ul style="margin:.3rem 0 .2rem .9rem">${recos.slice(0,5).map(x=>`<li>${x}</li>`).join('')}</ul>`
-      : '';
-  }catch(e){
-    $('aiText').textContent = L.neterr;
-  }
-});
+try {
+  const txt = await askAI(prompt);
+  $('aiText').textContent = txt || L.retry;
+
+  // 温和抓取 “推举/推荐/VIP/许愿/课程/预约/笔记/御守/会员 …” 等（含多语关键字）
+  const recos = [];
+  (txt || '').split('\n').forEach(l => {
+    if (/(推举|推薦|推荐|VIP|許願|愿望|课程|課程|预约|預約|御守|笔记|筆記|會員|会員|講座|セッション|コース|予約|course|class|lesson|workshop|booking|session|membership|note|amulet|wish|blessing)/i.test(l)) {
+      recos.push(l.trim());
+    }
+  });
+
+  // 去重并最多取 5 条（可选）
+  const uniq = [...new Set(recos)].slice(0, 5);
+
+  $('aiReco').innerHTML = uniq.length
+    ? `<div class="h2">${L.reco_title}</div><ul style="margin:.3rem 0 .2rem .9rem">${uniq.map(x => `<li>${x}</li>`).join('')}</ul>`
+    : '';
+} catch (e) {
+  $('aiText').textContent = L.neterr;
+}
 
 /* ===== 语言切换：即时更新文案 + 重绘结果 ===== */
 const sel = $('langSelect');
@@ -616,4 +629,5 @@ applyI18n();
 </script>
 </body>
 </html>
+
 
