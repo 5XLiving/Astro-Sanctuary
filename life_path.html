@@ -530,25 +530,40 @@
 
   /* ====== 结果渲染 ====== */
   function renderReport({iso, lp, lv}){
-    const wrap = gid('numReport');
-    wrap.innerHTML = `
-      <div class="sec">
-        <h3>${t('sec_overview')}</h3>
-        <p>${iso}</p>
-      </div>
-      <div class="sec">
-        <h3>${t('sec_life')}</h3>
-        <p><b>${t('sec_life')}</b>：<span id="lifePath">${lp??'—'}</span></p>
-        <p class="muted" id="lifePathDesc">${lp?brief.lp[lp]:''}</p>
-      </div>
-      <div class="sec">
-        <h3>${t('sec_love')}</h3>
-        <p><b>${t('sec_love')}</b>：<span id="loveNumber">${lv??'—'}</span></p>
-        <p class="muted" id="loveDesc">${lv?brief.love[lv]:''}</p>
-      </div>
-    `;
-    ensureAiCard();
+  const wrap = gid('numReport');
+
+  // 🔧 先保存旧 aiCard 的选择状态
+  const oldAi = gid('aiCard');
+  const savedKey   = oldAi?.dataset.topicKey || '';
+  const savedTopic = oldAi?.dataset.topic    || '';
+
+  wrap.innerHTML = `
+    <div class="sec">
+      <h3>${t('sec_overview')}</h3>
+      <p>${iso}</p>
+    </div>
+    <div class="sec">
+      <h3>${t('sec_life')}</h3>
+      <p><b>${t('sec_life')}</b>：<span id="lifePath">${lp??'—'}</span></p>
+      <p class="muted" id="lifePathDesc">${lp?brief.lp[lp]:''}</p>
+    </div>
+    <div class="sec">
+      <h3>${t('sec_love')}</h3>
+      <p><b>${t('sec_love')}</b>：<span id="loveNumber">${lv??'—'}</span></p>
+      <p class="muted" id="loveDesc">${lv?brief.love[lv]:''}</p>
+    </div>
+  `;
+
+  ensureAiCard();           // 重新挂载 aiCard
+  renderChips();            // 重新挂载芯片（确保新语言文案）
+
+  // 🔧 把旧选择写回新 aiCard，避免丢失主题
+  const newAi = gid('aiCard');
+  if (newAi && savedKey) {
+    newAi.dataset.topicKey = savedKey;
+    newAi.dataset.topic    = savedTopic || t(savedKey);
   }
+}
 
   /* ====== Butler Insight ====== */
   function mdToHtml(md){
@@ -780,6 +795,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const iso = gid('birthdate')?.value;
   if (!iso) return;
 
+  // ✅ 先拿到旧 aiCard 的选择，再重绘
+  const oldKey = gid('aiCard')?.dataset.topicKey || '';
+
   const lp = calcLifePath(iso);
   const lv = calcLoveNumber(iso);
 
@@ -787,18 +805,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
     renderReport({ iso, lp, lv });
   }
 
-  const ai = gid('aiCard');
-  const key = ai?.dataset.topicKey || '';
-  const topic = key ? t(key) : '';
+  // 用旧 key 在新语言下取主题文案
+  const topic = oldKey ? t(oldKey) : '';
   if (topic) {
+    // 写回新 aiCard 的 dataset（以便下次还能读到）
+    const ai = gid('aiCard');
+    if (ai) { ai.dataset.topicKey = oldKey; ai.dataset.topic = topic; }
     runAI({ iso, lp, lv }, topic);
-  } else if (ai) {
-    runAI({ iso, lp, lv }); // 默认主题
+  } else if (gid('aiCard')) {
+    runAI({ iso, lp, lv }); // 没选过主题就跑默认
   }
 });
+
 })();
 </script>
 </body>
 </html>
+
 
 
