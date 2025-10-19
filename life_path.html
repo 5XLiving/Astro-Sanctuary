@@ -256,12 +256,24 @@
 (function(){
   'use strict';
 
-  const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
-  const LANG_KEY = 'site_lang';
-  const gid = id => document.getElementById(id);
+  var API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+  var LANG_KEY = 'site_lang';
+  var gid = function(id){ return document.getElementById(id); };
+
+  // —— 兼容老 WebView：Element.matches / .closest
+  if (!Element.prototype.matches) {
+    Element.prototype.matches = Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector;
+  }
+  if (!Element.prototype.closest) {
+    Element.prototype.closest = function (s) {
+      var el = this;
+      while (el && el.nodeType === 1) { if (el.matches(s)) return el; el = el.parentElement || el.parentNode; }
+      return null;
+    };
+  }
 
   /* ====== 多语言（含 Butler + VIP 词条） ====== */
-  const I18N = {
+  var I18N = {
     "zh-CN":{
       page_title:"命理供门 · 灵数简评（免费版）",
       site_title:"灵数简评",
@@ -464,106 +476,81 @@
     }
   };
 
-  const BUTLER_LANG_NAME = {
+  var BUTLER_LANG_NAME = {
     'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese','en':'English','ja':'Japanese','th':'Thai','ms':'Malay'
   };
 
   function getLang(){
-    const saved = localStorage.getItem(LANG_KEY);
+    var saved = localStorage.getItem(LANG_KEY);
     if (saved && I18N[saved]) return saved;
-    const raw = (navigator.language || 'zh-CN').replace('_','-');
-    const map = {'zh':'zh-CN','zh-CN':'zh-CN','zh-SG':'zh-CN','zh-TW':'zh-TW','zh-HK':'zh-TW','en':'en','en-US':'en','en-GB':'en','ja':'ja','ja-JP':'ja','th':'th','ms':'ms'};
+    var raw = (navigator.language || 'zh-CN').replace('_','-');
+    var map = {'zh':'zh-CN','zh-CN':'zh-CN','zh-SG':'zh-CN','zh-TW':'zh-TW','zh-HK':'zh-TW','en':'en','en-US':'en','en-GB':'en','ja':'ja','ja-JP':'ja','th':'th','ms':'ms'};
     return map[raw] || 'zh-CN';
   }
   function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
   function t(key){
-    const L = I18N[getLang()] || I18N['zh-CN'];
+    var L = I18N[getLang()] || I18N['zh-CN'];
     return L[key] || (I18N['zh-CN'][key] || key);
   }
   function applyI18n(){
-    document.querySelectorAll('[data-i18n]').forEach(el=>{
-      const key = el.getAttribute('data-i18n');
-      const val = t(key);
+    var nodes = document.querySelectorAll('[data-i18n]');
+    for (var i=0;i<nodes.length;i++){
+      var el = nodes[i];
+      var key = el.getAttribute('data-i18n');
+      var val = t(key);
       if (val!=null) el.textContent = val;
-    });
-    document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
-      const key = el.getAttribute('data-i18n-ph');
-      const val = t(key);
-      if (val!=null) el.setAttribute('placeholder', val);
-    });
-    const titleEl = document.querySelector('title[data-i18n]');
+    }
+    var nodesPh = document.querySelectorAll('[data-i18n-ph]');
+    for (var j=0;j<nodesPh.length;j++){
+      var el2 = nodesPh[j];
+      var key2 = el2.getAttribute('data-i18n-ph');
+      var val2 = t(key2);
+      if (val2!=null) el2.setAttribute('placeholder', val2);
+    }
+    var titleEl = document.querySelector('title[data-i18n]');
     if (titleEl) titleEl.textContent = t(titleEl.getAttribute('data-i18n'));
   }
 
   /* ====== 灵数计算 ====== */
-  const masters = new Set([11,22,33]);
+  var masters = {11:true,22:true,33:true};
+  function isMaster(n){ return !!masters[n]; }
   function reduceNum(n){
-    while(n>9 && !masters.has(n)){
-      n = String(n).split("").reduce((s,d)=>s+Number(d),0);
+    while(n>9 && !isMaster(n)){
+      var s = String(n).split("");
+      var acc = 0;
+      for (var i=0;i<s.length;i++){ acc += Number(s[i]); }
+      n = acc;
     }
     return n;
   }
   function parseDateDigits(iso){
     if(!iso) return null;
-    const d = iso.replace(/[^0-9]/g,"");
+    var d = iso.replace(/[^0-9]/g,"");
     if(d.length<8) return null;
-    return d.split("").map(Number);
+    var arr = [];
+    for (var i=0;i<d.length;i++){ arr.push(Number(d[i])); }
+    return arr;
   }
   function calcLifePath(iso){
-    const digits = parseDateDigits(iso);
+    var digits = parseDateDigits(iso);
     if(!digits) return null;
-    const sum = digits.reduce((s,v)=>s+v,0);
+    var sum = 0;
+    for (var i=0;i<digits.length;i++){ sum += digits[i]; }
     return reduceNum(sum);
   }
   function calcLoveNumber(iso){
     if(!iso) return null;
-    const dd = Number(iso.split("-")[2]||"0");
+    var parts = iso.split("-");
+    var dd = Number(parts[2]||"0");
     if(!dd) return null;
     return reduceNum(dd);
   }
 
   /* ====== 文案 ====== */
-  const brief = {
+  var brief = {
     lp:{1:"独立、自主、领导力强，适合开创型路线；注意别过度强势。",2:"温和、协调、敏感度高，擅长合作与倾听；需避免过度迎合。",3:"表达力强、社交与创意并重；注意分心，持之以恒是关键。",4:"务实、结构感强，重秩序与稳定；留意僵化与保守。",5:"自由、变化、探索；管理好节奏与边界，避免过度冒险。",6:"责任、关怀、美感；注意完美主义与过度操心。",7:"内省、研究、灵性与洞察；学会表达与连接。",8:"野心、成就、资源整合；需平衡权力与良善。",9:"人文、疗愈、艺术与包容；设立界限，避免过度牺牲。",11:"灵感使命、直觉超感；落地执行与规律作息很重要。",22:"大师建构、把抽象化为实务；请善用团队与耐心。",33:"无条件爱、服务与疗愈；先照顾好自己再照亮他人。"},
     love:{1:"在关系中追求主导与效率，学会柔软与倾听能更稳。",2:"渴望亲密与安全感，细腻体贴；避免过度依附。",3:"需要表达与玩心，爱情里重视互动与仪式感。",4:"以责任与承诺为核心，慢热但踏实可靠。",5:"热爱自由与新鲜感，需要尊重空间的伴侣。",6:"愿意照顾与付出，向往家庭与稳定美好生活。",7:"重视精神连接与灵魂共鸣，需要被理解的安静角落。",8:"在关系里也讲目标与效率，需要势均力敌的伙伴。",9:"包容与付出，但要学会不拯救、不内耗。",11:"感应敏锐、灵魂契合度要求高，情绪需要温柔对待。",22:"关系中的大格局与长期建构者，务实又愿景导向。",33:"以爱疗愈的能量流动，先自爱，后相爱。"}
   };
-
-  /* ====== 结果渲染 ====== */
-  function renderReport({iso, lp, lv}){
-  const wrap = gid('numReport');
-
-  // 🔧 先保存旧 aiCard 的选择状态
-  const oldAi = gid('aiCard');
-  const savedKey   = oldAi?.dataset.topicKey || '';
-  const savedTopic = oldAi?.dataset.topic    || '';
-
-  wrap.innerHTML = `
-    <div class="sec">
-      <h3>${t('sec_overview')}</h3>
-      <p>${iso}</p>
-    </div>
-    <div class="sec">
-      <h3>${t('sec_life')}</h3>
-      <p><b>${t('sec_life')}</b>：<span id="lifePath">${lp??'—'}</span></p>
-      <p class="muted" id="lifePathDesc">${lp?brief.lp[lp]:''}</p>
-    </div>
-    <div class="sec">
-      <h3>${t('sec_love')}</h3>
-      <p><b>${t('sec_love')}</b>：<span id="loveNumber">${lv??'—'}</span></p>
-      <p class="muted" id="loveDesc">${lv?brief.love[lv]:''}</p>
-    </div>
-  `;
-
-  ensureAiCard();           // 重新挂载 aiCard
-  renderChips();            // 重新挂载芯片（确保新语言文案）
-
-  // 🔧 把旧选择写回新 aiCard，避免丢失主题
-  const newAi = gid('aiCard');
-  if (newAi && savedKey) {
-    newAi.dataset.topicKey = savedKey;
-    newAi.dataset.topic    = savedTopic || t(savedKey);
-  }
-}
 
   /* ====== Butler Insight ====== */
   function mdToHtml(md){
@@ -577,159 +564,220 @@
   function isVIP(){
     return localStorage.getItem('vipStatus')==='active' || !!localStorage.getItem('vipEmail');
   }
+
+  /* ====== 结果渲染 ====== */
   function ensureAiCard(){
     if (gid('aiCard')) return;
-    const wrap = gid('numReport'); if(!wrap) return;
-    const sec = document.createElement('div');
+    var wrap = gid('numReport'); if(!wrap) return;
+    var sec = document.createElement('div');
     sec.className = 'sec';
     sec.id = 'aiCard';
-    sec.innerHTML = `
-      <h3 id="butlerTitle" data-i18n="butler_title">${t('butler_title')}</h3>
-      <div id="aiContent" class="ai-content">
-        <div class="skeleton">
-          <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
-          <div style="width:70%"></div><div style="width:50%"></div>
-        </div>
-      </div>
-      <div class="chips" id="aiChips"></div>`;
+    sec.innerHTML = ''
+      + '<h3 id="butlerTitle" data-i18n="butler_title">' + t('butler_title') + '</h3>'
+      + '<div id="aiContent" class="ai-content">'
+      + '  <div class="skeleton">'
+      + '    <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>'
+      + '    <div style="width:70%"></div><div style="width:50%"></div>'
+      + '  </div>'
+      + '</div>'
+      + '<div class="chips" id="aiChips"></div>';
     wrap.appendChild(sec);
     renderChips();
   }
+
   function renderChips(){
-  const wrap = gid('aiChips'); if(!wrap) return;
-  wrap.innerHTML = '';
-  [
-    {k:'chip_career', q:'q_career'},
-    {k:'chip_love',   q:'q_love'},
-    {k:'chip_money',  q:'q_money'},
-    {k:'chip_list',   q:'q_list'},
-    {k:'chip_30d',    q:'q_30d'},
-  ].forEach(it=>{
-    const b=document.createElement('button');
-    b.className='chip';
-    b.textContent=t(it.k);
-    b.setAttribute('data-q', t(it.q));   // 旧逻辑保留
-    b.dataset.topicKey = it.q;           // ✅ 新增：存“键”
-    wrap.appendChild(b);
-  });
-}
-function buildButlerSystemPrompt(lang, topic=''){
-  const ln = BUTLER_LANG_NAME[lang] || BUTLER_LANG_NAME['zh-CN'];
-  const HEADER_MAP = {
-    'zh-CN':['人物画像','关系与沟通','事业与自我实现','金钱与物质','今日/本周可执行清单','温柔提醒'],
-    'zh-TW':['人物画像','關係與溝通','事業與自我實現','金錢與物質','今日/本週可執行清單','溫柔提醒'],
-    'en':['Persona','Relationships & Communication','Career & Self-Actualization','Money & Material','Actionable To-Dos (Today/This Week)','Gentle Reminder'],
-    'ja':['人物像','関係とコミュニケーション','キャリアと自己実現','お金と物質','今日/今週の実行リスト','やさしいリマインド'],
-    'th':['ภาพบุคคล','ความสัมพันธ์ & การสื่อสาร','การงาน & การเติมเต็มตนเอง','การเงิน & วัตถุ','รายการปฏิบัติ (วันนี้/สัปดาห์นี้)','คำเตือนอ่อนโยน'],
-    'ms':['Persona','Hubungan & Komunikasi','Kerjaya & Aktualisasi Diri','Wang & Material','Senarai Tindakan (Hari/Minggu Ini)','Peringatan Lembut']
-  };
-  const h = HEADER_MAP[lang] || HEADER_MAP['zh-CN'];
-  return [
-    `You are "Xinlian Butler". OUTPUT LANGUAGE: ${ln}. Reply strictly in ${ln} only.`,
-    'Warm, practical, actionable. No medical/legal conclusions.',
-    'Markdown structure:',
-    `## ${h[0]}`,
-    `## ${h[1]} (2–4 bullets)`,
-    `## ${h[2]} (2–4 bullets)`,
-    `## ${h[3]} (2–3 bullets)`,
-    `## ${h[4]} (3–5 bullets; start with verbs; quantify if possible)`,
-    `## ${h[5]}`,
-    topic ? `Primary focus topic: ${topic}` : ''
-  ].filter(Boolean).join('\n');
-}
-
-async function runAI({iso,lp,lv}, topic=''){
-  ensureAiCard();
-  const lang = getLang();
-  const title = gid('butlerTitle'); if (title) title.textContent = t('butler_title');
-
-  const sys = buildButlerSystemPrompt(lang, topic);
-  const usr = [
-    `Birth date: ${iso}`,
-    `Life Path: ${lp??'-'} — ${lp?brief.lp[lp]||'':''}`,
-    `Love Number: ${lv??'-'} — ${lv?brief.love[lv]||'':''}`,
-    topic ? `Task/Focus: ${topic}` : `Task/Focus: ${t('chip_career')}`,
-    `Expectation: human, concrete and immediately actionable advice.`
-  ].join('\n');
-
-  const elC = gid('aiContent');
-  if (elC){
-    elC.innerHTML = `<div class="skeleton">
-      <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
-      <div style="width:70%"></div><div style="width:50%"></div>
-    </div>`;
+    var wrap = gid('aiChips'); if(!wrap) return;
+    wrap.innerHTML = '';
+    var arr = [
+      {k:'chip_career', q:'q_career'},
+      {k:'chip_love',   q:'q_love'},
+      {k:'chip_money',  q:'q_money'},
+      {k:'chip_list',   q:'q_list'},
+      {k:'chip_30d',    q:'q_30d'}
+    ];
+    for (var i=0;i<arr.length;i++){
+      var it = arr[i];
+      var b = document.createElement('button');
+      b.className='chip';
+      b.textContent = t(it.k);
+      b.setAttribute('data-q', t(it.q));
+      b.dataset.topicKey = it.q;
+      wrap.appendChild(b);
+    }
   }
 
-  try{
-    const r = await fetch(API_BASE+'/api/chat',{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({messages:[
-        {role:'system',content:sys},
-        {role:'user',content:usr}
-      ]})
-    });
-    const data = await r.json().catch(()=>({}));
-    const raw  = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
-    let html   = mdToHtml(raw);
+  function renderReport(obj){
+    var iso = obj.iso, lp = obj.lp, lv = obj.lv;
+    var wrap = gid('numReport');
 
-    if(!isVIP()){
-      const parts = (raw||'').split(/\n##\s+/);
-      const header = parts.shift() || '';
-      const kept = [header, ...(parts.slice(0,2).map(p=>'## '+p))].join('\n\n');
-      html = mdToHtml(kept) + `
-        <div class="ai-lock-overlay">
-          <div class="tip">${t('vip_tip')}</div>
-          <div class="sub" style="margin-top:4px">${t('vip_sub')}</div>
-          <a class="btn" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener" style="margin-top:10px">${t('btn_unlock')}</a>
-        </div>`;
+    var oldAi = gid('aiCard');
+    var savedKey   = (oldAi && oldAi.dataset) ? (oldAi.dataset.topicKey || '') : '';
+    var savedTopic = (oldAi && oldAi.dataset) ? (oldAi.dataset.topic || '') : '';
+
+    wrap.innerHTML = ''
+      + '<div class="sec">'
+      + '  <h3>' + t('sec_overview') + '</h3>'
+      + '  <p>' + iso + '</p>'
+      + '</div>'
+      + '<div class="sec">'
+      + '  <h3>' + t('sec_life') + '</h3>'
+      + '  <p><b>' + t('sec_life') + '</b>：<span id="lifePath">' + (lp!=null?lp:'—') + '</span></p>'
+      + '  <p class="muted" id="lifePathDesc">' + (lp?brief.lp[lp]:'') + '</p>'
+      + '</div>'
+      + '<div class="sec">'
+      + '  <h3>' + t('sec_love') + '</h3>'
+      + '  <p><b>' + t('sec_love') + '</b>：<span id="loveNumber">' + (lv!=null?lv:'—') + '</span></p>'
+      + '  <p class="muted" id="loveDesc">' + (lv?brief.love[lv]:'') + '</p>'
+      + '</div>';
+
+    ensureAiCard();
+    renderChips();
+
+    var newAi = gid('aiCard');
+    if (newAi && savedKey) {
+      newAi.dataset.topicKey = savedKey;
+      newAi.dataset.topic    = savedTopic || t(savedKey);
+    }
+  }
+
+  function buildButlerSystemPrompt(lang, topic){
+    if (!topic) topic = '';
+    var ln = BUTLER_LANG_NAME[lang] || BUTLER_LANG_NAME['zh-CN'];
+    var HEADER_MAP = {
+      'zh-CN':['人物画像','关系与沟通','事业与自我实现','金钱与物质','今日/本周可执行清单','温柔提醒'],
+      'zh-TW':['人物画像','關係與溝通','事業與自我實現','金錢與物質','今日/本週可執行清單','溫柔提醒'],
+      'en':['Persona','Relationships & Communication','Career & Self-Actualization','Money & Material','Actionable To-Dos (Today/This Week)','Gentle Reminder'],
+      'ja':['人物像','関係とコミュニケーション','キャリアと自己実現','お金と物質','今日/今週の実行リスト','やさしいリマインド'],
+      'th':['ภาพบุคคล','ความสัมพันธ์ & การสื่อสาร','การงาน & การเติมเต็มตนเอง','การเงิน & วัตถุ','รายการปฏิบัติ (วันนี้/สัปดาห์นี้)','คำเตือนอ่อนโยน'],
+      'ms':['Persona','Hubungan & Komunikasi','Kerjaya & Aktualisasi Diri','Wang & Material','Senarai Tindakan (Hari/Minggu Ini)','Peringatan Lembut']
+    };
+    var h = HEADER_MAP[lang] || HEADER_MAP['zh-CN'];
+    var lines = [
+      'You are "Xinlian Butler". OUTPUT LANGUAGE: ' + ln + '. Reply strictly in ' + ln + ' only.',
+      'Warm, practical, actionable. No medical/legal conclusions.',
+      'Markdown structure:',
+      '## ' + h[0],
+      '## ' + h[1] + ' (2–4 bullets)',
+      '## ' + h[2] + ' (2–4 bullets)',
+      '## ' + h[3] + ' (2–3 bullets)',
+      '## ' + h[4] + ' (3–5 bullets; start with verbs; quantify if possible)',
+      '## ' + h[5]
+    ];
+    if (topic) lines.push('Primary focus topic: ' + topic);
+    return lines.join('\n');
+  }
+
+  async function runAI(obj, topic){
+    if (!topic) topic = '';
+    ensureAiCard();
+
+    var lang = getLang();
+    var title = gid('butlerTitle'); if (title) title.textContent = t('butler_title');
+
+    var sys = buildButlerSystemPrompt(lang, topic);
+    var lp = obj.lp, lv = obj.lv, iso = obj.iso;
+    var usr = [
+      'Birth date: ' + iso,
+      'Life Path: ' + (lp!=null?lp:'-') + ' — ' + (lp? (brief.lp[lp]||'') : ''),
+      'Love Number: ' + (lv!=null?lv:'-') + ' — ' + (lv? (brief.love[lv]||'') : ''),
+      (topic ? ('Task/Focus: ' + topic) : ('Task/Focus: ' + t('chip_career'))),
+      'Expectation: human, concrete and immediately actionable advice.'
+    ].join('\n');
+
+    var elC = gid('aiContent');
+    if (elC){
+      elC.innerHTML = ''
+        + '<div class="skeleton">'
+        + '  <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>'
+        + '  <div style="width:70%"></div><div style="width:50%"></div>'
+        + '</div>';
     }
 
-    if(elC) elC.innerHTML = html;
-    renderChips();
-  }catch(e){
-    if(elC) elC.innerHTML = `<div style="color:#98a7b7">${t('err_network')}: ${e.message}</div>`;
+    try{
+      var r = await fetch(API_BASE + '/api/chat',{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({messages:[
+          {role:'system',content:sys},
+          {role:'user',content:usr}
+        ]})
+      });
+      var data = await r.json().catch(function(){ return {}; });
+      var raw  = (data && (data.reply || data.text || (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content))) || '';
+      var html = mdToHtml(raw);
+
+      if(!isVIP()){
+        var parts = (raw||'').split(/\n##\s+/);
+        var header = parts.shift() || '';
+        var kept = [header];
+        for (var i=0;i<Math.min(2, parts.length); i++){ kept.push('## ' + parts[i]); }
+        html = mdToHtml(kept.join('\n\n')) + ''
+          + '<div class="ai-lock-overlay">'
+          + '  <div class="tip">' + t('vip_tip') + '</div>'
+          + '  <div class="sub" style="margin-top:4px">' + t('vip_sub') + '</div>'
+          + '  <a class="btn" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener" style="margin-top:10px">' + t('btn_unlock') + '</a>'
+          + '</div>';
+      }
+
+      if(elC) elC.innerHTML = html;
+      renderChips();
+    }catch(e){
+      if(elC) elC.innerHTML = '<div style="color:#98a7b7">' + t('err_network') + ': ' + e.message + '</div>';
+    }
   }
-}
 
-  document.addEventListener('click', (e)=>{
-  const btn = e.target.closest('.chip'); 
-  if (!btn) return;
+  // —— 点击芯片触发 Butler
+  document.addEventListener('click', function(e){
+    var target = e.target || e.srcElement;
+    var btn = target && target.closest ? target.closest('.chip') : null;
+    if (!btn) return;
 
-  const key   = btn.dataset.topicKey || '';
-  const topic = key ? t(key) : (btn.getAttribute('data-q') || btn.textContent || '');
+    var key   = (btn.dataset && btn.dataset.topicKey) ? btn.dataset.topicKey : '';
+    var topic = key ? t(key) : (btn.getAttribute('data-q') || btn.textContent || '');
 
-  const aiCard = gid('aiCard');
-  if (aiCard) {
-    aiCard.dataset.topic    = topic;   // 人类可读
-    aiCard.dataset.topicKey = key;     // ✅ 机器可读（跨语言稳定）
-    aiCard.dataset.lang     = getLang();
-  }
+    var aiCard = gid('aiCard');
+    if (aiCard && aiCard.dataset) {
+      aiCard.dataset.topic    = topic;
+      aiCard.dataset.topicKey = key;
+      aiCard.dataset.lang     = getLang();
+    }
 
-  const iso = gid('birthdate')?.value;
-  if (!iso) return;
-  const lp = calcLifePath(iso);
-  const lv = calcLoveNumber(iso);
+    var bd = gid('birthdate'); 
+    var iso = bd ? bd.value : '';
+    if (!iso) return;
 
-  runAI({ iso, lp, lv }, topic);
-});
+    var lp = calcLifePath(iso);
+    var lv = calcLoveNumber(iso);
+
+    runAI({ iso: iso, lp: lp, lv: lv }, topic);
+  });
 
   /* ====== 表单交互 ====== */
-  function showErr(msg){ const e=gid('error'); e.textContent=msg; e.style.display='block'; setTimeout(()=>e.style.display='none',4000); }
-  function generateReport(){
-    const iso = gid('birthdate').value;
-    if(!iso) return showErr(t('err_need_birthdate'));
-    const lp = calcLifePath(iso);
-    const lv = calcLoveNumber(iso);
-    gid('result').style.display = 'block';
-    renderReport({iso,lp,lv});
-    runAI({iso,lp,lv});
-    window.scrollTo({top: gid('result').offsetTop-10, behavior:'smooth'});
+  function showErr(msg){
+    var e = gid('error'); 
+    e.textContent = msg; 
+    e.style.display = 'block'; 
+    setTimeout(function(){ e.style.display='none'; }, 4000);
   }
-  gid('btnGen')?.addEventListener('click', generateReport);
+  function generateReport(){
+    var bd = gid('birthdate');
+    var iso = bd ? bd.value : '';
+    if(!iso) return showErr(t('err_need_birthdate'));
+    var lp = calcLifePath(iso);
+    var lv = calcLoveNumber(iso);
+    gid('result').style.display = 'block';
+    renderReport({ iso: iso, lp: lp, lv: lv });
+    runAI({ iso: iso, lp: lp, lv: lv });
+    window.scrollTo({ top: gid('result').offsetTop - 10, behavior: 'smooth' });
+  }
+  var _btnGen = gid('btnGen'); 
+  if (_btnGen) _btnGen.addEventListener('click', generateReport);
 
   /* ====== Butler Chat 悬浮球 ====== */
   function applyChatI18n(){
-    const fab = gid('ssChatFab'), inp=gid('ssChatInput'), btn=gid('ssChatSend'), title=document.querySelector('.ss-chat-title');
+    var fab = gid('ssChatFab'), 
+        inp = gid('ssChatInput'), 
+        btn = gid('ssChatSend'), 
+        title = document.querySelector('.ss-chat-title');
     if (fab) fab.textContent = t('chat_fab');
     if (inp) inp.placeholder = t('chat_placeholder');
     if (btn) btn.textContent = t('chat_send');
@@ -737,89 +785,143 @@ async function runAI({iso,lp,lv}, topic=''){
   }
   function mountChat(){
     if (gid('ssChatFab')) return;
-    const fab=document.createElement('div'); fab.className='ss-chat-fab'; fab.id='ssChatFab'; fab.title=t('butler_chat_title');
-    const panel=document.createElement('div'); panel.className='ss-chat-panel'; panel.id='ssChatPanel'; panel.setAttribute('role','dialog'); panel.setAttribute('aria-label',t('butler_chat_title'));
-    panel.innerHTML = `
-      <div class="ss-chat-head"><div class="ss-chat-title">${t('butler_chat_title')}</div><div class="ss-close" id="ssChatClose">✕</div></div>
-      <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
-      <div class="ss-chat-input">
-        <input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/>
-        <button id="ssChatSend" class="btn">${t('chat_send')}</button>
-      </div>`;
-    document.body.appendChild(fab); document.body.appendChild(panel);
+    var fab = document.createElement('div'); 
+    fab.className = 'ss-chat-fab'; 
+    fab.id = 'ssChatFab'; 
+    fab.title = t('butler_chat_title');
+
+    var panel = document.createElement('div'); 
+    panel.className = 'ss-chat-panel'; 
+    panel.id = 'ssChatPanel'; 
+    panel.setAttribute('role','dialog'); 
+    panel.setAttribute('aria-label', t('butler_chat_title'));
+    panel.innerHTML = ''
+      + '<div class="ss-chat-head"><div class="ss-chat-title">' + t('butler_chat_title') + '</div><div class="ss-close" id="ssChatClose">✕</div></div>'
+      + '<div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>'
+      + '<div class="ss-chat-input">'
+      + '  <input id="ssChatInput" type="text" placeholder="' + t('chat_placeholder') + '"/>'
+      + '  <button id="ssChatSend" class="btn">' + t('chat_send') + '</button>'
+      + '</div>';
+    document.body.appendChild(fab); 
+    document.body.appendChild(panel);
     applyChatI18n();
 
-    const $body=gid('ssChatBody'), $input=gid('ssChatInput'), $send=gid('ssChatSend'), $close=gid('ssChatClose');
-    const open=()=>{ panel.style.display='block'; $input&&$input.focus(); };
-    const close=()=>{ panel.style.display='none'; };
-    fab.addEventListener('click',open); $close&&$close.addEventListener('click',close);
+    var $body  = gid('ssChatBody'), 
+        $input = gid('ssChatInput'), 
+        $send  = gid('ssChatSend'), 
+        $close = gid('ssChatClose');
 
-    function addMsg(text,me=false){ const div=document.createElement('div'); div.className='ss-msg'+(me?' me':''); div.textContent=text; $body.appendChild(div); $body.scrollTop=$body.scrollHeight; }
+    var open = function(){ panel.style.display='block'; if ($input) $input.focus(); };
+    var close = function(){ panel.style.display='none'; };
+    fab.addEventListener('click', open); 
+    if ($close) $close.addEventListener('click', close);
+
+    function addMsg(text, me){
+      var div = document.createElement('div'); 
+      div.className = 'ss-msg' + (me ? ' me' : ''); 
+      div.textContent = text; 
+      $body.appendChild(div); 
+      $body.scrollTop = $body.scrollHeight; 
+    }
+
     async function askChat(prompt){
-      addMsg(prompt,true); if($input){ $input.value=''; $input.focus(); }
-      const sys = [
-        `You are "Xinlian Butler". OUTPUT LANGUAGE: ${BUTLER_LANG_NAME[getLang()] || 'Simplified Chinese'}.`,
+      addMsg(prompt, true); 
+      if ($input){ $input.value=''; $input.focus(); }
+      var sys = [
+        'You are "Xinlian Butler". OUTPUT LANGUAGE: ' + (BUTLER_LANG_NAME[getLang()] || 'Simplified Chinese') + '.',
         'Help visitors understand features, navigation and VIP. Tone: warm, concise, professional.'
       ].join('\n');
       try{
-        const r=await fetch(`${API_BASE}/api/chat`,{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({messages:[{role:'system',content:sys},{role:'user',content:prompt}]})
+        var r = await fetch(API_BASE + '/api/chat',{
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({messages:[{role:'system',content:sys},{role:'user',content:prompt}]})
         });
-        const data = await r.json().catch(()=>({})); const reply = data?.reply??data?.text??data?.choices?.[0]?.message?.content??'';
+        var data = await r.json().catch(function(){ return {}; });
+        var reply = (data && (data.reply || data.text || (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content))) || '';
         addMsg(reply || t('err_busy'));
-      }catch(e){ addMsg(`${t('err_network')}，${t('err_busy')}`); }
+      }catch(e){
+        addMsg(t('err_network') + '，' + t('err_busy'));
+      }
     }
-    $send&&$send.addEventListener('click',()=>{ const v=$input?.value.trim(); if(v) askChat(v); });
-    $input&&$input.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
+
+    if ($send) $send.addEventListener('click', function(){
+      var v = $input ? ($input.value ? $input.value.trim() : '') : '';
+      if (v) askChat(v);
+    });
+    if ($input) $input.addEventListener('keydown', function(e){
+      if (e.key === 'Enter'){
+        var v = $input.value ? $input.value.trim() : '';
+        if (v) askChat(v);
+      }
+    });
   }
 
-/* ====== 页面初始化 ====== */
-document.addEventListener('DOMContentLoaded', ()=>{
-  const sel = gid('langSelect');
-  const current = getLang();
-  if (sel) sel.value = current;
-  document.documentElement.lang = current;
+  /* ====== 页面初始化 ====== */
+  document.addEventListener('DOMContentLoaded', function(){
+    var sel = gid('langSelect');
+    var current = getLang();
+    if (sel) sel.value = current;
+    document.documentElement.lang = current;
 
-  applyI18n();
-  applyChatI18n();
-  mountChat();
+    applyI18n();
+    applyChatI18n();
+    mountChat();
 
-  // 语言切换：重渲报告 + Butler（沿用上次选择的主题）
-  sel?.addEventListener('change', ()=>{
-  setLang(sel.value);
-  applyI18n();
-  applyChatI18n();
-  if (gid('aiChips')) renderChips();
+    // 如果日期预填了，直接渲染一次
+    var _bd0 = gid('birthdate');
+    if (_bd0 && _bd0.value) {
+      var iso0 = _bd0.value;
+      var lp0 = calcLifePath(iso0);
+      var lv0 = calcLoveNumber(iso0);
+      gid('result').style.display = 'block';
+      renderReport({ iso: iso0, lp: lp0, lv: lv0 });
+      runAI({ iso: iso0, lp: lp0, lv: lv0 });
+    }
 
-  const iso = gid('birthdate')?.value;
-  if (!iso) return;
+    // 切换语言：保留上次选择的主题
+    if (sel) sel.addEventListener('change', function(){
+      setLang(sel.value);
+      applyI18n();
+      applyChatI18n();
+      if (gid('aiChips')) renderChips();
 
-  // ✅ 先拿到旧 aiCard 的选择，再重绘
-  const oldKey = gid('aiCard')?.dataset.topicKey || '';
+      var _bd = gid('birthdate'); 
+      var iso = _bd ? _bd.value : '';
+      if (!iso) return;
 
-  const lp = calcLifePath(iso);
-  const lv = calcLoveNumber(iso);
+      // 记录旧 key，重新渲染后再恢复
+      var _oldAi = gid('aiCard');
+      var oldKey = (_oldAi && _oldAi.dataset && _oldAi.dataset.topicKey) ? _oldAi.dataset.topicKey : '';
 
-  if (gid('result')?.style.display !== 'none') {
-    renderReport({ iso, lp, lv });
-  }
+      var lp = calcLifePath(iso);
+      var lv = calcLoveNumber(iso);
 
-  // 用旧 key 在新语言下取主题文案
-  const topic = oldKey ? t(oldKey) : '';
-  if (topic) {
-    // 写回新 aiCard 的 dataset（以便下次还能读到）
-    const ai = gid('aiCard');
-    if (ai) { ai.dataset.topicKey = oldKey; ai.dataset.topic = topic; }
-    runAI({ iso, lp, lv }, topic);
-  } else if (gid('aiCard')) {
-    runAI({ iso, lp, lv }); // 没选过主题就跑默认
-  }
-});
+      var res = gid('result');
+      if (res && res.style.display !== 'none') {
+        renderReport({ iso: iso, lp: lp, lv: lv });
+      }
+
+      var topic = oldKey ? t(oldKey) : '';
+      var newAi = gid('aiCard');
+      if (newAi && oldKey) {
+        newAi.dataset.topicKey = oldKey;
+        newAi.dataset.topic = topic;
+      }
+
+      if (topic) {
+        runAI({ iso: iso, lp: lp, lv: lv }, topic);
+      } else if (newAi) {
+        runAI({ iso: iso, lp: lp, lv: lv });
+      }
+    });
+  });
+
 })();
 </script>
 </body>
 </html>
+
 
 
 
