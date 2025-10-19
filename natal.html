@@ -753,109 +753,93 @@ html { font-size: 16px; }
     });
   }
 
-  function buildButlerSystemPrompt(lang){
-    const ln = BUTLER_LANG_NAME[lang] || BUTLER_LANG_NAME['zh-CN'];
-    const HEADER_MAP = {
-      'zh-CN': ['人物画像','关系与沟通','事业与自我实现','金钱与物质','今日/本周可执行清单','温柔提醒'],
-      'zh-TW': ['人物画像','關係與溝通','事業與自我實現','金錢與物質','今日/本週可執行清單','溫柔提醒'],
-      'en':    ['Persona','Relationships & Communication','Career & Self-Actualization','Money & Material','Actionable To-Dos (Today/This Week)','Gentle Reminder'],
-      'ja':    ['人物像','関係とコミュニケーション','キャリアと自己実現','お金と物質','今日/今週の実行リスト','やさしいリマインド'],
-      'th':    ['ภาพบุคคล','ความสัมพันธ์ & การสื่อสาร','การงาน & การเติมเต็มตนเอง','การเงิน & วัตถุ','รายการปฏิบัติ (วันนี้/สัปดาห์นี้)','คำเตือนอ่อนโยน'],
-      'ms':    ['Persona','Hubungan & Komunikasi','Kerjaya & Aktualisasi Diri','Wang & Material','Senarai Tindakan (Hari/Minggu Ini)','Peringatan Lembut']
-    };
-    const headers = HEADER_MAP[lang] || HEADER_MAP['zh-CN'];
+  async function runAI(topic='') {
+  ensureAiCard();
+  const titleEl = gid('butlerTitle');
+  if (titleEl) titleEl.textContent = t('butler_title');
 
-    return [
-      `You are "Xinlian Butler". OUTPUT LANGUAGE: ${ln}. Reply strictly in ${ln} only.`,
-      'Warm, practical, actionable. No medical/legal conclusions.',
-      'Markdown structure:',
-      `## ${headers[0]}`,
-      `## ${headers[1]} (2–4 bullets)`,
-      `## ${headers[2]} (2–4 bullets)`,
-      `## ${headers[3]} (2–3 bullets)`,
-      `## ${headers[4]} (3–5 bullets; start with verbs; quantify if possible)`,
-      `## ${headers[5]}`
-    ].join('\n');
+  const { name, place, date, time } = readForm();
+  if (!date || !place) return;
+
+  const lang = getLang();
+  const sun = getSunSign(date);
+  const sunName = (sun.name[lang] || sun.name['zh-CN']);
+  const el = sun.el;
+
+  // 骨架
+  const out = gid('aiContent');
+  if (out) {
+    out.innerHTML = `
+      <div class="skeleton">
+        <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
+        <div style="width:70%"></div><div style="width:50%"></div>
+      </div>`;
   }
 
-  async function runAI(){
-    ensureAiCard();
-    gid('butlerTitle').textContent = t('butler_title');
-    const {name, place, date, time} = readForm();
-    if(!date || !place){ return; }
+  // 系统 + 用户消息（带主题）
+  const sys = buildButlerSystemPrompt(lang, topic);
+  const usr = [
+    `Name: ${name || '-'}`,
+    `Birth: ${date} ${time || '12:00'} @ ${place}`,
+    `Sun sign: ${sunName} (element: ${el})`,
+    topic ? `Task: ${topic}` : `Task: ${t('chip_career')}`
+  ].join('\n');
 
-    const lang = getLang();
-    const sun = getSunSign(date);
-    const sunName = (sun.name[lang] || sun.name['zh-CN']);
-    const el = sun.el;
+  try {
+    const r = await fetch(API_BASE + '/api/chat', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messages: [
+        { role: 'system', content: sys },
+        { role: 'user',   content: usr }
+      ]})
+    });
+    const data = await r.json().catch(()=>({}));
+    const raw = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
+    let html = mdToHtml(raw || '');
 
-    const sys = buildButlerSystemPrompt(lang);
-    const usr = [
-      `Name: ${name || '-'}`,
-      `Birth: ${date} ${time} @ ${place}`,
-      `Sun sign: ${sunName} (element: ${el})`,
-      `Expectation: human, concrete, and immediately actionable advice.`
-    ].join('\n');
-
-    const elC = gid('aiContent');
-    if (elC){
-      elC.innerHTML = `
-        <div class="skeleton">
-          <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
-          <div style="width:70%"></div><div style="width:50%"></div>
+    // 非 VIP 截断（保留你原逻辑）
+    if (!isVIP()) {
+      const parts = (raw || '').split(/\n##\s+/);
+      const header = parts.shift() || '';
+      const kept = [header, ...(parts.slice(0,2).map(p=>'## '+p))].join('\n\n');
+      html = mdToHtml(kept) + `
+        <div class="ai-lock-overlay" style="text-align:center;padding:14px 10px;border-top:1px solid #1f2a36;margin-top:10px">
+          <div class="tip">${t('vip_tip')}</div>
+          <div class="sub" style="margin-top:4px">${t('vip_sub')}</div>
+          <a class="btn" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener" style="margin-top:10px">${t('btn_unlock')}</a>
         </div>`;
     }
 
-    try{
-      const r = await fetch(API_BASE+'/api/chat', {
-        method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({messages:[{role:'system',content:sys},{role:'user',content:usr}]})
-      });
-      const data = await r.json().catch(()=>({}));
-      const raw = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
-      let html = mdToHtml(raw);
+    if (out) out.innerHTML = html;
+  } catch (e) {
+    if (out) out.innerHTML = `<div style="color:#98a7b7">${t('err_network')}: ${e.message}</div>`;
+  }
+}
 
-      if(!isVIP()){
-        const parts = raw.split(/\n##\s+/);
-        const header = parts.shift() || '';
-        const kept = [header, ...(parts.slice(0,2).map(p=>'## '+p))].join('\n\n');
-        html = mdToHtml(kept) + `
-          <div class="ai-lock-overlay" style="text-align:center;padding:14px 10px;border-top:1px solid #1f2a36;margin-top:10px">
-            <div class="tip">${t('vip_tip')}</div>
-            <div class="sub" style="margin-top:4px">${t('vip_sub')}</div>
-            <a class="btn" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener" style="margin-top:10px">${t('btn_unlock')}</a>
-          </div>`;
-      }
+  // 追问芯片（重渲染版：替换整段监听器）
+  document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.chip');
+  if (!btn) return;
 
-      if(elC){
-        elC.innerHTML = html;
-      }
-      renderChips();
-    }catch(e){
-      if(elC) elC.innerHTML = `<div style="color:#98a7b7">${t('err_network')}: ${e.message}</div>`;
-    }
+  const topic = btn.getAttribute('data-q') || btn.textContent || '';
+
+  // 记录“上次主题 + 当前语言”
+  const aiCard = gid('aiCard');
+  if (aiCard) {
+    aiCard.dataset.topic = topic;
+    aiCard.dataset.lang  = getLang();
   }
 
-  // 追问芯片
-  document.addEventListener('click', (e)=>{
-    const chip = e.target.closest('.chip'); if(!chip) return;
-    const q = chip.getAttribute('data-q') || chip.textContent;
-    const el = gid('aiContent'); if(!el) return;
-    el.innerHTML += `<br/><br/><b>—</b> ${q}<br/>`;
-    const sys = buildButlerSystemPrompt(getLang());
-    fetch(API_BASE+'/api/chat',{
-      method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({messages:[
-        {role:'system',content:sys + '\n(Continue previous tone. Add concrete steps.)'},
-        {role:'user',content:q}
-      ]})
-    }).then(r=>r.json()).then(data=>{
-      const txt=data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
-      el.innerHTML += mdToHtml('\n\n'+(txt || ('\n\n'+t('err_busy'))));
-    }).catch(err=>{
-      el.innerHTML += `<div style="color:#98a7b7">${t('err_network')}: ${err.message}</div>`;
-    });
-  });
+  // 也重渲 natal report（你说“也要从新渲染”）
+  const ctx = readForm();
+  if (ctx.date && ctx.place) {
+    renderReport({ ...ctx, lang: getLang() });
+  }
+
+  // 重新拉取 Butler（清空骨架在 runAI 里做）
+  runAI(topic);
+});
+
 
   /* ============== 生成：基础 + AI ============== */
   function generateChart(){
@@ -929,6 +913,7 @@ html { font-size: 16px; }
 </script>
 </body>
 </html>
+
 
 
 
