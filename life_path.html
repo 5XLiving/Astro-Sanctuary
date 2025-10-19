@@ -581,22 +581,23 @@
     renderChips();
   }
   function renderChips(){
-    const wrap = gid('aiChips'); if(!wrap) return;
-    wrap.innerHTML = '';
-    [
-      {k:'chip_career', q:'q_career'},
-      {k:'chip_love',   q:'q_love'},
-      {k:'chip_money',  q:'q_money'},
-      {k:'chip_list',   q:'q_list'},
-      {k:'chip_30d',    q:'q_30d'},
-    ].forEach(it=>{
-      const b=document.createElement('button');
-      b.className='chip';
-      b.textContent=t(it.k);
-      b.setAttribute('data-q', t(it.q));
-      wrap.appendChild(b);
-    });
-  }
+  const wrap = gid('aiChips'); if(!wrap) return;
+  wrap.innerHTML = '';
+  [
+    {k:'chip_career', q:'q_career'},
+    {k:'chip_love',   q:'q_love'},
+    {k:'chip_money',  q:'q_money'},
+    {k:'chip_list',   q:'q_list'},
+    {k:'chip_30d',    q:'q_30d'},
+  ].forEach(it=>{
+    const b=document.createElement('button');
+    b.className='chip';
+    b.textContent=t(it.k);
+    b.setAttribute('data-q', t(it.q));   // 旧逻辑保留
+    b.dataset.topicKey = it.q;           // ✅ 新增：存“键”
+    wrap.appendChild(b);
+  });
+}
 function buildButlerSystemPrompt(lang, topic=''){
   const ln = BUTLER_LANG_NAME[lang] || BUTLER_LANG_NAME['zh-CN'];
   const HEADER_MAP = {
@@ -679,22 +680,21 @@ async function runAI({iso,lp,lv}, topic=''){
   const btn = e.target.closest('.chip'); 
   if (!btn) return;
 
-  const topic = btn.getAttribute('data-q') || btn.textContent || '';
+  const key   = btn.dataset.topicKey || '';
+  const topic = key ? t(key) : (btn.getAttribute('data-q') || btn.textContent || '');
 
-  // 记住选择（可用于二次刷新或切语言时复用）
   const aiCard = gid('aiCard');
   if (aiCard) {
-    aiCard.dataset.topic = topic;
-    aiCard.dataset.lang  = getLang();
+    aiCard.dataset.topic    = topic;   // 人类可读
+    aiCard.dataset.topicKey = key;     // ✅ 机器可读（跨语言稳定）
+    aiCard.dataset.lang     = getLang();
   }
 
-  // 取当前生日，计算灵数上下文
   const iso = gid('birthdate')?.value;
-  if (!iso) return; // 没选日期就不跑
+  if (!iso) return;
   const lp = calcLifePath(iso);
   const lv = calcLoveNumber(iso);
 
-  // 直接重渲 Butler（骨架&截断逻辑都在 runAI 里）
   runAI({ iso, lp, lv }, topic);
 });
 
@@ -772,37 +772,33 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // 语言切换：重渲报告 + Butler（沿用上次选择的主题）
   sel?.addEventListener('change', ()=>{
-    setLang(sel.value);
-    applyI18n();
-    applyChatI18n();
+  setLang(sel.value);
+  applyI18n();
+  applyChatI18n();
+  if (gid('aiChips')) renderChips();
 
-   // 若 Butler 芯片已挂载，切语言时也刷新芯片文本
-    if (gid('aiChips')) renderChips();
+  const iso = gid('birthdate')?.value;
+  if (!iso) return;
 
-    // 若已选择生日，就一起重渲
-    const iso = gid('birthdate')?.value;
-    if (!iso) return;
+  const lp = calcLifePath(iso);
+  const lv = calcLoveNumber(iso);
 
-    const lp = calcLifePath(iso);
-    const lv = calcLoveNumber(iso);
+  if (gid('result')?.style.display !== 'none') {
+    renderReport({ iso, lp, lv });
+  }
 
-    // 已显示结果则更新文案
-    if (gid('result')?.style.display !== 'none') {
-      renderReport({ iso, lp, lv });
-    }
-
-    // Butler 使用上次选过的 topic（如果有）
-    const ai = gid('aiCard');
-    const topic = ai?.dataset.topic || '';
-    if (topic) {
-      runAI({ iso, lp, lv }, topic);
-    } else if (ai) {
-      // 没选过主题也可刷新一次默认主题
-      runAI({ iso, lp, lv });
-    }
-  });
+  const ai = gid('aiCard');
+  const key = ai?.dataset.topicKey || '';
+  const topic = key ? t(key) : '';
+  if (topic) {
+    runAI({ iso, lp, lv }, topic);
+  } else if (ai) {
+    runAI({ iso, lp, lv }); // 默认主题
+  }
+});
 })();
 </script>
 </body>
 </html>
+
 
