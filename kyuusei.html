@@ -562,65 +562,69 @@ async function askAI(prompt){
 }
 
 /* ===== 交互 ===== */
-$('presetQ').addEventListener('change',e=>{
-  // 如果 <option> 没有 value，则取其文本
-  const sel=e.target;
-  const idx=sel.selectedIndex;
-  if(idx>0){
-    const text=sel.options[idx].textContent.trim();
-    const q=$('question');
-    q.value = q.value ? (q.value+'\n'+text) : text;
+$('presetQ').addEventListener('change', e => {
+  const sel = e.target;
+  const idx = sel.selectedIndex;
+  if (idx > 0) {
+    const text = sel.options[idx].textContent.trim();
+    const q = $('question');
+    q.value = q.value ? (q.value + '\n' + text) : text;
   }
 });
-$('clear').addEventListener('click',()=>{
-  $('birthdate').value=''; $('question').value=''; $('presetQ').value=''; $('topic').value='love';
-  $('starCard').style.display='none'; $('aiCard').style.display='none'; __STAR_STATE=null;
+
+$('clear').addEventListener('click', () => {
+  $('birthdate').value = '';
+  $('question').value = '';
+  $('presetQ').value = '';
+  $('topic').value = 'love';
+  $('starCard').style.display = 'none';
+  $('aiCard').style.display = 'none';
+  __STAR_STATE = null;
 });
-$('go').addEventListener('click', async ()=>{
-  const L = i18n[getLang()]||i18n["zh-CN"];
-  const date=$('birthdate').value.trim();
-  if(!date){ alert(L.please_birth); return; }
-  const n=calcHonmei(date); if(!n){ alert(L.bad_date); return; }
+
+$('go').addEventListener('click', async () => {
+  const L = i18n[getLang()] || i18n["zh-CN"];
+  const date = $('birthdate').value.trim();
+  if (!date) { alert(L.please_birth); return; }
+  const n = calcHonmei(date); if (!n) { alert(L.bad_date); return; }
   __STAR_STATE = n; renderStar(n);
 
-  const topic=$('topic').value;
-  const question=( $('question').value || '' ).trim();
+  const topic = $('topic').value;
+  const question = ($('question').value || '').trim();
   const langName = ({'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu'})[getLang()] || '简体中文';
-  const prompt=buildPrompt({langName, star:STARS[n], topic, question});
+  const prompt = buildPrompt({ langName, star: STARS[n], topic, question });
 
-$('aiText').textContent = L.generating;
-$('aiCard').style.display = 'block';
+  $('aiText').textContent = L.generating;
+  $('aiCard').style.display = 'block';
 
-try {
-  const txt = await askAI(prompt);
-  $('aiText').textContent = txt || L.retry;
+  try {
+    const txt = await askAI(prompt);
+    $('aiText').textContent = txt || L.retry;
 
-  // 温和抓取 “推举/推荐/VIP/许愿/课程/预约/笔记/御守/会员 …” 等（含多语关键字）
-  const recos = [];
-  (txt || '').split('\n').forEach(l => {
-    if (/(推举|推薦|推荐|VIP|許願|愿望|课程|課程|预约|預約|御守|笔记|筆記|會員|会員|講座|セッション|コース|予約|course|class|lesson|workshop|booking|session|membership|note|amulet|wish|blessing)/i.test(l)) {
-      recos.push(l.trim());
-    }
-  });
-
-  // 去重并最多取 5 条（可选）
-  const uniq = [...new Set(recos)].slice(0, 5);
-
-  $('aiReco').innerHTML = uniq.length
-    ? `<div class="h2">${L.reco_title}</div><ul style="margin:.3rem 0 .2rem .9rem">${uniq.map(x => `<li>${x}</li>`).join('')}</ul>`
-    : '';
-} catch (e) {
-  $('aiText').textContent = L.neterr;
-}
+    // 温和抓取推荐项（多语关键词）
+    const recos = [];
+    (txt || '').split('\n').forEach(l => {
+      if (/(推举|推薦|推荐|VIP|許願|愿望|课程|課程|预约|預約|御守|笔记|筆記|會員|会員|講座|セッション|コース|予約|course|class|lesson|workshop|booking|session|membership|note|amulet|wish|blessing)/i.test(l)) {
+        recos.push(l.trim());
+      }
+    });
+    const uniq = [...new Set(recos)].slice(0, 5);
+    $('aiReco').innerHTML = uniq.length
+      ? `<div class="h2">${L.reco_title}</div><ul style="margin:.3rem 0 .2rem .9rem">${uniq.map(x => `<li>${x}</li>`).join('')}</ul>`
+      : '';
+  } catch (e) {
+    $('aiText').textContent = L.neterr;
+  }
+}); // ← 重要：关闭 click 处理器
 
 /* ===== 语言切换：即时更新文案 + 重绘结果 ===== */
 const sel = $('langSelect');
 sel.value = getLang();
 applyI18n();
-sel.addEventListener('change', ()=>{
+sel.addEventListener('change', () => {
   setLang(sel.value);
   applyI18n();
-  if(__STAR_STATE) renderStar(__STAR_STATE); // 结果已生成则重绘
+  if (__STAR_STATE) renderStar(__STAR_STATE);
 });
 
 /* 初次进入也应用语言（若 localStorage 有值） */
@@ -629,5 +633,6 @@ applyI18n();
 </script>
 </body>
 </html>
+
 
 
