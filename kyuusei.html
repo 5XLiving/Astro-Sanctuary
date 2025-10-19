@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -191,534 +192,255 @@ footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0;margin-to
 </div>
 
 <script>
-(function(){
-  'use strict';
+/* ===== 配置 ===== */
+const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev'; // ← 改成你的 Workers
+const LANG_KEY = "site_lang";
 
-  /* ============== 基础常量/工具 ============== */
-  const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
-  const LANG_KEY = 'site_lang';
-  const qs  = (s,root=document)=>root.querySelector(s);
-  const gid = (id)=>document.getElementById(id);
+/* ===== 工具 ===== */
+const $ = id => document.getElementById(id);
+const getLang = () => localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN";
+const setLang = v => { localStorage.setItem(LANG_KEY, v); document.documentElement.lang = v; };
 
-  /* ============== i18n 文案（沿用你的 six-lang；只补了九星字段） ============== */
-  const I18N = {
-    'zh-CN': {
-      lang_label:'语言',
-      page_title:'本命星盘｜Natal Chart',
-      chat_fab:'问', chat_placeholder:'想了解什么？（如：功能、会员说明）', chat_send:'发送',
-      butler_chat_title:'心怜管家 · Chat',
-      // 九星页本身的文案
-      form_title:'九星气学 · 快速解读',
-      birth_label:'出生日期',
-      solar_tip:'提示：九星以节分（立春，约 2/4）为换年点；1/1–2/3 计上一年。',
-      topic_label:'主题',
-      topic_love:'爱情/关系', topic_career:'事业/工作', topic_wealth:'财富/投资',
-      topic_family:'家庭/人际', topic_health:'健康/身心', topic_study:'学业/成长',
-      topic_move:'旅行/搬迁', topic_other:'其他',
-      preset_label:'常用问题',
-      preset_none:'（可选）选择一个模板',
-      q_label:'你的具体问题（可直接粘贴）',
-      q_ph:'例如：今天的课题是“她爱我吗”。希望得到清晰的下一步建议与避坑提醒。',
-      btn_gen:'生成分析', btn_clear:'清空',
-      sec_star:'您的九星主星', star_label:'主星',
-      sec_ai:'心怜管家解读与建议',
-      // 徽章标签
-      badge_element:'五行', badge_dir:'方位', badge_color:'色彩', badge_keywords:'关键词',
-      // AI 预设快捷
-      chip_career:'事业解读', chip_love:'感情关系', chip_money:'财务建议', chip_list:'本周执行清单', chip_30d:'30天计划',
-      q_career:'继续解读事业与团队协作', q_love:'说说感情与长期关系', q_money:'给我财务习惯、盲区与改善建议', q_list:'给我一份本周可执行清单', q_30d:'为我定一个30天成长计划',
-      // 错误
-      err_network:'网络异常', err_busy:'服务暂时繁忙，请稍后重试。',
-      alert_birth:'请先选择出生日期'
-    },
-    'zh-TW': {
-      lang_label:'語言',
-      page_title:'本命星盤｜Natal Chart',
-      chat_fab:'問', chat_placeholder:'想了解什麼？（例如：功能、會員說明）', chat_send:'傳送',
-      butler_chat_title:'心怜管家 · Chat',
-      form_title:'九星氣學 · 快速解讀',
-      birth_label:'出生日期',
-      solar_tip:'提示：九星以節分（立春，約 2/4）為換年點；1/1–2/3 計上一年。',
-      topic_label:'主題',
-      topic_love:'感情/關係', topic_career:'事業/工作', topic_wealth:'財富/投資',
-      topic_family:'家庭/人際', topic_health:'健康/身心', topic_study:'學業/成長',
-      topic_move:'旅行/搬遷', topic_other:'其他',
-      preset_label:'常用問題',
-      preset_none:'（可選）選一個模板',
-      q_label:'你的具體問題（可直接貼上）',
-      q_ph:'例如：今天的課題是「她愛我嗎」，希望得到下一步建議與避坑提醒。',
-      btn_gen:'產生分析', btn_clear:'清空',
-      sec_star:'你的九星主星', star_label:'主星',
-      sec_ai:'心怜管家解讀與建議',
-      badge_element:'五行', badge_dir:'方位', badge_color:'色彩', badge_keywords:'關鍵字',
-      chip_career:'事業解讀', chip_love:'感情關係', chip_money:'財務建議', chip_list:'本週執行清單', chip_30d:'30天計畫',
-      q_career:'繼續解讀事業與團隊協作', q_love:'說說感情與長期關係', q_money:'給我財務習慣、盲點與改善建議', q_list:'給我一份本週可執行清單', q_30d:'為我訂一個30天成長計畫',
-      err_network:'網路異常', err_busy:'服務繁忙，請稍後再試。', alert_birth:'請先選擇出生日期'
-    },
-    'en': {
-      lang_label:'Language',
-      page_title:'Natal Chart',
-      chat_fab:'Chat', chat_placeholder:'What would you like to know? (features, membership)', chat_send:'Send',
-      butler_chat_title:'Xinlian Butler · Chat',
-      form_title:'Nine Star Ki · Quick Reading',
-      birth_label:'Birth Date',
-      solar_tip:'Note: Nine Star Ki year changes at Setsubun (~Feb 4). Jan 1–Feb 3 counts as previous year.',
-      topic_label:'Topic',
-      topic_love:'Love/Relationships', topic_career:'Career/Work', topic_wealth:'Wealth/Investing',
-      topic_family:'Family/Social', topic_health:'Health/Wellbeing', topic_study:'Study/Growth',
-      topic_move:'Travel/Move', topic_other:'Other',
-      preset_label:'Common prompts',
-      preset_none:'(Optional) pick a template',
-      q_label:'Your specific question',
-      q_ph:'e.g., “Does she love me?” Please give clear next-step advice and pitfalls to avoid.',
-      btn_gen:'Generate', btn_clear:'Clear',
-      sec_star:'Your Main Star (Honmei)',
-      star_label:'Main Star',
-      sec_ai:'Butler’s Insights & Advice',
-      badge_element:'Element', badge_dir:'Direction', badge_color:'Color', badge_keywords:'Keywords',
-      chip_career:'Career', chip_love:'Relationships', chip_money:'Money Advice', chip_list:'Weekly To-Dos', chip_30d:'30-Day Plan',
-      q_career:'Continue with career & teamwork insights', q_love:'Talk about love & long-term relationships', q_money:'Give me money habits, blind spots & improvements', q_list:'Give me an actionable list for this week', q_30d:'Make me a 30-day growth plan',
-      err_network:'Network error', err_busy:'Service is busy. Please try again later.', alert_birth:'Please select your birth date first'
-    },
-    'ja': {
-      lang_label:'言語',
-      page_title:'出生ホロスコープ｜Natal Chart',
-      chat_fab:'問', chat_placeholder:'機能・会員などご質問ください', chat_send:'送信',
-      butler_chat_title:'心怜バトラー · チャット',
-      form_title:'九星気学 · クイックリーディング',
-      birth_label:'生年月日',
-      solar_tip:'節分（およそ2/4）で年が切り替わります。1/1–2/3は前年扱い。',
-      topic_label:'テーマ',
-      topic_love:'恋愛/関係', topic_career:'仕事/キャリア', topic_wealth:'資産/投資',
-      topic_family:'家族/人間関係', topic_health:'健康/心身', topic_study:'学び/成長',
-      topic_move:'旅行/転居', topic_other:'その他',
-      preset_label:'よくある質問',
-      preset_none:'（任意）テンプレを選択',
-      q_label:'具体的な質問',
-      q_ph:'例：「彼女は私を愛している？」次の一歩と回避ポイントを知りたい。',
-      btn_gen:'生成', btn_clear:'クリア',
-      sec_star:'あなたの本命星',
-      star_label:'本命星',
-      sec_ai:'バトラーの解読と提案',
-      badge_element:'五行', badge_dir:'方位', badge_color:'色', badge_keywords:'キーワード',
-      chip_career:'キャリア', chip_love:'関係性', chip_money:'お金の助言', chip_list:'今週のToDo', chip_30d:'30日プラン',
-      q_career:'キャリア/チーム連携を続けて分析', q_love:'恋愛/長期関係について話して', q_money:'お金の習慣・盲点・改善', q_list:'今週の実行リスト', q_30d:'30日成長プランを作って',
-      err_network:'ネットワークエラー', err_busy:'混み合っています。後ほどお試しください。', alert_birth:'生年月日を選択してください'
-    },
-    'th': {
-      lang_label:'ภาษา',
-      page_title:'ดวงกำเนิด｜Natal Chart',
-      chat_fab:'ถาม', chat_placeholder:'อยากรู้อะไรเกี่ยวกับฟีเจอร์/สมาชิก', chat_send:'ส่ง',
-      butler_chat_title:'ผู้ช่วยซินเหลียน · แชต',
-      form_title:'เก้าดาวคี (Nine Star Ki) · วิเคราะห์เร็ว',
-      birth_label:'วันเกิด',
-      solar_tip:'หมายเหตุ: ปีคีเปลี่ยนที่ Setsubun (~4 ก.พ.) วันที่ 1 ม.ค.–3 ก.พ. นับปีที่แล้ว',
-      topic_label:'หัวข้อ',
-      topic_love:'ความรัก/ความสัมพันธ์', topic_career:'งาน/อาชีพ', topic_wealth:'ทรัพย์สิน/การลงทุน',
-      topic_family:'ครอบครัว/สังคม', topic_health:'สุขภาพ/ใจ-กาย', topic_study:'การเรียน/เติบโต',
-      topic_move:'ท่องเที่ยว/ย้ายที่อยู่', topic_other:'อื่น ๆ',
-      preset_label:'คำถามที่พบบ่อย',
-      preset_none:'(ตัวเลือก) เลือกเทมเพลต',
-      q_label:'คำถามของคุณ',
-      q_ph:'เช่น “เขารักฉันไหม” ขอคำแนะนำขั้นถัดไปและสิ่งที่ควรหลีกเลี่ยง',
-      btn_gen:'สร้างผล', btn_clear:'ล้าง',
-      sec_star:'ดาวหลักของคุณ',
-      star_label:'ดาวหลัก',
-      sec_ai:'คำตีความ & คำแนะนำ',
-      badge_element:'ธาตุ', badge_dir:'ทิศ', badge_color:'สี', badge_keywords:'คีย์เวิร์ด',
-      chip_career:'การงาน', chip_love:'ความสัมพันธ์', chip_money:'คำแนะนำการเงิน', chip_list:'สิ่งที่ทำได้สัปดาห์นี้', chip_30d:'แผน 30 วัน',
-      q_career:'วิเคราะห์การงานและทีมต่อ', q_love:'พูดถึงความรักและความสัมพันธ์ยาวนาน', q_money:'นิสัยเงิน จุดบอด และการปรับปรุง', q_list:'รายการทำได้จริงสัปดาห์นี้', q_30d:'วางแผนพัฒนา 30 วัน',
-      err_network:'เครือข่ายผิดพลาด', err_busy:'ระบบหนาแน่น โปรดลองใหม่', alert_birth:'โปรดเลือกวันเกิดก่อน'
-    },
-    'ms': {
-      lang_label:'Bahasa',
-      page_title:'Carta Kelahiran｜Natal Chart',
-      chat_fab:'Chat', chat_placeholder:'Tanya tentang ciri/keahlian', chat_send:'Hantar',
-      butler_chat_title:'Xinlian Butler · Chat',
-      form_title:'Nine Star Ki · Bacaan Pantas',
-      birth_label:'Tarikh Lahir',
-      solar_tip:'Nota: Tahun Ki berubah pada Setsubun (~4 Feb). 1 Jan–3 Feb dikira tahun sebelumnya.',
-      topic_label:'Topik',
-      topic_love:'Cinta/Hubungan', topic_career:'Kerjaya/ kerja', topic_wealth:'Kekayaan/Pelaburan',
-      topic_family:'Keluarga/Sosial', topic_health:'Kesihatan/Jiwa-raga', topic_study:'Belajar/Pembangunan',
-      topic_move:'Travel/Pindah', topic_other:'Lain-lain',
-      preset_label:'Templat soalan',
-      preset_none:'(Opsyenal) pilih templat',
-      q_label:'Soalan khusus anda',
-      q_ph:'cth: “Dia cintakan saya?” Beri langkah seterusnya dan perangkap yang patut dielak.',
-      btn_gen:'Jana', btn_clear:'Kosongkan',
-      sec_star:'Bintang Utama Anda',
-      star_label:'Bintang',
-      sec_ai:'Wawasan & Nasihat',
-      badge_element:'Unsur', badge_dir:'Arah', badge_color:'Warna', badge_keywords:'Kata Kunci',
-      chip_career:'Kerjaya', chip_love:'Hubungan', chip_money:'Nasihat Wang', chip_list:'Senarai Mingguan', chip_30d:'Pelan 30 Hari',
-      q_career:'Teruskan wawasan kerjaya & pasukan', q_love:'Bincang cinta & hubungan jangka panjang', q_money:'Tabiat wang, titik buta & baik pulih', q_list:'Senarai tindakan minggu ini', q_30d:'Pelan perkembangan 30 hari',
-      err_network:'Ralat rangkaian', err_busy:'Perkhidmatan sibuk. Cuba lagi kemudian.', alert_birth:'Sila pilih tarikh lahir dahulu'
-    }
-  };
+/* ===== i18n 词库（精简示例；其他语言缺失时回退到中文） ===== */
+const i18n = {
+  "zh-CN": {
+    title:"九星气学 · 5XLiving", brand:"Soul Sanctuary", lang_label:"语言",
+    form_title:"九星气学 · 快速解读", birth_label:"出生日期",
+    solar_tip:"提示：九星以节分（立春，约 2/4）为换年点；1/1–2/3 计上一年。",
+    topic_label:"主题",
+    topic_love:"爱情/关系", topic_career:"事业/工作", topic_wealth:"财富/投资",
+    topic_family:"家庭/人际", topic_health:"健康/身心", topic_study:"学业/成长",
+    topic_move:"旅行/搬迁", topic_other:"其他",
+    preset_label:"常用问题", preset_none:"（可选）选择一个模板",
+    preset_1:"她/他爱我吗？我们接下来怎么走更好？",
+    preset_2:"我是否应该换工作/创业？需要注意什么？",
+    preset_3:"近期在投资与理财上，应如何取舍？",
+    preset_4:"如何改善与家人的关系与沟通？",
+    preset_5:"我最近健康/情绪的关键提醒是什么？",
+    q_label:"你的具体问题（可直接粘贴）",
+    q_ph:"例如：今天的课题是“她爱我吗”。希望得到清晰的下一步建议与避坑提醒。",
+    btn_gen:"生成分析", btn_clear:"清空",
+    sec_star:"您的九星主星", star_label:"主星",
+    badge_elem:"五行", badge_color:"色", badge_kw:"关键词",
+    about_label:"性格倾向", sec_ai:"心怜管家解读与建议",
+    chat_fab:"问", chat_title:"心怜管家 · Chat", chat_ph:"想了解什么？（如：如何开始免费体验）", chat_send:"发送",
+    please_birth:"请先选择出生日期", bad_date:"日期格式有误", generating:"正在生成解读…",
+    reco_title:"心怜管家推举内容", retry:"抱歉，暂时无法生成，请稍后再试。", neterr:"网络异常，请稍后再试。"
+  },
+  "en": {
+    title:"Nine Star Ki · 5XLiving", brand:"Soul Sanctuary", lang_label:"Language",
+    form_title:"Nine Star Ki · Quick Reading", birth_label:"Birthdate",
+    solar_tip:"Tip: Ki year switches at Setsubun (~Feb 4). Birthdays on Jan 1–Feb 3 belong to the previous year.",
+    topic_label:"Topic",
+    topic_love:"Love/Relationship", topic_career:"Career/Work", topic_wealth:"Wealth/Investment",
+    topic_family:"Family/Social", topic_health:"Health/Mind-Body", topic_study:"Study/Growth",
+    topic_move:"Travel/Move", topic_other:"Other",
+    preset_label:"Quick Questions", preset_none:"(Optional) Choose a template",
+    preset_1:"Does she/he love me? What’s the best next move?",
+    preset_2:"Should I change job/start a business? What to watch out for?",
+    preset_3:"How should I decide on investing/finances recently?",
+    preset_4:"How to improve communication with family?",
+    preset_5:"What are the key reminders for my health/emotions now?",
+    q_label:"Your specific question (paste here)", q_ph:"e.g. Today’s topic: “Does she love me?” Please give clear next steps and pitfalls.",
+    btn_gen:"Generate Reading", btn_clear:"Clear",
+    sec_star:"Your Main Star", star_label:"Main Star",
+    badge_elem:"Element", badge_color:"Color", badge_kw:"Keywords",
+    about_label:"Tendencies", sec_ai:"Concierge Reading & Advice",
+    chat_fab:"Chat", chat_title:"Concierge · Chat", chat_ph:"Ask me anything (e.g., how to start a free trial)", chat_send:"Send",
+    please_birth:"Please select your birthdate", bad_date:"Invalid date", generating:"Generating reading…",
+    reco_title:"Concierge Recommendations", retry:"Sorry, couldn’t generate for now.", neterr:"Network error. Try again later."
+  },
+  "ms": {
+    title:"Nine Star Ki · 5XLiving", brand:"Soul Sanctuary", lang_label:"Bahasa",
+    form_title:"Ringkasan Nine Star Ki", birth_label:"Tarikh lahir",
+    solar_tip:"Nota: Tahun Ki bertukar pada Setsubun (~4 Feb). Lahir 1/1–3/2 dikira tahun sebelumnya.",
+    topic_label:"Topik",
+    topic_love:"Cinta/Hubungan", topic_career:"Kerjaya", topic_wealth:"Kewangan/Investasi",
+    topic_family:"Keluarga/Sosial", topic_health:"Kesihatan", topic_study:"Pembelajaran",
+    topic_move:"Perjalanan/Pindah", topic_other:"Lain-lain",
+    preset_label:"Soalan Pantas", preset_none:"(Pilihan) Pilih templat",
+    preset_1:"Adakah dia mencintai saya? Langkah seterusnya?",
+    preset_2:"Patut tukar kerja/memulakan bisnes? Apa yang perlu berjaga?",
+    preset_3:"Bagaimana membuat keputusan pelaburan/ kewangan kini?",
+    preset_4:"Cara memperbaiki komunikasi keluarga?",
+    preset_5:"Peringatan utama kesihatan/emosi saya kini?",
+    q_label:"Soalan khusus anda", q_ph:"cth: Topik hari ini: “Adakah dia mencintai saya?” Beri langkah seterusnya & elak perangkap.",
+    btn_gen:"Jana Analisis", btn_clear:"Kosongkan",
+    sec_star:"Bintang Utama Anda", star_label:"Bintang",
+    badge_elem:"Unsur", badge_color:"Warna", badge_kw:"Kata Kunci",
+    about_label:"Kecenderungan", sec_ai:"Bacaan & Nasihat Concierge",
+    chat_fab:"Tanya", chat_title:"Concierge · Sembang", chat_ph:"Tanya apa-apa", chat_send:"Hantar",
+    please_birth:"Sila pilih tarikh lahir", bad_date:"Tarikh tidak sah", generating:"Menjana bacaan…",
+    reco_title:"Cadangan Concierge", retry:"Maaf, gagal jana buat masa ini.", neterr:"Ralat rangkaian."
+  }
+};
 
-  const BUTLER_LANG_NAME = {
-    'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese','en':'English','ja':'Japanese','th':'Thai','ms':'Malay'
-  };
-
-  function getLang(){
-    const saved = localStorage.getItem(LANG_KEY);
-    if (saved && I18N[saved]) return saved;
-    const raw = (navigator.language || 'zh-CN').replace('_','-');
-    const map = {'zh':'zh-CN','zh-CN':'zh-CN','zh-SG':'zh-CN','zh-TW':'zh-TW','zh-HK':'zh-TW',
-                 'en':'en','en-US':'en','en-GB':'en','en-AU':'en','ja':'ja','ja-JP':'ja','th':'th','ms':'ms'};
-    return map[raw] || 'zh-CN';
-  }
-  function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
-  function t(key){
-    const L = I18N[getLang()] || I18N['zh-CN'];
-    return L[key] || (I18N['zh-CN'][key] || key);
-  }
-  function applyI18n(){
-    const L = I18N[getLang()] || I18N['zh-CN'];
-    document.querySelectorAll('[data-i18n]').forEach(el=>{
-      const key = el.getAttribute('data-i18n');
-      const val = L[key] || I18N['zh-CN'][key];
-      if (val != null) el.textContent = val;
-    });
-    document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
-      const key = el.getAttribute('data-i18n-ph');
-      const val = L[key] || I18N['zh-CN'][key];
-      if (val != null) el.setAttribute('placeholder', val);
-    });
-    document.title = L['page_title'] || document.title;
-    const sel = gid('langSelect'); if (sel) sel.value = getLang();
-  }
-  function applyChatI18n(){
-    const fab = gid('ssChatFab');
-    const inp = gid('ssChatInput');
-    const btn = gid('ssChatSend');
-    const title = qs('.ss-chat-title');
-    if (fab) fab.textContent = t('chat_fab');
-    if (inp) inp.placeholder = t('chat_placeholder');
-    if (btn) btn.textContent = t('chat_send');
-    if (title) title.textContent = t('butler_chat_title');
-  }
-  function initLangUI(){
-    const sel = gid('langSelect');
-    if(!sel) return;
-    const current = getLang();
-    sel.value = current;
-    document.documentElement.lang = current;
-    applyI18n(); applyChatI18n();
-    sel.addEventListener('change', ()=>{
-      setLang(sel.value);
-      applyI18n(); applyChatI18n();
-      // 语言切换后，如果已有结果，按当前语言重渲染
-      if (gid('starCard')?.style.display === 'block'){
-        const d = gid('birthdate')?.value;
-        if (d) {
-          const ns = getNineStar(d);
-          renderStarCard(ns);
-        }
-      }
-    });
-  }
-
-  /* ============== 九星数据 & 计算（节分切年 2/4） ============== */
-  // 1~9：一白水 ~ 九紫火
-  const STAR_META = {
-    1: { cn:'一白水星', jp:'一白水星（Ippaku Suisei）', elCN:'水', elEN:'Water', dirCN:'北',    dirEN:'North',     colorCN:'白/蓝', colorEN:'White/Blue',
-         kwCN:'直觉 流动 沟通', kwEN:'Intuition, flow, communication',
-         about:{
-           'zh-CN':'感受力强、适应力高，擅长以温和方式连接人与资源；易犹豫或顾虑过多，给自己设置“决策时限”更顺。',
-           'zh-TW':'感受力強、適應力高，擅長以溫和方式連結；易猶豫或顧慮過多，替自己設下「決策時限」。',
-           'en':'Sensitive and adaptable; connects people and resources softly. Watch for over-caution—set clear decision deadlines.',
-           'ja':'感受性が高く適応力あり。柔らかなつながりづくりが得意。慎重すぎに注意。決断期限を設けよう。'
-         }},
-    2: { cn:'二黑土星', jp:'二黒土星（Jikoku Dosei）',   elCN:'土', elEN:'Earth', dirCN:'西南', dirEN:'Southwest', colorCN:'棕/土黄', colorEN:'Brown/Earth',
-         kwCN:'滋养 支援 耐心', kwEN:'Nurture, support, patience',
-         about:{
-           'zh-CN':'踏实照料型，能把想法落地；容易“过度承担”，学会委派与说“不”。',
-           'zh-TW':'踏實照料型，能把想法落地；易「過度承擔」，練習授權與說不。',
-           'en':'Grounded nurturer who executes steadily. Beware over-carrying—practice delegation and boundaries.',
-           'ja':'堅実で支えるタイプ。着実に実行。背負い過ぎに注意。委任と境界線を意識して。'
-         }},
-    3: { cn:'三碧木星', jp:'三碧木星（Sanpeki Mokusei）', elCN:'木', elEN:'Wood', dirCN:'正东', dirEN:'East',      colorCN:'青/绿', colorEN:'Blue/Green',
-         kwCN:'启动 表达 先锋', kwEN:'Starter, expression, pioneer',
-         about:{
-           'zh-CN':'行动与表达力强，敢于打头阵；急脾气或口快易伤人，练“先停一拍”更顺。',
-           'zh-TW':'行動與表達力強，敢於打頭陣；口快易傷人，先停一拍更順。',
-           'en':'Bold starter with strong voice. Guard against impulsive words—insert a pause before speaking.',
-           'ja':'行動・発信が得意。早口や衝動的発言に注意。ひと呼吸おいて。'
-         }},
-    4: { cn:'四绿木星', jp:'四緑木星（Shiroku Mokusei）', elCN:'木', elEN:'Wood', dirCN:'东南', dirEN:'Southeast', colorCN:'绿', colorEN:'Green',
-         kwCN:'协商 连结 流动', kwEN:'Mediation, networking, flow',
-         about:{
-           'zh-CN':'人缘广、擅协商，新机会常来自关系网；拖延和分心是课题，用“时间盒”管理精力。',
-           'zh-TW':'人緣廣、善協商；拖延與分心是課題，用「時間盒」。',
-           'en':'Networker and mediator; opportunities come via people. Fight drift with time-boxing.',
-           'ja':'人脈と調整が強み。先延ばしを時間ボックスで対処。'
-         }},
-    5: { cn:'五黄土星', jp:'五黄土星（Goō Dosei）',      elCN:'土', elEN:'Earth', dirCN:'中宫', dirEN:'Center',    colorCN:'黄', colorEN:'Yellow',
-         kwCN:'定盘 权威 转化', kwEN:'Center, authority, transformation',
-         about:{
-           'zh-CN':'气场强、能定盘与扭转局势；避免控制与冒进，守住“原则+风险边界”。',
-           'zh-TW':'氣場強，能扭轉局勢；避免控制與冒進，守住原則與風險邊界。',
-           'en':'Powerful presence; can transform situations. Avoid over-control; stick to principles and risk limits.',
-           'ja':'存在感が強く変革力あり。支配と強引さに注意。原則とリスク管理を。'
-         }},
-    6: { cn:'六白金星', jp:'六白金星（Roppaku Kinsei）', elCN:'金', elEN:'Metal', dirCN:'西北', dirEN:'Northwest', colorCN:'白', colorEN:'White',
-         kwCN:'标准 规划 领导', kwEN:'Standards, planning, leadership',
-         about:{
-           'zh-CN':'擅制定标准与远期规划；完美与自尊心强，学会“80 分先上”。',
-           'zh-TW':'擅長標準與規劃；完美與自尊強，先上80分。',
-           'en':'Strategic planner and standard-setter. Perfectionism is a trap—ship at 80%.',
-           'ja':'基準づくりと計画が得意。完璧主義に注意。まず80%で出す。'
-         }},
-    7: { cn:'七赤金星', jp:'七赤金星（Shichiseki Kinsei）', elCN:'金', elEN:'Metal', dirCN:'正西', dirEN:'West',     colorCN:'赤/粉', colorEN:'Red/Rose',
-         kwCN:'愉悦 口才 财运', kwEN:'Joy, eloquence, finances',
-         about:{
-           'zh-CN':'魅力沟通与审美在线；注意享乐与消费失衡，给“收入-储蓄-花销”做比例。',
-           'zh-TW':'魅力與溝通強；注意享樂與消費失衡，做比例配置。',
-           'en':'Charming communicator with taste. Guard against indulgence—use clear income/saving/spend ratios.',
-           'ja':'魅力と会話力。浪費に注意。収入・貯蓄・支出の比率管理を。'
-         }},
-    8: { cn:'八白土星', jp:'八白土星（Happaku Dosei）',  elCN:'土', elEN:'Earth', dirCN:'东北', dirEN:'Northeast', colorCN:'白/乳', colorEN:'White/Cream',
-         kwCN:'停变 积累 稳固', kwEN:'Stop–shift, accumulation, stability',
-         about:{
-           'zh-CN':'山之气，先停再变，擅持久积累；固执与闭塞是挑战，定期“断舍离”。',
-           'zh-TW':'山之氣，先停再變；固執與閉塞，定期斷捨離。',
-           'en':'Mountain energy—pause then change; excels at long-term accumulation. Avoid rigidity—declutter regularly.',
-           'ja':'山の気。止めてから変える。頑固を手放し、定期的に手放す。'
-         }},
-    9: { cn:'九紫火星', jp:'九紫火星（Kyūshi Kasei）',   elCN:'火', elEN:'Fire', dirCN:'正南', dirEN:'South',     colorCN:'紫/红', colorEN:'Purple/Red',
-         kwCN:'光彩 表达 学习', kwEN:'Radiance, expression, learning',
-         about:{
-           'zh-CN':'显化力与审美强、爱舞台；情绪起伏快，建立“输出-充电”的节律。',
-           'zh-TW':'顯化與審美強、喜舞台；情緒起伏快，建立輸出-充電節律。',
-           'en':'Radiant and expressive; loves the stage. Manage mood swings with output–recharge rhythms.',
-           'ja':'発信と美意識が強い。気分の波に注意。出力と充電のリズムづくりを。'
-         }}
-  };
-
-  // 2/4（含）起计入当年；1/1–2/3 计上一年
-  function adjustedYearForSetsubun(dateStr){
-    if(!dateStr) return null;
-    const d = new Date(dateStr + 'T12:00:00');
-    let y = d.getFullYear();
-    const m = d.getMonth()+1, day = d.getDate();
-    if (m < 2 || (m === 2 && day < 4)) y -= 1;
-    return y;
-  }
-  // 本命星号：1~9
-  // 公式：n = ((10 - (year % 9)) % 9) + 1
-  function calcNineStarNumber(adjYear){
-    const r = adjYear % 9;
-    return ((10 - r) % 9) + 1;
-  }
-  function getNineStar(dateStr){
-    const y = adjustedYearForSetsubun(dateStr);
-    if (y == null) return null;
-    const num = calcNineStarNumber(y);
-    const meta = STAR_META[num];
-    return { year:y, num, ...meta };
-  }
-
-  /* ============== 渲染：主星卡 ============== */
-  function badge(label, value){
-    return `<span style="display:inline-block;border:1px solid #2a3546;background:#0e1520;border-radius:999px;padding:6px 10px;margin:4px 6px 0 0;font-size:.9rem"><b style="color:#ffd88a">${label}：</b>${value}</span>`;
-  }
-  function renderStarCard(ns){
-    if(!ns) return;
-    const lang = getLang();
-    const starName = (lang==='en') ? `${ns.cn} / ${ns.jp}` : ns.cn;
-    gid('starCard').style.display = 'block';
-    gid('starName').textContent = starName;
-    gid('starJP').textContent = ns.jp;
-    const elLabel = t('badge_element'), dirLabel=t('badge_dir'), colorLabel=t('badge_color'), kwLabel=t('badge_keywords');
-    const elVal   = (lang==='en') ? ns.elEN : ns.elCN;
-    const dirVal  = (lang==='en') ? ns.dirEN : ns.dirCN;
-    const colorVal= (lang==='en') ? ns.colorEN : ns.colorCN;
-    const kwVal   = (lang==='en') ? ns.kwEN : ns.kwCN;
-    gid('starBadges').innerHTML = [
-      badge(elLabel, elVal),
-      badge(dirLabel, dirVal),
-      badge(colorLabel, colorVal),
-      badge(kwLabel, kwVal)
-    ].join('');
-    const about = ns.about?.[lang] || ns.about?.['zh-CN'] || '';
-    gid('starAbout').textContent = about;
-  }
-
-  /* ============== Butler（AI） ============== */
-  function mdToHtml(md){
-    return (md||'')
-      .replace(/^###?\s+(.*)$/gm,'<h3 style="margin:12px 0 6px;color:#f2d27a">$1</h3>')
-      .replace(/^\s*[-*]\s+(.*)$/gm,'• $1')
-      .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
-      .replace(/\n{2,}/g,'\n\n')
-      .replace(/\n/g,'<br/>');
-  }
-  function buildButlerSystemPrompt(lang){
-    const ln = BUTLER_LANG_NAME[lang] || 'Simplified Chinese';
-    // 为九星气学定制的输出骨架（不作医疗/法律/保证性断言）
-    const H = {
-      'zh-CN': ['人物画像（基于本命星）','关系沟通','事业与执行','财富与节律','可执行清单（本周/30天）','温柔提醒（避坑）'],
-      'zh-TW': ['人物画像（本命星）','關係溝通','事業與執行','財富與節律','可執行清單（本週/30天）','溫柔提醒（避坑）'],
-      'en':    ['Persona (Honmei-based)','Relationships','Career & Execution','Money & Rhythms','Action List (This Week / 30 Days)','Gentle Cautions'],
-      'ja':    ['人物像（本命星ベース）','関係性','キャリアと実行','お金とリズム','実行リスト（今週/30日）','やさしい注意点'],
-      'th':    ['ภาพบุคคล (ดาวหลัก)','ความสัมพันธ์','การงาน & การลงมือ','การเงิน & จังหวะ','รายการทำ (สัปดาห์นี้/30 วัน)','คำเตือนอ่อนโยน'],
-      'ms':    ['Persona (Bintang Utama)','Hubungan','Kerjaya & Pelaksanaan','Wang & Ritma','Senarai Tindakan (Minggu/30 Hari)','Peringatan Lembut']
-    }[lang] || H['zh-CN'];
-    return [
-      `You are "Xinlian Butler". OUTPUT LANGUAGE: ${ln}. Reply strictly in ${ln}.`,
-      'Use Nine Star Ki (honmei star) as context. Warm, practical, actionable. No medical/legal/financial guarantees.',
-      'Markdown sections:',
-      `## ${H[0]}`,
-      `## ${H[1]} (2–4 bullets)`,
-      `## ${H[2]} (2–4 bullets)`,
-      `## ${H[3]} (2–3 bullets)`,
-      `## ${H[4]} (3–6 bullets; start with verbs; quantify when possible)`,
-      `## ${H[5]}`
-    ].join('\n');
-  }
-  async function runAI(ns){
-    if(!ns) return;
-    const lang = getLang();
-    const topic = gid('topic')?.value || 'other';
-    const q = gid('question')?.value?.trim() || '';
-    const topicText = ({
-      'zh-CN':{
-        love:'感情/关系', career:'事业/工作', wealth:'财富/投资', family:'家庭/人际', health:'健康/身心', study:'学业/成长', move:'旅行/搬迁', other:'其他'
-      },
-      'zh-TW':{
-        love:'感情/關係', career:'事業/工作', wealth:'財富/投資', family:'家庭/人際', health:'健康/身心', study:'學業/成長', move:'旅行/搬遷', other:'其他'
-      },
-      'en':{
-        love:'Love/Relationships', career:'Career/Work', wealth:'Wealth/Investing', family:'Family/Social', health:'Health/Wellbeing', study:'Study/Growth', move:'Travel/Move', other:'Other'
-      },
-      'ja':{
-        love:'恋愛/関係', career:'仕事/キャリア', wealth:'資産/投資', family:'家族/人間関係', health:'健康/心身', study:'学び/成長', move:'旅行/転居', other:'その他'
-      },
-      'th':{
-        love:'ความรัก/ความสัมพันธ์', career:'งาน/อาชีพ', wealth:'ทรัพย์สิน/การลงทุน', family:'ครอบครัว/สังคม', health:'สุขภาพ/ใจ-กาย', study:'การเรียน/เติบโต', move:'ท่องเที่ยว/ย้าย', other:'อื่น ๆ'
-      },
-      'ms':{
-        love:'Cinta/Hubungan', career:'Kerjaya/kerja', wealth:'Kekayaan/Pelaburan', family:'Keluarga/Sosial', health:'Kesihatan/Jiwa-raga', study:'Belajar/Pembangunan', move:'Travel/Pindah', other:'Lain-lain'
-      }
-    }[lang]||{})[topic] || topic;
-
-    const sys = buildButlerSystemPrompt(lang);
-    const usr = [
-      `Nine Star Ki main star: ${ns.cn} / ${ns.jp} (#${ns.num})`,
-      `Element: ${(lang==='en'?ns.elEN:ns.elCN)}; Direction: ${(lang==='en'?ns.dirEN:ns.dirCN)}; Keywords: ${(lang==='en'?ns.kwEN:ns.kwCN)}`,
-      `Adjusted Year (Setsubun rule): ${ns.year}`,
-      `Focus Topic: ${topicText}`,
-      q ? `Question: ${q}` : ''
-    ].filter(Boolean).join('\n');
-
-    const box = gid('aiCard');
-    const pre = gid('aiText');
-    box.style.display = 'block';
-    if(pre) pre.textContent = '…';
-
-    try{
-      const r = await fetch(API_BASE + '/api/chat', {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({messages:[
-          {role:'system',content:sys},
-          {role:'user',content:usr}
-        ]})
-      });
-      const data = await r.json().catch(()=>({}));
-      const raw  = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
-      if(pre){
-        // 用 <pre>，保持原样；也可改成富文本：
-        pre.innerHTML = mdToHtml(raw || '');
-      }
-    }catch(e){
-      if(pre) pre.textContent = `${t('err_network')}: ${e?.message||''}`;
-    }
-  }
-
-  /* ============== 交互：生成 & 清空 & 预设模板 ============== */
-  function onGenerate(){
-    const d = gid('birthdate')?.value;
-    if(!d){ alert(t('alert_birth')); return; }
-    const ns = getNineStar(d);
-    renderStarCard(ns);
-    runAI(ns);
-  }
-  function onClear(){
-    gid('birthdate').value = '';
-    gid('question').value = '';
-    gid('starCard').style.display = 'none';
-    gid('aiCard').style.display = 'none';
-  }
-  function onPresetChange(){
-    const sel = gid('presetQ');
-    const v = sel?.value || '';
-    if(!v) return;
-    gid('question').value = sel.options[sel.selectedIndex].textContent || '';
-  }
-
-  /* ============== 右下角 Chat 浮窗（保留你的实现） ============== */
-  function mountChat(){
-    if (gid('ssChatFab')) return;
-    const chatFab=document.createElement('div'); chatFab.className='ss-chat-fab'; chatFab.id='ssChatFab'; chatFab.title=t('butler_chat_title');
-    const chatPanel=document.createElement('div'); chatPanel.className='ss-chat-panel'; chatPanel.id='ssChatPanel'; chatPanel.setAttribute('role','dialog'); chatPanel.setAttribute('aria-label',t('butler_chat_title'));
-    chatPanel.innerHTML = `
-      <div class="ss-chat-head"><div class="ss-chat-title">${t('butler_chat_title')}</div><div class="ss-close" id="ssChatClose">✕</div></div>
-      <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
-      <div class="ss-chat-input">
-        <input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/>
-        <button id="ssChatSend" class="btn">${t('chat_send')}</button>
-      </div>`;
-    document.body.appendChild(chatFab); document.body.appendChild(chatPanel);
-    applyChatI18n();
-
-    const $body=gid('ssChatBody'), $input=gid('ssChatInput'), $send=gid('ssChatSend'), $close=gid('ssChatClose');
-    const openPanel=()=>{ chatPanel.style.display='block'; $input&&$input.focus(); };
-    const closePanel=()=>{ chatPanel.style.display='none'; };
-    chatFab.addEventListener('click',openPanel); $close&&$close.addEventListener('click',closePanel);
-
-    function addMsg(text,me=false){ const div=document.createElement('div'); div.className='ss-msg'+(me?' me':''); div.textContent=text; $body.appendChild(div); $body.scrollTop=$body.scrollHeight; }
-    async function askChat(prompt){
-      addMsg(prompt,true); if($input){ $input.value=''; $input.focus(); }
-      const sys = [
-        `You are "Xinlian Butler". OUTPUT LANGUAGE: ${BUTLER_LANG_NAME[getLang()] || 'Simplified Chinese'}.`,
-        'Help visitors understand features, navigation and VIP. Tone: warm, concise, professional.'
-      ].join('\n');
-      try{
-        const r=await fetch(`${API_BASE}/api/chat`,{
-          method:'POST',headers:{'Content-Type':'application/json'},
-          body:JSON.stringify({messages:[
-            {role:'system',content:sys},
-            {role:'user',content:prompt}
-          ]})
-        });
-        const data=await r.json().catch(()=>({}));
-        const reply=data?.reply??data?.text??data?.choices?.[0]?.message?.content??'';
-        addMsg(reply || t('err_busy'));
-      }catch(e){ addMsg(`${t('err_network')}，${t('err_busy')}`); }
-    }
-    $send&&$send.addEventListener('click',()=>{ const v=$input?.value.trim(); if(v) askChat(v); });
-    $input&&$input.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
-  }
-
-  /* ============== 页面初始化 ============== */
-  document.addEventListener('DOMContentLoaded', ()=>{
-    // 默认今天，便于测试
-    if (gid('birthdate') && !gid('birthdate').value){
-      gid('birthdate').value = new Date().toISOString().split('T')[0];
-    }
-    initLangUI();
-    mountChat();
-
-    // 绑定按钮
-    gid('go')?.addEventListener('click', onGenerate);
-    gid('clear')?.addEventListener('click', onClear);
-    gid('presetQ')?.addEventListener('change', onPresetChange);
+/* 将页面静态文案替换为当前语言 */
+function t(key){ const L=i18n[getLang()]||i18n["zh-CN"]; return L[key] || (i18n["zh-CN"][key]||key); }
+function applyI18n(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const k=el.getAttribute("data-i18n"); el.textContent = t(k);
   });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
+    const k=el.getAttribute("data-i18n-ph"); el.setAttribute("placeholder", t(k));
+  });
+  const titleEl=document.querySelector("title[data-i18n], title[data-i18n='title']");
+  if(titleEl){ titleEl.textContent=t("title"); }
+}
 
+/* ===== Chat 浮窗 ===== */
+(function(){
+  const fab=$('ssChatFab'), panel=$('ssChatPanel'), body=$('ssChatBody'), input=$('ssChatInput'), send=$('ssChatSend'), closeBtn=$('ssChatClose');
+  function addMsg(text,me=false){const d=document.createElement('div');d.className='ss-msg'+(me?' me':'');d.textContent=text;body.appendChild(d);body.scrollTop=body.scrollHeight;}
+  async function askChat(prompt){
+    addMsg(prompt,true); input.value='';
+    try{
+      const r=await fetch(`${API_BASE}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({messages:[
+        {role:'system',content:'你是“心怜管家”，语气温暖专业、简洁有条理，提供网站导航与一般咨询。'},
+        {role:'user',content:prompt}
+      ]})});
+      let data={}; try{data=await r.json()}catch{}
+      const reply=data.reply??data.text??data?.choices?.[0]?.message?.content??'';
+      addMsg(reply||t('retry'));
+    }catch{ addMsg(t('neterr')); }
+  }
+  fab.addEventListener('click',()=>{panel.style.display='flex';input.focus()});
+  closeBtn.addEventListener('click',()=>panel.style.display='none');
+  send.addEventListener('click',()=>{const v=input.value.trim();if(v)askChat(v)});
+  input.addEventListener('keydown',e=>{if(e.key==='Enter'){const v=input.value.trim();if(v)askChat(v)}});
 })();
+
+/* ===== 九星算法（节分 2/4 换年） ===== */
+function reduce1(n){let s=Math.abs(n).toString().split('').reduce((a,b)=>a+Number(b),0);while(s>9)s=s.toString().split('').reduce((a,b)=>a+Number(b),0);return s;}
+function isBeforeSetsubun(d){const m=d.getMonth(),day=d.getDate();return (m===0)||(m===1&&day<=3);}
+function calcHonmei(dateStr){const d=new Date(dateStr);if(isNaN(d))return null;const root=reduce1(d.getFullYear());let num=(isBeforeSetsubun(d)?12:11)-root;while(num<=0)num+=9;return num;}
+
+/* ===== 九星词典（基础画像） ===== */
+const STARS={
+  1:{zh:'一白水星',jp:'Ippaku Suisei',elem:{zh:'水',en:'Water',ms:'Air'},color:{zh:'白',en:'White',ms:'Putih'},key:{zh:['流动','直觉','沟通'],en:['Flow','Intuition','Communication'],ms:['Alir','Intuisi','Komunikasi']},about:{zh:'敏感细腻、共情力强，行动灵活，擅长信息与关系协调。',en:'Sensitive and empathic; agile; great at information & relationship alignment.',ms:'Peka & berempati; lincah; bagus penyelarasan maklumat & hubungan.'}},
+  2:{zh:'二黑土星',jp:'Jikoku Dosei',elem:{zh:'土',en:'Earth',ms:'Tanah'},color:{zh:'黑',en:'Black',ms:'Hitam'},key:{zh:['滋养','承载','耐性'],en:['Nourish','Support','Patience'],ms:['Membaja','Menyokong','Sabar']},about:{zh:'务实稳健、重视秩序与照料，擅长持续耕耘与落地。',en:'Practical and steady; values order & care; good at steady execution.',ms:'Praktikal & stabil; nilai tertib & penjagaan; baik pelaksanaan berterusan.'}},
+  3:{zh:'三碧木星',jp:'Sanpeki Mokusei',elem:{zh:'木',en:'Wood',ms:'Kayu'},color:{zh:'碧',en:'Cyan',ms:'Biru Hijau'},key:{zh:['生发','表达','突破'],en:['Growth','Expression','Breakthrough'],ms:['Tumbuh','Ekspresi','Terobosan']},about:{zh:'好奇表达欲强，喜欢创意与开疆拓土。',en:'Curious and expressive; loves creativity & pioneering.',ms:'Ingin tahu & ekspresif; suka kreativiti & perintis.'}},
+  4:{zh:'四绿木星',jp:'Shiroku Mokusei',elem:{zh:'木',en:'Wood',ms:'Kayu'},color:{zh:'绿',en:'Green',ms:'Hijau'},key:{zh:['交流','学习','旅行'],en:['Exchange','Learning','Travel'],ms:['Interaksi','Belajar','Perjalanan']},about:{zh:'温和包容、擅长倾听与知识整合，适合教育与协作。',en:'Gentle & inclusive; great at listening & integrating knowledge; good for education & collaboration.',ms:'Lunak & inklusif; mahir mendengar & integrasi ilmu; sesuai pendidikan & kolaborasi.'}},
+  5:{zh:'五黄土星',jp:'Gogou Dosei',elem:{zh:'土',en:'Earth',ms:'Tanah'},color:{zh:'黄',en:'Yellow',ms:'Kuning'},key:{zh:['中宫','权衡','重启'],en:['Center','Weighing','Reset'],ms:['Pusat','Menimbang','Set Semula']},about:{zh:'居中定盘、抗压强，擅长策略与危机管理。',en:'Centering & resilient; skilled at strategy & crisis management.',ms:'Memusat & tahan tekanan; mahir strategi & pengurusan krisis.'}},
+  6:{zh:'六白金星',jp:'Roppaku Kinsei',elem:{zh:'金',en:'Metal',ms:'Logam'},color:{zh:'白',en:'White',ms:'Putih'},key:{zh:['秩序','领导','远见'],en:['Order','Leadership','Vision'],ms:['Tertib','Kepimpinan','Wawasan']},about:{zh:'自律果断、擅立规则与带队。',en:'Disciplined & decisive; sets rules and leads.',ms:'Berdisiplin & tegas; menetap peraturan & memimpin.'}},
+  7:{zh:'七赤金星',jp:'Shichiseki Kinsei',elem:{zh:'金',en:'Metal',ms:'Logam'},color:{zh:'赤',en:'Red',ms:'Merah'},key:{zh:['社交','品味','享受'],en:['Social','Taste','Enjoyment'],ms:['Sosial','Citarasa','Menikmati']},about:{zh:'人缘好、审美在线，擅品牌与社群。',en:'Popular with great taste; good at brand & community.',ms:'Popular & citarasa baik; hebat jenama & komuniti.'}},
+  8:{zh:'八白土星',jp:'Happaku Dosei',elem:{zh:'土',en:'Earth',ms:'Tanah'},color:{zh:'白',en:'White',ms:'Putih'},key:{zh:['积累','转折','定山'],en:['Accumulate','Turn','Stability'],ms:['Kumpul','Pusingan','Stabil']},about:{zh:'稳中求变、厚积薄发，关键时刻能翻盘。',en:'Stable yet transformative; turns tides after accumulation.',ms:'Stabil namun berubah; bangkit selepas pengumpulan.'}},
+  9:{zh:'九紫火星',jp:'Kyūshi Kasei',elem:{zh:'火',en:'Fire',ms:'Api'},color:{zh:'紫',en:'Purple',ms:'Ungu'},key:{zh:['光彩','灵感','传播'],en:['Radiance','Inspiration','Broadcast'],ms:['Cahaya','Inspirasi','Sebar']},about:{zh:'热情外放、灵感多，适合登台表达与IP打造。',en:'Passionate & radiant; good for stage & IP building.',ms:'Bersemangat & bersinar; sesuai pentas & bina IP.'}}
+};
+
+/* 保存最后一次结果，切语言时用于重绘 */
+let __STAR_STATE = null;
+
+/* ===== 渲染主星卡片 ===== */
+function renderStar(n){
+  const lang = getLang();
+  const L = i18n[lang] || i18n["zh-CN"];
+  const star = STARS[n]; if(!star) return;
+
+  const name = star[lang==='en'?'en':'zh'] ? star[lang==='en'?'en':'zh'] : star.zh; // 名称主要用中文；可自行扩展多语名
+  $('starName').textContent = star.zh; // 中文名保持传统术语
+  $('starJP').textContent   = star.jp;
+
+  const elem = star.elem[lang] || star.elem.zh;
+  const color= star.color[lang]|| star.color.zh;
+  const kws  = (star.key[lang] || star.key.zh).join(' / ');
+  const about= star.about[lang] || star.about.zh;
+
+  $('starBadges').innerHTML =
+    `<span class="badge">${L.badge_elem}：${elem}</span>`+
+    `<span class="badge">${L.badge_color}：${color}</span>`+
+    `<span class="badge">${L.badge_kw}：${kws}</span>`;
+  $('starAbout').textContent = `${L.about_label}：${about}`;
+  $('starCard').style.display='block';
+}
+
+/* ===== 组装给 GPT 的提示词 ===== */
+function buildPrompt({langName, star, topic, question}){
+  const topicMap = {
+    "zh-CN": {love:"爱情/关系",career:"事业/工作",wealth:"财富/投资",family:"家庭/人际",health:"健康/身心",study:"学业/成长",move:"旅行/搬迁",other:"其他"},
+    "en":    {love:"Love/Relationship",career:"Career/Work",wealth:"Wealth/Investment",family:"Family/Social",health:"Health/Mind-Body",study:"Study/Growth",move:"Travel/Move",other:"Other"},
+    "ms":    {love:"Cinta/Hubungan",career:"Kerjaya",wealth:"Kewangan/Investasi",family:"Keluarga/Sosial",health:"Kesihatan",study:"Pembelajaran",move:"Perjalanan/Pindah",other:"Lain-lain"}
+  }[getLang()] || {};
+
+  const starText = `主星：${star.zh}（${star.jp}）；五行：${star.elem.zh}；关键词：${star.key.zh.join('、')}。性格：${star.about.zh}`;
+  return `你是 5XLiving「心怜管家」与资深九星气学顾问。请使用【${langName}】输出，语气温暖、专业、落地。
+用户的主星信息：${starText}
+用户主题：${topicMap[topic] || topic}
+用户问题：${question || '（无具体问题，请给通用提示）'}
+
+请按以下结构输出（不要加多余前后缀）：
+# 核心判断（2-4 句）
+# 现在要做的事（列 3 条，动词开头）
+# 避坑提醒（列 2-3 条）
+# 可尝试的灵性练习（从冥想/manifestation/书写愿望/仪式中给 2-3 条，给操作要点）
+# AI 推举内容（列 3-5 条，结合本网站：如预约一对一、加入 VIP、许愿包/御守、课程、把计划存入心怜笔记等）`;
+}
+
+/* ===== 请求 AI ===== */
+async function askAI(prompt){
+  const resp = await fetch(`${API_BASE}/api/chat`,{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({messages:[
+      {role:'system',content:'你将产出结构化的九星气学建议，务必简明清晰、可执行。'},
+      {role:'user',content:prompt}
+    ]})
+  });
+  let data={}; try{data=await resp.json()}catch{}
+  return data.reply ?? data.text ?? data?.choices?.[0]?.message?.content ?? '';
+}
+
+/* ===== 交互 ===== */
+$('presetQ').addEventListener('change',e=>{
+  const v=e.target.value; if(v){ const q=$('question'); q.value = q.value? q.value+'\n'+v : v; }
+});
+$('clear').addEventListener('click',()=>{
+  $('birthdate').value=''; $('question').value=''; $('presetQ').value=''; $('topic').value='love';
+  $('starCard').style.display='none'; $('aiCard').style.display='none'; __STAR_STATE=null;
+});
+$('go').addEventListener('click', async ()=>{
+  const L = i18n[getLang()]||i18n["zh-CN"];
+  const date=$('birthdate').value.trim();
+  if(!date){ alert(L.please_birth); return; }
+  const n=calcHonmei(date); if(!n){ alert(L.bad_date); return; }
+  __STAR_STATE = n; renderStar(n);
+
+  const topic=$('topic').value;
+  const question=( $('question').value || $('presetQ').value || '' ).trim();
+  const langName = ({'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu'})[getLang()] || '简体中文';
+  const prompt=buildPrompt({langName, star:STARS[n], topic, question});
+
+  $('aiText').textContent = L.generating;
+  $('aiCard').style.display='block';
+  try{
+    const txt = await askAI(prompt);
+    $('aiText').textContent = txt || L.retry;
+
+    // 从文本里抓“推举/推荐/VIP/许愿/课程/预约/笔记/御守”等做一个列表（尽量温和）
+    const recos=[]; (txt||'').split('\n').forEach(l=>{
+      if(/推举|推荐|VIP|许愿|课程|预约|御守|笔记|会员/i.test(l)) recos.push(l.trim());
+    });
+    $('aiReco').innerHTML = recos.length
+      ? `<div class="h2">${L.reco_title}</div><ul style="margin:.3rem 0 .2rem .9rem">${recos.slice(0,5).map(x=>`<li>${x}</li>`).join('')}</ul>`
+      : '';
+  }catch(e){
+    $('aiText').textContent = L.neterr;
+  }
+});
+
+/* ===== 语言切换：即时更新文案 + 重绘结果 ===== */
+const sel = $('langSelect');
+sel.value = getLang();
+applyI18n();
+sel.addEventListener('change', ()=>{
+  setLang(sel.value);
+  applyI18n();
+  // 结果已生成则重绘
+  if(__STAR_STATE) renderStar(__STAR_STATE);
+});
+
+/* 初次进入也应用语言（若 localStorage 有值） */
+document.documentElement.lang = getLang();
+applyI18n();
 </script>
 </body>
 </html>
