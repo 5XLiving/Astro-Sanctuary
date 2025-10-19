@@ -547,10 +547,49 @@
   }
 
   /* ====== 文案 ====== */
-  var brief = {
+// ====== 多语言简评（只给了 zh-CN / en；其他语言先回退到 en）======
+var BRIEF = {
+  "en": {
+    lp: {
+      1:"Independent, self-starting leadership; avoid being overbearing.",
+      2:"Cooperative and sensitive; watch people-pleasing.",
+      3:"Expressive, social, creative; focus and follow through.",
+      4:"Practical, structured, stable; avoid rigidity.",
+      5:"Freedom, change, exploration; pace yourself and manage risk.",
+      6:"Responsibility, care, aesthetics; curb perfectionism/over-worry.",
+      7:"Introspective, research, spiritual insight; practice sharing/connection.",
+      8:"Ambition, achievement, resource integration; balance power with kindness.",
+      9:"Humanitarian, healing, artistic compassion; set clear boundaries.",
+      11:"Inspired mission, strong intuition; ground it with routine and action.",
+      22:"Master builder—turn vision into systems; leverage teams and patience.",
+      33:"Unconditional love & service; self-care first, then care for others."
+    },
+    love: {
+      1:"Takes the lead; learn softness and listening for stability.",
+      2:"Craves closeness/safety; avoid over-dependence.",
+      3:"Needs play and expression; values interaction & rituals.",
+      4:"Commitment-oriented and steady; slow to warm but reliable.",
+      5:"Needs freedom/novelty; partner must respect space.",
+      6:"Nurturing and devoted; dreams of stable, beautiful home life.",
+      7:"Seeks soul-level connection; needs quiet understanding.",
+      8:"Goal-driven even in love; wants an equal partner.",
+      9:"Giving and compassionate; don’t self-sacrifice or ‘rescue’.",
+      11:"Sensitive and intuitive; handle emotions gently.",
+      22:"Long-term builder of the relationship; practical yet visionary.",
+      33:"Heals through love; self-love first, then mutual love."
+    }
+  },
+  "zh-CN": {  // 你现有的中文文案原样放进来
     lp:{1:"独立、自主、领导力强，适合开创型路线；注意别过度强势。",2:"温和、协调、敏感度高，擅长合作与倾听；需避免过度迎合。",3:"表达力强、社交与创意并重；注意分心，持之以恒是关键。",4:"务实、结构感强，重秩序与稳定；留意僵化与保守。",5:"自由、变化、探索；管理好节奏与边界，避免过度冒险。",6:"责任、关怀、美感；注意完美主义与过度操心。",7:"内省、研究、灵性与洞察；学会表达与连接。",8:"野心、成就、资源整合；需平衡权力与良善。",9:"人文、疗愈、艺术与包容；设立界限，避免过度牺牲。",11:"灵感使命、直觉超感；落地执行与规律作息很重要。",22:"大师建构、把抽象化为实务；请善用团队与耐心。",33:"无条件爱、服务与疗愈；先照顾好自己再照亮他人。"},
     love:{1:"在关系中追求主导与效率，学会柔软与倾听能更稳。",2:"渴望亲密与安全感，细腻体贴；避免过度依附。",3:"需要表达与玩心，爱情里重视互动与仪式感。",4:"以责任与承诺为核心，慢热但踏实可靠。",5:"热爱自由与新鲜感，需要尊重空间的伴侣。",6:"愿意照顾与付出，向往家庭与稳定美好生活。",7:"重视精神连接与灵魂共鸣，需要被理解的安静角落。",8:"在关系里也讲目标与效率，需要势均力敌的伙伴。",9:"包容与付出，但要学会不拯救、不内耗。",11:"感应敏锐、灵魂契合度要求高，情绪需要温柔对待。",22:"关系中的大格局与长期建构者，务实又愿景导向。",33:"以爱疗愈的能量流动，先自爱，后相爱。"}
-  };
+  }
+};
+
+// 统一入口：按当前语言取文案，不存在就回退到英文，再回退中文
+function getBrief(){
+  var lang = (typeof getLang === 'function') ? getLang() : 'zh-CN';
+  return BRIEF[lang] || BRIEF['en'] || BRIEF['zh-CN'];
+}
 
   /* ====== Butler Insight ====== */
   function mdToHtml(md){
@@ -622,12 +661,12 @@
       + '<div class="sec">'
       + '  <h3>' + t('sec_life') + '</h3>'
       + '  <p><b>' + t('sec_life') + '</b>：<span id="lifePath">' + (lp!=null?lp:'—') + '</span></p>'
-      + '  <p class="muted" id="lifePathDesc">' + (lp?brief.lp[lp]:'') + '</p>'
+      + '  <p class="muted" id="lifePathDesc">${lp?(getBrief().lp[lp]||''):''}</p>
       + '</div>'
       + '<div class="sec">'
       + '  <h3>' + t('sec_love') + '</h3>'
       + '  <p><b>' + t('sec_love') + '</b>：<span id="loveNumber">' + (lv!=null?lv:'—') + '</span></p>'
-      + '  <p class="muted" id="loveDesc">' + (lv?brief.love[lv]:'') + '</p>'
+      + '  <p class="muted" id="loveDesc">${lv?(getBrief().love[lv]||''):''}</p>
       + '</div>';
 
     ensureAiCard();
@@ -678,8 +717,8 @@
     var lp = obj.lp, lv = obj.lv, iso = obj.iso;
     var usr = [
       'Birth date: ' + iso,
-      'Life Path: ' + (lp!=null?lp:'-') + ' — ' + (lp? (brief.lp[lp]||'') : ''),
-      'Love Number: ' + (lv!=null?lv:'-') + ' — ' + (lv? (brief.love[lv]||'') : ''),
+    (function(){var br=getBrief(); return `Life Path: ${(lp!=null?lp:'-')} — ${lp?(br.lp[lp]||''):''}`;})(),
+    (function(){var br=getBrief(); return `Love Number: ${(lv!=null?lv:'-')} — ${lv?(br.love[lv]||''):''}`;})(),
       (topic ? ('Task/Focus: ' + topic) : ('Task/Focus: ' + t('chip_career'))),
       'Expectation: human, concrete and immediately actionable advice.'
     ].join('\n');
@@ -921,6 +960,7 @@
 </script>
 </body>
 </html>
+
 
 
 
