@@ -646,38 +646,44 @@ function getBrief(){
   }
 
   function renderReport(obj){
-    var iso = obj.iso, lp = obj.lp, lv = obj.lv;
-    var wrap = gid('numReport');
+  var iso = obj.iso, lp = obj.lp, lv = obj.lv;
+  var wrap = gid('numReport');
 
-    var oldAi = gid('aiCard');
-    var savedKey   = (oldAi && oldAi.dataset) ? (oldAi.dataset.topicKey || '') : '';
-    var savedTopic = (oldAi && oldAi.dataset) ? (oldAi.dataset.topic || '') : '';
+  // 记住旧 aiCard 的选择
+  var oldAi = gid('aiCard');
+  var savedKey   = (oldAi && oldAi.dataset) ? (oldAi.dataset.topicKey || '') : '';
+  var savedTopic = (oldAi && oldAi.dataset) ? (oldAi.dataset.topic || '') : '';
 
-    wrap.innerHTML = ''
-      + '<div class="sec">'
-      + '  <h3>' + t('sec_overview') + '</h3>'
-      + '  <p>' + iso + '</p>'
-      + '</div>'
-      + '<div class="sec">'
-      + '  <h3>' + t('sec_life') + '</h3>'
-      + '  <p><b>' + t('sec_life') + '</b>：<span id="lifePath">' + (lp!=null?lp:'—') + '</span></p>'
-      + '  <p class="muted" id="lifePathDesc">${lp?(getBrief().lp[lp]||''):''}</p>
-      + '</div>'
-      + '<div class="sec">'
-      + '  <h3>' + t('sec_love') + '</h3>'
-      + '  <p><b>' + t('sec_love') + '</b>：<span id="loveNumber">' + (lv!=null?lv:'—') + '</span></p>'
-      + '  <p class="muted" id="loveDesc">${lv?(getBrief().love[lv]||''):''}</p>
-      + '</div>';
+  // 按当前语言取描述
+  var br = getBrief();
+  var lifeDesc = (lp!=null && br.lp && br.lp[lp]) ? br.lp[lp] : '';
+  var loveDesc = (lv!=null && br.love && br.love[lv]) ? br.love[lv] : '';
 
-    ensureAiCard();
-    renderChips();
+  wrap.innerHTML =
+    '<div class="sec">'
+    + '  <h3>' + t('sec_overview') + '</h3>'
+    + '  <p>' + iso + '</p>'
+    + '</div>'
+    + '<div class="sec">'
+    + '  <h3>' + t('sec_life') + '</h3>'
+    + '  <p><b>' + t('sec_life') + '</b>：<span id="lifePath">' + (lp!=null?lp:'—') + '</span></p>'
+    + '  <p class="muted" id="lifePathDesc">' + lifeDesc + '</p>'
+    + '</div>'
+    + '<div class="sec">'
+    + '  <h3>' + t('sec_love') + '</h3>'
+    + '  <p><b>' + t('sec_love') + '</b>：<span id="loveNumber">' + (lv!=null?lv:'—') + '</span></p>'
+    + '  <p class="muted" id="loveDesc">' + loveDesc + '</p>'
+    + '</div>';
 
-    var newAi = gid('aiCard');
-    if (newAi && savedKey) {
-      newAi.dataset.topicKey = savedKey;
-      newAi.dataset.topic    = savedTopic || t(savedKey);
-    }
+  ensureAiCard();
+  renderChips();
+
+  var newAi = gid('aiCard');
+  if (newAi && savedKey) {
+    newAi.dataset.topicKey = savedKey;
+    newAi.dataset.topic    = savedTopic || t(savedKey);
   }
+}
 
   function buildButlerSystemPrompt(lang, topic){
     if (!topic) topic = '';
@@ -715,10 +721,13 @@ function getBrief(){
 
     var sys = buildButlerSystemPrompt(lang, topic);
     var lp = obj.lp, lv = obj.lv, iso = obj.iso;
+    var br2 = getBrief();
+    var lineLP = 'Life Path: ' + (lp!=null?lp:'-') + ' — ' + (lp ? (br2.lp[lp] || '') : '');
+    var lineLV = 'Love Number: ' + (lv!=null?lv:'-') + ' — ' + (lv ? (br2.love[lv] || '') : '');
     var usr = [
       'Birth date: ' + iso,
-    (function(){var br=getBrief(); return `Life Path: ${(lp!=null?lp:'-')} — ${lp?(br.lp[lp]||''):''}`;})(),
-    (function(){var br=getBrief(); return `Love Number: ${(lv!=null?lv:'-')} — ${lv?(br.love[lv]||''):''}`;})(),
+      lineLP,
+      lineLV,
       (topic ? ('Task/Focus: ' + topic) : ('Task/Focus: ' + t('chip_career'))),
       'Expectation: human, concrete and immediately actionable advice.'
     ].join('\n');
@@ -960,6 +969,7 @@ function getBrief(){
 </script>
 </body>
 </html>
+
 
 
 
