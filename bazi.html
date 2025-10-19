@@ -2157,19 +2157,42 @@ document.addEventListener('DOMContentLoaded', ()=>{
 })();
 
 /* === BAZI：把每一段包进 .box（非侵入式）=== */
+/* === BAZI：把每一段包进 .box（保留 #aiCard / #butlerTitle）=== */
 (function boxifyBazi(){
   function wrapSec(sec){
     if (!sec || sec.closest('.box')) return;
-    const titleEl = sec.querySelector('h3');
-    const title   = titleEl ? titleEl.textContent.trim() : '';
-    const bodyFrag = document.createDocumentFragment();
-    if (titleEl) titleEl.remove();
-    while (sec.firstChild) bodyFrag.appendChild(sec.firstChild);
 
-    const box = document.createElement('div'); box.className = 'box';
-    const h   = document.createElement('div'); h.className   = 'box-h'; h.textContent = title || '';
-    const c   = document.createElement('div'); c.className   = 'box-c'; c.appendChild(bodyFrag);
-    box.appendChild(h); box.appendChild(c);
+    const isAiCard = sec.id === 'aiCard';             // 关键：是否管家卡
+    const titleEl  = sec.querySelector('h3');
+    const titleTxt = titleEl ? titleEl.textContent.trim() : '';
+    const titleId  = titleEl ? titleEl.id : '';
+
+    const frag = document.createDocumentFragment();
+    if (titleEl) titleEl.remove();
+    while (sec.firstChild) frag.appendChild(sec.firstChild);
+
+    const box = document.createElement('div');
+    box.className = 'box';
+
+    // ✅ 保留 id 和 dataset，避免后续 runAI 找不到 #aiCard
+    if (isAiCard){
+      box.id = 'aiCard';
+      for (const k in sec.dataset) box.dataset[k] = sec.dataset[k];
+    }
+
+    const h = document.createElement('div');
+    h.className = 'box-h';
+    h.textContent = titleTxt || '';
+
+    // ✅ 如果原本标题是 #butlerTitle，也把 id 迁移过来，便于多语言刷新
+    if (titleId === 'butlerTitle') h.id = 'butlerTitle';
+
+    const c = document.createElement('div');
+    c.className = 'box-c';
+    c.appendChild(frag);
+
+    box.appendChild(h);
+    box.appendChild(c);
     sec.replaceWith(box);
   }
 
@@ -2188,23 +2211,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
 
   function applyAll(root){
-  if (!root) return;
-  // 富报告各段
-  root.querySelectorAll('#rich-report .sec').forEach(wrapSec);
+    if (!root) return;
+    // 富报告
+    root.querySelectorAll('#rich-report .sec').forEach(wrapSec);
+    // ✅ 管家卡片（不管有没有 .sec，都包）
+    const ai = root.querySelector('#aiCard'); if (ai) wrapSec(ai);
+    // 免费简报
+    root.querySelectorAll('#xl-free-report .card').forEach(wrapCard);
+  }
 
-  // ✅ 管家卡片：不论是否有 .sec，都统一包一次
-  const ai = root.querySelector('#aiCard');
-  if (ai) wrapSec(ai);
-
-  // 免费简报
-  root.querySelectorAll('#xl-free-report .card').forEach(wrapCard);
-}
-
-
-  // 立刻跑一次
+  // 1) 先跑一次
   applyAll(document.getElementById('result') || document);
 
-  // 挂钩渲染后再包裹
+  // 2) 挂钩你现有的渲染函数（保持你原逻辑不变）
   const _mountRich = window.mountRichReport;
   if (typeof _mountRich === 'function'){
     window.mountRichReport = function(...args){
@@ -2225,6 +2244,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
       _rerender.apply(this, args);
       applyAll(document.getElementById('result') || document);
     };
+  }
+
+  // 3) 兜底：监听 #aiCard 动态插入（先插入后 wrap 的场景）
+  const root = document.getElementById('result') || document.body;
+  if (root) {
+    const mo = new MutationObserver((mutList)=>{
+      for (const m of mutList){
+        for (const n of m.addedNodes){
+          if (!(n instanceof HTMLElement)) continue;
+          const ai = (n.id === 'aiCard') ? n : n.querySelector?.('#aiCard');
+          if (ai && !ai.closest('.box')) wrapSec(ai);
+        }
+      }
+    });
+    mo.observe(root, { childList:true, subtree:true });
   }
 })();
   
