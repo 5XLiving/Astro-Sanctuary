@@ -239,25 +239,13 @@
         <!-- 独立输入区（登录/注册共享这些输入） -->
         <div class="row" id="authFields">
           <label for="email" class="sr-only">Email</label>
-          <input
-            id="email"
-            type="email"
-            inputmode="email"
-            autocomplete="email"
-            placeholder="邮箱 Email"
-            data-i18n-ph="ph_email"
-            required
-          />
+          <input id="email" name="email" type="email" inputmode="email"
+                 autocomplete="username" placeholder="邮箱 Email" data-i18n-ph="ph_email" required />
 
-          <input
-            id="password"
-            type="password"
-            autocomplete="new-password"
-            placeholder="密码 Password（至少8位，含大小写数字符号）"
-            data-i18n-ph="ph_password"
-            required
-           />
-        </div>
+          <label for="password" class="sr-only">密码 Password</label>
+          <input id="password" name="password" type="password"
+                 autocomplete="current-password"
+                 placeholder="密码 Password（至少8位，含大小写数字符号）" data-i18n-ph="ph_password" required />
 
         <div class="spacer"></div>
 
@@ -278,14 +266,13 @@
         <!-- 注册表单（复用上方两格输入） -->
         <form class="row one" id="registerForm">
           <button class="btn block" id="registerBtn" type="submit" data-i18n="btn_register">注册账户</button>
-        
-        <div class="muted" data-i18n="note_price">
-        注册账号赠送一次免费体验
-        </div>  
+        </form>
 
+        <div class="muted" data-i18n="note_price">注册账号赠送一次免费体验</div>
         <div class="spacer"></div>
 
-        <div class="error" id="error" style="display:none"></div>
+        <!-- 可被读屏及时播报 -->
+        <div class="error" id="error" role="alert" aria-live="polite" style="display:none"></div>
       </div>
     </div>
     </form>
@@ -328,6 +315,36 @@
   function strongPwd(pw){
     return pw.length>=8 && /[A-Z]/.test(pw) && /[a-z]/.test(pw) && /[0-9]/.test(pw) && /[^A-Za-z0-9]/.test(pw);
   }
+
+  /* Chat 面板（统一金色调系风格） */
+.ss-chat-panel{
+  position:fixed; right:18px; bottom:88px; z-index:50;
+  width:min(460px,92vw);
+  display:none;                 /* 初始隐藏 */
+  background:#0e1520; border:1px solid #243244;
+  border-radius:14px; box-shadow:0 8px 30px rgba(0,0,0,.35);
+  backdrop-filter:blur(10px);
+}
+.ss-chat-head{display:flex;align-items:center;justify-content:space-between;
+  padding:10px 12px;border-bottom:1px solid #243244}
+.ss-chat-title{font-weight:700;color:#ffe084}
+.ss-close{cursor:pointer;opacity:.85}
+.ss-chat-body{max-height:300px;overflow:auto;padding:10px 12px}
+.ss-msg{padding:8px 10px;background:#0f1624;border:1px solid #243244;
+  border-radius:10px;margin:6px 0;max-width:80%}
+.ss-msg.me{margin-left:auto;background:#132033}
+.ss-chat-input{display:flex;align-items:center;gap:8px;
+  padding:10px 12px;border-top:1px solid #243244}
+.ss-chat-input input{
+  flex:1 1 auto; min-width:0; background:#0f1522; color:#eaf0ff;
+  border:1px solid rgba(212,175,55,.28); border-radius:10px; padding:12px;
+}
+.ss-chat-input input:focus{border-color:#f2d27a; box-shadow:0 0 0 2px rgba(242,210,122,.25)}
+.ss-chat-input button{
+  flex:0 0 auto; white-space:nowrap;
+  padding:10px 14px; border-radius:10px; border:1px solid #e6c76e;
+  background:linear-gradient(180deg,#fff9e6,#e6c76e); color:#191919; font-weight:700;
+}
 
   // ============== 多语言 ==============
   const LANG_KEY = "site_lang";
@@ -658,7 +675,7 @@
     chatPanel.className = 'ss-chat-panel'; chatPanel.id = 'ssChatPanel'; chatPanel.setAttribute('role','dialog'); chatPanel.setAttribute('aria-label','心怜管家');
     chatPanel.innerHTML = `
       <div class="ss-chat-head">
-        <div class="ss-chat-title">心怜管家 · Chat</div>
+        <div class="ss-chat-title">${t('chat_title') || '心怜管家 · Chat'}</div>
         <div class="ss-close" id="ssChatClose">✕</div>
       </div>
       <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
@@ -669,6 +686,16 @@
 
     document.body.appendChild(chatFab);
     document.body.appendChild(chatPanel);
+
+    // 让回车 → 触发“登入账户”
+    const fields = document.getElementById('authFields');
+    const loginBtn = document.getElementById('loginBtn');
+    if (fields && loginBtn) {
+      fields.addEventListener('keydown', (e)=>{
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          loginBtn.click();
+        }
 
     // 初始语言（页面 + chat）
     const select = document.getElementById("langSelect");
