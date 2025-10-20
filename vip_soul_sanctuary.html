@@ -193,7 +193,7 @@
           <option value="农历" data-i18n="cal_l">农历 (Lunar)</option>
         </select>
         <input type="text" id="country1" name="country1" placeholder="出生国家 / 地区" required data-i18n-ph="ph_country1">
-        <button class="btn" onclick="document.getElementById('reportForm').requestSubmit()" data-i18n="btn_next">下一步</button>
+        <button class="btn" id="btnNext" type="button" data-i18n="btn_next">生成分析</button>
       </div>
 
       <!-- 隐形表单用于提交 -->
@@ -330,42 +330,61 @@
   <footer>© 5XLiving • Astro Sanctuary</footer>
   </main>
 
-  <script>
-    // 切换个人/合盘显示
-    function togglePartner(value){
-      const section = document.getElementById("partner-section");
-      const personal = document.getElementById('purpose_personal');
-      const compat = document.getElementById('purpose_compatibility');
-      const show = (value === "compatibility");
-      section.style.display = show ? "block" : "none";
-      personal.style.display = show ? "none" : "block";
-      compat.style.display = show ? "block" : "none";
-    }
+<Script>  
+// 切换个人/合盘显示
+function togglePartner(value){
+  const section = document.getElementById("partner-section");
+  const personal = document.getElementById('purpose_personal');
+  const compat = document.getElementById('purpose_compatibility');
+  const show = (value === "compatibility");
+  section.style.display = show ? "block" : "none";
+  personal.style.display = show ? "none" : "block";
+  compat.style.display = show ? "block" : "none";
+}
 
-    // 隐形表单同步并提交
-    const reportForm = document.getElementById('reportForm');
-    function syncToHiddenForm(){
-      const ids = ["type","culture","name1","birthdate1","birthtime1","calendar1","country1","name2","birthdate2","birthtime2","calendar2","country2"];
-      ids.forEach(id=>{
-        const el = document.getElementById(id); if(!el) return;
-        let h = reportForm.querySelector(`[name="${id}"]`);
-        if(!h){ h = document.createElement('input'); h.type='hidden'; h.name=id; reportForm.appendChild(h); }
-        h.value = el.value || '';
-      });
-      const purpose = (document.getElementById('type').value === 'compatibility')
-        ? document.getElementById('purpose_compatibility').value
-        : document.getElementById('purpose_personal').value;
-      let p = reportForm.querySelector('[name="purpose"]');
-      if(!p){ p = document.createElement('input'); p.type='hidden'; p.name='purpose'; reportForm.appendChild(p); }
-      p.value = purpose;
+// 隐形表单同步（仅当你确实需要把值同步到隐藏表单时调用）
+function syncToHiddenForm(){
+  const reportForm = document.getElementById('reportForm');
+  if (!reportForm) return; // 容错：不存在就直接返回
+
+  const ids = ["type","culture","name1","birthdate1","birthtime1","calendar1","country1","name2","birthdate2","birthtime2","calendar2","country2"];
+  ids.forEach(id=>{
+    const el = document.getElementById(id); if(!el) return;
+    let h = reportForm.querySelector(`[name="${id}"]`);
+    if(!h){ h = document.createElement('input'); h.type='hidden'; h.name=id; reportForm.appendChild(h); }
+    h.value = el.value || '';
+  });
+
+  const purpose = (document.getElementById('type')?.value === 'compatibility')
+    ? document.getElementById('purpose_compatibility')?.value
+    : document.getElementById('purpose_personal')?.value;
+
+  let p = reportForm.querySelector('[name="purpose"]');
+  if(!p){ p = document.createElement('input'); p.type='hidden'; p.name='purpose'; reportForm.appendChild(p); }
+  p.value = purpose || '';
+}
+
+// ====== 关键修正：让“生成分析”只渲染报告，不提交表单 ======
+document.addEventListener('DOMContentLoaded', ()=>{
+  const nextBtn = document.getElementById('btnNext');
+  if (!nextBtn) return;
+
+  nextBtn.addEventListener('click', (e)=>{
+    e.preventDefault();
+    // 如需同步隐藏表单（某些后续流程会用到），可保留这一句：
+    if (typeof syncToHiddenForm === 'function') syncToHiddenForm();
+
+    // 调你的渲染函数（存在哪个就用哪个）
+    if (typeof generateReport === 'function') {
+      generateReport();
+    } else if (typeof generate === 'function') {
+      // 你已有的能量报告/管家渲染逻辑
+      generate();
+    } else {
+      alert('缺少渲染逻辑：请实现 generateReport() 或复用已有的 generate()。');
     }
-    // 拦截“下一步”按钮
-    document.addEventListener('click', (e)=>{
-      const b = e.target.closest('button');
-      if (b && b.textContent.trim() === document.querySelector('[data-i18n="btn_next"]').textContent.trim()){
-        e.preventDefault(); syncToHiddenForm(); reportForm.submit();
-      }
-    });
+  });
+});
 
   // ============== 统一配置（你的 Worker 域名） ==============
   const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev'; // ← 改成你的 Workers.dev
@@ -398,7 +417,7 @@ const translations = {
     culture_west:"西方 Astrology / Tarot", culture_jp:"日式九星 Japanese", culture_vedic:"印度吠陀 Vedic",
     self_info:"本人资料", ph_name1:"姓名（本人）", ph_time1:"出生时间", ph_country1:"出生国家 / 地区",
     cal_g:"阳历 (Gregorian)", cal_l:"农历 (Lunar)",
-    btn_next:"下一步",
+    btn_next:"生成分析",
     partner_info:"第二人资料（合盘）", ph_name2:"姓名（第二人）", ph_time2:"出生时间", ph_country2:"出生国家 / 地区",
     focus_title:"命理选题（报告聚焦）",
     opt_love:"姻缘 Love", opt_dating:"恋爱缘分", opt_marriage:"婚姻走势",
@@ -487,7 +506,7 @@ const translations = {
     culture_west:"西方 Astrology / Tarot", culture_jp:"日式九星 Japanese", culture_vedic:"印度吠陀 Vedic",
     self_info:"本人資料", ph_name1:"姓名（本人）", ph_time1:"出生時間", ph_country1:"出生國家 / 地區",
     cal_g:"陽曆 (Gregorian)", cal_l:"農曆 (Lunar)",
-    btn_next:"下一步",
+    btn_next:"生成分析",
     partner_info:"第二人資料（合盤）", ph_name2:"姓名（第二人）", ph_time2:"出生時間", ph_country2:"出生國家 / 地區",
     focus_title:"命理選題（報告聚焦）",
     opt_love:"姻緣 Love", opt_dating:"戀愛緣分", opt_marriage:"婚姻走勢",
