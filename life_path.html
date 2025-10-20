@@ -52,7 +52,7 @@
     .row{display:grid; gap:12px; grid-template-columns:1fr}
     @media(min-width:760px){ .row.cols-2{grid-template-columns:1fr 1fr} .row.cols-3{grid-template-columns:1fr 1fr 1fr} }
     label.muted{display:block;margin-bottom:4px}
-    input,select{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid #243244;background:#0e1520;color:var(--text);padding:12px;font-size:15px;outline:none}
+    input,select,textarea{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid #243244;background:#0e1520;color:var(--text);padding:12px;font-size:15px;outline:none}
     input::placeholder{color:#6f8092}
     .btn{display:inline-grid;place-items:center;padding:12px 16px;border-radius:12px;border:1px solid #e6c76e;background:linear-gradient(180deg,#fff9e6,#e6c76e);color:#191919;font-weight:800;cursor:pointer}
     .btn[disabled]{opacity:.6;cursor:not-allowed}
@@ -244,11 +244,12 @@
 (function(){
   'use strict';
 
+  // ===== Config =====
   var API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
   var LANG_KEY = 'site_lang';
   var gid = function(id){ return document.getElementById(id); };
 
-  // polyfills for old WebView
+  // Polyfills (older WebViews)
   if (!Element.prototype.matches) {
     Element.prototype.matches = Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector;
   }
@@ -260,337 +261,308 @@
     };
   }
 
-  /* ====== i18n ====== */
-const i18n = {
-  "zh-CN": {
-    title:"能量类型分析 · 5XLiving", brand:"Soul Sanctuary", lang_label:"语言",
-    form_title:"能量类型分析 · 快速解读",
-    name_label:"姓名（可选）", name_ph:"你的称呼（用于个性化称呼）",
-    gender_label:"性别", gender_unknown:"不透露", gender_male:"男性", gender_female:"女性", gender_other:"其他",
-    birth_label:"出生日期", birth_time_label:"出生时间（可选）", birth_place_label:"出生地点（可选）", birth_place_ph:"城市/国家",
-    topic_label:"关注主题",
-    topic_love:"爱情/关系", topic_career:"事业/工作", topic_wealth:"财富/投资",
-    topic_family:"家庭/人际", topic_health:"健康/身心", topic_study:"学业/成长",
-    topic_move:"旅行/搬迁", topic_other:"其他",
-    preset_label:"常用问题", preset_none:"（可选）选择一个模板",
-    preset_1:"我现在的能量状态有什么特点？",
-    preset_2:"怎么用对策略，减少内耗？",
-    preset_3:"近期在事业/合作上如何对齐节奏？",
-    preset_4:"关系里的能量互动有什么提醒？",
-    preset_5:"如何建立稳定的情绪与界限？",
-    q_label:"你的具体问题（可直接粘贴）",
-    q_ph:"例如：最近总是感到疲惫内耗，想知道我的能量策略是什么、下一步该做什么。",
-    btn_gen:"生成分析", btn_clear:"清空",
-    sec_ai:"心怜管家解读与建议",
-    chat_fab:"问", chat_title:"心怜管家 · Chat", chat_ph:"想了解什么？（如：如何开始免费体验）", chat_send:"发送",
-    need_birth:"请至少选择出生日期（可留空时间/地点）",
-    generating:"正在生成解读…",
-    reco_title:"心怜管家推举内容",
-    retry:"抱歉，暂时无法生成，请稍后再试。", neterr:"网络异常，请稍后再试。",
-    butler_title:"心怜管家 · 智能解读", butler_chat_title:"心怜管家 · Chat",
-    chip_career:"事业解读", chip_love:"感情关系", chip_money:"财务建议", chip_list:"本周执行清单", chip_30d:"30天计划",
-    q_career:"结合我的灵数，继续解读事业与团队协作", q_love:"结合我的灵数，说说感情与长期关系", q_money:"给我与灵数相关的金钱习惯、盲区与改善建议", q_list:"给我一份本周可执行清单（结合灵数）", q_30d:"基于灵数，为我定一个30天成长计划",
-    vip_tip:"🔒 VIP 解锁后可查看完整解读", vip_sub:"包含「事业/财富/执行清单/温柔提醒」全部章节与持续追问", btn_unlock:"立即解锁",
-    err_network:"网络异常", err_busy:"服务暂时繁忙，请稍后重试。",
-    chat_placeholder:"想了解什么？（如：功能、会员说明）",
-    vip_title:"🌙 会员区域 VIP Segment", vip_mingli:"🗝 命理空间专属内容",
-    vip_love:"姻缘方向：恋爱缘分、婚姻走势", vip_career:"事业方向：职场发展、创业潜力",
-    vip_wealth:"财运方向：财位分析、理财时机", vip_pet:"宠物命理：伴侣动物的性格与缘分",
-    vip_hepan:"合盘分析：婚期择日、新生择时", vip_name:"测名分析：公司名、宝宝名、命名改运",
-    vip_fengshui:"财位合盘：住家 / 办公室动线配合",
-    vip_xinlian:"🌙 心怜空间专属内容", vip_record:"灵性记录：照片、梦境、声音、愿望祈祷",
-    vip_course:"命理课程：八字 / 塔罗 / 占星 / 灵数 / 人类图",
-    vip_memorial:"家族纪念系统：亲人灵性纪念 & 延续", vip_tasks:"每周能量练习 / 神明仪式任务",
-    vip_shop:"能量商城专属折扣 & 御守订制", login_title:"💎 登入 VIP 功能",
-    panel_login_head:"账户登录 / 注册",
-    ph_email:"邮箱 Email", ph_password:"密码 Password（至少 8 位，需包含大小写字母、数字与符号）", ph_label_password:"密码 Password",
-    btn_login:"登录账户", btn_register:"注册账户", btn_reset:"🔑 重设密码",
-    panel_member_head:"会员服务", btn_upgrade:"💎 升级为 VIP（月费）", btn_backshop:"← 返回命理商城",
-    note_price:"注册账号赠送一次免费体验", note_price1:"$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）"
-  },
+  // ===== i18n dictionary =====
+  const i18n = {
+    "zh-CN": {
+      // page
+      page_title:"灵数简评", site_title:"灵数简评",
+      site_subtitle:"免费版 · 与首页统一风格 | VIP 可解锁完整灵数地图",
+      lang_label:"语言",
 
-  "zh-TW": {
-    title:"能量類型分析 · 5XLiving", brand:"Soul Sanctuary", lang_label:"語言",
-    form_title:"能量類型分析 · 快速解讀",
-    name_label:"姓名（可選）", name_ph:"你的稱呼（用於個性化稱呼）",
-    gender_label:"性別", gender_unknown:"不透露", gender_male:"男性", gender_female:"女性", gender_other:"其他",
-    birth_label:"出生日期", birth_time_label:"出生時間（可選）", birth_place_label:"出生地點（可選）", birth_place_ph:"城市／國家",
-    topic_label:"關注主題",
-    topic_love:"愛情／關係", topic_career:"事業／工作", topic_wealth:"財富／投資",
-    topic_family:"家庭／人際", topic_health:"健康／身心", topic_study:"學業／成長",
-    topic_move:"旅行／搬遷", topic_other:"其他",
-    preset_label:"常用問題", preset_none:"（可選）選擇一個模板",
-    preset_1:"我現在的能量狀態有什麼特點？",
-    preset_2:"如何用對策略、減少內耗？",
-    preset_3:"近期在事業／合作上如何對齊節奏？",
-    preset_4:"關係裡的能量互動有什麼提醒？",
-    preset_5:"如何建立穩定的情緒與界線？",
-    q_label:"你的具體問題（可直接貼上）",
-    q_ph:"例如：最近總感到疲憊內耗，想知道我的能量策略與下一步。",
-    btn_gen:"生成分析", btn_clear:"清空",
-    sec_ai:"心憐管家解讀與建議",
-    chat_fab:"問", chat_title:"心憐管家 · Chat", chat_ph:"想了解什麼？（如：如何開始免費體驗）", chat_send:"傳送",
-    need_birth:"請至少選擇出生日期（時間／地點可留空）",
-    generating:"正在生成解讀…",
-    reco_title:"心憐管家推薦內容",
-    retry:"抱歉，暫時無法生成，請稍後再試。", neterr:"網路異常，請稍後再試。",
-    butler_title:"心憐管家 · 智能解讀", butler_chat_title:"心憐管家 · Chat",
-    chip_career:"事業解讀", chip_love:"感情關係", chip_money:"財務建議", chip_list:"本週執行清單", chip_30d:"30天計畫",
-    q_career:"結合我的靈數，繼續解讀事業與團隊協作", q_love:"結合我的靈數，談談感情與長期關係",
-    q_money:"依我的靈數，給金錢習慣的盲點與改善建議", q_list:"結合靈數，給我一份本週可執行清單", q_30d:"以靈數為依據，訂一個30天成長計畫",
-    vip_tip:"🔒 升級 VIP 以查看完整解讀", vip_sub:"包含「事業／財富／執行清單／溫柔提醒」全部章節與持續追問", btn_unlock:"立即解鎖",
-    err_network:"網路異常", err_busy:"服務繁忙，請稍後再試。",
-    chat_placeholder:"想了解什麼？（功能、會員等）",
-    vip_title:"🌙 會員區域 VIP Segment", vip_mingli:"🗝 命理空間專屬內容",
-    vip_love:"姻緣方向：戀愛緣分、婚姻走勢", vip_career:"事業方向：職場發展、創業潛力",
-    vip_wealth:"財運方向：財位分析、理財時機", vip_pet:"寵物命理：伴侶動物的性格與緣分",
-    vip_hepan:"合盤分析：婚期擇日、新生擇時", vip_name:"測名分析：公司名、寶寶名、命名改運",
-    vip_fengshui:"財位合盤：住家／辦公室動線配合",
-    vip_xinlian:"🌙 心憐空間專屬內容", vip_record:"靈性記錄：照片、夢境、聲音、願望祈禱",
-    vip_course:"命理課程：八字／塔羅／占星／靈數／人類圖",
-    vip_memorial:"家族紀念系統：親人靈性紀念＆延續", vip_tasks:"每週能量練習／神明儀式任務",
-    vip_shop:"能量商城專屬折扣＆御守訂製", login_title:"💎 登入 VIP 功能",
-    panel_login_head:"帳號登入／註冊",
-    ph_email:"電子郵件 Email", ph_password:"密碼 Password（至少 8 碼，含大小寫字母、數字與符號）", ph_label_password:"密碼 Password",
-    btn_login:"登入帳號", btn_register:"註冊帳號", btn_reset:"🔑 重設密碼",
-    panel_member_head:"會員服務", btn_upgrade:"💎 升級為 VIP（月費）", btn_backshop:"← 返回命理商城",
-    note_price:"註冊帳號贈送一次免費體驗", note_price1:"$9.9／月 VIP（命理空間＋心憐空間＋靈性課程）"
-  },
+      // form
+      ph_birthdate:"出生日期", rule_pyth:"规则（毕达哥拉斯）", btn_gen:"生成分析",
+      hint_text:"说明：生命路径 = 生日所有数字相加并降至 1–9（保留 11/22/33）；情感数字 = 出生日（DD）同样规则。",
 
-  "en": {
-    title:"Energy Type Analysis · 5XLiving", brand:"Soul Sanctuary", lang_label:"Language",
-    form_title:"Energy Type · Quick Reading",
-    name_label:"Name (optional)", name_ph:"How to address you",
-    gender_label:"Gender", gender_unknown:"Prefer not to say", gender_male:"Male", gender_female:"Female", gender_other:"Other",
-    birth_label:"Birthdate", birth_time_label:"Time of birth (optional)", birth_place_label:"Place of birth (optional)", birth_place_ph:"City/Country",
-    topic_label:"Focus topic",
-    topic_love:"Love/Relationship", topic_career:"Career/Work", topic_wealth:"Wealth/Investment",
-    topic_family:"Family/Social", topic_health:"Health/Mind-Body", topic_study:"Study/Growth",
-    topic_move:"Travel/Move", topic_other:"Other",
-    preset_label:"Quick questions", preset_none:"(Optional) Choose a template",
-    preset_1:"What are the features of my current energy state?",
-    preset_2:"How to use the right strategy and reduce drain?",
-    preset_3:"How to align rhythm for career/collab recently?",
-    preset_4:"Any reminders for energy dynamics in relationships?",
-    preset_5:"How to build steady emotions and boundaries?",
-    q_label:"Your specific question (paste here)",
-    q_ph:"E.g. I feel drained recently. What’s my best energy strategy and next steps?",
-    btn_gen:"Generate Reading", btn_clear:"Clear",
-    sec_ai:"Concierge Reading & Advice",
-    chat_fab:"Chat", chat_title:"Concierge · Chat", chat_ph:"Ask me anything", chat_send:"Send",
-    need_birth:"Please select at least your birthdate (time/place optional).",
-    generating:"Generating reading…",
-    reco_title:"Concierge Recommendations",
-    retry:"Sorry, couldn’t generate for now.", neterr:"Network error. Try again later.",
-    butler_title:"Xinlian Butler · Insight", butler_chat_title:"Xinlian Butler · Chat",
-    chip_career:"Career", chip_love:"Relationships", chip_money:"Money Advice", chip_list:"Weekly To-Dos", chip_30d:"30-Day Plan",
-    q_career:"Using my numbers, continue with career and teamwork insights", q_love:"Using my numbers, talk about love and long-term relationships", q_money:"Money habits, blind spots and improvements based on my numbers", q_list:"An actionable list for this week (use my numbers)", q_30d:"A 30-day growth plan informed by my numbers",
-    vip_tip:"🔒 Unlock VIP to read the full analysis", vip_sub:"Includes Career/Wealth/Action List/Gentle Reminder + follow-ups", btn_unlock:"Unlock now",
-    err_network:"Network error", err_busy:"Service is busy. Please try again later.",
-    chat_placeholder:"What would you like to know? (e.g., features, membership)",
-    vip_title:"🌙 VIP Area", vip_mingli:"🗝 Astrology Space — Exclusive Content",
-    vip_love:"Love & Marriage: romantic chemistry, marriage outlook", vip_career:"Career: workplace growth, entrepreneurship potential",
-    vip_wealth:"Wealth: wealth placement analysis, right timing", vip_pet:"Pet Astrology: companion animals’ personality & bonds",
-    vip_hepan:"Synastry: wedding date selection, birth timing", vip_name:"Name Analysis: company names, baby names, luck-renaming",
-    vip_fengshui:"Wealth Feng Shui Match: home/office layout alignment",
-    vip_xinlian:"🌙 Xinlian Space — Exclusive Content", vip_record:"Spiritual Records: photos, dreams, audio, wishes/prayers",
-    vip_course:"Courses: Bazi / Tarot / Astrology / Numerology / Human Design",
-    vip_memorial:"Family Memorial: spiritual remembrance & legacy", vip_tasks:"Weekly energy practices / deity rituals",
-    vip_shop:"Energy shop member discounts & custom amulets", login_title:"💎 Sign in for VIP features",
-    panel_login_head:"Account Login / Sign-up",
-    ph_email:"Email", ph_password:"Password (min 8 chars with upper/lowercase, number & symbol)", ph_label_password:"Password",
-    btn_login:"Log in", btn_register:"Create Account", btn_reset:"🔑 Reset Password",
-    panel_member_head:"Membership Services", btn_upgrade:"💎 Upgrade to VIP (Monthly)", btn_backshop:"← Back to Astrology Shop",
-    note_price:"Sign up to get one free trial", note_price1:"$9.9 / month VIP (Astrology Space + Xinlian Space + Spiritual Courses)"
-  },
+      // result + sections
+      res_title:"心怜管家解读与建议",
+      sec_overview:"基础信息",
+      sec_life:"生命路径",
+      sec_love:"情感数字",
+      err_need_birthdate:"请先选择出生日期",
 
-  "ja": {
-    title:"エネルギータイプ分析 · 5XLiving", brand:"Soul Sanctuary", lang_label:"言語",
-    form_title:"エネルギータイプ分析 · クイック解読",
-    name_label:"お名前（任意）", name_ph:"お呼び名（個別の呼称に使用）",
-    gender_label:"性別", gender_unknown:"非公開", gender_male:"男性", gender_female:"女性", gender_other:"その他",
-    birth_label:"生年月日", birth_time_label:"出生時刻（任意）", birth_place_label:"出生地（任意）", birth_place_ph:"市／国",
-    topic_label:"関心テーマ",
-    topic_love:"恋愛／関係", topic_career:"キャリア／仕事", topic_wealth:"財運／投資",
-    topic_family:"家族／人間関係", topic_health:"健康／心身", topic_study:"学業／成長",
-    topic_move:"旅行／転居", topic_other:"その他",
-    preset_label:"よくある質問", preset_none:"（任意）テンプレートを選択",
-    preset_1:"今の私のエネルギー状態の特徴は？",
-    preset_2:"正しい戦略で無駄な消耗を減らすには？",
-    preset_3:"最近の仕事／協業でリズムをどう合わせる？",
-    preset_4:"関係性のエネルギーのやり取りでの注意点は？",
-    preset_5:"安定した感情と境界線をどう築く？",
-    q_label:"具体的な質問（そのまま貼り付け可）",
-    q_ph:"例：最近ずっと疲れやすく空回り気味。私のエネルギー戦略と次の一歩を知りたい。",
-    btn_gen:"分析を生成", btn_clear:"クリア",
-    sec_ai:"心怜バトラー · 解説とアドバイス",
-    chat_fab:"問", chat_title:"心怜バトラー · チャット", chat_ph:"何を知りたいですか？（例：無料体験の始め方）", chat_send:"送信",
-    need_birth:"少なくとも生年月日を選択してください（時刻／場所は任意）",
-    generating:"解読を生成中…",
-    reco_title:"心怜バトラーのおすすめコンテンツ",
-    retry:"申し訳ありません。現在は生成できません。", neterr:"ネットワークエラー。",
-    butler_title:"心怜バトラー · インサイト", butler_chat_title:"心怜バトラー · チャット",
-    chip_career:"キャリア解読", chip_love:"感情関係", chip_money:"財務アドバイス", chip_list:"今週の実行リスト", chip_30d:"30日プラン",
-    q_career:"私の数秘を踏まえて、キャリアとチーム協働をさらに解読して", q_love:"私の数秘を踏まえて、恋愛と長期関係について話して", q_money:"私の数秘に基づき、金銭習慣の盲点と改善策を教えて", q_list:"数秘を活用して、今週の実行リストを作って", q_30d:"数秘に基づき、30日間の成長プランを設定して",
-    vip_tip:"🔒 VIP で全文表示を解放", vip_sub:"「キャリア／財運／実行リスト／やさしいリマインド」全章＋継続質問を含む", btn_unlock:"今すぐ解放",
-    err_network:"ネットワークエラー", err_busy:"サービスが混み合っています。しばらくしてからお試しください。",
-    chat_placeholder:"何を知りたいですか？（機能・会員など）",
-    vip_title:"🌙 会員エリア VIP Segment", vip_mingli:"🗝 命理スペース・限定コンテンツ",
-    vip_love:"縁・結婚：恋愛のご縁、結婚の流れ", vip_career:"キャリア：職場成長・起業ポテンシャル",
-    vip_wealth:"財運：財位分析・タイミング", vip_pet:"ペット命理：伴侶動物の性格とご縁",
-    vip_hepan:"合盤分析：挙式日選定・出産タイミング", vip_name:"命名鑑定：社名・赤ちゃん名・改名開運",
-    vip_fengshui:"財位合盤：住まい／オフィスの動線調整",
-    vip_xinlian:"🌙 心怜スペース・限定コンテンツ", vip_record:"スピリチュアル記録：写真・夢・音声・祈り／願い",
-    vip_course:"講座：八字／タロット／占星術／数秘／ヒューマンデザイン",
-    vip_memorial:"家族メモリアル：霊的追悼と継承", vip_tasks:"毎週のエネルギーワーク／神様の儀式タスク",
-    vip_shop:"エナジーショップ割引＆御守カスタム", login_title:"💎 VIP 機能にサインイン",
-    panel_login_head:"アカウント ログイン／登録",
-    ph_email:"メールアドレス", ph_password:"パスワード（8文字以上・英大小／数字／記号を含む）", ph_label_password:"パスワード",
-    btn_login:"ログイン", btn_register:"アカウント作成", btn_reset:"🔑 パスワードをリセット",
-    panel_member_head:"会員サービス", btn_upgrade:"💎 VIP（月額）にアップグレード", btn_backshop:"← 命理ショップへ戻る",
-    note_price:"登録で無料体験を1回進呈", note_price1:"$9.9／月 VIP（命理スペース＋心怜スペース＋スピリチュアル講座）"
-  },
+      // butler / chat
+      butler_title:"心怜管家 · 智能解读",
+      butler_chat_title:"心怜管家 · Chat",
+      chat_fab:"问",
+      chat_placeholder:"想了解什么？（如：功能、会员说明）",
+      chat_send:"发送",
 
-  "th": {
-    title:"วิเคราะห์ประเภทพลังงาน · 5XLiving", brand:"Soul Sanctuary", lang_label:"ภาษา",
-    form_title:"วิเคราะห์ประเภทพลังงาน · สรุปอย่างรวดเร็ว",
-    name_label:"ชื่อ (ไม่บังคับ)", name_ph:"ชื่อที่อยากให้เรียก (ใช้ทักเป็นการส่วนตัว)",
-    gender_label:"เพศ", gender_unknown:"ไม่ระบุ", gender_male:"ชาย", gender_female:"หญิง", gender_other:"อื่นๆ",
-    birth_label:"วันเกิด", birth_time_label:"เวลาเกิด (ไม่บังคับ)", birth_place_label:"สถานที่เกิด (ไม่บังคับ)", birth_place_ph:"เมือง/ประเทศ",
-    topic_label:"หัวข้อที่สนใจ",
-    topic_love:"ความรัก/ความสัมพันธ์", topic_career:"งาน/อาชีพ", topic_wealth:"การเงิน/การลงทุน",
-    topic_family:"ครอบครัว/ผู้คน", topic_health:"สุขภาพ/กาย-ใจ", topic_study:"การเรียน/พัฒนา",
-    topic_move:"การเดินทาง/ย้ายที่อยู่", topic_other:"อื่นๆ",
-    preset_label:"คำถามยอดนิยม", preset_none:"(ไม่บังคับ) เลือกเทมเพลต",
-    preset_1:"พลังงานของฉันตอนนี้มีลักษณะอย่างไร?",
-    preset_2:"ใช้กลยุทธ์ให้ถูกทางเพื่อลดการเผาผลาญพลังงานเกินจำเป็นได้อย่างไร?",
-    preset_3:"ช่วงนี้ในงาน/ความร่วมมือ จะปรับจังหวะให้สอดคล้องกันอย่างไร?",
-    preset_4:"มีข้อเตือนใจอะไรเกี่ยวกับการแลกเปลี่ยนพลังงานในความสัมพันธ์?",
-    preset_5:"จะสร้างอารมณ์ที่มั่นคงและเส้นขอบเขตได้อย่างไร?",
-    q_label:"คำถามของคุณ (วางข้อความได้ทันที)",
-    q_ph:"เช่น: ระยะนี้รู้สึกหมดแรงง่าย อยากรู้กลยุทธ์พลังงานของฉันและก้าวถัดไปควรทำอะไร",
-    btn_gen:"สร้างการวิเคราะห์", btn_clear:"ล้าง",
-    sec_ai:"ผู้ช่วยซินเหลียน · บทวิเคราะห์และคำแนะนำ",
-    chat_fab:"ถาม", chat_title:"ผู้ช่วยซินเหลียน · แชต", chat_ph:"อยากรู้เรื่องอะไร? (เช่น วิธีเริ่มทดลองฟรี)", chat_send:"ส่ง",
-    need_birth:"โปรดเลือกอย่างน้อยวันเกิด (เวลา/สถานที่ ไม่จำเป็น)",
-    generating:"กำลังสร้างบทวิเคราะห์…",
-    reco_title:"คอนเทนต์แนะนำโดยผู้ช่วยซินเหลียน",
-    retry:"ขออภัย ขณะนี้ยังสร้างให้ไม่ได้", neterr:"เครือข่ายผิดพลาด",
-    butler_title:"ผู้ช่วยซินเหลียน · บทวิเคราะห์", butler_chat_title:"ผู้ช่วยซินเหลียน · แชต",
-    chip_career:"การงาน", chip_love:"ความสัมพันธ์", chip_money:"คำแนะนำการเงิน", chip_list:"รายการทำสัปดาห์นี้", chip_30d:"แผน 30 วัน",
-    q_career:"อิงตัวเลขของฉัน ช่วยวิเคราะห์งานและทีมต่อ", q_love:"อิงตัวเลขของฉัน พูดถึงความรักและความสัมพันธ์ระยะยาว",
-    q_money:"ตามเลขศาสตร์ของฉัน บอกนิสัยการเงิน จุดบอด และแนวทางปรับปรุง", q_list:"ใช้เลขศาสตร์ของฉัน สร้างลิสต์ที่ทำได้จริงสำหรับสัปดาห์นี้",
-    q_30d:"ตามเลขศาสตร์ของฉัน วางแผนพัฒนา 30 วัน",
-    vip_tip:"🔒 ปลดล็อก VIP เพื่ออ่านฉบับเต็ม", vip_sub:"รวมงาน/การเงิน/ลิสต์ลงมือทำ/เตือนอย่างอ่อนโยน พร้อมถามต่อได้", btn_unlock:"ปลดล็อกทันที",
-    err_network:"เครือข่ายผิดพลาด", err_busy:"ระบบหนาแน่น โปรดลองใหม่ภายหลัง",
-    chat_placeholder:"อยากทราบอะไร (เช่น ฟีเจอร์/สมาชิก)",
-    vip_title:"🌙 พื้นที่สมาชิก VIP", vip_mingli:"🗝 เนื้อหาพิเศษ · โซนโหราศาสตร์",
-    vip_love:"ทิศทางความรัก: เคมีรัก & แนวโน้มแต่งงาน", vip_career:"ทิศทางการงาน: การเติบโตในงาน & ศักยภาพผู้ประกอบการ",
-    vip_wealth:"ทิศทางการเงิน: วิเคราะห์ตำแหน่งทรัพย์ & จังหวะลงทุน", vip_pet:"ดวงสัตว์เลี้ยง: บุคลิก & สายสัมพันธ์ของสัตว์คู่ใจ",
-    vip_hepan:"ดวงคู่: เลือกฤกษ์แต่งงาน & เวลาเกิดลูก", vip_name:"วิเคราะห์ชื่อ: ชื่อบริษัท/ชื่อลูก/เปลี่ยนชื่อเสริมดวง",
-    vip_fengshui:"ปรับฮวงจุ้ยทรัพย์ร่วม: บ้าน/ออฟฟิศ & ทิศทางการเดิน",
-    vip_xinlian:"🌙 เนื้อหาพิเศษ · โซนซินเหลียน", vip_record:"บันทึกเชิงจิตวิญญาณ: รูปภาพ ความฝัน เสียง คำอธิษฐาน",
-    vip_course:"คอร์ส: โป๊ยหยี่ / ทาโรต์ / โหราศาสตร์ / เลขศาสตร์ / Human Design",
-    vip_memorial:"ระบบอนุสรณ์ครอบครัว: ระลึกถึงญาติ & ส่งต่อเจตจำนง", vip_tasks:"ฝึกพลังงานรายสัปดาห์ / ภารกิจพิธีกรรม",
-    vip_shop:"ส่วนลดเฉพาะสมาชิก & จัดทำเครื่องรางตามสั่ง", login_title:"💎 ลงชื่อเข้าใช้เพื่อใช้ฟีเจอร์ VIP",
-    panel_login_head:"เข้าสู่ระบบ／สมัครสมาชิก",
-    ph_email:"อีเมล", ph_password:"รหัสผ่าน (≥8 ตัว อักษรใหญ่/เล็ก ตัวเลข และสัญลักษณ์)", ph_label_password:"รหัสผ่าน",
-    btn_login:"เข้าสู่ระบบ", btn_register:"สมัครบัญชี", btn_reset:"🔑 รีเซ็ตรหัสผ่าน",
-    panel_member_head:"บริการสมาชิก", btn_upgrade:"💎 อัปเกรดเป็น VIP (รายเดือน)", btn_backshop:"← กลับไปหน้าร้านโหราศาสตร์",
-    note_price:"สมัครใหม่รับสิทธิ์ทดลองฟรี 1 ครั้ง", note_price1:"$9.9 / เดือน · VIP (โซนโหราศาสตร์ + โซนซินเหลียน + คอร์สจิตวิญญาณ)"
-  },
+      // chips + quick queries
+      chip_career:"事业解读", chip_love:"感情关系", chip_money:"财务建议", chip_list:"本周执行清单", chip_30d:"30天计划",
+      q_career:"结合我的灵数，继续解读事业与团队协作",
+      q_love:"结合我的灵数，说说感情与长期关系",
+      q_money:"给我与灵数相关的金钱习惯、盲区与改善建议",
+      q_list:"给我一份本周可执行清单（结合灵数）",
+      q_30d:"基于灵数，为我定一个30天成长计划",
 
-  "ms": {
-    title:"Analisis Jenis Tenaga · 5XLiving", brand:"Soul Sanctuary", lang_label:"Bahasa",
-    form_title:"Jenis Tenaga · Ringkasan",
-    name_label:"Nama (pilihan)", name_ph:"Cara memanggil anda",
-    gender_label:"Jantina", gender_unknown:"Rahsiakan", gender_male:"Lelaki", gender_female:"Perempuan", gender_other:"Lain",
-    birth_label:"Tarikh lahir", birth_time_label:"Masa lahir (pilihan)", birth_place_label:"Tempat lahir (pilihan)", birth_place_ph:"Bandar/Negara",
-    topic_label:"Topik fokus",
-    topic_love:"Cinta/Hubungan", topic_career:"Kerjaya", topic_wealth:"Kewangan/Pelaburan",
-    topic_family:"Keluarga/Sosial", topic_health:"Kesihatan/Emosi", topic_study:"Pembelajaran",
-    topic_move:"Perjalanan/Pindah", topic_other:"Lain-lain",
-    preset_label:"Soalan pantas", preset_none:"(Pilihan) Pilih templat",
-    preset_1:"Apakah ciri tenaga saya kini?",
-    preset_2:"Bagaimana guna strategi betul & kurangkan keletihan?",
-    preset_3:"Selaraskan rentak untuk kerjaya/kolaborasi?",
-    preset_4:"Peringatan dinamik tenaga dalam hubungan?",
-    preset_5:"Bina emosi stabil dan sempadan?",
-    q_label:"Soalan khusus anda", q_ph:"Contoh: saya rasa letih; strategi tenaga & langkah seterusnya?",
-    btn_gen:"Jana Analisis", btn_clear:"Kosongkan",
-    sec_ai:"Bacaan & Nasihat Concierge",
-    chat_fab:"Tanya", chat_title:"Concierge · Sembang", chat_ph:"Tanya apa-apa", chat_send:"Hantar",
-    need_birth:"Sila pilih sekurang-kurangnya tarikh lahir (masa/tempat pilihan).",
-    generating:"Menjana bacaan…",
-    reco_title:"Cadangan Concierge",
-    retry:"Maaf, gagal jana buat masa ini.", neterr:"Ralat rangkaian.",
-    butler_title:"Xinlian Butler · Analisis", butler_chat_title:"Xinlian Butler · Chat",
-    chip_career:"Kerjaya", chip_love:"Hubungan", chip_money:"Nasihat Kewangan", chip_list:"Senarai Mingguan", chip_30d:"Pelan 30 Hari",
-    q_career:"Berdasarkan nombor saya, teruskan dengan wawasan kerjaya & kerja berpasukan", q_love:"Berdasarkan nombor saya, bincang cinta & hubungan jangka panjang",
-    q_money:"Tabiat wang, titik buta & penambahbaikan berasaskan nombor", q_list:"Senarai tindakan minggu ini (guna nombor saya)", q_30d:"Pelan 30 hari berdasarkan nombor",
-    vip_tip:"🔒 Buka VIP untuk melihat analisis penuh", vip_sub:"Termasuk Kerjaya/Kekayaan/Senarai Tindakan/Peringatan Lembut + soalan susulan", btn_unlock:"Buka sekarang",
-    err_network:"Ralat rangkaian", err_busy:"Perkhidmatan sibuk. Cuba lagi kemudian.",
-    chat_placeholder:"Apa yang anda ingin tahu? (ciri/keahlian)",
-    vip_title:"🌙 Kawasan VIP", vip_mingli:"🗝 Kandungan Eksklusif — Ruang Astrologi",
-    vip_love:"Arah Jodoh: kimia cinta & aliran perkahwinan", vip_career:"Arah Kerjaya: perkembangan tempat kerja & potensi keusahawanan",
-    vip_wealth:"Arah Kekayaan: analisis kedudukan & masa sesuai", vip_pet:"Astrologi Haiwan Peliharaan: perangai & ikatan",
-    vip_hepan:"Sinistri: tarikh kahwin & masa kelahiran bayi", vip_name:"Analisis Nama: syarikat, bayi, tukar nama tuah",
-    vip_fengshui:"Padanan Feng Shui Kekayaan: susun atur rumah/pejabat",
-    vip_xinlian:"🌙 Kandungan Eksklusif — Ruang Xinlian", vip_record:"Rekod Kerohanian: foto, mimpi, audio, doa/hasrat",
-    vip_course:"Kursus: Bazi / Tarot / Astrologi / Numerologi / Human Design",
-    vip_memorial:"Sistem Memorial Keluarga: peringatan rohani & legasi", vip_tasks:"Latihan tenaga mingguan / tugasan ritual",
-    vip_shop:"Diskaun kedai tenaga & jimat tempahan khas", login_title:"💎 Log masuk untuk fungsi VIP",
-    panel_login_head:"Log Masuk／Daftar",
-    ph_email:"Emel", ph_password:"Kata Laluan (≥8 aksara, huruf besar/kecil, nombor & simbol)", ph_label_password:"Kata Laluan",
-    btn_login:"Log Masuk", btn_register:"Daftar Akaun", btn_reset:"🔑 Tetapkan Semula Kata Laluan",
-    panel_member_head:"Perkhidmatan Keahlian", btn_upgrade:"💎 Naik taraf ke VIP (Bulanan)", btn_backshop:"← Kembali ke Kedai Astrologi",
-    note_price:"Daftar akaun untuk 1 kali percubaan percuma", note_price1:"$9.9 / bulan VIP (Ruang Astrologi + Ruang Xinlian + Kursus Kerohanian)"
-  }
-};
+      // vip lock
+      vip_tip:"🔒 VIP 解锁后可查看完整解读",
+      vip_sub:"包含「事业/财富/执行清单/温柔提醒」全部章节与持续追问",
+      btn_unlock:"立即解锁",
 
+      // errors
+      err_network:"网络异常", err_busy:"服务暂时繁忙，请稍后重试。",
+
+      // VIP area
+      vip_title:"🌙 会员区域 VIP Segment", vip_mingli:"🗝 命理空间专属内容",
+      vip_love:"姻缘方向：恋爱缘分、婚姻走势", vip_career:"事业方向：职场发展、创业潜力",
+      vip_wealth:"财运方向：财位分析、理财时机", vip_pet:"宠物命理：伴侣动物的性格与缘分",
+      vip_hepan:"合盘分析：婚期择日、新生择时", vip_name:"测名分析：公司名、宝宝名、命名改运",
+      vip_fengshui:"财位合盘：住家 / 办公室动线配合",
+      vip_xinlian:"🌙 心怜空间专属内容", vip_record:"灵性记录：照片、梦境、声音、愿望祈祷",
+      vip_course:"命理课程：八字 / 塔罗 / 占星 / 灵数 / 人类图",
+      vip_memorial:"家族纪念系统：亲人灵性纪念 & 延续", vip_tasks:"每周能量练习 / 神明仪式任务",
+      vip_shop:"能量商城专属折扣 & 御守订制", login_title:"💎 登入 VIP 功能",
+      panel_login_head:"账户登录 / 注册",
+      ph_email:"邮箱 Email", ph_password:"密码 Password（至少 8 位，需包含大小写字母、数字与符号）", ph_label_password:"密码 Password",
+      btn_login:"登录账户", btn_register:"注册账户", btn_reset:"🔑 重设密码",
+      panel_member_head:"会员服务", btn_upgrade:"💎 升级为 VIP（月费）", btn_backshop:"← 返回命理商城",
+      note_price:"注册账号赠送一次免费体验", note_price1:"$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）"
+    },
+
+    "zh-TW": {
+      page_title:"靈數簡評", site_title:"靈數簡評",
+      site_subtitle:"免費版 · 與首頁統一風格｜VIP 可解鎖完整靈數地圖",
+      lang_label:"語言",
+
+      ph_birthdate:"出生日期", rule_pyth:"規則（畢達哥拉斯）", btn_gen:"生成分析",
+      hint_text:"說明：生命路徑 = 生日所有數字相加並降至 1–9（保留 11/22/33）；情感數字 = 出生日（DD）同樣規則。",
+
+      res_title:"心憐管家解讀與建議",
+      sec_overview:"基礎資訊", sec_life:"生命路徑", sec_love:"情感數字",
+      err_need_birthdate:"請先選擇出生日期",
+
+      butler_title:"心憐管家 · 智能解讀", butler_chat_title:"心憐管家 · Chat",
+      chat_fab:"問", chat_placeholder:"想了解什麼？（如：功能、會員說明）", chat_send:"傳送",
+
+      chip_career:"事業解讀", chip_love:"感情關係", chip_money:"財務建議", chip_list:"本週執行清單", chip_30d:"30天計畫",
+      q_career:"結合我的靈數，繼續解讀事業與團隊協作",
+      q_love:"結合我的靈數，談談感情與長期關係",
+      q_money:"依我的靈數，給金錢習慣的盲點與改善建議",
+      q_list:"結合靈數，給我一份本週可執行清單",
+      q_30d:"以靈數為依據，訂一個 30 天成長計畫",
+
+      vip_tip:"🔒 升級 VIP 以查看完整解讀", vip_sub:"包含「事業／財富／執行清單／溫柔提醒」全部章節與持續追問", btn_unlock:"立即解鎖",
+      err_network:"網路異常", err_busy:"服務繁忙，請稍後再試。",
+
+      vip_title:"🌙 會員區域 VIP Segment", vip_mingli:"🗝 命理空間專屬內容",
+      vip_love:"姻緣方向：戀愛緣分、婚姻走勢", vip_career:"事業方向：職場發展、創業潛力",
+      vip_wealth:"財運方向：財位分析、理財時機", vip_pet:"寵物命理：伴侶動物的性格與緣分",
+      vip_hepan:"合盤分析：婚期擇日、新生擇時", vip_name:"測名分析：公司名、寶寶名、命名改運",
+      vip_fengshui:"財位合盤：住家／辦公室動線配合",
+      vip_xinlian:"🌙 心憐空間專屬內容", vip_record:"靈性記錄：照片、夢境、聲音、願望祈禱",
+      vip_course:"命理課程：八字／塔羅／占星／靈數／人類圖",
+      vip_memorial:"家族紀念系統：親人靈性紀念＆延續", vip_tasks:"每週能量練習／神明儀式任務",
+      vip_shop:"能量商城專屬折扣＆御守訂製", login_title:"💎 登入 VIP 功能",
+      panel_login_head:"帳號登入／註冊",
+      ph_email:"電子郵件 Email", ph_password:"密碼 Password（至少 8 碼，含大小寫字母、數字與符號）", ph_label_password:"密碼 Password",
+      btn_login:"登入帳號", btn_register:"註冊帳號", btn_reset:"🔑 重設密碼",
+      panel_member_head:"會員服務", btn_upgrade:"💎 升級為 VIP（月費）", btn_backshop:"← 返回命理商城",
+      note_price:"註冊帳號贈送一次免費體驗", note_price1:"$9.9／月 VIP（命理空間＋心憐空間＋靈性課程）"
+    },
+
+    "en": {
+      page_title:"Numerology Quick Reading", site_title:"Numerology Quick Reading",
+      site_subtitle:"Free edition · Matches homepage style | VIP unlocks full numerology map",
+      lang_label:"Language",
+
+      ph_birthdate:"Birthdate", rule_pyth:"Rule (Pythagorean)", btn_gen:"Generate Reading",
+      hint_text:"Life Path = Sum of all birth date digits reduced to 1–9 (keep 11/22/33). Love Number = Day (DD) reduced with same rule.",
+
+      res_title:"Xinlian Butler · Reading & Advice",
+      sec_overview:"Basics", sec_life:"Life Path", sec_love:"Love Number",
+      err_need_birthdate:"Please select your birthdate first",
+
+      butler_title:"Xinlian Butler · Insight", butler_chat_title:"Xinlian Butler · Chat",
+      chat_fab:"Chat", chat_placeholder:"What would you like to know? (e.g., features, membership)", chat_send:"Send",
+
+      chip_career:"Career", chip_love:"Relationships", chip_money:"Money Advice", chip_list:"Weekly To-Dos", chip_30d:"30-Day Plan",
+      q_career:"Using my numbers, continue with career and teamwork insights",
+      q_love:"Using my numbers, talk about love and long-term relationships",
+      q_money:"Money habits, blind spots and improvements based on my numbers",
+      q_list:"An actionable list for this week (use my numbers)",
+      q_30d:"A 30-day growth plan informed by my numbers",
+
+      vip_tip:"🔒 Unlock VIP to read the full analysis", vip_sub:"Includes Career/Wealth/Action List/Gentle Reminder + follow-ups", btn_unlock:"Unlock now",
+      err_network:"Network error", err_busy:"Service is busy. Please try again later.",
+
+      vip_title:"🌙 VIP Area", vip_mingli:"🗝 Astrology Space — Exclusive Content",
+      vip_love:"Love & Marriage: romantic chemistry, marriage outlook", vip_career:"Career: workplace growth, entrepreneurship potential",
+      vip_wealth:"Wealth: wealth placement analysis, right timing", vip_pet:"Pet Astrology: companion animals’ personality & bonds",
+      vip_hepan:"Synastry: wedding date selection, birth timing", vip_name:"Name Analysis: company names, baby names, luck-renaming",
+      vip_fengshui:"Wealth Feng Shui Match: home/office layout alignment",
+      vip_xinlian:"🌙 Xinlian Space — Exclusive Content", vip_record:"Spiritual Records: photos, dreams, audio, wishes/prayers",
+      vip_course:"Courses: Bazi / Tarot / Astrology / Numerology / Human Design",
+      vip_memorial:"Family Memorial: spiritual remembrance & legacy", vip_tasks:"Weekly energy practices / deity rituals",
+      vip_shop:"Energy shop member discounts & custom amulets", login_title:"💎 Sign in for VIP features",
+      panel_login_head:"Account Login / Sign-up",
+      ph_email:"Email", ph_password:"Password (min 8 chars with upper/lowercase, number & symbol)", ph_label_password:"Password",
+      btn_login:"Log in", btn_register:"Create Account", btn_reset:"🔑 Reset Password",
+      panel_member_head:"Membership Services", btn_upgrade:"💎 Upgrade to VIP (Monthly)", btn_backshop:"← Back to Astrology Shop",
+      note_price:"Sign up to get one free trial", note_price1:"$9.9 / month VIP (Astrology Space + Xinlian Space + Spiritual Courses)"
+    },
+
+    "ja": {
+      page_title:"数秘術クイックリーディング", site_title:"数秘術クイックリーディング",
+      site_subtitle:"無料版 · トップページと統一 | VIP で完全版マップを解放",
+      lang_label:"言語",
+
+      ph_birthdate:"生年月日", rule_pyth:"ルール（ピタゴラス）", btn_gen:"分析を生成",
+      hint_text:"ライフパス＝生年月日の全桁を合計して 1–9 に還元（11/22/33 は保持）。ラブナンバー＝生まれた日（DD）を同様に還元。",
+
+      res_title:"心怜バトラー · 解説とアドバイス",
+      sec_overview:"基礎情報", sec_life:"ライフパス", sec_love:"ラブナンバー",
+      err_need_birthdate:"まず生年月日を選択してください",
+
+      butler_title:"心怜バトラー · インサイト", butler_chat_title:"心怜バトラー · チャット",
+      chat_fab:"問", chat_placeholder:"何を知りたいですか？（機能・会員など）", chat_send:"送信",
+
+      chip_career:"キャリア", chip_love:"関係", chip_money:"マネー助言", chip_list:"今週の実行リスト", chip_30d:"30日プラン",
+      q_career:"私の数秘を踏まえて、キャリアとチーム協働をさらに解読して",
+      q_love:"私の数秘を踏まえて、恋愛と長期関係について話して",
+      q_money:"私の数秘に基づき、金銭習慣の盲点と改善策を教えて",
+      q_list:"数秘を活用して、今週の実行リストを作って",
+      q_30d:"数秘に基づき、30日間の成長プランを設定して",
+
+      vip_tip:"🔒 VIP で全文表示を解放", vip_sub:"「キャリア／財運／実行リスト／やさしいリマインド」全章＋継続質問を含む", btn_unlock:"今すぐ解放",
+      err_network:"ネットワークエラー", err_busy:"サービスが混み合っています。しばらくしてからお試しください。",
+
+      vip_title:"🌙 会員エリア VIP Segment", vip_mingli:"🗝 命理スペース · 限定コンテンツ",
+      vip_love:"縁・結婚：恋愛のご縁、結婚の流れ", vip_career:"キャリア：職場成長・起業ポテンシャル",
+      vip_wealth:"財運：財位分析・タイミング", vip_pet:"ペット命理：伴侶動物の性格とご縁",
+      vip_hepan:"合盤分析：挙式日選定・出産タイミング", vip_name:"命名鑑定：社名・赤ちゃん名・改名開運",
+      vip_fengshui:"財位合盤：住まい／オフィスの動線調整",
+      vip_xinlian:"🌙 心怜スペース · 限定コンテンツ", vip_record:"スピリチュアル記録：写真・夢・音声・祈り／願い",
+      vip_course:"講座：八字／タロット／占星術／数秘／ヒューマンデザイン",
+      vip_memorial:"家族メモリアル：霊的追悼と継承", vip_tasks:"毎週のエネルギーワーク／神様の儀式タスク",
+      vip_shop:"エナジーショップ割引＆御守カスタム", login_title:"💎 VIP 機能にサインイン",
+      panel_login_head:"アカウント ログイン／登録",
+      ph_email:"メールアドレス", ph_password:"パスワード（8文字以上・英大小／数字／記号を含む）", ph_label_password:"パスワード",
+      btn_login:"ログイン", btn_register:"アカウント作成", btn_reset:"🔑 パスワードをリセット",
+      panel_member_head:"会員サービス", btn_upgrade:"💎 VIP（月額）にアップグレード", btn_backshop:"← 命理ショップへ戻る",
+      note_price:"登録で無料体験を1回進呈", note_price1:"$9.9／月 VIP（命理スペース＋心怜スペース＋スピリチュアル講座）"
+    },
+
+    "th": {
+      page_title:"เลขศาสตร์ฉบับย่อ", site_title:"เลขศาสตร์ฉบับย่อ",
+      site_subtitle:"เวอร์ชันฟรี · สไตล์เดียวกับโฮมเพจ | VIP ปลดล็อกแผนที่เลขศาสตร์เต็ม",
+      lang_label:"ภาษา",
+
+      ph_birthdate:"วันเกิด", rule_pyth:"กติกา (พีทาโกรัส)", btn_gen:"สร้างการวิเคราะห์",
+      hint_text:"Life Path = รวมตัวเลขวันเกิดทั้งหมดแล้วลดเหลือ 1–9 (เก็บ 11/22/33). Love Number = วัน (DD) ลดด้วยกติกาเดียวกัน.",
+
+      res_title:"ผู้ช่วยซินเหลียน · บทวิเคราะห์และคำแนะนำ",
+      sec_overview:"ข้อมูลพื้นฐาน", sec_life:"เส้นทางชีวิต (Life Path)", sec_love:"เลขความรัก (Love Number)",
+      err_need_birthdate:"โปรดเลือกวันเกิดก่อน",
+
+      butler_title:"ผู้ช่วยซินเหลียน · บทวิเคราะห์", butler_chat_title:"ผู้ช่วยซินเหลียน · แชต",
+      chat_fab:"ถาม", chat_placeholder:"อยากรู้เรื่องอะไร? (เช่น ฟีเจอร์/สมาชิก)", chat_send:"ส่ง",
+
+      chip_career:"การงาน", chip_love:"ความสัมพันธ์", chip_money:"คำแนะนำการเงิน", chip_list:"รายการทำสัปดาห์นี้", chip_30d:"แผน 30 วัน",
+      q_career:"อิงตัวเลขของฉัน ช่วยวิเคราะห์งานและทีมต่อ",
+      q_love:"อิงตัวเลขของฉัน พูดถึงรักและความสัมพันธ์ระยะยาว",
+      q_money:"ตามเลขศาสตร์ของฉัน บอกนิสัยการเงิน จุดบอด และแนวทางปรับปรุง",
+      q_list:"ใช้เลขศาสตร์ของฉัน จัดลิสต์ที่ทำได้จริงสำหรับสัปดาห์นี้",
+      q_30d:"ตามเลขศาสตร์ของฉัน วางแผนพัฒนา 30 วัน",
+
+      vip_tip:"🔒 ปลดล็อก VIP เพื่ออ่านฉบับเต็ม", vip_sub:"รวมงาน/การเงิน/ลิสต์ลงมือทำ/เตือนอย่างอ่อนโยน พร้อมถามต่อได้", btn_unlock:"ปลดล็อกทันที",
+      err_network:"เครือข่ายผิดพลาด", err_busy:"ระบบหนาแน่น โปรดลองใหม่ภายหลัง",
+
+      vip_title:"🌙 พื้นที่สมาชิก VIP", vip_mingli:"🗝 เนื้อหาพิเศษ · โซนโหราศาสตร์",
+      vip_love:"ทิศทางความรัก: เคมีรัก & แนวโน้มแต่งงาน", vip_career:"ทิศทางการงาน: การเติบโตในงาน & ศักยภาพผู้ประกอบการ",
+      vip_wealth:"ทิศทางการเงิน: วิเคราะห์ตำแหน่งทรัพย์ & จังหวะลงทุน", vip_pet:"ดวงสัตว์เลี้ยง: บุคลิก & สายสัมพันธ์ของสัตว์คู่ใจ",
+      vip_hepan:"ดวงคู่: เลือกฤกษ์แต่งงาน & เวลาเกิดลูก", vip_name:"วิเคราะห์ชื่อ: ชื่อบริษัท/ชื่อลูก/เปลี่ยนชื่อเสริมดวง",
+      vip_fengshui:"ปรับฮวงจุ้ยทรัพย์ร่วม: บ้าน/ออฟฟิศ & ทิศทางการเดิน",
+      vip_xinlian:"🌙 เนื้อหาพิเศษ · โซนซินเหลียน", vip_record:"บันทึกเชิงจิตวิญญาณ: รูปภาพ ความฝัน เสียง คำอธิษฐาน",
+      vip_course:"คอร์ส: โป๊ยหยี่ / ทาโรต์ / โหราศาสตร์ / เลขศาสตร์ / Human Design",
+      vip_memorial:"ระบบอนุสรณ์ครอบครัว: ระลึกถึงญาติ & ส่งต่อเจตจำนง", vip_tasks:"ฝึกพลังงานรายสัปดาห์ / ภารกิจพิธีกรรม",
+      vip_shop:"ส่วนลดเฉพาะสมาชิก & จัดทำเครื่องรางตามสั่ง", login_title:"💎 ลงชื่อเข้าใช้เพื่อใช้ฟีเจอร์ VIP",
+      panel_login_head:"เข้าสู่ระบบ／สมัครสมาชิก",
+      ph_email:"อีเมล", ph_password:"รหัสผ่าน (≥8 ตัว อักษรใหญ่/เล็ก ตัวเลข และสัญลักษณ์)", ph_label_password:"รหัสผ่าน",
+      btn_login:"เข้าสู่ระบบ", btn_register:"สมัครบัญชี", btn_reset:"🔑 รีเซ็ตรหัสผ่าน",
+      panel_member_head:"บริการสมาชิก", btn_upgrade:"💎 อัปเกรดเป็น VIP (รายเดือน)", btn_backshop:"← กลับไปหน้าร้านโหราศาสตร์",
+      note_price:"สมัครใหม่รับสิทธิ์ทดลองฟรี 1 ครั้ง", note_price1:"$9.9 / เดือน · VIP (โซนโหราศาสตร์ + โซนซินเหลียน + คอร์สจิตวิญญาณ)"
+    },
+
+    "ms": {
+      page_title:"Bacaan Nombor Ringkas", site_title:"Bacaan Nombor Ringkas",
+      site_subtitle:"Versi percuma · Gaya sepadan laman utama | VIP membuka peta nombor penuh",
+      lang_label:"Bahasa",
+
+      ph_birthdate:"Tarikh lahir", rule_pyth:"Peraturan (Pythagorean)", btn_gen:"Jana Analisis",
+      hint_text:"Life Path = Jumlah semua digit tarikh lahir dikurangkan ke 1–9 (kekal 11/22/33). Love Number = Hari (DD) dikurangkan dengan peraturan sama.",
+
+      res_title:"Xinlian Butler · Bacaan & Nasihat",
+      sec_overview:"Asas", sec_life:"Life Path", sec_love:"Love Number",
+      err_need_birthdate:"Sila pilih tarikh lahir terlebih dahulu",
+
+      butler_title:"Xinlian Butler · Analisis", butler_chat_title:"Xinlian Butler · Chat",
+      chat_fab:"Tanya", chat_placeholder:"Apa yang anda ingin tahu? (cth: fungsi/keahlian)", chat_send:"Hantar",
+
+      chip_career:"Kerjaya", chip_love:"Hubungan", chip_money:"Nasihat Kewangan", chip_list:"Senarai Mingguan", chip_30d:"Pelan 30 Hari",
+      q_career:"Berdasarkan nombor saya, teruskan dengan wawasan kerjaya & kerja berpasukan",
+      q_love:"Berdasarkan nombor saya, bincang cinta & hubungan jangka panjang",
+      q_money:"Tabiat wang, titik buta & penambahbaikan berasaskan nombor",
+      q_list:"Senarai tindakan minggu ini (guna nombor saya)",
+      q_30d:"Pelan 30 hari berdasarkan nombor",
+
+      vip_tip:"🔒 Buka VIP untuk melihat analisis penuh", vip_sub:"Termasuk Kerjaya/Kekayaan/Senarai Tindakan/Peringatan Lembut + soalan susulan", btn_unlock:"Buka sekarang",
+      err_network:"Ralat rangkaian", err_busy:"Perkhidmatan sibuk. Cuba lagi kemudian.",
+
+      vip_title:"🌙 Kawasan VIP", vip_mingli:"🗝 Kandungan Eksklusif — Ruang Astrologi",
+      vip_love:"Arah Jodoh: kimia cinta & aliran perkahwinan", vip_career:"Arah Kerjaya: perkembangan tempat kerja & potensi keusahawanan",
+      vip_wealth:"Arah Kekayaan: analisis kedudukan kekayaan & masa sesuai", vip_pet:"Astrologi Haiwan Peliharaan: perangai & ikatan",
+      vip_hepan:"Sinistri: tarikh kahwin & masa kelahiran bayi", vip_name:"Analisis Nama: nama syarikat, nama bayi, tukar nama tuah",
+      vip_fengshui:"Padanan Feng Shui Kekayaan: susun atur rumah/pejabat",
+      vip_xinlian:"🌙 Kandungan Eksklusif — Ruang Xinlian", vip_record:"Rekod Kerohanian: foto, mimpi, audio, doa/hasrat",
+      vip_course:"Kursus: Bazi / Tarot / Astrologi / Numerologi / Human Design",
+      vip_memorial:"Sistem Memorial Keluarga: peringatan rohani & legasi", vip_tasks:"Latihan tenaga mingguan / tugasan ritual",
+      vip_shop:"Diskaun kedai tenaga & jimat tempahan khas", login_title:"💎 Log masuk untuk fungsi VIP",
+      panel_login_head:"Log Masuk／Daftar",
+      ph_email:"Emel", ph_password:"Kata Laluan (≥8 aksara, huruf besar/kecil, nombor & simbol)", ph_label_password:"Kata Laluan",
+      btn_login:"Log Masuk", btn_register:"Daftar Akaun", btn_reset:"🔑 Tetapkan Semula Kata Laluan",
+      panel_member_head:"Perkhidmatan Keahlian", btn_upgrade:"💎 Naik taraf ke VIP (Bulanan)", btn_backshop:"← Kembali ke Kedai Astrologi",
+      note_price:"Daftar akaun untuk 1 kali percubaan percuma", note_price1:"$9.9 / bulan VIP (Ruang Astrologi + Ruang Xinlian + Kursus Kerohanian)"
+    }
+  };
+
+  // mapping for Butler system prompt
   var BUTLER_LANG_NAME = {
     'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese','en':'English','ja':'Japanese','th':'Thai','ms':'Malay'
   };
 
   function getLang(){
     var saved = localStorage.getItem(LANG_KEY);
-    if (saved && I18N[saved]) return saved;
+    if (saved && i18n[saved]) return saved;
     var raw = (navigator.language || 'zh-CN').replace('_','-');
     var map = {'zh':'zh-CN','zh-CN':'zh-CN','zh-SG':'zh-CN','zh-TW':'zh-TW','zh-HK':'zh-TW','en':'en','en-US':'en','en-GB':'en','ja':'ja','ja-JP':'ja','th':'th','ms':'ms'};
     return map[raw] || 'zh-CN';
   }
   function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
   function t(key){
-    var L = I18N[getLang()] || I18N['zh-CN'];
-    return L[key] || (I18N['zh-CN'][key] || key);
+    var L = i18n[getLang()] || i18n['zh-CN'];
+    return L[key] || (i18n['zh-CN'][key] || key);
   }
   function applyI18n(){
-    var nodes = document.querySelectorAll('[data-i18n]');
-    for (var i=0;i<nodes.length;i++){
-      var el = nodes[i];
-      var key = el.getAttribute('data-i18n');
-      var val = t(key);
-      if (val!=null) el.textContent = val;
-    }
-    var nodesPh = document.querySelectorAll('[data-i18n-ph]');
-    for (var j=0;j<nodesPh.length;j++){
-      var el2 = nodesPh[j];
-      var key2 = el2.getAttribute('data-i18n-ph');
-      var val2 = t(key2);
-      if (val2!=null) el2.setAttribute('placeholder', val2);
-    }
-    var titleEl = document.querySelector('title[data-i18n]');
-    if (titleEl) titleEl.textContent = t(titleEl.getAttribute('data-i18n'));
+    document.querySelectorAll('[data-i18n]').forEach(function(el){
+      var k = el.getAttribute('data-i18n'); var v = t(k);
+      if (v!=null) el.textContent = v;
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(function(el){
+      var k = el.getAttribute('data-i18n-ph'); var v = t(k);
+      if (v!=null) el.setAttribute('placeholder', v);
+    });
+    var titleEl = document.querySelector('title[data-i18n], title[data-i18n="page_title"]');
+    if (titleEl) titleEl.textContent = t('page_title');
   }
 
-  /* ====== numerology ====== */
+  // ===== Numerology =====
   var masters = {11:true,22:true,33:true};
   function isMaster(n){ return !!masters[n]; }
   function reduceNum(n){
     while(n>9 && !isMaster(n)){
-      var s = String(n).split("");
-      var acc = 0;
-      for (var i=0;i<s.length;i++){ acc += Number(s[i]); }
+      var s = String(n).split(""), acc=0;
+      for (var i=0;i<s.length;i++) acc += Number(s[i]);
       n = acc;
     }
     return n;
@@ -599,68 +571,65 @@ const i18n = {
     if(!iso) return null;
     var d = iso.replace(/[^0-9]/g,"");
     if(d.length<8) return null;
-    var arr = [];
-    for (var i=0;i<d.length;i++){ arr.push(Number(d[i])); }
+    var arr=[]; for (var i=0;i<d.length;i++) arr.push(Number(d[i]));
     return arr;
   }
   function calcLifePath(iso){
     var digits = parseDateDigits(iso);
     if(!digits) return null;
-    var sum = 0;
-    for (var i=0;i<digits.length;i++){ sum += digits[i]; }
+    var sum=0; for (var i=0;i<digits.length;i++) sum+=digits[i];
     return reduceNum(sum);
   }
   function calcLoveNumber(iso){
     if(!iso) return null;
-    var parts = iso.split("-");
-    var dd = Number(parts[2]||"0");
-    if(!dd) return null;
+    var p = iso.split("-");
+    var dd = Number(p[2]||"0"); if(!dd) return null;
     return reduceNum(dd);
   }
 
-  /* ====== brief (multi-language) ====== */
+  // ===== Short descriptions (fallbacks) =====
   var BRIEF = {
     "en": {
       lp: {
-        1:"Independent, self-starting leadership; avoid being overbearing.",
+        1:"Independent leadership; avoid being overbearing.",
         2:"Cooperative and sensitive; watch people-pleasing.",
-        3:"Expressive, social, creative; focus and follow through.",
-        4:"Practical, structured, stable; avoid rigidity.",
-        5:"Freedom, change, exploration; pace yourself and manage risk.",
-        6:"Responsibility, care, aesthetics; curb perfectionism/over-worry.",
-        7:"Introspective, research, spiritual insight; practice sharing/connection.",
-        8:"Ambition, achievement, resource integration; balance power with kindness.",
-        9:"Humanitarian, healing, artistic compassion; set clear boundaries.",
-        11:"Inspired mission, strong intuition; ground it with routine and action.",
-        22:"Master builder—turn vision into systems; leverage teams and patience.",
-        33:"Unconditional love & service; self-care first, then care for others."
+        3:"Expressive and creative; follow through.",
+        4:"Practical and structured; avoid rigidity.",
+        5:"Freedom and change; manage risk and pace.",
+        6:"Responsible and caring; curb perfectionism.",
+        7:"Introspective and insightful; practice sharing.",
+        8:"Ambitious integrator; balance power with kindness.",
+        9:"Humanitarian and healing; set boundaries.",
+        11:"Inspired mission and intuition; ground with routines.",
+        22:"Master builder; turn vision into systems via teams.",
+        33:"Unconditional love and service; self-care first."
       },
       love: {
-        1:"Takes the lead; learn softness and listening for stability.",
-        2:"Craves closeness/safety; avoid over-dependence.",
-        3:"Needs play and expression; values interaction & rituals.",
-        4:"Commitment-oriented and steady; slow to warm but reliable.",
-        5:"Needs freedom/novelty; partner must respect space.",
-        6:"Nurturing and devoted; dreams of stable, beautiful home life.",
-        7:"Seeks soul-level connection; needs quiet understanding.",
-        8:"Goal-driven even in love; wants an equal partner.",
-        9:"Giving and compassionate; don’t self-sacrifice or ‘rescue’.",
-        11:"Sensitive and intuitive; handle emotions gently.",
-        22:"Long-term builder of the relationship; practical yet visionary.",
-        33:"Heals through love; self-love first, then mutual love."
+        1:"Leads; learn softness and listening.",
+        2:"Craves closeness; avoid over-dependence.",
+        3:"Playful and expressive; values rituals.",
+        4:"Steady and committed; reliable partner.",
+        5:"Needs freedom/novelty; respect space.",
+        6:"Nurturing and devoted; home life matters.",
+        7:"Seeks soul connection; quiet understanding.",
+        8:"Goal-driven; wants an equal partner.",
+        9:"Giving; avoid rescuing and self-sacrifice.",
+        11:"Sensitive and intuitive; handle gently.",
+        22:"Long-term builder; practical yet visionary.",
+        33:"Heals through love; self-love first."
       }
     },
     "zh-CN": {
-      lp:{1:"独立、自主、领导力强，适合开创型路线；注意别过度强势。",2:"温和、协调、敏感度高，擅长合作与倾听；需避免过度迎合。",3:"表达力强、社交与创意并重；注意分心，持之以恒是关键。",4:"务实、结构感强，重秩序与稳定；留意僵化与保守。",5:"自由、变化、探索；管理好节奏与边界，避免过度冒险。",6:"责任、关怀、美感；注意完美主义与过度操心。",7:"内省、研究、灵性与洞察；学会表达与连接。",8:"野心、成就、资源整合；需平衡权力与良善。",9:"人文、疗愈、艺术与包容；设立界限，避免过度牺牲。",11:"灵感使命、直觉超感；落地执行与规律作息很重要。",22:"大师建构、把抽象化为实务；请善用团队与耐心。",33:"无条件爱、服务与疗愈；先照顾好自己再照亮他人。"},
-      love:{1:"在关系中追求主导与效率，学会柔软与倾听能更稳。",2:"渴望亲密与安全感，细腻体贴；避免过度依附。",3:"需要表达与玩心，爱情里重视互动与仪式感。",4:"以责任与承诺为核心，慢热但踏实可靠。",5:"热爱自由与新鲜感，需要尊重空间的伴侣。",6:"愿意照顾与付出，向往家庭与稳定美好生活。",7:"重视精神连接与灵魂共鸣，需要被理解的安静角落。",8:"在关系里也讲目标与效率，需要势均力敌的伙伴。",9:"包容与付出，但要学会不拯救、不内耗。",11:"感应敏锐、灵魂契合度要求高，情绪需要温柔对待。",22:"关系中的大格局与长期建构者，务实又愿景导向。",33:"以爱疗愈的能量流动，先自爱，后相爱。"}
+      lp:{1:"独立自驱、领导力强；留意不要过度强势。",2:"温和协调、敏感细腻；避免过度迎合。",3:"表达创意强；注意专注与收尾。",4:"务实有结构；警惕僵化。",5:"热爱自由变化；管理节奏与风险。",6:"有责任与关怀；克制完美主义。",7:"内省求真、有洞察；练习表达与连接。",8:"目标与整合力强；权力与善意要平衡。",9:"人文疗愈、富同理；界限要清晰。",11:"灵感与直觉强；需要规律与落地。",22:"把愿景落为系统；善用团队与耐心。",33:"无条件的爱与服务；先自我照料。"},
+      love:{1:"主动与效率导向；多些柔软与倾听。",2:"渴望安全亲密；避免依附。",3:"互动与仪式感重要。",4:"稳定与承诺为先。",5:"需要空间与新鲜。",6:"愿意照顾与付出。",7:"重视灵魂共鸣与理解。",8:"讲目标也讲平等。",9:"善良但别过度拯救。",11:"敏感直觉强，需温柔对待。",22:"长期建构、脚踏实地。",33:"以爱疗愈，先自爱后相爱。"}
     }
   };
   function getBrief(){
-    var lang = (typeof getLang === 'function') ? getLang() : 'zh-CN';
-    return BRIEF[lang] || BRIEF['en'] || BRIEF['zh-CN'];
+    var lang = getLang();
+    return BRIEF[lang] || BRIEF['en'];
   }
 
-  /* ====== Butler ====== */
+  // ===== Butler rendering =====
   function mdToHtml(md){
     return (md||'')
       .replace(/^###?\s+(.*)$/gm,'<h3 style="margin:12px 0 6px;color:#f2d27a">$1</h3>')
@@ -672,7 +641,6 @@ const i18n = {
   function isVIP(){
     return localStorage.getItem('vipStatus')==='active' || !!localStorage.getItem('vipEmail');
   }
-
   function ensureAiCard(){
     if (gid('aiCard')) return;
     var wrap = gid('numReport'); if(!wrap) return;
@@ -691,35 +659,29 @@ const i18n = {
     wrap.appendChild(sec);
     renderChips();
   }
-
   function renderChips(){
     var wrap = gid('aiChips'); if(!wrap) return;
     wrap.innerHTML = '';
-    var arr = [
-      {k:'chip_career', q:'q_career'},
-      {k:'chip_love',   q:'q_love'},
-      {k:'chip_money',  q:'q_money'},
-      {k:'chip_list',   q:'q_list'},
-      {k:'chip_30d',    q:'q_30d'}
-    ];
-    for (var i=0;i<arr.length;i++){
-      var it = arr[i];
-      var b = document.createElement('button');
-      b.className='chip';
-      b.textContent = t(it.k);
-      b.setAttribute('data-q', t(it.q));
-      b.dataset.topicKey = it.q;
-      wrap.appendChild(b);
-    }
+    [{k:'chip_career', q:'q_career'},
+     {k:'chip_love',   q:'q_love'},
+     {k:'chip_money',  q:'q_money'},
+     {k:'chip_list',   q:'q_list'},
+     {k:'chip_30d',    q:'q_30d'}].forEach(function(it){
+       var b = document.createElement('button');
+       b.className='chip';
+       b.textContent = t(it.k);
+       b.setAttribute('data-q', t(it.q));
+       b.dataset.topicKey = it.q;
+       wrap.appendChild(b);
+     });
   }
-
   function renderReport(obj){
     var iso = obj.iso, lp = obj.lp, lv = obj.lv;
     var wrap = gid('numReport');
 
-    // keep old Butler focus
+    // keep butler focus
     var oldAi = gid('aiCard');
-    var savedKey   = (oldAi && oldAi.dataset) ? (oldAi.dataset.topicKey || '') : '';
+    var savedKey = (oldAi && oldAi.dataset) ? (oldAi.dataset.topicKey || '') : '';
     var savedTopic = (oldAi && oldAi.dataset) ? (oldAi.dataset.topic || '') : '';
 
     var br = getBrief();
@@ -758,10 +720,10 @@ const i18n = {
     var HEADER_MAP = {
       'zh-CN':['人物画像','关系与沟通','事业与自我实现','金钱与物质','今日/本周可执行清单','温柔提醒'],
       'zh-TW':['人物画像','關係與溝通','事業與自我實現','金錢與物質','今日/本週可執行清單','溫柔提醒'],
-      'en':['Persona','Relationships & Communication','Career & Self-Actualization','Money & Material','Actionable To-Dos (Today/This Week)','Gentle Reminder'],
-      'ja':['人物像','関係とコミュニケーション','キャリアと自己実現','お金と物質','今日/今週の実行リスト','やさしいリマインド'],
-      'th':['ภาพบุคคล','ความสัมพันธ์ & การสื่อสาร','การงาน & การเติมเต็มตนเอง','การเงิน & วัตถุ','รายการปฏิบัติ (วันนี้/สัปดาห์นี้)','คำเตือนอ่อนโยน'],
-      'ms':['Persona','Hubungan & Komunikasi','Kerjaya & Aktualisasi Diri','Wang & Material','Senarai Tindakan (Hari/Minggu Ini)','Peringatan Lembut']
+      'en'   :['Persona','Relationships & Communication','Career & Self-Actualization','Money & Material','Actionable To-Dos (Today/This Week)','Gentle Reminder'],
+      'ja'   :['人物像','関係とコミュニケーション','キャリアと自己実現','お金と物質','今日/今週の実行リスト','やさしいリマインド'],
+      'th'   :['ภาพบุคคล','ความสัมพันธ์ & การสื่อสาร','การงาน & การเติมเต็มตนเอง','การเงิน & วัตถุ','รายการปฏิบัติ (วันนี้/สัปดาห์นี้)','คำเตือนอ่อนโยน'],
+      'ms'   :['Persona','Hubungan & Komunikasi','Kerjaya & Aktualisasi Diri','Wang & Material','Senarai Tindakan (Hari/Minggu Ini)','Peringatan Lembut']
     };
     var h = HEADER_MAP[lang] || HEADER_MAP['zh-CN'];
     var lines = [
@@ -866,25 +828,7 @@ const i18n = {
     runAI({ iso: iso, lp: lp, lv: lv }, topic);
   });
 
-  /* ====== UI helpers ====== */
-  function showErr(msg){
-    var e = gid('error');
-    e.textContent = msg;
-    e.style.display = 'block';
-    setTimeout(function(){ e.style.display='none'; }, 4000);
-  }
-  function generateReport(){
-    var bd = gid('birthdate');
-    var iso = bd ? bd.value : '';
-    if(!iso) return showErr(t('err_need_birthdate'));
-    var lp = calcLifePath(iso);
-    var lv = calcLoveNumber(iso);
-    gid('result').style.display = 'block';
-    renderReport({ iso: iso, lp: lp, lv: lv });
-    runAI({ iso: iso, lp: lp, lv: lv });
-    window.scrollTo({ top: gid('result').offsetTop - 10, behavior: 'smooth' });
-  }
-
+  // ===== Chat (mounted on demand) =====
   function applyChatI18n(){
     var fab = gid('ssChatFab'),
         inp = gid('ssChatInput'),
@@ -969,9 +913,9 @@ const i18n = {
     });
   }
 
-  /* ====== init ====== */
+  // ===== Init =====
   document.addEventListener('DOMContentLoaded', function(){
-    // local-time "today" default if empty
+    // prefill birthdate to today (local time)
     var bd = gid('birthdate');
     if (bd && !bd.value) {
       var now = new Date();
@@ -987,14 +931,23 @@ const i18n = {
     document.documentElement.lang = current;
 
     applyI18n();
-    applyChatI18n();
     mountChat();
+    applyChatI18n();
 
     // bind button
     var _btnGen = gid('btnGen');
-    if (_btnGen) _btnGen.addEventListener('click', generateReport);
+    if (_btnGen) _btnGen.addEventListener('click', function(){
+      var iso = bd ? bd.value : '';
+      if(!iso){ var e = t('err_need_birthdate'); var el=gid('error'); if(el){ el.textContent=e; el.style.display='block'; setTimeout(function(){el.style.display='none';},4000); } return; }
+      var lp = calcLifePath(iso);
+      var lv = calcLoveNumber(iso);
+      gid('result').style.display = 'block';
+      renderReport({ iso: iso, lp: lp, lv: lv });
+      runAI({ iso: iso, lp: lp, lv: lv });
+      window.scrollTo({ top: gid('result').offsetTop - 10, behavior: 'smooth' });
+    });
 
-    // language switch keeps last Butler topic
+    // language switch (keep last Butler topic if any)
     if (sel) sel.addEventListener('change', function(){
       setLang(sel.value);
       applyI18n();
@@ -1034,5 +987,3 @@ const i18n = {
 </script>
 </body>
 </html>
-
-
