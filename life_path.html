@@ -215,7 +215,7 @@
                 <div class="muted" data-i18n="note_price">注册账号赠送一次免费体验</div>
                 <div class="spacer"></div>
                 <div class="error-message" id="authError" style="display:none"></div>
-              </form>
+              </div>
             </div>
           </div>
 
@@ -251,6 +251,10 @@
   var LANG_KEY = 'site_lang';
   var gid = function(id){ return document.getElementById(id); };
 
+  // Robust query helpers
+  function q(sel, root){ return (root||document).querySelector(sel); }
+  function qa(sel, root){ return Array.prototype.slice.call((root||document).querySelectorAll(sel)); }
+
   // Polyfills
   if (!Element.prototype.matches) {
     Element.prototype.matches = Element.prototype.msMatchesSelector || Element.prototype.webkitMatchesSelector;
@@ -269,20 +273,24 @@
     if (!result){
       result = document.createElement('section');
       result.id = 'result';
+      result.className = 'card';
       result.style.display = 'none';
-      document.body.appendChild(result);
+      result.innerHTML = '<h2 style="margin:0 0 10px;color:var(--gold)" data-i18n="res_title">心怜管家解读与建议</h2><div id="numReport" class="report"></div>';
+      var main = q('main.container') || document.body;
+      main.appendChild(result);
     }
     var numReport = gid('numReport');
     if (!numReport){
       numReport = document.createElement('div');
       numReport.id = 'numReport';
+      numReport.className = 'report';
       result.appendChild(numReport);
     }
     return numReport;
   }
 
   /* =========================
-     i18n
+     i18n (CN + graceful fallback)
   ========================= */
   const i18n = {
     "zh-CN": {
@@ -292,15 +300,9 @@
       ph_birthdate:"出生日期", rule_pyth:"规则（毕达哥拉斯）", btn_gen:"生成分析",
       hint_text:"说明：生命路径 = 生日所有数字相加并降至 1–9（保留 11/22/33）；情感数字 = 出生日（DD）同样规则。",
       res_title:"心怜管家解读与建议",
-      sec_overview:"基础信息",
-      sec_life:"生命路径",
-      sec_love:"情感数字",
-      sec_career:"事业与工作风格",
-      sec_money:"金钱与资源模式",
-      sec_rel:"关系与边界",
-      sec_year:"本年能量（个人年数）",
-      sec_plan30:"30天可执行计划",
-      sec_gentle:"温柔提醒",
+      sec_overview:"基础信息", sec_life:"生命路径", sec_love:"情感数字",
+      sec_career:"事业与工作风格", sec_money:"金钱与资源模式", sec_rel:"关系与边界",
+      sec_year:"本年能量（个人年数）", sec_plan30:"30天可执行计划", sec_gentle:"温柔提醒",
       err_need_birthdate:"请先选择出生日期",
       butler_title:"心怜管家 · 智能解读", butler_chat_title:"心怜管家 · Chat",
       chat_fab:"问", chat_placeholder:"想了解什么？（如：功能、会员说明）", chat_send:"发送",
@@ -328,12 +330,7 @@
       btn_login:"登录账户", btn_register:"注册账户", btn_reset:"🔑 重设密码",
       panel_member_head:"会员服务", btn_upgrade:"💎 升级为 VIP（月费）", btn_backshop:"← 返回命理商城",
       note_price:"注册账号赠送一次免费体验", note_price1:"$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）"
-    },
-    "zh-TW": { /* …(原内容保留)… */ },
-    "en": { /* …(原内容保留)… */ },
-    "ja": { /* …(原内容保留)… */ },
-    "th": { /* …(原内容保留)… */ },
-    "ms": { /* …(原内容保留)… */ }
+    }
   };
 
   var BUTLER_LANG_NAME = {
@@ -341,27 +338,32 @@
   };
 
   function getLang(){
-    var saved = localStorage.getItem(LANG_KEY);
-    if (saved && i18n[saved]) return saved;
+    try{
+      var saved = localStorage.getItem(LANG_KEY);
+      if (saved && i18n[saved]) return saved;
+    }catch(_){}
     var raw = (navigator.language || 'zh-CN').replace('_','-');
     var map = {'zh':'zh-CN','zh-CN':'zh-CN','zh-SG':'zh-CN','zh-TW':'zh-TW','zh-HK':'zh-TW','en':'en','en-US':'en','en-GB':'en','ja':'ja','ja-JP':'ja','th':'th','ms':'ms'};
     return map[raw] || 'zh-CN';
   }
-  function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
+  function setLang(code){
+    try{ localStorage.setItem(LANG_KEY, code); }catch(_){}
+    document.documentElement.lang = code;
+  }
   function t(key){
     var L = i18n[getLang()] || i18n['zh-CN'];
     return L[key] || (i18n['zh-CN'][key] || key);
   }
   function applyI18n(){
-    document.querySelectorAll('[data-i18n]').forEach(function(el){
+    qa('[data-i18n]').forEach(function(el){
       var k = el.getAttribute('data-i18n'); var v = t(k);
       if (v!=null) el.textContent = v;
     });
-    document.querySelectorAll('[data-i18n-ph]').forEach(function(el){
+    qa('[data-i18n-ph]').forEach(function(el){
       var k = el.getAttribute('data-i18n-ph'); var v = t(k);
       if (v!=null) el.setAttribute('placeholder', v);
     });
-    var titleEl = document.querySelector('title[data-i18n], title[data-i18n="page_title"]');
+    var titleEl = q('title[data-i18n], title[data-i18n="page_title"]');
     if (titleEl) titleEl.textContent = t('page_title');
   }
 
@@ -398,7 +400,6 @@
     return reduceNum(dd);
   }
   function calcPersonalYear(iso, year){
-    // Personal Year = reduce( (month + day + currentYear) digits ), keep 11/22
     if(!iso) return null;
     var p = iso.split("-");
     var m = Number(p[1]||"0"), d = Number(p[2]||"0");
@@ -409,9 +410,8 @@
   }
 
   /* =========================
-     Professional Dictionaries
+     Pro Dictionaries (EN fallback)
   ========================= */
-  // Compact but richer text blocks; localized for zh-CN and en (fallback)
   var PRO = {
     "en": {
       life: {
@@ -470,9 +470,7 @@
         22:["Capex with depreciation schedules.","Fund maintainers, not just launches."],
         33:["Budget recovery time as “cost”.","Gift from surplus, not depletion."]
       },
-      planSeeds:{
-        generic:["Clarify one 30-day focus theme.","Define success metrics and anti-goals.","Block two weekly deep-work slots.","One money habit to install.","One relationship boundary to practice."]
-      }
+      planSeeds:{ generic:["Clarify one 30-day focus theme.","Define success metrics and anti-goals.","Block two weekly deep-work slots.","One money habit to install.","One relationship boundary to practice."] }
     },
     "zh-CN": {
       life:{
@@ -495,8 +493,7 @@
         7:"安静而深刻；尊重独处，珍惜意义。",8:"目标同频；公平协商权责。",9:"心大易拯救；别以自我牺牲换爱。",
         11:"高度敏感；用优雅与慢节奏相处。",22:"长线建构型；务实表达关心。",33:"以爱疗愈；先充电再给予。"
       },
-      careerTips:{ /* 与英文结构一致，保留关键点的中文表达 */ },
-      moneyTips:{ /* 与英文结构一致，保留关键点的中文表达 */ },
+      careerTips:{}, moneyTips:{}, // will fallback to EN
       planSeeds:{ generic:["明确一个30天主题。","写清成功指标与反目标。","每周预留两段深度工作。","安装一个金钱习惯。","练习一条关系边界。"] }
     }
   };
@@ -508,7 +505,7 @@
   }
 
   /* =========================
-     AI Butler helpers
+     Butler helpers
   ========================= */
   function mdToHtml(md){
     return (md||'')
@@ -519,7 +516,9 @@
       .replace(/\n/g,'<br/>');
   }
   function isVIP(){
-    return localStorage.getItem('vipStatus')==='active' || !!localStorage.getItem('vipEmail');
+    try{
+      return localStorage.getItem('vipStatus')==='active' || !!localStorage.getItem('vipEmail');
+    }catch(_){ return false; }
   }
   function ensureAiCard(){
     ensureRootStructure();
@@ -623,7 +622,10 @@
       });
       var data = await r.json().catch(function(){ return {}; });
       var raw  = (data && (data.reply || data.text || (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content))) || '';
-      var html = mdToHtml(raw);
+      var html = mdToHtml(raw || '');
+
+      // Show some content even if empty reply
+      if(!raw){ html = '<div style="color:#98a7b7">' + t('err_busy') + '</div>'; }
 
       if(!isVIP()){
         var parts = (raw||'').split(/\n##\s+/);
@@ -641,7 +643,7 @@
       if(elC) elC.innerHTML = html;
       renderChips();
     }catch(e){
-      if(elC) elC.innerHTML = '<div style="color:#98a7b7">' + t('err_network') + ': ' + e.message + '</div>';
+      if(elC) elC.innerHTML = '<div style="color:#98a7b7">' + t('err_network') + '</div>';
     }
   }
 
@@ -661,13 +663,13 @@
     var lpTxt = txt(L,'life', lp) || '';
     var lvTxt = txt(L,'love', lv) || '';
 
-    // Career & Money tips sourced from dictionaries
+    // Career & Money tips (fallback to EN)
     var career = (PRO[L] && PRO[L].careerTips && PRO[L].careerTips[lp]) ? PRO[L].careerTips[lp] :
                  (PRO['en'].careerTips[lp] || []);
     var money  = (PRO[L] && PRO[L].moneyTips && PRO[L].moneyTips[lp]) ? PRO[L].moneyTips[lp] :
                  (PRO['en'].moneyTips[lp] || []);
 
-    // Relationship guidance mixes Love Number + Life Path nuance
+    // Relationship nuances
     var relPoints = [];
     if (lvTxt) relPoints.push(lvTxt);
     if (lp===2 || lp===6 || lp===9) relPoints.push(L==='zh-CN' ? "练习“有边界的温柔”，把自己的需求说清楚。" : "Practice ‘bounded kindness’: state your needs clearly.");
@@ -675,29 +677,26 @@
     if (lp===5 || lp===7) relPoints.push(L==='zh-CN' ? "约定“空间与联结”的节奏：给自由也给联系。" : "Create a rhythm of space and connection.");
     if (lp===11 || lp===22 || lp===33) relPoints.push(L==='zh-CN' ? "能量敏感时减速：少争辩，多复盘与共识。" : "When energy is sensitive, slow down: less debate, more reflection and consensus.");
 
-    // Personal Year (use visitor local year)
+    // Personal Year
     var now = new Date();
     var py = calcPersonalYear(iso, now.getFullYear());
-    var pyLine = '';
-    if (py!=null){
-      var map = {
-        1: L==='zh-CN' ? "开启之年：立新主题，轻装上路，播种而不求全。" : "Year 1: Beginnings — define themes, travel light, plant seeds.",
-        2: L==='zh-CN' ? "协作之年：慢就是快，巩固人脉与情感支持。" : "Year 2: Cooperation — slow is smooth; build alliances.",
-        3: L==='zh-CN' ? "表达之年：内容/社交曝光，保持稳定产出。" : "Year 3: Expression — create and publish steadily.",
-        4: L==='zh-CN' ? "打底之年：搭结构、补短板、练基本功。" : "Year 4: Foundations — build structure and fundamentals.",
-        5: L==='zh-CN' ? "变动之年：探索与转场，控制风险窗口。" : "Year 5: Change — explore shifts with risk windows.",
-        6: L==='zh-CN' ? "承诺之年：家庭/团队责任与品质升级。" : "Year 6: Commitments — upgrade quality, care.",
-        7: L==='zh-CN' ? "内省之年：研究、疗愈、回到本心。" : "Year 7: Inner work — study, healing, essence.",
-        8: L==='zh-CN' ? "实现之年：资源整合、结果导向、治理升级。" : "Year 8: Realization — integrate resources, govern.",
-        9: L==='zh-CN' ? "收束之年：清理旧章节，为新周期腾挪空间。" : "Year 9: Completion — clear chapters for the next cycle.",
-        11: L==='zh-CN' ? "灵感之年：愿景落地，保持身心节律。" : "Year 11: Inspiration — land visions with routines.",
-        22: L==='zh-CN' ? "架构之年：把“规模化”写进流程与制度。" : "Year 22: Architecture — scale into processes.",
-        33: L==='zh-CN' ? "大爱之年：以自我照料换取可持续服务。" : "Year 33: Compassion — self-care to sustain service."
-      };
-      pyLine = (map[py] || '');
-    }
+    var map = {
+      1: L==='zh-CN' ? "开启之年：立新主题，轻装上路，播种而不求全。" : "Year 1: Beginnings — define themes, travel light, plant seeds.",
+      2: L==='zh-CN' ? "协作之年：慢就是快，巩固人脉与情感支持。" : "Year 2: Cooperation — slow is smooth; build alliances.",
+      3: L==='zh-CN' ? "表达之年：内容/社交曝光，保持稳定产出。" : "Year 3: Expression — create and publish steadily.",
+      4: L==='zh-CN' ? "打底之年：搭结构、补短板、练基本功。" : "Year 4: Foundations — build structure and fundamentals.",
+      5: L==='zh-CN' ? "变动之年：探索与转场，控制风险窗口。" : "Year 5: Change — explore shifts with risk windows.",
+      6: L==='zh-CN' ? "承诺之年：家庭/团队责任与品质升级。" : "Year 6: Commitments — upgrade quality, care.",
+      7: L==='zh-CN' ? "内省之年：研究、疗愈、回到本心。" : "Year 7: Inner work — study, healing, essence.",
+      8: L==='zh-CN' ? "实现之年：资源整合、结果导向、治理升级。" : "Year 8: Realization — integrate resources, govern.",
+      9: L==='zh-CN' ? "收束之年：清理旧章节，为新周期腾挪空间。" : "Year 9: Completion — clear chapters for the next cycle.",
+      11: L==='zh-CN' ? "灵感之年：愿景落地，保持身心节律。" : "Year 11: Inspiration — land visions with routines.",
+      22: L==='zh-CN' ? "架构之年：把“规模化”写进流程与制度。" : "Year 22: Architecture — scale into processes.",
+      33: L==='zh-CN' ? "大爱之年：以自我照料换取可持续服务。" : "Year 33: Compassion — self-care to sustain service."
+    };
+    var pyLine = (py!=null ? (map[py] || '') : '');
 
-    // Actionable 30-day plan seeds
+    // 30-day plan seeds
     var seeds = (PRO[L] && PRO[L].planSeeds && PRO[L].planSeeds.generic) ? PRO[L].planSeeds.generic : PRO['en'].planSeeds.generic;
 
     // Keep Butler focus state
@@ -705,52 +704,17 @@
     var savedKey = (oldAi && oldAi.dataset) ? (oldAi.dataset.topicKey || '') : '';
     var savedTopic = (oldAi && oldAi.dataset) ? (oldAi.dataset.topic || '') : '';
 
+    // Render
     wrap.innerHTML =
-      '<div class="sec">' +
-      '  <h3>' + t('sec_overview') + '</h3>' +
-      '  <p>' + iso + '</p>' +
-      '</div>' +
-
-      '<div class="sec">' +
-      '  <h3>' + t('sec_life') + '</h3>' +
-      '  <p><b>' + t('sec_life') + '</b>：<span id="lifePath">' + (lp!=null?lp:'—') + '</span></p>' +
-      '  <p class="muted" id="lifePathDesc">' + lpTxt + '</p>' +
-      '</div>' +
-
-      '<div class="sec">' +
-      '  <h3>' + t('sec_love') + '</h3>' +
-      '  <p><b>' + t('sec_love') + '</b>：<span id="loveNumber">' + (lv!=null?lv:'—') + '</span></p>' +
-      '  <p class="muted" id="loveDesc">' + (txt(L,'love', lv) || '') + '</p>' +
-      '</div>' +
-
-      '<div class="sec">' +
-      '  <h3>' + t('sec_career') + '</h3>' +
-      '  ' + bulletList(career) +
-      '</div>' +
-
-      '<div class="sec">' +
-      '  <h3>' + t('sec_money') + '</h3>' +
-      '  ' + bulletList(money) +
-      '</div>' +
-
-      '<div class="sec">' +
-      '  <h3>' + t('sec_rel') + '</h3>' +
-      '  ' + bulletList(relPoints) +
-      '</div>' +
-
+      '<div class="sec"><h3>' + t('sec_overview') + '</h3><p>' + iso + '</p></div>' +
+      '<div class="sec"><h3>' + t('sec_life') + '</h3><p><b>' + t('sec_life') + '</b>：<span id="lifePath">' + (lp!=null?lp:'—') + '</span></p><p class="muted" id="lifePathDesc">' + lpTxt + '</p></div>' +
+      '<div class="sec"><h3>' + t('sec_love') + '</h3><p><b>' + t('sec_love') + '</b>：<span id="loveNumber">' + (lv!=null?lv:'—') + '</span></p><p class="muted" id="loveDesc">' + (txt(L,'love', lv) || '') + '</p></div>' +
+      '<div class="sec"><h3>' + t('sec_career') + '</h3>' + bulletList(career) + '</div>' +
+      '<div class="sec"><h3>' + t('sec_money') + '</h3>'  + bulletList(money) + '</div>' +
+      '<div class="sec"><h3>' + t('sec_rel') + '</h3>'    + bulletList(relPoints) + '</div>' +
       (py!=null ? ('<div class="sec"><h3>' + t('sec_year') + '</h3><p><b>PY</b>：' + py + '</p><p class="muted">' + pyLine + '</p></div>') : '') +
-
-      '<div class="sec">' +
-      '  <h3>' + t('sec_plan30') + '</h3>' +
-      '  ' + bulletList(seeds) +
-      '</div>' +
-
-      '<div class="sec">' +
-      '  <h3>' + t('sec_gentle') + '</h3>' +
-      '  <p class="muted">' + ( (L==='zh-CN') ?
-            '把“节奏感”当成本月主题：稳定产出、小步快跑、及时复盘。' :
-            'Make “rhythm” your theme: steady output, short sprints, timely retros.' ) + '</p>' +
-      '</div>';
+      '<div class="sec"><h3>' + t('sec_plan30') + '</h3>' + bulletList(seeds) + '</div>' +
+      '<div class="sec"><h3>' + t('sec_gentle') + '</h3><p class="muted">' + ( (L==='zh-CN') ? '把“节奏感”当成本月主题：稳定产出、小步快跑、及时复盘。' : 'Make “rhythm” your theme: steady output, short sprints, timely retros.' ) + '</p></div>';
 
     ensureAiCard();
     renderChips();
@@ -763,13 +727,13 @@
   }
 
   /* =========================
-     Chat Widget (unchanged)
+     Chat Widget
   ========================= */
   function applyChatI18n(){
     var fab = gid('ssChatFab'),
         inp = gid('ssChatInput'),
         btn = gid('ssChatSend'),
-        title = document.querySelector('.ss-chat-title');
+        title = q('.ss-chat-title');
     if (fab) fab.textContent = t('chat_fab');
     if (inp) inp.placeholder = t('chat_placeholder');
     if (btn) btn.textContent = t('chat_send');
@@ -855,7 +819,7 @@
   document.addEventListener('DOMContentLoaded', function(){
     ensureRootStructure();
 
-    // prefill birthdate to today
+    // prefill birthdate to today (and auto-render)
     var bd = gid('birthdate');
     if (bd && !bd.value) {
       var now = new Date();
@@ -874,18 +838,28 @@
     mountChat();
     applyChatI18n();
 
-    // Generate button
-    var _btnGen = gid('btnGen');
-    if (_btnGen) _btnGen.addEventListener('click', function(){
+    function generateNow(){
       var iso = bd ? bd.value : '';
-      if(!iso){ var e = t('err_need_birthdate'); var el=gid('error'); if(el){ el.textContent=e; el.style.display='block'; setTimeout(function(){el.style.display='none';},4000); } return; }
+      if(!iso){
+        var el=gid('error'); if(el){ el.textContent=t('err_need_birthdate'); el.style.display='block'; setTimeout(function(){el.style.display='none';},4000); }
+        return;
+      }
       var lp = calcLifePath(iso);
       var lv = calcLoveNumber(iso);
       gid('result').style.display = 'block';
       renderProReport({ iso: iso, lp: lp, lv: lv });
       runAI({ iso: iso, lp: lp, lv: lv });
-      window.scrollTo({ top: gid('result').offsetTop - 10, behavior: 'smooth' });
-    });
+    }
+
+    // Auto render on page load if we have a date
+    if (bd && bd.value) generateNow();
+
+    // Button click
+    var _btnGen = gid('btnGen');
+    if (_btnGen) _btnGen.addEventListener('click', generateNow);
+
+    // Date change => live re-render
+    if (bd) bd.addEventListener('change', generateNow);
 
     // Language switch (keep last Butler topic if any)
     if (sel) sel.addEventListener('change', function(){
@@ -894,32 +868,7 @@
       applyChatI18n();
       if (gid('aiChips')) renderChips();
 
-      var iso = bd ? bd.value : '';
-      if (!iso) return;
-
-      var oldAi = gid('aiCard');
-      var oldKey = (oldAi && oldAi.dataset && oldAi.dataset.topicKey) ? oldAi.dataset.topicKey : '';
-
-      var lp = calcLifePath(iso);
-      var lv = calcLoveNumber(iso);
-
-      var res = gid('result');
-      if (res && res.style.display !== 'none') {
-        renderProReport({ iso: iso, lp: lp, lv: lv });
-      }
-
-      var topic = oldKey ? t(oldKey) : '';
-      var newAi = gid('aiCard');
-      if (newAi && oldKey) {
-        newAi.dataset.topicKey = oldKey;
-        newAi.dataset.topic = topic;
-      }
-
-      if (topic) {
-        runAI({ iso: iso, lp: lp, lv: lv }, topic);
-      } else if (newAi) {
-        runAI({ iso: iso, lp: lp, lv: lv });
-      }
+      generateNow();
     });
 
     // Chip click => AI
@@ -938,7 +887,6 @@
         aiCard.dataset.lang     = getLang();
       }
 
-      var bd = gid('birthdate');
       var iso = bd ? bd.value : '';
       if (!iso) return;
 
@@ -952,5 +900,3 @@
 </script>
 </body>
 </html>
-
-
