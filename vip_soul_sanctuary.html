@@ -363,25 +363,28 @@ function syncToHiddenForm(){
   p.value = purpose || '';
 }
 
-// ====== 关键修正：让“生成分析”只渲染报告，不提交表单 ======
+// ====== 让“生成分析”走隐藏表单到 /secure/report.html ======
 document.addEventListener('DOMContentLoaded', ()=>{
   const nextBtn = document.getElementById('btnNext');
   if (!nextBtn) return;
 
   nextBtn.addEventListener('click', (e)=>{
     e.preventDefault();
-    // 如需同步隐藏表单（某些后续流程会用到），可保留这一句：
+
+    // 基础校验
+    const type = document.getElementById('type')?.value || 'personal';
+    const bd1  = document.getElementById('birthdate1')?.value?.trim();
+    const bd2  = document.getElementById('birthdate2')?.value?.trim();
+
+    if (!bd1) { alert('请填写本人出生日期'); return; }
+    if (type === 'compatibility' && !bd2) { alert('合盘请填写第二人的出生日期'); return; }
+
+    // 同步到隐藏表单并提交
     if (typeof syncToHiddenForm === 'function') syncToHiddenForm();
 
-    // 调你的渲染函数（存在哪个就用哪个）
-    if (typeof generateReport === 'function') {
-      generateReport();
-    } else if (typeof generate === 'function') {
-      // 你已有的能量报告/管家渲染逻辑
-      generate();
-    } else {
-      alert('缺少渲染逻辑：请实现 generateReport() 或复用已有的 generate()。');
-    }
+    const form = document.getElementById('reportForm');
+    if (!form) { alert('缺少 reportForm 表单'); return; }
+    form.submit();
   });
 });
 
@@ -1065,34 +1068,28 @@ const translations = {
     return showErr(t('err_login_fail') + (res.msg ? ` ${res.msg}` : ''));
   }
 
-  // ======== 表单事件（注册 / 登录 / 重设） ========
-  document.getElementById("registerForm").addEventListener("submit", async (e)=>{
+// ======== 表单事件（注册 / 登录 / 重设） ========
+const regForm = document.getElementById("registerForm");
+if (regForm) {
+  regForm.addEventListener("submit", async (e)=>{
     e.preventDefault();
     hideErr();
-    const email = $("email").value.trim();
-    const password = $("password").value.trim();
+    const email = $("email")?.value?.trim() || "";
+    const password = $("password")?.value?.trim() || "";
     if (!email || !password) return showErr(t('err_need_ep'));
     if (!strongPwd(password)) return showErr(t('err_pwd_rule'));
 
     lock($("registerBtn"), true);
     try{
       const res = await safeJson(await fetch(`${API_BASE}/api/register`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email, password })
       }));
-
       if (res.ok === true){
         localStorage.setItem("vipEmail", email);
         location.href = "vip_trial.html";
         return;
       }
-
-      // 已存在：自动尝试登录（用刚输入的密码）
-      if ((res.msg||"").toString() === 'exists'){
-        await loginFlow(email, password);
-        return;
-      }
-
+      if ((res.msg||"") === 'exists'){ await loginFlow(email, password); return; }
       return showErr((res.msg && (res.msg+'')) || t('err_register_fail'));
     } catch(err){
       showErr(t('err_register_fail') + (err?.message || ''));
@@ -1100,48 +1097,48 @@ const translations = {
       lock($("registerBtn"), false);
     }
   });
+}
 
-  document.getElementById("loginForm").addEventListener("submit", async (e)=>{
+const loginForm = document.getElementById("loginForm");
+if (loginForm) {
+  loginForm.addEventListener("submit", async (e)=>{
     e.preventDefault();
     hideErr();
-    const email = $("email").value.trim();
-    const password = $("password").value.trim();
+    const email = $("email")?.value?.trim() || "";
+    const password = $("password")?.value?.trim() || "";
     if (!email || !password) return showErr(t('err_need_ep'));
     lock($("loginBtn"), true);
-    try{
-      await loginFlow(email, password);
-    } catch(err){
-      showErr(t('err_login_fail') + (err?.message || ''));
-    } finally{
-      lock($("loginBtn"), false);
-    }
+    try{ await loginFlow(email, password); }
+    catch(err){ showErr(t('err_login_fail') + (err?.message || '')); }
+    finally{ lock($("loginBtn"), false); }
   });
+}
 
-  document.getElementById("resetBtn").addEventListener("click", async ()=>{
+const resetBtn = document.getElementById("resetBtn");
+if (resetBtn) {
+  resetBtn.addEventListener("click", async ()=>{
     hideErr();
-    let email = prompt(t('prompt_email'));
-    if (email === null) return; email = email.trim();
+    let email = prompt(t('prompt_email')); if (email === null) return; email = email.trim();
     if (!email) return showErr(t('err_email_empty'));
 
-    let newPassword = prompt(t('prompt_newpwd'));
-    if (newPassword === null) return; newPassword = newPassword.trim();
+    let newPassword = prompt(t('prompt_newpwd')); if (newPassword === null) return; newPassword = newPassword.trim();
     if (!newPassword) return showErr(t('err_pwd_empty'));
     if (!strongPwd(newPassword)) return showErr(t('err_pwd_rule'));
 
-    lock($("resetBtn"), true);
+    lock(resetBtn, true);
     try{
       const res = await safeJson(await fetch(`${API_BASE}/api/reset`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, newPassword })
+        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email, newPassword })
       }));
       if (!res.ok) return showErr((res.msg && (res.msg+'')) || t('err_reset_fail'));
       alert(t('msg_reset_ok'));
     } catch(err){
       showErr(t('err_reset_fail') + (err?.message || ''));
     } finally{
-      lock($("resetBtn"), false);
+      lock(resetBtn, false);
     }
   });
+}
   </script>
 </body>
 </html>
