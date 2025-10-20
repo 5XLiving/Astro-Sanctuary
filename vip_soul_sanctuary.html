@@ -197,7 +197,7 @@
       </div>
 
       <!-- 隐形表单用于提交 -->
-      <form id="reportForm" action="/secure/report" method="POST" style="display:none"></form>
+      <form id="reportForm" action="report.html" method="GET" style="display:none"></form>
 
       <div id="partner-section" style="display:none; margin-top:16px">
         <div class="group-title" data-i18n="partner_info">第二人资料（合盘）</div>
@@ -363,7 +363,7 @@ function syncToHiddenForm(){
   p.value = purpose || '';
 }
 
-// ====== 让“生成分析”走隐藏表单到 /secure/report.html ======
+// ====== 修复：让"生成分析"正确生成报告 ======
 document.addEventListener('DOMContentLoaded', ()=>{
   const nextBtn = document.getElementById('btnNext');
   if (!nextBtn) return;
@@ -379,14 +379,82 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (!bd1) { alert('请填写本人出生日期'); return; }
     if (type === 'compatibility' && !bd2) { alert('合盘请填写第二人的出生日期'); return; }
 
-    // 同步到隐藏表单并提交
-    if (typeof syncToHiddenForm === 'function') syncToHiddenForm();
+    // 收集所有表单数据
+    const formData = {
+      type: document.getElementById('type')?.value,
+      culture: document.getElementById('culture')?.value,
+      name1: document.getElementById('name1')?.value,
+      birthdate1: document.getElementById('birthdate1')?.value,
+      birthtime1: document.getElementById('birthtime1')?.value,
+      calendar1: document.getElementById('calendar1')?.value,
+      country1: document.getElementById('country1')?.value,
+      name2: document.getElementById('name2')?.value,
+      birthdate2: document.getElementById('birthdate2')?.value,
+      birthtime2: document.getElementById('birthtime2')?.value,
+      calendar2: document.getElementById('calendar2')?.value,
+      country2: document.getElementById('country2')?.value,
+      purpose: (type === 'compatibility') 
+        ? document.getElementById('purpose_compatibility')?.value
+        : document.getElementById('purpose_personal')?.value
+    };
 
-    const form = document.getElementById('reportForm');
-    if (!form) { alert('缺少 reportForm 表单'); return; }
-    form.submit();
+    // 方案A: 跳转到报告页面并传递参数
+    const params = new URLSearchParams(formData).toString();
+    window.location.href = `/report.html?${params}`;
+    
+    // 方案B: 或者直接在当前页面生成报告
+    // generateReport(formData);
   });
 });
+
+// 方案B的配套函数：在当前页面生成报告
+async function generateReport(data) {
+  try {
+    // 显示加载状态
+    nextBtn.disabled = true;
+    nextBtn.textContent = '生成中...';
+    
+    // 调用你的报告生成API
+    const response = await fetch(`${API_BASE}/api/generate-report`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // 显示报告结果
+      displayReport(result.report);
+    } else {
+      alert('报告生成失败: ' + (result.error || '未知错误'));
+    }
+  } catch (error) {
+    alert('网络错误: ' + error.message);
+  } finally {
+    nextBtn.disabled = false;
+    nextBtn.textContent = '生成分析';
+  }
+}
+
+function displayReport(reportHtml) {
+  // 创建或显示报告区域
+  let reportSection = document.getElementById('reportSection');
+  if (!reportSection) {
+    reportSection = document.createElement('div');
+    reportSection.id = 'reportSection';
+    reportSection.className = 'card';
+    document.querySelector('main').appendChild(reportSection);
+  }
+  
+  reportSection.innerHTML = `
+    <h2>命理分析报告</h2>
+    <div class="report">${reportHtml}</div>
+  `;
+  
+  // 滚动到报告区域
+  reportSection.scrollIntoView({ behavior: 'smooth' });
+}
 
   // ============== 统一配置（你的 Worker 域名） ==============
   const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev'; // ← 改成你的 Workers.dev
