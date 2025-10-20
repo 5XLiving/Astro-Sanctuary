@@ -330,46 +330,75 @@
   <footer>© 5XLiving • Astro Sanctuary</footer>
 
 <Script>  
-// 切换个人/合盘显示
-function togglePartner(value){
-  const section = document.getElementById("partner-section");
-  const personal = document.getElementById('purpose_personal');
-  const compat = document.getElementById('purpose_compatibility');
-  const show = (value === "compatibility");
-  section.style.display = show ? "block" : "none";
-  personal.style.display = show ? "none" : "block";
-  compat.style.display = show ? "block" : "none";
-}
+// 切换个人/合盘显示（同时控制参与提交）
+  function togglePartner(value){
+    const section  = document.getElementById("partner-section");
+    const personal = document.getElementById('purpose_personal');
+    const compat   = document.getElementById('purpose_compatibility');
+    const show = (value === "compatibility");
 
-// 隐形表单同步（仅当你确实需要把值同步到隐藏表单时调用）
-function syncToHiddenForm(){
-  const reportForm = document.getElementById('reportForm');
-  if (!reportForm) return; // 容错：不存在就直接返回
+    section.style.display  = show ? "block" : "none";
+    personal.style.display = show ? "none"  : "block";
+    compat.style.display   = show ? "block" : "none";
 
-  const ids = ["type","culture","name1","birthdate1","birthtime1","calendar1","country1","name2","birthdate2","birthtime2","calendar2","country2"];
-  ids.forEach(id=>{
-    const el = document.getElementById(id); if(!el) return;
-    let h = reportForm.querySelector(`[name="${id}"]`);
-    if(!h){ h = document.createElement('input'); h.type='hidden'; h.name=id; reportForm.appendChild(h); }
-    h.value = el.value || '';
+    personal.disabled = show;
+    compat.disabled   = !show;
+  }
+
+  // —— 绑定“生成分析”按钮（最终版）——
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const typeSel = document.getElementById('type');
+    if (typeSel) togglePartner(typeSel.value);
+
+    const nextBtn = document.getElementById('btnNext');
+    if (!nextBtn) return; // 没有按钮就不绑定
+
+    nextBtn.addEventListener('click', (e)=>{
+      e.preventDefault();
+      if (typeof hideErr === 'function') hideErr();
+
+      const get  = id => document.getElementById(id)?.value?.trim() || '';
+      const say  = msg => (typeof showErr === 'function' ? showErr(msg) : alert(msg));
+
+      const type = get('type');
+      const bd1  = get('birthdate1');
+      const bd2  = get('birthdate2');
+
+      if (!bd1) return say('请填写本人出生日期');
+      if (type === 'compatibility' && !bd2) return say('合盘请填写第二人的出生日期');
+
+      // 只让当前的 purpose 参与提交
+      const pp = document.getElementById('purpose_personal');
+      const pc = document.getElementById('purpose_compatibility');
+      if (pp && pc){
+        pp.disabled = (type === 'compatibility');
+        pc.disabled = (type !== 'compatibility');
+      }
+
+      const formData = {
+        type,
+        culture: get('culture'),
+        name1: get('name1'),
+        birthdate1: bd1,
+        birthtime1: get('birthtime1'),
+        calendar1: get('calendar1'),
+        country1: get('country1'),
+        name2: get('name2'),
+        birthdate2: bd2,
+        birthtime2: get('birthtime2'),
+        calendar2: get('calendar2'),
+        country2: get('country2'),
+        purpose: (type === 'compatibility') ? get('purpose_compatibility') : get('purpose_personal')
+      };
+
+      // 仅附加有值的字段，避免 "key="
+      const params = new URLSearchParams();
+      Object.entries(formData).forEach(([k, v]) => { if (v) params.append(k, v); });
+
+      // 根据你的路径改成 /report.html 或 report.html
+      window.location.href = `report.html?${params.toString()}`;
+    });
   });
-
-  const purpose = (document.getElementById('type')?.value === 'compatibility')
-    ? document.getElementById('purpose_compatibility')?.value
-    : document.getElementById('purpose_personal')?.value;
-
-  let p = reportForm.querySelector('[name="purpose"]');
-  if(!p){ p = document.createElement('input'); p.type='hidden'; p.name='purpose'; reportForm.appendChild(p); }
-  p.value = purpose || '';
-}
-
-// ====== 修复：让"生成分析"正确生成报告 ======
-document.addEventListener('DOMContentLoaded', ()=>{
-  const nextBtn = document.getElementById('btnNext');
-  if (!nextBtn) return;
-
-  nextBtn.addEventListener('click', (e)=>{
-    e.preventDefault();
 
     // 基础校验
     const type = document.getElementById('type')?.value || 'personal';
@@ -1237,6 +1266,43 @@ if (resetBtn) {
     }
   });
 }
+  
+  /* ================== 自测：1978-02-21 12:00 → 戊午 甲寅 甲寅 庚午 ================== */
+(function(){
+  const c=new BaziCalculator(); const Y=c.calculateYearPillar(1978); const M=c.calculateMonthPillar(1978,2,21); const D=c.calculateDayPillar(1978,2,21); const H=c.calculateHourPillar(D.stem,12);
+  console.log('应为 → 年 戊午｜月 甲寅｜日 甲寅｜时 庚午');
+  console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+H.branch);
+})();
   </script>
+  <div id="nowTime" class="muted"></div>
+<script>
+  const $now = document.getElementById('nowTime');
+  function tick(){
+    const d = new Date();
+    $now.textContent = d.toLocaleString(); // 自动按浏览器语言格式化
+  }
+  tick();
+  setInterval(tick, 1000);
+</script>
+<script>
+if (typeof BaziCalculator === 'function') {
+  const c   = new BaziCalculator();
+  const now = new Date();
+  const y   = now.getFullYear();
+  const m   = now.getMonth() + 1;
+  const d   = now.getDate();
+  const h   = now.getHours();
+
+  const Y = c.calculateYearPillar(y);
+  const M = c.calculateMonthPillar(y, m, d);
+  const D = c.calculateDayPillar(y, m, d);
+  const H = c.calculateHourPillar(D.stem, h);
+
+  console.log(
+    `现在 ${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')} ${String(h).padStart(2,'0')}:00 →`,
+    `年${Y.stem}${Y.branch} 月${M.stem}${M.branch} 日${D.stem}${D.branch} 时${H.stem}${H.branch}`
+  );
+}
+</script>  
 </body>
 </html>
