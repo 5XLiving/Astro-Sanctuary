@@ -330,36 +330,506 @@
 
   <footer>© 5XLiving • Astro Sanctuary</footer>
 
-<Script>  
-// 切换个人/合盘显示（同时控制参与提交）
-  function togglePartner(value){
-    const section  = document.getElementById("partner-section");
-    const personal = document.getElementById('purpose_personal');
-    const compat   = document.getElementById('purpose_compatibility');
-    const show = (value === "compatibility");
+<script>
+'use strict';
 
-    section.style.display  = show ? "block" : "none";
-    personal.style.display = show ? "none"  : "block";
-    compat.style.display   = show ? "block" : "none";
+/* ==============================
+   CONFIG
+============================== */
+const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev'; // keep ONE definition only
 
-    personal.disabled = show;
-    compat.disabled   = !show;
+/* ==============================
+   UTILITIES
+============================== */
+const $ = id => document.getElementById(id);
+
+function ensureErrorBox(){
+  let box = $('error');
+  if (!box){
+    box = document.createElement('div');
+    box.id = 'error';
+    box.className = 'error';
+    box.style.cssText = 'margin-top:10px;color:#ff8b8b';
+    (document.querySelector('.section') || document.body).appendChild(box);
+  }
+  return box;
+}
+function showErr(msg){ const e = ensureErrorBox(); e.textContent = msg; e.style.display = 'block'; setTimeout(()=>{ e.style.display='none'; }, 5000); }
+function hideErr(){ const e = $('error'); if (e){ e.style.display='none'; e.textContent=''; } }
+function lock(el, v){ if (el) el.disabled = !!v; }
+function strongPwd(pw){ return pw.length>=8 && /[A-Z]/.test(pw) && /[a-z]/.test(pw) && /[0-9]/.test(pw) && /[^A-Za-z0-9]/.test(pw); }
+
+/* ==============================
+   I18N
+============================== */
+const LANG_KEY = "site_lang";
+function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
+function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
+
+const translations = {
+  "zh-CN": {
+    page_title:"命理心怜空间 · VIP Soul Sanctuary", site_title:"命理心怜空间 · VIP Soul Sanctuary",
+    site_subtitle:"与「八字简评」同款风格 · 手机&电脑一致体验",
+    lang_label:"语言", form_title:"命理分析 · 生成报告", choose_type:"选择命盘类型",
+    type_personal:"个人命盘", type_compat:"合盘（两人资料）",
+    culture_auto:"自动识别 Auto Detect", culture_cn:"东方 Chinese / Bazi", culture_west:"西方 Astrology / Tarot",
+    culture_jp:"日式九星 Japanese", culture_vedic:"印度吠陀 Vedic",
+    self_info:"本人资料", ph_name1:"姓名（本人）", ph_time1:"出生时间", ph_country1:"出生国家 / 地区",
+    cal_g:"阳历 (Gregorian)", cal_l:"农历 (Lunar)", btn_next:"生成分析",
+    partner_info:"第二人资料（合盘）", ph_name2:"姓名（第二人）", ph_time2:"出生时间", ph_country2:"出生国家 / 地区",
+    focus_title:"命理选题（报告聚焦）",
+    opt_love:"姻缘 Love", opt_dating:"恋爱缘分", opt_marriage:"婚姻走势",
+    opt_career:"事业 Career", opt_work:"职场发展", opt_startup:"创业潜力",
+    opt_wealth:"财运 Wealth", opt_wealthpos:"财位分析", opt_timing:"理财时机",
+    opt_dates:"择日 Auspicious Date", opt_wedding:"婚期择日", opt_babydate:"新生宝宝择日", opt_house:"新家入住择日", opt_office:"新公司入住择日",
+    opt_name:"测名 Name Analysis", opt_babyname:"宝宝名", opt_petname:"宠物名", opt_companyname:"公司名", opt_rename:"命名改运",
+    opt_fs:"风水 Feng Shui", opt_home:"住家", opt_officefs:"办公室",
+    opt_comp:"合盘分析 Compatibility", opt_couple:"情侣合盘（缘分起落 / 暧昧进展）",
+    opt_spouse:"夫妻流年（婚姻发展）", opt_personality:"个性合盘（冲突 / 互补）",
+    opt_partner:"事业合盘（合伙人 / 员工）", opt_reconnect:"断联修复（朋友 / 情人 / 家人）", opt_petbond:"宠物合盘（主人与宠物）",
+    vip_overview:"VIP 内容总览", vip_mingli:"🗝 命理空间专属内容",
+    list_love:"姻缘方向：恋爱缘分、婚姻走势", list_career:"事业方向：职场发展、创业潜力", list_wealth:"财运方向：财位分析、理财时机",
+    list_pet:"宠物命理：伴侣动物的性格与缘分", list_hepan:"合盘分析：婚期择日、新生择时", list_name:"测名分析：公司名、宝宝名、命名改运",
+    list_fs:"财位合盘：住家 / 办公室动线配合",
+    vip_xinlian:"🌙 心怜空间专属内容", list_record:"灵性记录：照片、梦境、声音、愿望祈祷",
+    list_course:"命理课程：八字 / 塔罗 / 占星 / 灵数 / 人类图",
+    list_memorial:"家族纪念系统：亲人灵性纪念 & 延续", list_tasks:"每周能量练习 / 神明仪式任务",
+    list_shop:"能量商城专属折扣 & 御守订制",
+    btn_upgrade:"💎 升级为 VIP（月费）", btn_back:"← 返回命理商城",
+    vip_note:"$9.9 / 月费（命理空间 + 心怜空间 + 灵性课程）· 注册账号赠送一次免费体验",
+    portal_title:"心怜空间 · 功能入口",
+    diary_title:"🧘‍♀️ 灵性日记", diary_desc:"照片上传 / 语音记录 / 灵性笔记 / 家庭日志 / 愿望祈祷（每日加持）",
+    btn_personal:"个人隐藏记录", btn_family:"家庭共享记录", btn_upload:"上传记录",
+    course_title:"📘 命理课程专区", course_bazi:"八字命理：十神 / 流年 / 用神分析", course_tarot:"塔罗牌：牌阵解读 / 情境实战",
+    course_coming:"🌙 以下课程酝酿中：占星 / 灵数 / 人类图 / 六爻 / 冥想引导 / 奇门 / 日式神明 / 紫微 / 能量学 / 西洋占星 / 心灵课程……",
+    btn_enter_course:"进入课程",
+    shop_title:"🛍️ 能量商城 · VIP折扣 & 御守订制", shop_desc:"专属祈愿包分类：",
+    wish_title:"🔮 梦想提交 Dream Submission", btn_manifest:"梦想规划 / Manifestation",
+    memorial_title:"📖 灵性空间 ~ 往生记怜录", memorial_desc:"灵魂档案 / 纪念回忆（图文音） / 灵性延续（功德传承）",
+    btn_login_memorial:"登入灵性空间", btn_upload_memorial:"上传往生录", btn_register_memorial:"注册灵性空间",
+    login_title:"💎 登入 VIP 功能", ph_email:"邮箱 Email",
+    ph_password:"密码 Password（至少8位，含大小写数字符号）",
+    btn_login:"登入账户", btn_register:"注册账户", btn_reset:"🔑 重设密码", btn_backshop:"← 返回命理商城",
+    note_price:"注册账号赠送一次免费体验", note_price1:"$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）",
+    err_expired:"会员已过期", err_no_account:"没有这个账号，请先注册", err_wrong_pwd:"密码不正确",
+    err_login_fail:"登录失败，请稍后再试。", err_register_fail:"注册失败，请稍后再试。",
+    err_need_ep:"请填写邮箱和密码", err_pwd_rule:"密码至少 8 位，需包含大小写字母、数字和符号",
+    prompt_email:"请输入注册邮箱", prompt_newpwd:"请输入新密码（至少8位，含大小写数字符号）",
+    err_email_empty:"邮箱不能为空", err_pwd_empty:"密码不能为空", err_reset_fail:"重设失败，请稍后再试。",
+    msg_reset_ok:"已重设成功，请用新密码登录",
+    chat_fab:"Chat", chat_placeholder:"有什么想咨询的？", chat_send:"发送"
+  },
+  "zh-TW": {
+    page_title:"命理心怜空间 · VIP Soul Sanctuary", site_title:"命理心怜空间 · VIP Soul Sanctuary",
+    site_subtitle:"與「八字簡評」同款風格 · 手機&電腦一致體驗",
+    lang_label:"語言", form_title:"命理分析 · 生成報告", choose_type:"選擇命盤類型",
+    type_personal:"個人命盤", type_compat:"合盤（兩人資料）",
+    culture_auto:"自動識別 Auto Detect", culture_cn:"東方 Chinese / Bazi", culture_west:"西方 Astrology / Tarot",
+    culture_jp:"日式九星 Japanese", culture_vedic:"印度吠陀 Vedic",
+    self_info:"本人資料", ph_name1:"姓名（本人）", ph_time1:"出生時間", ph_country1:"出生國家 / 地區",
+    cal_g:"陽曆 (Gregorian)", cal_l:"農曆 (Lunar)", btn_next:"生成分析",
+    partner_info:"第二人資料（合盤）", ph_name2:"姓名（第二人）", ph_time2:"出生時間", ph_country2:"出生國家 / 地區",
+    focus_title:"命理選題（報告聚焦）",
+    opt_love:"姻緣 Love", opt_dating:"戀愛緣分", opt_marriage:"婚姻走勢",
+    opt_career:"事業 Career", opt_work:"職場發展", opt_startup:"創業潛力",
+    opt_wealth:"財運 Wealth", opt_wealthpos:"財位分析", opt_timing:"理財時機",
+    opt_dates:"擇日 Auspicious Date", opt_wedding:"婚期擇日", opt_babydate:"新生寶寶擇日", opt_house:"新家入住擇日", opt_office:"新公司入住擇日",
+    opt_name:"測名 Name Analysis", opt_babyname:"寶寶名", opt_petname:"寵物名", opt_companyname:"公司名", opt_rename:"命名改運",
+    opt_fs:"風水 Feng Shui", opt_home:"住家", opt_officefs:"辦公室",
+    opt_comp:"合盤分析 Compatibility", opt_couple:"情侶合盤（緣分起落 / 曖昧進展）",
+    opt_spouse:"夫妻流年（婚姻發展）", opt_personality:"個性合盤（衝突 / 互補）",
+    opt_partner:"事業合盤（合夥人 / 員工）", opt_reconnect:"斷聯修復（朋友 / 情人 / 家人）", opt_petbond:"寵物合盤（主人與寵物）",
+    vip_overview:"VIP 內容總覽", vip_mingli:"🗝 命理空間專屬內容",
+    list_love:"姻緣方向：戀愛緣分、婚姻走勢", list_career:"事業方向：職場發展、創業潛力", list_wealth:"財運方向：財位分析、理財時機",
+    list_pet:"寵物命理：伴侶動物的性格與緣分", list_hepan:"合盤分析：婚期擇日、新生擇時", list_name:"測名分析：公司名、寶寶名、命名改運",
+    list_fs:"財位合盤：住家 / 辦公室動線配合",
+    vip_xinlian:"🌙 心憐空間專屬內容", list_record:"靈性記錄：照片、夢境、聲音、願望祈禱",
+    list_course:"命理課程：八字 / 塔羅 / 占星 / 靈數 / 人類圖",
+    list_memorial:"家族紀念系統：親人靈性紀念 & 延續", list_tasks:"每週能量練習 / 神明儀式任務",
+    list_shop:"能量商城專屬折扣 & 御守訂製",
+    btn_upgrade:"💎 升級為 VIP（月費）", btn_back:"← 返回命理商城",
+    vip_note:"$9.9 / 月費（命理空間 + 心憐空間 + 靈性課程）· 註冊贈送一次免費體驗",
+    portal_title:"心憐空間 · 功能入口",
+    diary_title:"🧘‍♀️ 靈性日記", diary_desc:"照片上傳 / 語音記錄 / 靈性筆記 / 家庭日誌 / 願望祈禱（每日加持）",
+    btn_personal:"個人隱藏記錄", btn_family:"家庭共享記錄", btn_upload:"上傳記錄",
+    course_title:"📘 命理課程專區", course_bazi:"八字命理：十神 / 流年 / 用神分析", course_tarot:"塔羅牌：牌陣解讀 / 情境實戰",
+    course_coming:"🌙 以下課程醞釀中：占星 / 靈數 / 人類圖 / 六爻 / 冥想引導 / 奇門 / 日式神明 / 紫微 / 能量學 / 西洋占星 / 心靈課程……",
+    btn_enter_course:"進入課程",
+    shop_title:"🛍️ 能量商城 · VIP折扣 & 御守訂製", shop_desc:"專屬祈願包分類：",
+    wish_title:"🔮 夢想提交 Dream Submission", btn_manifest:"夢想規劃 / Manifestation",
+    memorial_title:"📖 靈性空間 ~ 往生記憶錄", memorial_desc:"靈魂檔案 / 紀念回憶（圖文音） / 靈性延續（功德傳承）",
+    btn_login_memorial:"登入靈性空間", btn_upload_memorial:"上傳往生錄", btn_register_memorial:"註冊靈性空間",
+    login_title:"💎 登入 VIP 功能", ph_email:"信箱 Email",
+    ph_password:"密碼 Password（至少8位，含大小寫數字符號）",
+    btn_login:"登入帳戶", btn_register:"註冊帳戶", btn_reset:"🔑 重設密碼", btn_backshop:"← 返回命理商城",
+    note_price:"註冊贈送一次免費體驗", note_price1:"$9.9 / 月費 VIP（命理空間 + 心憐空間 + 靈性課程）",
+    err_expired:"會員已過期", err_no_account:"沒有此帳號，請先註冊", err_wrong_pwd:"密碼不正確",
+    err_login_fail:"登入失敗，請稍後再試。", err_register_fail:"註冊失敗，請稍後再試。",
+    err_need_ep:"請填寫信箱與密碼", err_pwd_rule:"密碼至少 8 位，需含大小寫、數字與符號",
+    prompt_email:"請輸入註冊信箱", prompt_newpwd:"請輸入新密碼（至少8位，含大小寫數字符號）",
+    err_email_empty:"信箱不可為空", err_pwd_empty:"密碼不可為空", err_reset_fail:"重設失敗，請稍後再試。",
+    msg_reset_ok:"已重設成功，請用新密碼登入",
+    chat_fab:"聊天", chat_placeholder:"想了解什麼呢？", chat_send:"送出"
+  },
+  "en": {
+    page_title:"命理心怜空间 · VIP Soul Sanctuary", site_title:"命理心怜空间 · VIP Soul Sanctuary",
+    lang_label:"Language", form_title:"Astro Analysis · Generate Report", choose_type:"Chart Type",
+    type_personal:"Personal Chart", type_compat:"Synastry (Two Persons)",
+    culture_auto:"Auto Detect", culture_cn:"Chinese / Bazi", culture_west:"Western Astrology / Tarot",
+    culture_jp:"Japanese Nine Star Ki", culture_vedic:"Vedic Astrology",
+    self_info:"Your Info", ph_name1:"Your Name", ph_time1:"Birth Time", ph_country1:"Birth Country / Region",
+    cal_g:"Gregorian", cal_l:"Lunar", btn_next:"Next",
+    partner_info:"Partner Info (Synastry)", ph_name2:"Partner Name", ph_time2:"Birth Time", ph_country2:"Birth Country / Region",
+    focus_title:"Report Focus",
+    opt_love:"Love", opt_dating:"Dating Fate", opt_marriage:"Marriage Trend",
+    opt_career:"Career", opt_work:"Workplace", opt_startup:"Entrepreneurship",
+    opt_wealth:"Wealth", opt_wealthpos:"Wealth Position", opt_timing:"Timing",
+    opt_dates:"Auspicious Dates", opt_wedding:"Wedding Date", opt_babydate:"Baby Birth Date", opt_house:"House Move-in", opt_office:"Company Move-in",
+    opt_name:"Name Analysis", opt_babyname:"Baby Name", opt_petname:"Pet Name", opt_companyname:"Company Name", opt_rename:"Renaming",
+    opt_fs:"Feng Shui", opt_home:"Home", opt_officefs:"Office",
+    opt_comp:"Compatibility", opt_couple:"Couple Synastry (Ups & Downs)",
+    opt_spouse:"Spouse Transit (Marriage)", opt_personality:"Personality Fit (Conflict/Complement)",
+    opt_partner:"Business Partner / Team", opt_reconnect:"Reconnect (Friends/Family/Lovers)", opt_petbond:"Owner–Pet Bond",
+    vip_overview:"VIP Overview", vip_mingli:"🗝 Astro Sanctuary · Exclusive",
+    list_love:"Love: Dating & Marriage", list_career:"Career: Workplace & Startup", list_wealth:"Wealth: Position & Timing",
+    list_pet:"Pet Destiny: Temperament & Bond", list_hepan:"Synastry: Wedding Date / Birth Time", list_name:"Name Reading: Company/Baby/Renaming",
+    list_fs:"Wealth × Layout: Home / Office",
+    vip_xinlian:"🌙 Soul Sanctuary · Exclusive", list_record:"Spiritual Logs: Photos/Dreams/Voice/Prayers",
+    list_course:"Courses: Bazi / Tarot / Astrology / Numerology / HD",
+    list_memorial:"Family Memorial: Archive & Legacy", list_tasks:"Weekly Energy / Ritual Tasks",
+    list_shop:"Store Discounts & Omamori",
+    btn_upgrade:"💎 Upgrade to VIP (Monthly)", btn_back:"← Back to Store",
+    vip_note:"$9.9 / month (Astro + Soul + Courses). New account gets one free trial.",
+    portal_title:"Soul Sanctuary · Portals",
+    diary_title:"🧘‍♀️ Spiritual Diary", diary_desc:"Photos / Voice / Notes / Family Log / Prayer (Daily Blessing)",
+    btn_personal:"Personal (Private)", btn_family:"Family (Shared)", btn_upload:"Upload Entry",
+    course_title:"📘 Courses", course_bazi:"Bazi: Ten Gods / Annual Luck / Useful God", course_tarot:"Tarot: Spreads & Practice",
+    course_coming:"🌙 Coming soon: Astrology / Numerology / Human Design / I Ching / Meditation / Qimen / Shinto / Zi Wei / Energy / Western Astro / Spiritual courses…",
+    btn_enter_course:"Enter Courses",
+    shop_title:"🛍️ Energy Store · VIP Discount & Omamori", shop_desc:"Exclusive Blessing Packs:",
+    wish_title:"🔮 Dream Submission", btn_manifest:"Manifestation Planner",
+    memorial_title:"📖 Memorial Space", memorial_desc:"Soul Archive / Media Memories / Spiritual Continuance",
+    btn_login_memorial:"Log in", btn_upload_memorial:"Upload Record", btn_register_memorial:"Register",
+    login_title:"💎 Log in to VIP", ph_email:"Email",
+    ph_password:"Password (≥8 chars with upper/lowercase, number & symbol)",
+    btn_login:"Log In", btn_register:"Register", btn_reset:"🔑 Reset Password", btn_backshop:"← Back to Store",
+    note_price:"One free trial for new accounts.", note_price1:"$9.9 / month VIP (Astro + Soul + Courses).",
+    err_expired:"Membership expired", err_no_account:"Account not found. Please register first.", err_wrong_pwd:"Incorrect password",
+    err_login_fail:"Login failed. Please try again later.", err_register_fail:"Registration failed. Please try again later.",
+    err_need_ep:"Please enter email and password", err_pwd_rule:"Password must be ≥8 chars and include upper/lowercase, number, and symbol",
+    prompt_email:"Enter your email", prompt_newpwd:"Enter a new password (≥8 chars with upper/lowercase, number & symbol)",
+    err_email_empty:"Email cannot be empty", err_pwd_empty:"Password cannot be empty", err_reset_fail:"Reset failed. Please try again later.",
+    msg_reset_ok:"Password reset succeeded. Please log in with the new password.",
+    chat_fab:"Chat", chat_placeholder:"Ask me anything…", chat_send:"Send"
+  },
+  "ja": {
+    page_title:"ソウル・サンクチュアリ · VIPセグメント", site_title:"ソウル・サンクチュアリ · VIPセグメント",
+    site_subtitle:"四柱簡評と同デザイン · モバイル/PC一貫体験",
+    lang_label:"言語", form_title:"命理分析 · レポート作成", choose_type:"命盤タイプ",
+    type_personal:"個人命盤", type_compat:"相性（2人）",
+    culture_auto:"自動検出", culture_cn:"中国四柱推命", culture_west:"西洋占星 / タロット",
+    culture_jp:"九星気学", culture_vedic:"ヴェーディック占星",
+    self_info:"本人情報", ph_name1:"氏名（本人）", ph_time1:"出生時刻", ph_country1:"出生国 / 地域",
+    cal_g:"西暦", cal_l:"旧暦", btn_next:"次へ",
+    partner_info:"相手情報（相性）", ph_name2:"氏名（相手）", ph_time2:"出生時刻", ph_country2:"出生国 / 地域",
+    focus_title:"レポート重点",
+    opt_love:"恋愛", opt_dating:"恋愛縁", opt_marriage:"結婚運",
+    opt_career:"仕事", opt_work:"職場発展", opt_startup:"起業潜在",
+    opt_wealth:"金運", opt_wealthpos:"財位分析", opt_timing:"タイミング",
+    opt_dates:"良日選び", opt_wedding:"結婚日", opt_babydate:"出産日", opt_house:"新居入居", opt_office:"会社入居",
+    opt_name:"命名", opt_babyname:"赤ちゃん名", opt_petname:"ペット名", opt_companyname:"会社名", opt_rename:"改名",
+    opt_fs:"風水", opt_home:"住居", opt_officefs:"オフィス",
+    opt_comp:"相性分析", opt_couple:"カップル相性（浮き沈み）",
+    opt_spouse:"夫婦運（結婚発展）", opt_personality:"性格相性（衝突/補完）",
+    opt_partner:"ビジネス相性（共同/従業員）", opt_reconnect:"関係修復（友/家族/恋人）", opt_petbond:"ペット相性（飼い主とペット）",
+    vip_overview:"VIP コンテンツ概要", vip_mingli:"🗝 命理エリア · 限定",
+    list_love:"恋愛：縁・結婚の流れ", list_career:"仕事：職場・起業", list_wealth:"金運：財位・タイミング",
+    list_pet:"ペット：性格とご縁", list_hepan:"相性：結婚日 / 出産時刻", list_name:"命名：会社/赤ちゃん/改名",
+    list_fs:"財位×レイアウト：住居 / オフィス",
+    vip_xinlian:"🌙 心怜エリア · 限定", list_record:"スピリチュアル記録：写真/夢/音声/祈り",
+    list_course:"講座：四柱 / タロット / 占星 / 数秘 / HD",
+    list_memorial:"家族メモリアル：記録と継承", list_tasks:"毎週エナジー / 儀式タスク",
+    list_shop:"ストア割引 & お守り",
+    btn_upgrade:"💎 VIPへアップグレード（月額）", btn_back:"← ストアへ戻る",
+    vip_note:"$9.9/月（命理 + 心怜 + 講座）。新規登録は1回無料体験。",
+    portal_title:"心怜スペース · 入り口",
+    diary_title:"🧘‍♀️ スピ日記", diary_desc:"写真 / 音声 / ノート / 家族ログ / 祈り（毎日加持）",
+    btn_personal:"個人（非公開）", btn_family:"家族（共有）", btn_upload:"投稿する",
+    course_title:"📘 講座", course_bazi:"四柱：十神 / 年運 / 用神", course_tarot:"タロット：スプレッド/実戦",
+    course_coming:"🌙 まもなく：占星 / 数秘 / HD / 易 / 瞑想 / 気門 / 神道 / 紫微 / エナジー / 西洋占星 / スピ講座…",
+    btn_enter_course:"講座に入る",
+    shop_title:"🛍️ エナジーストア · VIP割引 & 御守り", shop_desc:"祈願パック：",
+    wish_title:"🔮 夢の実現", btn_manifest:"マニフェステーション",
+    memorial_title:"📖 メモリアル", memorial_desc:"魂の記録 / 想い出 / 霊性継承",
+    btn_login_memorial:"ログイン", btn_upload_memorial:"記録を投稿", btn_register_memorial:"登録する",
+    login_title:"💎 VIP にログイン", ph_email:"メールアドレス",
+    ph_password:"パスワード（8文字以上・大小英数・記号必須）",
+    btn_login:"ログイン", btn_register:"登録する", btn_reset:"🔑 パスワードを再設定", btn_backshop:"← ストアへ戻る",
+    note_price:"新規は1回無料体験", note_price1:"$9.9 / 月（命理 + 心怜 + 講座）",
+    err_expired:"会員期限が切れています", err_no_account:"アカウントが見つかりません。先に登録してください。", err_wrong_pwd:"パスワードが正しくありません",
+    err_login_fail:"ログインに失敗しました。しばらくしてからお試しください。", err_register_fail:"登録に失敗しました。しばらくしてからお試しください。",
+    err_need_ep:"メールとパスワードを入力してください", err_pwd_rule:"パスワードは8文字以上で、大小英字・数字・記号を含めてください",
+    prompt_email:"登録メールを入力してください", prompt_newpwd:"新しいパスワードを入力してください（8文字以上・複合）",
+    err_email_empty:"メールは必須です", err_pwd_empty:"パスワードは必須です", err_reset_fail:"再設定に失敗しました。後でもう一度。",
+    msg_reset_ok:"再設定が完了しました。新しいパスワードでログインしてください。",
+    chat_fab:"チャット", chat_placeholder:"ご質問はありますか？", chat_send:"送信"
+  },
+  "th": {
+    page_title:"Soul Sanctuary · VIP", site_title:"Soul Sanctuary · VIP",
+    site_subtitle:"สไตล์เดียวกับ Bazi Free · มือถือ/พีซีเหมือนกัน",
+    lang_label:"ภาษา", form_title:"วิเคราะห์ดวง · สร้างรายงาน", choose_type:"เลือกประเภทดวง",
+    type_personal:"ดวงส่วนตัว", type_compat:"ดวงคู่ (2 คน)",
+    culture_auto:"ตรวจอัตโนมัติ", culture_cn:"จีน / Bazi", culture_west:"ตะวันตก / Tarot",
+    culture_jp:"เก้าดาวญี่ปุ่น", culture_vedic:"เวทโหราศาสตร์",
+    self_info:"ข้อมูลของคุณ", ph_name1:"ชื่อ", ph_time1:"เวลาเกิด", ph_country1:"ประเทศ/ภูมิภาคเกิด",
+    cal_g:"สากล", cal_l:"จันทรคติ", btn_next:"ถัดไป",
+    partner_info:"ข้อมูลคู่ (Synastry)", ph_name2:"ชื่อคู่", ph_time2:"เวลาเกิด", ph_country2:"ประเทศ/ภูมิภาคเกิด",
+    focus_title:"หัวข้อรายงาน",
+    opt_love:"ความรัก", opt_dating:"ชะตาความรัก", opt_marriage:"แนวโน้มแต่งงาน",
+    opt_career:"การงาน", opt_work:"พัฒนางาน", opt_startup:"ศักยภาพธุรกิจ",
+    opt_wealth:"การเงิน", opt_wealthpos:"ตำแหน่งโชคลาภ", opt_timing:"จังหวะลงทุน",
+    opt_dates:"ฤกษ์งามยามดี", opt_wedding:"วันแต่งงาน", opt_babydate:"ฤกษ์คลอด", opt_house:"ย้ายบ้าน", opt_office:"ย้ายสำนักงาน",
+    opt_name:"ตั้งชื่อ", opt_babyname:"ชื่อลูก", opt_petname:"ชื่อสัตว์เลี้ยง", opt_companyname:"ชื่อบริษัท", opt_rename:"เปลี่ยนชื่อ",
+    opt_fs:"ฮวงจุ้ย", opt_home:"บ้าน", opt_officefs:"ออฟฟิศ",
+    opt_comp:"ความเข้ากันได้", opt_couple:"คู่รัก (ขึ้นลง/สถานะคุย)",
+    opt_spouse:"คู่สมรส (พัฒนาการ)", opt_personality:"บุคลิก (ขัดแย้ง/เสริมกัน)",
+    opt_partner:"หุ้นส่วนธุรกิจ/ทีม", opt_reconnect:"เชื่อมสัมพันธ์ใหม่", opt_petbond:"เจ้าของ–สัตว์เลี้ยง",
+    vip_overview:"สรุป VIP", vip_mingli:"🗝 โซน Astro · พิเศษ",
+    list_love:"ความรัก: คู่แท้/แต่งงาน", list_career:"การงาน: ที่ทำงาน/ทำธุรกิจ", list_wealth:"การเงิน: ตำแหน่ง/จังหวะ",
+    list_pet:"สัตว์เลี้ยง: นิสัยและสายใย", list_hepan:"Synastry: วันแต่ง/เวลาคลอด", list_name:"ชื่อ: บริษัท/ลูก/เปลี่ยนชื่อ",
+    list_fs:"โชคลาภ × ผังบ้าน/ออฟฟิศ",
+    vip_xinlian:"🌙 โซน Soul · พิเศษ", list_record:"บันทึกจิตวิญญาณ: รูป/ฝัน/เสียง/คำอธิษฐาน",
+    list_course:"คอร์ส: Bazi / Tarot / Astrology / Numerology / HD",
+    list_memorial:"อนุสรณ์ครอบครัว: บันทึกและมรดกจิตวิญญาณ", list_tasks:"ฝึกพลังงานรายสัปดาห์ / พิธีกรรม",
+    list_shop:"ส่วนลดร้าน & Omamori",
+    btn_upgrade:"💎 อัปเกรด VIP (รายเดือน)", btn_back:"← กลับร้าน",
+    vip_note:"$9.9 / เดือน (Astro + Soul + คอร์ส) สมัครใหม่ใช้ฟรี 1 ครั้ง",
+    portal_title:"พอร์ทัล Soul Sanctuary",
+    diary_title:"🧘‍♀️ ไดอารี่วิญญาณ", diary_desc:"รูป / เสียง / บันทึก / ครอบครัว / คำอธิษฐาน (เสริมพลังรายวัน)",
+    btn_personal:"ส่วนตัว", btn_family:"ครอบครัว", btn_upload:"อัปโหลด",
+    course_title:"📘 คอร์ส", course_bazi:"Bazi: Ten Gods / Annual / Useful God", course_tarot:"Tarot: Bentangan & Amali",
+    course_coming:"🌙 เร็ว ๆ นี้: โหราศาสตร์ / ตัวเลขชีวิต / HD / อี้จิง / ทำสมาธิ / Qimen / Shinto / Zi Wei / พลังงาน / ตะวันตก / จิตวิญญาณ…",
+    btn_enter_course:"เข้าสู่คอร์ส",
+    shop_title:"🛍️ Energy Store · ส่วนลด VIP & Omamori", shop_desc:"ชุดพรเฉพาะ:",
+    wish_title:"🔮 ส่งคำปรารถนา", btn_manifest:"วางแผน Manifest",
+    memorial_title:"📖 พื้นที่อนุสรณ์", memorial_desc:"แฟ้มวิญญาณ / ความทรงจำ / สืบทอดจิตวิญญาณ",
+    btn_login_memorial:"เข้าสู่ระบบ", btn_upload_memorial:"อัปโหลด", btn_register_memorial:"สมัคร",
+    login_title:"💎 เข้าสู่ระบบ VIP", ph_email:"อีเมล",
+    ph_password:"รหัสผ่าน (อย่างน้อย 8 ตัว รวมตัวพิมพ์ใหญ่-เล็ก ตัวเลข และสัญลักษณ์)",
+    btn_login:"เข้าสู่ระบบ", btn_register:"สมัครสมาชิก", btn_reset:"🔑 รีเซ็ตรหัสผ่าน", btn_backshop:"← กลับร้าน",
+    note_price:"สมัครใหม่ใช้ฟรี 1 ครั้ง", note_price1:"$9.9 / เดือน VIP (Astro + Soul + คอร์ส)",
+    err_expired:"สมาชิกหมดอายุ", err_no_account:"ไม่พบบัญชี กรุณาสมัครก่อน", err_wrong_pwd:"รหัสผ่านไม่ถูกต้อง",
+    err_login_fail:"เข้าสู่ระบบไม่สำเร็จ โปรดลองใหม่ภายหลัง", err_register_fail:"สมัครไม่สำเร็จ โปรดลองใหม่ภายหลัง",
+    err_need_ep:"กรอกอีเมลและรหัสผ่านก่อน", err_pwd_rule:"รหัสผ่านต้อง ≥8 ตัว และมีตัวพิมพ์ใหญ่-เล็ก ตัวเลข และสัญลักษณ์",
+    prompt_email:"กรอกอีเมลของคุณ", prompt_newpwd:"กรอกรหัสผ่านใหม่ (≥8 ตัว และแบบผสม)",
+    err_email_empty:"อีเมลห้ามว่าง", err_pwd_empty:"รหัสผ่านห้ามว่าง", err_reset_fail:"รีเซ็ตไม่สำเร็จ โปรดลองใหม่",
+    msg_reset_ok:"รีเซ็ตสำเร็จ กรุณาเข้าสู่ระบบด้วยรหัสใหม่",
+    chat_fab:"แชต", chat_placeholder:"อยากถามอะไร…", chat_send:"ส่ง"
+  },
+  "ms": {
+    page_title:"Soul Sanctuary · VIP", site_title:"Soul Sanctuary · VIP",
+    site_subtitle:"Gaya sama dengan Bazi Free · Seragam Mudah Alih & Desktop",
+    lang_label:"Bahasa", form_title:"Analisis · Jana Laporan", choose_type:"Jenis Carta",
+    type_personal:"Peribadi", type_compat:"Keserasian (2 Orang)",
+    culture_auto:"Auto Detect", culture_cn:"Cina / Bazi", culture_west:"Barat / Tarot",
+    culture_jp:"Sembilan Bintang Jepun", culture_vedic:"Astrologi Veda",
+    self_info:"Maklumat Anda", ph_name1:"Nama", ph_time1:"Masa Lahir", ph_country1:"Negara/Kawasan",
+    cal_g:"Gregorian", cal_l:"Lunar", btn_next:"Seterusnya",
+    partner_info:"Maklumat Pasangan (Synastry)", ph_name2:"Nama Pasangan", ph_time2:"Masa Lahir", ph_country2:"Negara/Kawasan",
+    focus_title:"Fokus Laporan",
+    opt_love:"Cinta", opt_dating:"Jodoh", opt_marriage:"Trend Perkahwinan",
+    opt_career:"Kerjaya", opt_work:"Tempat Kerja", opt_startup:"Potensi Usahawan",
+    opt_wealth:"Kewangan", opt_wealthpos:"Posisi Kekayaan", opt_timing:"Masa",
+    opt_dates:"Tarikh Bertuah", opt_wedding:"Tarikh Kahwin", opt_babydate:"Tarikh Kelahiran Bayi", opt_house:"Pindah Rumah", opt_office:"Pindah Syarikat",
+    opt_name:"Analisis Nama", opt_babyname:"Nama Bayi", opt_petname:"Nama Haiwan", opt_companyname:"Nama Syarikat", opt_rename:"Tukar Nama",
+    opt_fs:"Feng Shui", opt_home:"Rumah", opt_officefs:"Pejabat",
+    opt_comp:"Keserasian", opt_couple:"Pasangan (Naik/Turun)",
+    opt_spouse:"Suami Isteri (Perkembangan)", opt_personality:"Personaliti (Konflik/Tampung)",
+    opt_partner:"Rakan Niaga / Kakitangan", opt_reconnect:"Sambung Semula", opt_petbond:"Pemilik–Haiwan",
+    vip_overview:"Gambaran VIP", vip_mingli:"🗝 Kandungan Eksklusif · Astro",
+    list_love:"Cinta: Jodoh & Perkahwinan", list_career:"Kerjaya: Tempat Kerja & Usahawan", list_wealth:"Kewangan: Posisi & Masa",
+    list_pet:"Haiwan Peliharaan: Perangai & Ikatan", list_hepan:"Synastry: Tarikh Kahwin / Masa Lahir", list_name:"Nama: Syarikat/Bayi/Tukar Nama",
+    list_fs:"Kekayaan × Susun Atur: Rumah / Pejabat",
+    vip_xinlian:"🌙 Kandungan Eksklusif · Soul", list_record:"Log Rohani: Foto/Mimpi/Suara/Doa",
+    list_course:"Kursus: Bazi / Tarot / Astrologi / Numerologi / HD",
+    list_memorial:"Memorial Keluarga: Arkib & Legasi", list_tasks:"Latihan Tenaga Mingguan / Ritual",
+    list_shop:"Diskaun Kedai & Omamori",
+    btn_upgrade:"💎 Naik Taraf VIP (Bulanan)", btn_back:"← Kembali ke Kedai",
+    vip_note:"$9.9 / bulan (Astro + Soul + Kursus). Akaun baharu dapat percubaan percuma.",
+    portal_title:"Portal Soul Sanctuary",
+    diary_title:"🧘‍♀️ Diari Rohani", diary_desc:"Foto / Suara / Nota / Log Keluarga / Doa (Berkat Harian)",
+    btn_personal:"Peribadi", btn_family:"Keluarga", btn_upload:"Muat Naik",
+    course_title:"📘 Kursus", course_bazi:"Bazi: Ten Gods / Tahunan / Useful God", course_tarot:"Tarot: Bentangan & Amali",
+    course_coming:"🌙 Akan Datang: Astrologi / Numerologi / HD / I Ching / Meditasi / Qimen / Shinto / Zi Wei / Tenaga / Barat / Kerohanian…",
+    btn_enter_course:"Masuk Kursus",
+    shop_title:"🛍️ Kedai Tenaga · Diskaun VIP & Omamori", shop_desc:"Pek Berkat Eksklusif:",
+    wish_title:"🔮 Hantar Impian", btn_manifest:"Perancang Manifestasi",
+    memorial_title:"📖 Ruang Memorial", memorial_desc:"Arkib Jiwa / Kenangan / Kelangsungan Rohani",
+    btn_login_memorial:"Log Masuk", btn_upload_memorial:"Muat Naik", btn_register_memorial:"Daftar",
+    login_title:"💎 Log Masuk VIP", ph_email:"E-mel",
+    ph_password:"Kata laluan (≥8 aksara dengan huruf besar/kecil, nombor & simbol)",
+    btn_login:"Log Masuk", btn_register:"Daftar", btn_reset:"🔑 Tetapkan Semula Kata Laluan", btn_backshop:"← Kembali ke Kedai",
+    note_price:"Akaun baharu percubaan percuma sekali.", note_price1:"$9.9 / bulan VIP (Astro + Soul + Kursus).",
+    err_expired:"Keahlian tamat tempoh", err_no_account:"Akaun tidak dijumpai. Sila daftar dahulu.", err_wrong_pwd:"Kata laluan tidak betul",
+    err_login_fail:"Gagal log masuk. Cuba lagi nanti.", err_register_fail:"Gagal mendaftar. Cuba lagi nanti.",
+    err_need_ep:"Sila masukkan e-mel dan kata laluan", err_pwd_rule:"Kata laluan mesti ≥8 aksara dan mengandungi huruf besar/kecil, nombor dan simbol",
+    prompt_email:"Masukkan e-mel anda", prompt_newpwd:"Masukkan kata laluan baharu (≥8 aksara, campuran)",
+    err_email_empty:"E-mel tidak boleh kosong", err_pwd_empty:"Kata laluan tidak boleh kosong", err_reset_fail:"Gagal menetapkan semula. Cuba lagi nanti.",
+    msg_reset_ok:"Berjaya ditetapkan semula. Sila log masuk dengan kata laluan baharu.",
+    chat_fab:"Sembang", chat_placeholder:"Ada apa nak tanya?", chat_send:"Hantar"
+  }
+};
+
+function t(key){
+  const L = translations[getLang()] || translations["zh-CN"];
+  return L[key] || translations["zh-CN"][key] || key;
+}
+function applyI18n(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const key = el.getAttribute("data-i18n");
+    el.textContent = t(key);
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
+    const key = el.getAttribute("data-i18n-ph");
+    el.setAttribute("placeholder", t(key));
+  });
+  const titleEl = document.querySelector("title[data-i18n]");
+  if (titleEl) titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
+}
+
+/* ==============================
+   CHAT WIDGET (optional, safe defaults)
+============================== */
+function applyChatI18n(){
+  const fab = $('ssChatFab'); const inp = $('ssChatInput'); const btn = $('ssChatSend');
+  if (fab) fab.textContent = t('chat_fab');
+  if (inp) inp.placeholder = t('chat_placeholder');
+  if (btn) btn.textContent = t('chat_send');
+}
+
+/* ==============================
+   AUTH HELPERS
+============================== */
+async function safeJson(resp){ try { return await resp.json(); } catch { return { ok:false, msg:'upstream_error' }; } }
+
+async function loginFlow(email, password){
+  const res = await safeJson(await fetch(`${API_BASE}/api/login`, {
+    method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email, password })
+  }));
+  const msg = (res.msg || "").toString().toLowerCase();
+
+  // expired?
+  let expired = false;
+  if (res.expired === true) expired = true;
+  else if (msg === 'expired') expired = true;
+  else if (res.expiresAt) {
+    const ts = Date.parse(res.expiresAt);
+    if (!Number.isNaN(ts) && ts < Date.now()) expired = true;
+  }
+  if (expired){
+    const go = confirm(t('err_expired') + "。是否前往续费？");
+    if (go) window.open("https://yourshopifyshop.com/products/monthly-vip", "_blank");
+    return;
   }
 
-  // —— 绑定“生成分析”按钮（最终版）——
-  document.addEventListener('DOMContentLoaded', ()=>{
-    const typeSel = document.getElementById('type');
-    if (typeSel) togglePartner(typeSel.value);
+  if (res.ok === true){
+    localStorage.setItem("vipEmail", res.email || email);
+    location.href = "https://astro.5xliving.com/vip_soul_sanctuary.html";
+    return;
+  }
 
-    const nextBtn = document.getElementById('btnNext');
-    if (!nextBtn) return; // 没有按钮就不绑定
+  if (msg === 'no_account') return showErr(t('err_no_account'));
+  if (msg === 'wrong_pwd')  return showErr(t('err_wrong_pwd'));
+  showErr(t('err_login_fail') + (res.msg ? ` ${res.msg}` : ''));
+}
 
+/* ==============================
+   FORM & TOGGLE
+============================== */
+function togglePartner(value){
+  const section  = $('partner-section');
+  const personal = $('purpose_personal');
+  const compat   = $('purpose_compatibility');
+  const show = (value === "compatibility");
+
+  if (section) section.style.display = show ? "block" : "none";
+  if (personal){ personal.style.display = show ? "none" : "block"; personal.disabled = show; }
+  if (compat){   compat.style.display   = show ? "block": "none";  compat.disabled   = !show; }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Language selector init
+  const select = $('langSelect');
+  const current = getLang();
+  if (select) { select.value = current; select.addEventListener('change', ()=>{ setLang(select.value); applyI18n(); applyChatI18n(); }); }
+  applyI18n();
+
+  // Chat attach (non-intrusive)
+  const chatFab = document.createElement('div');
+  chatFab.className = 'ss-chat-fab'; chatFab.id = 'ssChatFab'; chatFab.title = '心怜管家';
+  const chatPanel = document.createElement('div');
+  chatPanel.className = 'ss-chat-panel'; chatPanel.id = 'ssChatPanel'; chatPanel.setAttribute('role','dialog'); chatPanel.setAttribute('aria-label','心怜管家');
+  chatPanel.style.display = 'none';
+  chatPanel.innerHTML = `
+    <div class="ss-chat-head">
+      <div class="ss-chat-title">心怜管家 · Chat</div>
+      <div class="ss-close" id="ssChatClose">✕</div>
+    </div>
+    <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
+    <div class="ss-chat-input">
+      <input id="ssChatInput" type="text" />
+      <button id="ssChatSend"></button>
+    </div>`;
+  document.body.appendChild(chatFab); document.body.appendChild(chatPanel);
+  applyChatI18n();
+
+  const $body = $('ssChatBody'); const $input = $('ssChatInput'); const $send = $('ssChatSend'); const $close = $('ssChatClose');
+  function addMsg(text, me=false){
+    const div = document.createElement('div');
+    div.className = 'ss-msg' + (me ? ' me' : '');
+    div.textContent = text;
+    $body.appendChild(div);
+    $body.scrollTop = $body.scrollHeight;
+  }
+  async function askChat(prompt){
+    addMsg(prompt, true); $input.value=''; $input.focus();
+    try{
+      const r = await fetch(`${API_BASE}/api/chat`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          messages: [
+            { role:'system', content:'你是“心怜管家”，帮助访客了解命理心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。' },
+            { role:'user', content: prompt }
+          ]
+        })
+      });
+      let data, reply=''; try { data = await r.json(); } catch { data = {}; }
+      reply = data.reply ?? data.text ?? data?.choices?.[0]?.message?.content ?? "";
+      if (!reply) return addMsg('抱歉，服务暂时繁忙，请稍后重试。');
+      addMsg(reply);
+    }catch{ addMsg('网络异常，请稍后再试。'); }
+  }
+  chatFab.addEventListener('click', ()=>{ chatPanel.style.display='flex'; $input && $input.focus(); });
+  $close.addEventListener('click', ()=>{ chatPanel.style.display='none'; });
+  if ($send) $send.addEventListener('click', ()=>{ const v=$input.value.trim(); if(v) askChat(v); });
+  if ($input) $input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
+
+  // Type toggle
+  const typeSel = $('type');
+  if (typeSel){
+    togglePartner(typeSel.value);
+    typeSel.addEventListener('change', e => togglePartner(e.target.value));
+  }
+
+  // Submit
+  const nextBtn = $('btnNext');
+  if (nextBtn){
     nextBtn.addEventListener('click', (e)=>{
       e.preventDefault();
-      if (typeof hideErr === 'function') hideErr();
+      hideErr();
 
-      const get  = id => document.getElementById(id)?.value?.trim() || '';
-      const say  = msg => (typeof showErr === 'function' ? showErr(msg) : alert(msg));
+      const get = id => $(id)?.value?.trim() || '';
+      const say = msg => (typeof showErr === 'function' ? showErr(msg) : alert(msg));
 
       const type = get('type');
       const bd1  = get('birthdate1');
@@ -368,13 +838,10 @@
       if (!bd1) return say('请填写本人出生日期');
       if (type === 'compatibility' && !bd2) return say('合盘请填写第二人的出生日期');
 
-      // 只让当前的 purpose 参与提交
-      const pp = document.getElementById('purpose_personal');
-      const pc = document.getElementById('purpose_compatibility');
-      if (pp && pc){
-        pp.disabled = (type === 'compatibility');
-        pc.disabled = (type !== 'compatibility');
-      }
+      // Enable only the active purpose
+      const pp = $('purpose_personal');
+      const pc = $('purpose_compatibility');
+      if (pp && pc){ pp.disabled = (type === 'compatibility'); pc.disabled = (type !== 'compatibility'); }
 
       const formData = {
         type,
@@ -392,925 +859,143 @@
         purpose: (type === 'compatibility') ? get('purpose_compatibility') : get('purpose_personal')
       };
 
-      // 仅附加有值的字段，避免 "key="
+      // append only non-empty fields
       const params = new URLSearchParams();
-      Object.entries(formData).forEach(([k, v]) => { if (v) params.append(k, v); });
+      Object.entries(formData).forEach(([k,v]) => { if (v) params.append(k, v); });
 
-      // 根据你的路径改成 /report.html 或 report.html
+      // Choose your route; relative is usually fine
       window.location.href = `report.html?${params.toString()}`;
+      // OR inline mode: generateReport(formData);
     });
-  });
+  }
 
-    // 基础校验
-    const type = document.getElementById('type')?.value || 'personal';
-    const bd1  = document.getElementById('birthdate1')?.value?.trim();
-    const bd2  = document.getElementById('birthdate2')?.value?.trim();
+  // Auth forms (optional, attach when present)
+  const regForm = $('registerForm');
+  if (regForm){
+    regForm.addEventListener('submit', async (e)=>{
+      e.preventDefault(); hideErr();
+      const email = $('email')?.value?.trim() || "";
+      const password = $('password')?.value?.trim() || "";
+      if (!email || !password) return showErr(t('err_need_ep'));
+      if (!strongPwd(password)) return showErr(t('err_pwd_rule'));
+      lock($('registerBtn'), true);
+      try{
+        const res = await safeJson(await fetch(`${API_BASE}/api/register`, {
+          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email, password })
+        }));
+        if (res.ok === true){ localStorage.setItem("vipEmail", email); location.href = "vip_trial.html"; return; }
+        if ((res.msg||"") === 'exists'){ await loginFlow(email, password); return; }
+        showErr((res.msg && (res.msg+'')) || t('err_register_fail'));
+      } catch(err){ showErr(t('err_register_fail') + (err?.message || ''));
+      } finally{ lock($('registerBtn'), false); }
+    });
+  }
 
-    if (!bd1) { alert('请填写本人出生日期'); return; }
-    if (type === 'compatibility' && !bd2) { alert('合盘请填写第二人的出生日期'); return; }
+  const loginForm = $('loginForm');
+  if (loginForm){
+    loginForm.addEventListener('submit', async (e)=>{
+      e.preventDefault(); hideErr();
+      const email = $('email')?.value?.trim() || "";
+      const password = $('password')?.value?.trim() || "";
+      if (!email || !password) return showErr(t('err_need_ep'));
+      lock($('loginBtn'), true);
+      try{ await loginFlow(email, password); }
+      catch(err){ showErr(t('err_login_fail') + (err?.message || '')); }
+      finally{ lock($('loginBtn'), false); }
+    });
+  }
 
-    // 收集所有表单数据
-    const formData = {
-      type: document.getElementById('type')?.value,
-      culture: document.getElementById('culture')?.value,
-      name1: document.getElementById('name1')?.value,
-      birthdate1: document.getElementById('birthdate1')?.value,
-      birthtime1: document.getElementById('birthtime1')?.value,
-      calendar1: document.getElementById('calendar1')?.value,
-      country1: document.getElementById('country1')?.value,
-      name2: document.getElementById('name2')?.value,
-      birthdate2: document.getElementById('birthdate2')?.value,
-      birthtime2: document.getElementById('birthtime2')?.value,
-      calendar2: document.getElementById('calendar2')?.value,
-      country2: document.getElementById('country2')?.value,
-      purpose: (type === 'compatibility') 
-        ? document.getElementById('purpose_compatibility')?.value
-        : document.getElementById('purpose_personal')?.value
-    };
-
-    // 方案A: 跳转到报告页面并传递参数
-    const params = new URLSearchParams(formData).toString();
-    window.location.href = `/report.html?${params}`;
-    
-    // 方案B: 或者直接在当前页面生成报告
-    // generateReport(formData);
-  });
+  const resetBtn = $('resetBtn');
+  if (resetBtn){
+    resetBtn.addEventListener('click', async ()=>{
+      hideErr();
+      let email = prompt(t('prompt_email')); if (email === null) return; email = email.trim();
+      if (!email) return showErr(t('err_email_empty'));
+      let newPassword = prompt(t('prompt_newpwd')); if (newPassword === null) return; newPassword = newPassword.trim();
+      if (!newPassword) return showErr(t('err_pwd_empty'));
+      if (!strongPwd(newPassword)) return showErr(t('err_pwd_rule'));
+      lock(resetBtn, true);
+      try{
+        const res = await safeJson(await fetch(`${API_BASE}/api/reset`, {
+          method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email, newPassword })
+        }));
+        if (!res.ok) return showErr((res.msg && (res.msg+'')) || t('err_reset_fail'));
+        alert(t('msg_reset_ok'));
+      } catch(err){ showErr(t('err_reset_fail') + (err?.message || '')); }
+      finally{ lock(resetBtn, false); }
+    });
+  }
 });
 
-// 方案B的配套函数：在当前页面生成报告
+/* ==============================
+   INLINE REPORT (optional)
+============================== */
 async function generateReport(data) {
+  const nextBtn = $('btnNext');
   try {
-    // 显示加载状态
-    nextBtn.disabled = true;
-    nextBtn.textContent = '生成中...';
-    
-    // 调用你的报告生成API
-    const response = await fetch(`${API_BASE}/api/generate-report`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data)
+    if (nextBtn){ nextBtn.disabled = true; nextBtn.textContent = '生成中...'; }
+    const resp = await fetch(`${API_BASE}/api/generate-report`, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)
     });
-    
-    const result = await response.json();
-    
-    if (result.success) {
-      // 显示报告结果
-      displayReport(result.report);
-    } else {
-      alert('报告生成失败: ' + (result.error || '未知错误'));
-    }
-  } catch (error) {
-    alert('网络错误: ' + error.message);
+    const result = await resp.json();
+    if (result?.success) displayReport(result.report);
+    else alert('报告生成失败: ' + (result?.error || '未知错误'));
+  } catch (err) {
+    alert('网络错误: ' + err.message);
   } finally {
-    nextBtn.disabled = false;
-    nextBtn.textContent = '生成分析';
+    if (nextBtn){ nextBtn.disabled = false; nextBtn.textContent = t('btn_next') || '生成分析'; }
   }
 }
-
 function displayReport(reportHtml) {
-  // 创建或显示报告区域
-  let reportSection = document.getElementById('reportSection');
-  if (!reportSection) {
+  let reportSection = $('reportSection');
+  if (!reportSection){
     reportSection = document.createElement('div');
     reportSection.id = 'reportSection';
     reportSection.className = 'card';
-    document.querySelector('main').appendChild(reportSection);
+    (document.querySelector('main') || document.body).appendChild(reportSection);
   }
-  
-  reportSection.innerHTML = `
-    <h2>命理分析报告</h2>
-    <div class="report">${reportHtml}</div>
-  `;
-  
-  // 滚动到报告区域
-  reportSection.scrollIntoView({ behavior: 'smooth' });
+  reportSection.innerHTML = `<h2>命理分析报告</h2><div class="report">${reportHtml}</div>`;
+  reportSection.scrollIntoView({ behavior:'smooth' });
 }
 
-  // ============== 统一配置（你的 Worker 域名） ==============
-  const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev'; // ← 改成你的 Workers.dev
-
-// 工具函数（最终版）
-const $ = (id) => document.getElementById(id);
-
-function ensureErrorBox(){
-  let box = document.getElementById('error');
-  if (!box){
-    box = document.createElement('div');
-    box.id = 'error';
-    box.className = 'error'; // 复用你CSS里的 .error 样式
-    box.style.cssText = box.style.cssText || 'margin-top:10px;color:#ff8b8b';
-    // 放在第一个 .section 里（没有则挂到 body）
-    (document.querySelector('.section') || document.body).appendChild(box);
-  }
-  return box;
-}
-
-function showErr(msg){
-  const e = ensureErrorBox();
-  e.textContent = msg;
-  e.style.display = 'block';
-  setTimeout(()=>{ e.style.display='none'; }, 5000);
-}
-
-function hideErr(){
-  const e = document.getElementById('error');
-  if (e){ e.style.display='none'; e.textContent=''; }
-}
-
-function lock(el, v){ if (el) el.disabled = !!v; }
-
-function strongPwd(pw){
-  return pw.length>=8
-    && /[A-Z]/.test(pw)
-    && /[a-z]/.test(pw)
-    && /[0-9]/.test(pw)
-    && /[^A-Za-z0-9]/.test(pw);
-}
-
-
-  // ============== 多语言 ==============
-  const LANG_KEY = "site_lang";
-  function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
-
-  // （保留你原来的翻译表，我这里是完整一份，包含 chat_fab/chat_placeholder/chat_send）
-const translations = {
-  "zh-CN": {
-    // —— 站点 & 表单（上半部分） ——
-    page_title:"命理心怜空间 · VIP Soul Sanctuary",
-    site_title:"命理心怜空间 · VIP Soul Sanctuary",
-    site_subtitle:"与「八字简评」同款风格 · 手机&电脑一致体验",
-    lang_label:"语言",
-    form_title:"命理分析 · 生成报告",
-    choose_type:"选择命盘类型",
-    type_personal:"个人命盘", type_compat:"合盘（两人资料）",
-    culture_auto:"自动识别 Auto Detect", culture_cn:"东方 Chinese / Bazi",
-    culture_west:"西方 Astrology / Tarot", culture_jp:"日式九星 Japanese", culture_vedic:"印度吠陀 Vedic",
-    self_info:"本人资料", ph_name1:"姓名（本人）", ph_time1:"出生时间", ph_country1:"出生国家 / 地区",
-    cal_g:"阳历 (Gregorian)", cal_l:"农历 (Lunar)",
-    btn_next:"生成分析",
-    partner_info:"第二人资料（合盘）", ph_name2:"姓名（第二人）", ph_time2:"出生时间", ph_country2:"出生国家 / 地区",
-    focus_title:"命理选题（报告聚焦）",
-    opt_love:"姻缘 Love", opt_dating:"恋爱缘分", opt_marriage:"婚姻走势",
-    opt_career:"事业 Career", opt_work:"职场发展", opt_startup:"创业潜力",
-    opt_wealth:"财运 Wealth", opt_wealthpos:"财位分析", opt_timing:"理财时机",
-    opt_dates:"择日 Auspicious Date", opt_wedding:"婚期择日", opt_babydate:"新生宝宝择日", opt_house:"新家入住择日", opt_office:"新公司入住择日",
-    opt_name:"测名 Name Analysis", opt_babyname:"宝宝名", opt_petname:"宠物名", opt_companyname:"公司名", opt_rename:"命名改运",
-    opt_fs:"风水 Feng Shui", opt_home:"住家", opt_officefs:"办公室",
-    opt_comp:"合盘分析 Compatibility", opt_couple:"情侣合盘（缘分起落 / 暧昧进展）",
-    opt_spouse:"夫妻流年（婚姻发展）", opt_personality:"个性合盘（冲突 / 互补）",
-    opt_partner:"事业合盘（合伙人 / 员工）", opt_reconnect:"断联修复（朋友 / 情人 / 家人）", opt_petbond:"宠物合盘（主人与宠物）",
-
-    // —— VIP 列表（中段） ——
-    vip_overview:"VIP 内容总览",
-    vip_mingli:"🗝 命理空间专属内容",
-    list_love:"姻缘方向：恋爱缘分、婚姻走势",
-    list_career:"事业方向：职场发展、创业潜力",
-    list_wealth:"财运方向：财位分析、理财时机",
-    list_pet:"宠物命理：伴侣动物的性格与缘分",
-    list_hepan:"合盘分析：婚期择日、新生择时",
-    list_name:"测名分析：公司名、宝宝名、命名改运",
-    list_fs:"财位合盘：住家 / 办公室动线配合",
-    vip_xinlian:"🌙 心怜空间专属内容",
-    list_record:"灵性记录：照片、梦境、声音、愿望祈祷",
-    list_course:"命理课程：八字 / 塔罗 / 占星 / 灵数 / 人类图",
-    list_memorial:"家族纪念系统：亲人灵性纪念 & 延续",
-    list_tasks:"每周能量练习 / 神明仪式任务",
-    list_shop:"能量商城专属折扣 & 御守订制",
-    btn_upgrade:"💎 升级为 VIP（月费）",
-    btn_back:"← 返回命理商城",
-    vip_note:"$9.9 / 月费（命理空间 + 心怜空间 + 灵性课程）· 注册账号赠送一次免费体验",
-
-    // —— 入口（下段） ——
-    portal_title:"心怜空间 · 功能入口",
-    diary_title:"🧘‍♀️ 灵性日记", diary_desc:"照片上传 / 语音记录 / 灵性笔记 / 家庭日志 / 愿望祈祷（每日加持）",
-    btn_personal:"个人隐藏记录", btn_family:"家庭共享记录", btn_upload:"上传记录",
-    course_title:"📘 命理课程专区", course_bazi:"八字命理：十神 / 流年 / 用神分析", course_tarot:"塔罗牌：牌阵解读 / 情境实战",
-    course_coming:"🌙 以下课程酝酿中：占星 / 灵数 / 人类图 / 六爻 / 冥想引导 / 奇门 / 日式神明 / 紫微 / 能量学 / 西洋占星 / 心灵课程……",
-    btn_enter_course:"进入课程",
-    shop_title:"🛍️ 能量商城 · VIP折扣 & 御守订制", shop_desc:"专属祈愿包分类：",
-    wish_title:"🔮 梦想提交 Dream Submission", btn_manifest:"梦想规划 / Manifestation",
-    memorial_title:"📖 灵性空间 ~ 往生记怜录", memorial_desc:"灵魂档案 / 纪念回忆（图文音） / 灵性延续（功德传承）",
-    btn_login_memorial:"登入灵性空间", btn_upload_memorial:"上传往生录", btn_register_memorial:"注册灵性空间",
-
-    // —— 登录区（你缺的键都在这里） ——
-    login_title:"💎 登入 VIP 功能",
-    ph_email:"邮箱 Email",
-    ph_password:"密码 Password（至少8位，含大小写数字符号）",
-    btn_login:"登入账户",
-    btn_register:"注册账户",
-    btn_reset:"🔑 重设密码",
-    btn_backshop:"← 返回命理商城",
-    note_price:"注册账号赠送一次免费体验",
-    note_price1:"$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）",
-
-    // —— 错误/提示消息（JS 会用到） ——
-    err_expired:"会员已过期",
-    err_no_account:"没有这个账号，请先注册",
-    err_wrong_pwd:"密码不正确",
-    err_login_fail:"登录失败，请稍后再试。",
-    err_register_fail:"注册失败，请稍后再试。",
-    err_need_ep:"请填写邮箱和密码",
-    err_pwd_rule:"密码至少 8 位，需包含大小写字母、数字和符号",
-    prompt_email:"请输入注册邮箱",
-    prompt_newpwd:"请输入新密码（至少8位，含大小写数字符号）",
-    err_email_empty:"邮箱不能为空",
-    err_pwd_empty:"密码不能为空",
-    err_reset_fail:"重设失败，请稍后再试。",
-    msg_reset_ok:"已重设成功，请用新密码登录",
-
-    // —— Chat 浮窗文案 ——
-    chat_fab:"Chat",
-    chat_placeholder:"有什么想咨询的？",
-    chat_send:"发送"
-  },
-
-  "zh-TW": {
-    page_title:"命理心怜空间 · VIP Soul Sanctuary",
-    site_title:"命理心怜空间 · VIP Soul Sanctuary",
-    site_subtitle:"與「八字簡評」同款風格 · 手機&電腦一致體驗",
-    lang_label:"語言",
-    form_title:"命理分析 · 生成報告",
-    choose_type:"選擇命盤類型",
-    type_personal:"個人命盤", type_compat:"合盤（兩人資料）",
-    culture_auto:"自動識別 Auto Detect", culture_cn:"東方 Chinese / Bazi",
-    culture_west:"西方 Astrology / Tarot", culture_jp:"日式九星 Japanese", culture_vedic:"印度吠陀 Vedic",
-    self_info:"本人資料", ph_name1:"姓名（本人）", ph_time1:"出生時間", ph_country1:"出生國家 / 地區",
-    cal_g:"陽曆 (Gregorian)", cal_l:"農曆 (Lunar)",
-    btn_next:"生成分析",
-    partner_info:"第二人資料（合盤）", ph_name2:"姓名（第二人）", ph_time2:"出生時間", ph_country2:"出生國家 / 地區",
-    focus_title:"命理選題（報告聚焦）",
-    opt_love:"姻緣 Love", opt_dating:"戀愛緣分", opt_marriage:"婚姻走勢",
-    opt_career:"事業 Career", opt_work:"職場發展", opt_startup:"創業潛力",
-    opt_wealth:"財運 Wealth", opt_wealthpos:"財位分析", opt_timing:"理財時機",
-    opt_dates:"擇日 Auspicious Date", opt_wedding:"婚期擇日", opt_babydate:"新生寶寶擇日", opt_house:"新家入住擇日", opt_office:"新公司入住擇日",
-    opt_name:"測名 Name Analysis", opt_babyname:"寶寶名", opt_petname:"寵物名", opt_companyname:"公司名", opt_rename:"命名改運",
-    opt_fs:"風水 Feng Shui", opt_home:"住家", opt_officefs:"辦公室",
-    opt_comp:"合盤分析 Compatibility", opt_couple:"情侶合盤（緣分起落 / 曖昧進展）",
-    opt_spouse:"夫妻流年（婚姻發展）", opt_personality:"個性合盤（衝突 / 互補）",
-    opt_partner:"事業合盤（合夥人 / 員工）", opt_reconnect:"斷聯修復（朋友 / 情人 / 家人）", opt_petbond:"寵物合盤（主人與寵物）",
-
-    vip_overview:"VIP 內容總覽",
-    vip_mingli:"🗝 命理空間專屬內容",
-    list_love:"姻緣方向：戀愛緣分、婚姻走勢",
-    list_career:"事業方向：職場發展、創業潛力",
-    list_wealth:"財運方向：財位分析、理財時機",
-    list_pet:"寵物命理：伴侶動物的性格與緣分",
-    list_hepan:"合盤分析：婚期擇日、新生擇時",
-    list_name:"測名分析：公司名、寶寶名、命名改運",
-    list_fs:"財位合盤：住家 / 辦公室動線配合",
-    vip_xinlian:"🌙 心憐空間專屬內容",
-    list_record:"靈性記錄：照片、夢境、聲音、願望祈禱",
-    list_course:"命理課程：八字 / 塔羅 / 占星 / 靈數 / 人類圖",
-    list_memorial:"家族紀念系統：親人靈性紀念 & 延續",
-    list_tasks:"每週能量練習 / 神明儀式任務",
-    list_shop:"能量商城專屬折扣 & 御守訂製",
-    btn_upgrade:"💎 升級為 VIP（月費）",
-    btn_back:"← 返回命理商城",
-    vip_note:"$9.9 / 月費（命理空間 + 心憐空間 + 靈性課程）· 註冊贈送一次免費體驗",
-
-    portal_title:"心憐空間 · 功能入口",
-    diary_title:"🧘‍♀️ 靈性日記", diary_desc:"照片上傳 / 語音記錄 / 靈性筆記 / 家庭日誌 / 願望祈禱（每日加持）",
-    btn_personal:"個人隱藏記錄", btn_family:"家庭共享記錄", btn_upload:"上傳記錄",
-    course_title:"📘 命理課程專區", course_bazi:"八字命理：十神 / 流年 / 用神分析", course_tarot:"塔羅牌：牌陣解讀 / 情境實戰",
-    course_coming:"🌙 以下課程醞釀中：占星 / 靈數 / 人類圖 / 六爻 / 冥想引導 / 奇門 / 日式神明 / 紫微 / 能量學 / 西洋占星 / 心靈課程……",
-    btn_enter_course:"進入課程",
-    shop_title:"🛍️ 能量商城 · VIP折扣 & 御守訂製", shop_desc:"專屬祈願包分類：",
-    wish_title:"🔮 夢想提交 Dream Submission", btn_manifest:"夢想規劃 / Manifestation",
-    memorial_title:"📖 靈性空間 ~ 往生記憶錄", memorial_desc:"靈魂檔案 / 紀念回憶（圖文音） / 靈性延續（功德傳承）",
-    btn_login_memorial:"登入靈性空間", btn_upload_memorial:"上傳往生錄", btn_register_memorial:"註冊靈性空間",
-
-    login_title:"💎 登入 VIP 功能",
-    ph_email:"信箱 Email",
-    ph_password:"密碼 Password（至少8位，含大小寫數字符號）",
-    btn_login:"登入帳戶",
-    btn_register:"註冊帳戶",
-    btn_reset:"🔑 重設密碼",
-    btn_backshop:"← 返回命理商城",
-    note_price:"註冊贈送一次免費體驗",
-    note_price1:"$9.9 / 月費 VIP（命理空間 + 心憐空間 + 靈性課程）",
-
-    err_expired:"會員已過期",
-    err_no_account:"沒有此帳號，請先註冊",
-    err_wrong_pwd:"密碼不正確",
-    err_login_fail:"登入失敗，請稍後再試。",
-    err_register_fail:"註冊失敗，請稍後再試。",
-    err_need_ep:"請填寫信箱與密碼",
-    err_pwd_rule:"密碼至少 8 位，需含大小寫、數字與符號",
-    prompt_email:"請輸入註冊信箱",
-    prompt_newpwd:"請輸入新密碼（至少8位，含大小寫數字符號）",
-    err_email_empty:"信箱不可為空",
-    err_pwd_empty:"密碼不可為空",
-    err_reset_fail:"重設失敗，請稍後再試。",
-    msg_reset_ok:"已重設成功，請用新密碼登入",
-
-    chat_fab:"聊天",
-    chat_placeholder:"想了解什麼呢？",
-    chat_send:"送出"
-  },
-
-  "en": {
-    page_title:"命理心怜空间 · VIP Soul Sanctuary",
-    site_title:"命理心怜空间 · VIP Soul Sanctuary",
-    lang_label:"Language",
-    form_title:"Astro Analysis · Generate Report",
-    choose_type:"Chart Type",
-    type_personal:"Personal Chart", type_compat:"Synastry (Two Persons)",
-    culture_auto:"Auto Detect", culture_cn:"Chinese / Bazi",
-    culture_west:"Western Astrology / Tarot", culture_jp:"Japanese Nine Star Ki", culture_vedic:"Vedic Astrology",
-    self_info:"Your Info", ph_name1:"Your Name", ph_time1:"Birth Time", ph_country1:"Birth Country / Region",
-    cal_g:"Gregorian", cal_l:"Lunar",
-    btn_next:"Next",
-    partner_info:"Partner Info (Synastry)", ph_name2:"Partner Name", ph_time2:"Birth Time", ph_country2:"Birth Country / Region",
-    focus_title:"Report Focus",
-    opt_love:"Love", opt_dating:"Dating Fate", opt_marriage:"Marriage Trend",
-    opt_career:"Career", opt_work:"Workplace", opt_startup:"Entrepreneurship",
-    opt_wealth:"Wealth", opt_wealthpos:"Wealth Position", opt_timing:"Timing",
-    opt_dates:"Auspicious Dates", opt_wedding:"Wedding Date", opt_babydate:"Baby Birth Date", opt_house:"House Move-in", opt_office:"Company Move-in",
-    opt_name:"Name Analysis", opt_babyname:"Baby Name", opt_petname:"Pet Name", opt_companyname:"Company Name", opt_rename:"Renaming",
-    opt_fs:"Feng Shui", opt_home:"Home", opt_officefs:"Office",
-    opt_comp:"Compatibility", opt_couple:"Couple Synastry (Ups & Downs)", opt_spouse:"Spouse Transit (Marriage)", opt_personality:"Personality Fit (Conflict/Complement)",
-    opt_partner:"Business Partner / Team", opt_reconnect:"Reconnect (Friends/Family/Lovers)", opt_petbond:"Owner–Pet Bond",
-
-    vip_overview:"VIP Overview",
-    vip_mingli:"🗝 Astro Sanctuary · Exclusive",
-    list_love:"Love: Dating & Marriage",
-    list_career:"Career: Workplace & Startup",
-    list_wealth:"Wealth: Position & Timing",
-    list_pet:"Pet Destiny: Temperament & Bond",
-    list_hepan:"Synastry: Wedding Date / Birth Time",
-    list_name:"Name Reading: Company/Baby/Renaming",
-    list_fs:"Wealth × Layout: Home / Office",
-    vip_xinlian:"🌙 Soul Sanctuary · Exclusive",
-    list_record:"Spiritual Logs: Photos/Dreams/Voice/Prayers",
-    list_course:"Courses: Bazi / Tarot / Astrology / Numerology / HD",
-    list_memorial:"Family Memorial: Archive & Legacy",
-    list_tasks:"Weekly Energy / Ritual Tasks",
-    list_shop:"Store Discounts & Omamori",
-    btn_upgrade:"💎 Upgrade to VIP (Monthly)",
-    btn_back:"← Back to Store",
-    vip_note:"$9.9 / month (Astro + Soul + Courses). New account gets one free trial.",
-
-    portal_title:"Soul Sanctuary · Portals",
-    diary_title:"🧘‍♀️ Spiritual Diary", diary_desc:"Photos / Voice / Notes / Family Log / Prayer (Daily Blessing)",
-    btn_personal:"Personal (Private)", btn_family:"Family (Shared)", btn_upload:"Upload Entry",
-    course_title:"📘 Courses", course_bazi:"Bazi: Ten Gods / Annual Luck / Useful God", course_tarot:"Tarot: Spreads & Practice",
-    course_coming:"🌙 Coming soon: Astrology / Numerology / Human Design / I Ching / Meditation / Qimen / Shinto / Zi Wei / Energy / Western Astro / Spiritual courses…",
-    btn_enter_course:"Enter Courses",
-    shop_title:"🛍️ Energy Store · VIP Discount & Omamori", shop_desc:"Exclusive Blessing Packs:",
-    wish_title:"🔮 Dream Submission", btn_manifest:"Manifestation Planner",
-    memorial_title:"📖 Memorial Space", memorial_desc:"Soul Archive / Media Memories / Spiritual Continuance",
-    btn_login_memorial:"Log in", btn_upload_memorial:"Upload Record", btn_register_memorial:"Register",
-
-    login_title:"💎 Log in to VIP",
-    ph_email:"Email",
-    ph_password:"Password (≥8 chars with upper/lowercase, number & symbol)",
-    btn_login:"Log In",
-    btn_register:"Register",
-    btn_reset:"🔑 Reset Password",
-    btn_backshop:"← Back to Store",
-    note_price:"One free trial for new accounts.",
-    note_price1:"$9.9 / month VIP (Astro + Soul + Courses).",
-
-    err_expired:"Membership expired",
-    err_no_account:"Account not found. Please register first.",
-    err_wrong_pwd:"Incorrect password",
-    err_login_fail:"Login failed. Please try again later.",
-    err_register_fail:"Registration failed. Please try again later.",
-    err_need_ep:"Please enter email and password",
-    err_pwd_rule:"Password must be ≥8 chars and include upper/lowercase, number, and symbol",
-    prompt_email:"Enter your email",
-    prompt_newpwd:"Enter a new password (≥8 chars with upper/lowercase, number & symbol)",
-    err_email_empty:"Email cannot be empty",
-    err_pwd_empty:"Password cannot be empty",
-    err_reset_fail:"Reset failed. Please try again later.",
-    msg_reset_ok:"Password reset succeeded. Please log in with the new password.",
-
-    chat_fab:"Chat",
-    chat_placeholder:"Ask me anything…",
-    chat_send:"Send"
-  },
-
-  "ja": {
-    page_title:"ソウル・サンクチュアリ · VIPセグメント",
-    site_title:"ソウル・サンクチュアリ · VIPセグメント",
-    site_subtitle:"四柱簡評と同デザイン · モバイル/PC一貫体験",
-    lang_label:"言語",
-    form_title:"命理分析 · レポート作成",
-    choose_type:"命盤タイプ",
-    type_personal:"個人命盤", type_compat:"相性（2人）",
-    culture_auto:"自動検出", culture_cn:"中国四柱推命",
-    culture_west:"西洋占星 / タロット", culture_jp:"九星気学", culture_vedic:"ヴェーディック占星",
-    self_info:"本人情報", ph_name1:"氏名（本人）", ph_time1:"出生時刻", ph_country1:"出生国 / 地域",
-    cal_g:"西暦", cal_l:"旧暦",
-    btn_next:"次へ",
-    partner_info:"相手情報（相性）", ph_name2:"氏名（相手）", ph_time2:"出生時刻", ph_country2:"出生国 / 地域",
-    focus_title:"レポート重点",
-    opt_love:"恋愛", opt_dating:"恋愛縁", opt_marriage:"結婚運",
-    opt_career:"仕事", opt_work:"職場発展", opt_startup:"起業潜在",
-    opt_wealth:"金運", opt_wealthpos:"財位分析", opt_timing:"タイミング",
-    opt_dates:"良日選び", opt_wedding:"結婚日", opt_babydate:"出産日", opt_house:"新居入居", opt_office:"会社入居",
-    opt_name:"命名", opt_babyname:"赤ちゃん名", opt_petname:"ペット名", opt_companyname:"会社名", opt_rename:"改名",
-    opt_fs:"風水", opt_home:"住居", opt_officefs:"オフィス",
-    opt_comp:"相性分析", opt_couple:"カップル相性（浮き沈み）",
-    opt_spouse:"夫婦運（結婚発展）", opt_personality:"性格相性（衝突/補完）",
-    opt_partner:"ビジネス相性（共同/従業員）", opt_reconnect:"関係修復（友/家族/恋人）", opt_petbond:"ペット相性（飼い主とペット）",
-
-    vip_overview:"VIP コンテンツ概要",
-    vip_mingli:"🗝 命理エリア · 限定",
-    list_love:"恋愛：縁・結婚の流れ",
-    list_career:"仕事：職場・起業",
-    list_wealth:"金運：財位・タイミング",
-    list_pet:"ペット：性格とご縁",
-    list_hepan:"相性：結婚日 / 出産時刻",
-    list_name:"命名：会社/赤ちゃん/改名",
-    list_fs:"財位×レイアウト：住居 / オフィス",
-    vip_xinlian:"🌙 心怜エリア · 限定",
-    list_record:"スピリチュアル記録：写真/夢/音声/祈り",
-    list_course:"講座：四柱 / タロット / 占星 / 数秘 / HD",
-    list_memorial:"家族メモリアル：記録と継承",
-    list_tasks:"毎週エナジー / 儀式タスク",
-    list_shop:"ストア割引 & お守り",
-    btn_upgrade:"💎 VIPへアップグレード（月額）",
-    btn_back:"← ストアへ戻る",
-    vip_note:"$9.9/月（命理 + 心怜 + 講座）。新規登録は1回無料体験。",
-
-    portal_title:"心怜スペース · 入り口",
-    diary_title:"🧘‍♀️ スピ日記", diary_desc:"写真 / 音声 / ノート / 家族ログ / 祈り（毎日加持）",
-    btn_personal:"個人（非公開）", btn_family:"家族（共有）", btn_upload:"投稿する",
-    course_title:"📘 講座", course_bazi:"四柱：十神 / 年運 / 用神", course_tarot:"タロット：スプレッド/実戦",
-    course_coming:"🌙 まもなく：占星 / 数秘 / HD / 易 / 瞑想 / 気門 / 神道 / 紫微 / エナジー / 西洋占星 / スピ講座…",
-    btn_enter_course:"講座に入る",
-    shop_title:"🛍️ エナジーストア · VIP割引 & 御守り", shop_desc:"祈願パック：",
-    wish_title:"🔮 夢の実現", btn_manifest:"マニフェステーション",
-    memorial_title:"📖 メモリアル", memorial_desc:"魂の記録 / 想い出 / 霊性継承",
-    btn_login_memorial:"ログイン", btn_upload_memorial:"記録を投稿", btn_register_memorial:"登録する",
-
-    login_title:"💎 VIP にログイン",
-    ph_email:"メールアドレス",
-    ph_password:"パスワード（8文字以上・大小英数・記号必須）",
-    btn_login:"ログイン",
-    btn_register:"登録する",
-    btn_reset:"🔑 パスワードを再設定",
-    btn_backshop:"← ストアへ戻る",
-    note_price:"新規は1回無料体験",
-    note_price1:"$9.9 / 月（命理 + 心怜 + 講座）",    
-
-    err_expired:"会員期限が切れています",
-    err_no_account:"アカウントが見つかりません。先に登録してください。",
-    err_wrong_pwd:"パスワードが正しくありません",
-    err_login_fail:"ログインに失敗しました。しばらくしてからお試しください。",
-    err_register_fail:"登録に失敗しました。しばらくしてからお試しください。",
-    err_need_ep:"メールとパスワードを入力してください",
-    err_pwd_rule:"パスワードは8文字以上で、大小英字・数字・記号を含めてください",
-    prompt_email:"登録メールを入力してください",
-    prompt_newpwd:"新しいパスワードを入力してください（8文字以上・複合）",
-    err_email_empty:"メールは必須です",
-    err_pwd_empty:"パスワードは必須です",
-    err_reset_fail:"再設定に失敗しました。後でもう一度。",
-    msg_reset_ok:"再設定が完了しました。新しいパスワードでログインしてください。",
-
-    chat_fab:"チャット",
-    chat_placeholder:"ご質問はありますか？",
-    chat_send:"送信"
-  },
-
-  "th": {
-    page_title:"Soul Sanctuary · VIP",
-    site_title:"Soul Sanctuary · VIP",
-    site_subtitle:"สไตล์เดียวกับ Bazi Free · มือถือ/พีซีเหมือนกัน",
-    lang_label:"ภาษา",
-    form_title:"วิเคราะห์ดวง · สร้างรายงาน",
-    choose_type:"เลือกประเภทดวง",
-    type_personal:"ดวงส่วนตัว", type_compat:"ดวงคู่ (2 คน)",
-    culture_auto:"ตรวจอัตโนมัติ", culture_cn:"จีน / Bazi",
-    culture_west:"ตะวันตก / Tarot", culture_jp:"เก้าดาวญี่ปุ่น", culture_vedic:"เวทโหราศาสตร์",
-    self_info:"ข้อมูลของคุณ", ph_name1:"ชื่อ", ph_time1:"เวลาเกิด", ph_country1:"ประเทศ/ภูมิภาคเกิด",
-    cal_g:"สากล", cal_l:"จันทรคติ",
-    btn_next:"ถัดไป",
-    partner_info:"ข้อมูลคู่ (Synastry)", ph_name2:"ชื่อคู่", ph_time2:"เวลาเกิด", ph_country2:"ประเทศ/ภูมิภาคเกิด",
-    focus_title:"หัวข้อรายงาน",
-    opt_love:"ความรัก", opt_dating:"ชะตาความรัก", opt_marriage:"แนวโน้มแต่งงาน",
-    opt_career:"การงาน", opt_work:"พัฒนางาน", opt_startup:"ศักยภาพธุรกิจ",
-    opt_wealth:"การเงิน", opt_wealthpos:"ตำแหน่งโชคลาภ", opt_timing:"จังหวะลงทุน",
-    opt_dates:"ฤกษ์งามยามดี", opt_wedding:"วันแต่งงาน", opt_babydate:"ฤกษ์คลอด", opt_house:"ย้ายบ้าน", opt_office:"ย้ายสำนักงาน",
-    opt_name:"ตั้งชื่อ", opt_babyname:"ชื่อลูก", opt_petname:"ชื่อสัตว์เลี้ยง", opt_companyname:"ชื่อบริษัท", opt_rename:"เปลี่ยนชื่อ",
-    opt_fs:"ฮวงจุ้ย", opt_home:"บ้าน", opt_officefs:"ออฟฟิศ",
-    opt_comp:"ความเข้ากันได้", opt_couple:"คู่รัก (ขึ้นลง/สถานะคุย)",
-    opt_spouse:"คู่สมรส (พัฒนาการ)", opt_personality:"บุคลิก (ขัดแย้ง/เสริมกัน)",
-    opt_partner:"หุ้นส่วนธุรกิจ/ทีม", opt_reconnect:"เชื่อมสัมพันธ์ใหม่", opt_petbond:"เจ้าของ–สัตว์เลี้ยง",
-
-    vip_overview:"สรุป VIP",
-    vip_mingli:"🗝 โซน Astro · พิเศษ",
-    list_love:"ความรัก: คู่แท้/แต่งงาน",
-    list_career:"การงาน: ที่ทำงาน/ทำธุรกิจ",
-    list_wealth:"การเงิน: ตำแหน่ง/จังหวะ",
-    list_pet:"สัตว์เลี้ยง: นิสัยและสายใย",
-    list_hepan:"Synastry: วันแต่ง/เวลาคลอด",
-    list_name:"ชื่อ: บริษัท/ลูก/เปลี่ยนชื่อ",
-    list_fs:"โชคลาภ × ผังบ้าน/ออฟฟิศ",
-    vip_xinlian:"🌙 โซน Soul · พิเศษ",
-    list_record:"บันทึกจิตวิญญาณ: รูป/ฝัน/เสียง/คำอธิษฐาน",
-    list_course:"คอร์ส: Bazi / Tarot / Astrology / Numerology / HD",
-    list_memorial:"อนุสรณ์ครอบครัว: บันทึกและมรดกจิตวิญญาณ",
-    list_tasks:"ฝึกพลังงานรายสัปดาห์ / พิธีกรรม",
-    list_shop:"ส่วนลดร้าน & Omamori",
-    btn_upgrade:"💎 อัปเกรด VIP (รายเดือน)",
-    btn_back:"← กลับร้าน",
-    vip_note:"$9.9 / เดือน (Astro + Soul + คอร์ส) สมัครใหม่ใช้ฟรี 1 ครั้ง",
-
-    portal_title:"พอร์ทัล Soul Sanctuary",
-    diary_title:"🧘‍♀️ ไดอารี่วิญญาณ", diary_desc:"รูป / เสียง / บันทึก / ครอบครัว / คำอธิษฐาน (เสริมพลังรายวัน)",
-    btn_personal:"ส่วนตัว", btn_family:"ครอบครัว", btn_upload:"อัปโหลด",
-    course_title:"📘 คอร์ส", course_bazi:"Bazi: Ten Gods / Annual / Useful God", course_tarot:"Tarot: Spreads & Practice",
-    course_coming:"🌙 เร็ว ๆ นี้: โหราศาสตร์ / ตัวเลขชีวิต / HD / อี้จิง / ทำสมาธิ / Qimen / Shinto / Zi Wei / พลังงาน / ตะวันตก / จิตวิญญาณ…",
-    btn_enter_course:"เข้าสู่คอร์ส",
-    shop_title:"🛍️ Energy Store · ส่วนลด VIP & Omamori", shop_desc:"ชุดพรเฉพาะ:",
-    wish_title:"🔮 ส่งคำปรารถนา", btn_manifest:"วางแผน Manifest",
-    memorial_title:"📖 พื้นที่อนุสรณ์", memorial_desc:"แฟ้มวิญญาณ / ความทรงจำ / สืบทอดจิตวิญญาณ",
-    btn_login_memorial:"เข้าสู่ระบบ", btn_upload_memorial:"อัปโหลด", btn_register_memorial:"สมัคร",
-
-    login_title:"💎 เข้าสู่ระบบ VIP",
-    ph_email:"อีเมล",
-    ph_password:"รหัสผ่าน (อย่างน้อย 8 ตัว รวมตัวพิมพ์ใหญ่-เล็ก ตัวเลข และสัญลักษณ์)",
-    btn_login:"เข้าสู่ระบบ",
-    btn_register:"สมัครสมาชิก",
-    btn_reset:"🔑 รีเซ็ตรหัสผ่าน",
-    btn_backshop:"← กลับร้าน",
-    note_price:"สมัครใหม่ใช้ฟรี 1 ครั้ง",
-    note_price:"$9.9 / เดือน VIP (Astro + Soul + คอร์ส)",
-
-    err_expired:"สมาชิกหมดอายุ",
-    err_no_account:"ไม่พบบัญชี กรุณาสมัครก่อน",
-    err_wrong_pwd:"รหัสผ่านไม่ถูกต้อง",
-    err_login_fail:"เข้าสู่ระบบไม่สำเร็จ โปรดลองใหม่ภายหลัง",
-    err_register_fail:"สมัครไม่สำเร็จ โปรดลองใหม่ภายหลัง",
-    err_need_ep:"กรอกอีเมลและรหัสผ่านก่อน",
-    err_pwd_rule:"รหัสผ่านต้อง ≥8 ตัว และมีตัวพิมพ์ใหญ่-เล็ก ตัวเลข และสัญลักษณ์",
-    prompt_email:"กรอกอีเมลของคุณ",
-    prompt_newpwd:"กรอกรหัสผ่านใหม่ (≥8 ตัว และแบบผสม)",
-    err_email_empty:"อีเมลห้ามว่าง",
-    err_pwd_empty:"รหัสผ่านห้ามว่าง",
-    err_reset_fail:"รีเซ็ตไม่สำเร็จ โปรดลองใหม่",
-    msg_reset_ok:"รีเซ็ตสำเร็จ กรุณาเข้าสู่ระบบด้วยรหัสใหม่",
-
-    chat_fab:"แชต",
-    chat_placeholder:"อยากถามอะไร…",
-    chat_send:"ส่ง"
-  },
-
-  "ms": {
-    page_title:"Soul Sanctuary · VIP",
-    site_title:"Soul Sanctuary · VIP",
-    site_subtitle:"Gaya sama dengan Bazi Free · Seragam Mudah Alih & Desktop",
-    lang_label:"Bahasa",
-    form_title:"Analisis · Jana Laporan",
-    choose_type:"Jenis Carta",
-    type_personal:"Peribadi", type_compat:"Keserasian (2 Orang)",
-    culture_auto:"Auto Detect", culture_cn:"Cina / Bazi",
-    culture_west:"Barat / Tarot", culture_jp:"Sembilan Bintang Jepun", culture_vedic:"Astrologi Veda",
-    self_info:"Maklumat Anda", ph_name1:"Nama", ph_time1:"Masa Lahir", ph_country1:"Negara/Kawasan",
-    cal_g:"Gregorian", cal_l:"Lunar",
-    btn_next:"Seterusnya",
-    partner_info:"Maklumat Pasangan (Synastry)", ph_name2:"Nama Pasangan", ph_time2:"Masa Lahir", ph_country2:"Negara/Kawasan",
-    focus_title:"Fokus Laporan",
-    opt_love:"Cinta", opt_dating:"Jodoh", opt_marriage:"Trend Perkahwinan",
-    opt_career:"Kerjaya", opt_work:"Tempat Kerja", opt_startup:"Potensi Usahawan",
-    opt_wealth:"Kewangan", opt_wealthpos:"Posisi Kekayaan", opt_timing:"Masa",
-    opt_dates:"Tarikh Bertuah", opt_wedding:"Tarikh Kahwin", opt_babydate:"Tarikh Kelahiran Bayi", opt_house:"Pindah Rumah", opt_office:"Pindah Syarikat",
-    opt_name:"Analisis Nama", opt_babyname:"Nama Bayi", opt_petname:"Nama Haiwan", opt_companyname:"Nama Syarikat", opt_rename:"Tukar Nama",
-    opt_fs:"Feng Shui", opt_home:"Rumah", opt_officefs:"Pejabat",
-    opt_comp:"Keserasian", opt_couple:"Pasangan (Naik/Turun)",
-    opt_spouse:"Suami Isteri (Perkembangan)", opt_personality:"Personaliti (Konflik/Tampung)",
-    opt_partner:"Rakan Niaga / Kakitangan", opt_reconnect:"Sambung Semula", opt_petbond:"Pemilik–Haiwan",
-
-    vip_overview:"Gambaran VIP",
-    vip_mingli:"🗝 Kandungan Eksklusif · Astro",
-    list_love:"Cinta: Jodoh & Perkahwinan",
-    list_career:"Kerjaya: Tempat Kerja & Usahawan",
-    list_wealth:"Kewangan: Posisi & Masa",
-    list_pet:"Haiwan Peliharaan: Perangai & Ikatan",
-    list_hepan:"Synastry: Tarikh Kahwin / Masa Lahir",
-    list_name:"Nama: Syarikat/Bayi/Tukar Nama",
-    list_fs:"Kekayaan × Susun Atur: Rumah / Pejabat",
-    vip_xinlian:"🌙 Kandungan Eksklusif · Soul",
-    list_record:"Log Rohani: Foto/Mimpi/Suara/Doa",
-    list_course:"Kursus: Bazi / Tarot / Astrologi / Numerologi / HD",
-    list_memorial:"Memorial Keluarga: Arkib & Legasi",
-    list_tasks:"Latihan Tenaga Mingguan / Ritual",
-    list_shop:"Diskaun Kedai & Omamori",
-    btn_upgrade:"💎 Naik Taraf VIP (Bulanan)",
-    btn_back:"← Kembali ke Kedai",
-    vip_note:"$9.9 / bulan (Astro + Soul + Kursus). Akaun baharu dapat percubaan percuma.",
-
-    portal_title:"Portal Soul Sanctuary",
-    diary_title:"🧘‍♀️ Diari Rohani", diary_desc:"Foto / Suara / Nota / Log Keluarga / Doa (Berkat Harian)",
-    btn_personal:"Peribadi", btn_family:"Keluarga", btn_upload:"Muat Naik",
-    course_title:"📘 Kursus", course_bazi:"Bazi: Ten Gods / Tahunan / Useful God", course_tarot:"Tarot: Bentangan & Amali",
-    course_coming:"🌙 Akan Datang: Astrologi / Numerologi / HD / I Ching / Meditasi / Qimen / Shinto / Zi Wei / Tenaga / Barat / Kerohanian…",
-    btn_enter_course:"Masuk Kursus",
-    shop_title:"🛍️ Kedai Tenaga · Diskaun VIP & Omamori", shop_desc:"Pek Berkat Eksklusif:",
-    wish_title:"🔮 Hantar Impian", btn_manifest:"Perancang Manifestasi",
-    memorial_title:"📖 Ruang Memorial", memorial_desc:"Arkib Jiwa / Kenangan / Kelangsungan Rohani",
-    btn_login_memorial:"Log Masuk", btn_upload_memorial:"Muat Naik", btn_register_memorial:"Daftar",
-
-    login_title:"💎 Log Masuk VIP",
-    ph_email:"E-mel",
-    ph_password:"Kata laluan (≥8 aksara dengan huruf besar/kecil, nombor & simbol)",
-    btn_login:"Log Masuk",
-    btn_register:"Daftar",
-    btn_reset:"🔑 Tetapkan Semula Kata Laluan",
-    btn_backshop:"← Kembali ke Kedai",
-    note_price:"Akaun baharu percubaan percuma sekali.",
-    note_price:"$9.9 / bulan VIP (Astro + Soul + Kursus).",
-
-    err_expired:"Keahlian tamat tempoh",
-    err_no_account:"Akaun tidak dijumpai. Sila daftar dahulu.",
-    err_wrong_pwd:"Kata laluan tidak betul",
-    err_login_fail:"Gagal log masuk. Cuba lagi nanti.",
-    err_register_fail:"Gagal mendaftar. Cuba lagi nanti.",
-    err_need_ep:"Sila masukkan e-mel dan kata laluan",
-    err_pwd_rule:"Kata laluan mesti ≥8 aksara dan mengandungi huruf besar/kecil, nombor dan simbol",
-    prompt_email:"Masukkan e-mel anda",
-    prompt_newpwd:"Masukkan kata laluan baharu (≥8 aksara, campuran)",
-    err_email_empty:"E-mel tidak boleh kosong",
-    err_pwd_empty:"Kata laluan tidak boleh kosong",
-    err_reset_fail:"Gagal menetapkan semula. Cuba lagi nanti.",
-    msg_reset_ok:"Berjaya ditetapkan semula. Sila log masuk dengan kata laluan baharu.",
-
-    chat_fab:"Sembang",
-    chat_placeholder:"Ada apa nak tanya?",
-    chat_send:"Hantar"
-  }
-};
-
-  function t(key){
-    const L = translations[getLang()] || translations["zh-CN"];
-    return L[key] || (translations["zh-CN"][key] || key);
-  }
-  function applyI18n(){
-    document.querySelectorAll("[data-i18n]").forEach(el=>{
-      const key = el.getAttribute("data-i18n");
-      el.textContent = t(key);
-    });
-    document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
-      const key = el.getAttribute("data-i18n-ph");
-      el.setAttribute("placeholder", t(key));
-    });
-    const titleEl = document.querySelector("title[data-i18n]");
-    if (titleEl) titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
-  }
-  function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
-
-  // ============== Chat 浮窗（走 /api/chat） ==============
-  function applyChatI18n(){
-    const fab = document.getElementById('ssChatFab');
-    const inp = document.getElementById('ssChatInput');
-    const btn = document.getElementById('ssChatSend');
-    if (fab) fab.textContent = t('chat_fab');
-    if (inp) inp.placeholder = t('chat_placeholder');
-    if (btn) btn.textContent = t('chat_send');
-  }
-
-  document.addEventListener('DOMContentLoaded', ()=>{
-    // Chat 按钮与面板
-    const chatFab = document.createElement('div');
-    chatFab.className = 'ss-chat-fab'; chatFab.id = 'ssChatFab'; chatFab.title = '心怜管家';
-
-    const chatPanel = document.createElement('div');
-    chatPanel.className = 'ss-chat-panel'; chatPanel.id = 'ssChatPanel'; chatPanel.setAttribute('role','dialog'); chatPanel.setAttribute('aria-label','心怜管家');
-    chatPanel.innerHTML = `
-      <div class="ss-chat-head">
-        <div class="ss-chat-title">心怜管家 · Chat</div>
-        <div class="ss-close" id="ssChatClose">✕</div>
-      </div>
-      <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
-      <div class="ss-chat-input">
-        <input id="ssChatInput" type="text" />
-        <button id="ssChatSend"></button>
-      </div>`;
-
-    document.body.appendChild(chatFab);
-    document.body.appendChild(chatPanel);
-
-    // 初始语言（页面 + chat）
-    const select = document.getElementById("langSelect");
-    const current = getLang();
-    if (select) select.value = current;
-    applyI18n();
-    applyChatI18n();
-
-    const $body  = document.getElementById('ssChatBody');
-    const $input = document.getElementById('ssChatInput');
-    const $send  = document.getElementById('ssChatSend');
-    const $close = document.getElementById('ssChatClose');
-
-    const openPanel  = () => { chatPanel.style.display = 'flex'; $input.focus(); };
-    const closePanel = () => { chatPanel.style.display = 'none'; };
-    chatFab.addEventListener('click', openPanel);
-    $close.addEventListener('click', closePanel);
-
-    function addMsg(text, me=false){
-      const div = document.createElement('div');
-      div.className = 'ss-msg' + (me ? ' me' : '');
-      div.textContent = text;
-      $body.appendChild(div);
-      $body.scrollTop = $body.scrollHeight;
-    }
-
-    async function askChat(prompt){
-      addMsg(prompt, true);
-      $input.value = '';
-      $input.focus();
-      try{
-        const r = await fetch(`${API_BASE}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: [
-              { role:'system', content:'你是“心怜管家”，帮助访客了解命理心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。' },
-              { role:'user', content: prompt }
-            ]
-          })
-        });
-        let data, reply = '';
-        try { data = await r.json(); } catch { data = {}; }
-        reply = data.reply ?? data.text ?? data?.choices?.[0]?.message?.content ?? "";
-        if (!reply) return addMsg('抱歉，服务暂时繁忙，请稍后重试。');
-        addMsg(reply);
-      }catch(e){
-        addMsg('网络异常，请稍后再试。');
-      }
-    }
-    $send.addEventListener('click', ()=>{ const v=$input.value.trim(); if(v) askChat(v); });
-    $input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
-
-    // 语言切换时，同步更新
-    if (select) {
-      select.addEventListener("change", ()=>{
-        setLang(select.value);
-        applyI18n();
-        applyChatI18n();
-      });
-    }
-  });
-
-  // ============== 登录流程（集中处理 exists / expired / expiresAt） ==============
-  async function safeJson(resp){
-    try { return await resp.json(); } catch { return { ok:false, msg:'upstream_error' }; }
-  }
-
-  async function loginFlow(email, password){
-    const res = await safeJson(await fetch(`${API_BASE}/api/login`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    }));
-
-    const msg = (res.msg || "").toString().toLowerCase();
-
-    // ✅ 统一判断是否过期（兼容 msg/flag/时间戳）
-    let expired = false;
-    if (res.expired === true) expired = true;
-    else if (msg === 'expired') expired = true;
-    else if (res.expiresAt) {
-      const ts = Date.parse(res.expiresAt);
-      if (!Number.isNaN(ts) && ts < Date.now()) expired = true;
-    }
-
-    if (expired) {
-      // 只提示，不跳转；可一键引导续费
-      const go = confirm(t('err_expired') + "。是否前往续费？");
-      if (go) window.open("https://yourshopifyshop.com/products/monthly-vip", "_blank");
-      return;
-    }
-
-    // ✅ 正常通过才跳 VIP
-    if (res.ok === true) {
-      localStorage.setItem("vipEmail", res.email || email);
-      location.href = "https://astro.5xliving.com/vip_soul_sanctuary.html";
-      return;
-    }
-
-    // 常见错误
-    if (msg === 'no_account') return showErr(t('err_no_account'));
-    if (msg === 'wrong_pwd')  return showErr(t('err_wrong_pwd'));
-    return showErr(t('err_login_fail') + (res.msg ? ` ${res.msg}` : ''));
-  }
-
-// ======== 表单事件（注册 / 登录 / 重设） ========
-const regForm = document.getElementById("registerForm");
-if (regForm) {
-  regForm.addEventListener("submit", async (e)=>{
-    e.preventDefault();
-    hideErr();
-    const email = $("email")?.value?.trim() || "";
-    const password = $("password")?.value?.trim() || "";
-    if (!email || !password) return showErr(t('err_need_ep'));
-    if (!strongPwd(password)) return showErr(t('err_pwd_rule'));
-
-    lock($("registerBtn"), true);
-    try{
-      const res = await safeJson(await fetch(`${API_BASE}/api/register`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email, password })
-      }));
-      if (res.ok === true){
-        localStorage.setItem("vipEmail", email);
-        location.href = "vip_trial.html";
-        return;
-      }
-      if ((res.msg||"") === 'exists'){ await loginFlow(email, password); return; }
-      return showErr((res.msg && (res.msg+'')) || t('err_register_fail'));
-    } catch(err){
-      showErr(t('err_register_fail') + (err?.message || ''));
-    } finally{
-      lock($("registerBtn"), false);
-    }
-  });
-}
-
-const loginForm = document.getElementById("loginForm");
-if (loginForm) {
-  loginForm.addEventListener("submit", async (e)=>{
-    e.preventDefault();
-    hideErr();
-    const email = $("email")?.value?.trim() || "";
-    const password = $("password")?.value?.trim() || "";
-    if (!email || !password) return showErr(t('err_need_ep'));
-    lock($("loginBtn"), true);
-    try{ await loginFlow(email, password); }
-    catch(err){ showErr(t('err_login_fail') + (err?.message || '')); }
-    finally{ lock($("loginBtn"), false); }
-  });
-}
-
-const resetBtn = document.getElementById("resetBtn");
-if (resetBtn) {
-  resetBtn.addEventListener("click", async ()=>{
-    hideErr();
-    let email = prompt(t('prompt_email')); if (email === null) return; email = email.trim();
-    if (!email) return showErr(t('err_email_empty'));
-
-    let newPassword = prompt(t('prompt_newpwd')); if (newPassword === null) return; newPassword = newPassword.trim();
-    if (!newPassword) return showErr(t('err_pwd_empty'));
-    if (!strongPwd(newPassword)) return showErr(t('err_pwd_rule'));
-
-    lock(resetBtn, true);
-    try{
-      const res = await safeJson(await fetch(`${API_BASE}/api/reset`, {
-        method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ email, newPassword })
-      }));
-      if (!res.ok) return showErr((res.msg && (res.msg+'')) || t('err_reset_fail'));
-      alert(t('msg_reset_ok'));
-    } catch(err){
-      showErr(t('err_reset_fail') + (err?.message || ''));
-    } finally{
-      lock(resetBtn, false);
-    }
-  });
-}
-  
-  /* ================== 自测：1978-02-21 12:00 → 戊午 甲寅 甲寅 庚午 ================== */
+/* ==============================
+   BAZI SELF-TEST (safe if present)
+============================== */
 (function(){
-  const c=new BaziCalculator(); const Y=c.calculateYearPillar(1978); const M=c.calculateMonthPillar(1978,2,21); const D=c.calculateDayPillar(1978,2,21); const H=c.calculateHourPillar(D.stem,12);
-  console.log('应为 → 年 戊午｜月 甲寅｜日 甲寅｜时 庚午');
-  console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+H.branch);
-})();
-  </script>
-  <div id="nowTime" class="muted"></div>
-<script>
-  const $now = document.getElementById('nowTime');
-  function tick(){
-    const d = new Date();
-    $now.textContent = d.toLocaleString(); // 自动按浏览器语言格式化
+  const $now = $('nowTime');
+  if ($now){
+    function tick(){ $now.textContent = new Date().toLocaleString(); }
+    tick(); setInterval(tick, 1000);
   }
-  tick();
-  setInterval(tick, 1000);
-</script>
-<script>
+})();
+
 if (typeof BaziCalculator === 'function') {
-  const c   = new BaziCalculator();
-  const now = new Date();
-  const y   = now.getFullYear();
-  const m   = now.getMonth() + 1;
-  const d   = now.getDate();
-  const h   = now.getHours();
+  // now pillars
+  (function(){
+    const c = new BaziCalculator();
+    const now = new Date();
+    const y = now.getFullYear(), m = now.getMonth()+1, d = now.getDate(), h = now.getHours();
+    const Y = c.calculateYearPillar(y);
+    const M = c.calculateMonthPillar(y, m, d);
+    const D = c.calculateDayPillar(y, m, d);
+    const H = c.calculateHourPillar(D.stem, h);
+    console.log(
+      `现在 ${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')} ${String(h).padStart(2,'0')}:00 →`,
+      `年${Y.stem}${Y.branch} 月${M.stem}${M.branch} 日${D.stem}${D.branch} 时${H.stem}${H.branch}`
+    );
+  })();
 
-  const Y = c.calculateYearPillar(y);
-  const M = c.calculateMonthPillar(y, m, d);
-  const D = c.calculateDayPillar(y, m, d);
-  const H = c.calculateHourPillar(D.stem, h);
-
-  console.log(
-    `现在 ${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')} ${String(h).padStart(2,'0')}:00 →`,
-    `年${Y.stem}${Y.branch} 月${M.stem}${M.branch} 日${D.stem}${D.branch} 时${H.stem}${H.branch}`
-})();
-
-/* ================== 自测：1978-02-21 12:00 → 戊午 甲寅 甲寅 庚午 ================== */
-(function(){
-  const c=new BaziCalculator(); const Y=c.calculateYearPillar(1978); const M=c.calculateMonthPillar(1978,2,21); const D=c.calculateDayPillar(1978,2,21); const H=c.calculateHourPillar(D.stem,12);
-  console.log('应为 → 年 戊午｜月 甲寅｜日 甲寅｜时 庚午');
-  console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+H.branch);
-})();
+  // test: 1978-02-21 12:00 → 戊午 甲寅 甲寅 庚午
+  (function(){
+    const c=new BaziCalculator();
+    const Y=c.calculateYearPillar(1978);
+    const M=c.calculateMonthPillar(1978,2,21);
+    const D=c.calculateDayPillar(1978,2,21);
+    const H=c.calculateHourPillar(D.stem,12);
+    console.log('应为 → 年 戊午｜月 甲寅｜日 甲寅｜时 庚午');
+    console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+D.branch ? H.stem+H.branch : H.stem+H.branch);
+  })();
+}
 </script>
-</script>  
 </body>
 </html>
