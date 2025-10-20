@@ -60,8 +60,15 @@
   #aiCard .skeleton div{height:12px;border-radius:6px;background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);animation:sh 1.2s infinite}
   @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
   #aiText{white-space:normal;line-height:1.7}
-  #aiText h2,#aiText h3{color:#f2d27a;margin:12px 0 6px;font-size:1.05rem}
   #aiText ul{margin:.4rem 0 .2rem 1.2rem}
+  /* AI 文内标题与卡片标题同色 */
+  #aiText h2,
+  #aiText h3{
+  color:#ffe084 !important;
+  margin:12px 0 6px;
+  font-size:1.05rem;
+  font-weight:800;
+}
 
   /* Chat */
   .ss-chat-fab{
@@ -379,15 +386,20 @@
   }
 
   /* ===== Markdown -> HTML（简版） ===== */
-  function mdToHtml(md){
-    return (md||'')
-      .replace(/^###?\s+(.*)$/gm,'<h3>$1</h3>')
-      .replace(/^\s*[-*]\s+(.*)$/gm,'<li>$1</li>')
-      .replace(/(<li>.*<\/li>)(?!\s*<\/ul>)/gs, '<ul>$1</ul>')
-      .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
-      .replace(/\n{2,}/g,'\n\n')
-      .replace(/\n/g,'<br/>');
-  }
+ function mdToHtml(md){
+  if(!md) return '';
+  return md
+    // 标题：支持 # / ＃，1~3 级
+    .replace(/(^|\n)[#＃]{1,3}\s+(.+?)\s*(?=\n|$)/g, '$1<h3 class="ai-head">$2</h3>')
+    // 列表：- 或 *
+    .replace(/^\s*[-*]\s+(.*)$/gm,'<li>$1</li>')
+    .replace(/(?:^|\n)(<li>[\s\S]+?<\/li>)+/g, m => `<ul>${m}</ul>`)
+    // 加粗
+    .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+    // 换行
+    .replace(/\n{2,}/g,'\n\n')
+    .replace(/\n/g,'<br/>');
+}
 
   /* ===== 生成提示词 ===== */
   function buildPromptEnergy({langName, name, gender, birthdate, birthtime, birthplace, topic, question}){
@@ -538,4 +550,5 @@
 </script>
 </body>
 </html>
+
 
