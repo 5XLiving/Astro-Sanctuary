@@ -488,6 +488,329 @@ html { font-size: 16px; }
   </div>
 
 <script>
+/* ================== 快速修复心怜管家渲染问题 ================== */
+
+// 修复样式注入 - 确保AI样式正确加载
+function fixAiStyles() {
+  const existingStyle = document.getElementById('ai-style-fixed');
+  if (existingStyle) return;
+  
+  const style = document.createElement('style');
+  style.id = 'ai-style-fixed';
+  style.textContent = `
+    #aiCard {
+      margin-top: 20px;
+      border: 1px solid #1f2a36;
+      border-radius: 14px;
+      background: #11161dcc;
+      padding: 18px;
+      backdrop-filter: blur(10px);
+    }
+    #butlerTitle {
+      color: #ffe084;
+      font-size: 1.2rem;
+      margin: 0 0 12px;
+      font-weight: 800;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    #butlerTitle::before {
+      content: "";
+      width: 4px;
+      height: 18px;
+      background: #d4af37;
+      border-radius: 2px;
+    }
+    .ai-content {
+      white-space: pre-wrap;
+      line-height: 1.7;
+      color: #e8edf3;
+      margin-bottom: 16px;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .chip {
+      padding: 6px 12px;
+      border-radius: 999px;
+      border: 1px solid #2a3546;
+      background: #0e1520;
+      color: #e8edf3;
+      cursor: pointer;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+    }
+    .chip:hover {
+      border-color: #f2d27a;
+      box-shadow: 0 0 0 2px rgba(242,210,122,0.15) inset;
+    }
+    .skeleton {
+      display: grid;
+      gap: 8px;
+    }
+    .skeleton div {
+      height: 12px;
+      border-radius: 6px;
+      background: linear-gradient(90deg, #1a2431, #1f2b3b, #1a2431);
+      animation: sh 1.2s infinite;
+    }
+    @keyframes sh {
+      0% { opacity: 0.5; }
+      50% { opacity: 1; }
+      100% { opacity: 0.5; }
+    }
+    .ai-lock-overlay {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #1f2a36;
+      text-align: center;
+    }
+    .ai-lock-overlay .tip {
+      color: #ffd88a;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+    .ai-lock-overlay .sub {
+      color: #98a7b7;
+      font-size: 0.9rem;
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+// 强化的管家卡片创建函数
+function createButlerCard() {
+  console.log('创建心怜管家卡片...');
+  
+  // 确保样式已加载
+  fixAiStyles();
+  
+  const resultSection = document.getElementById('result');
+  if (!resultSection) {
+    console.error('未找到结果区域');
+    return null;
+  }
+
+  // 移除可能存在的旧卡片
+  const oldCard = document.getElementById('aiCard');
+  if (oldCard) {
+    oldCard.remove();
+  }
+
+  // 创建新的卡片
+  const card = document.createElement('div');
+  card.id = 'aiCard';
+  card.className = 'card'; // 使用现有的card样式
+  card.innerHTML = `
+    <div class="h2" id="butlerTitle">${t('butler_title') || '心怜管家 · 解读'}</div>
+    <div id="aiContent" class="ai-content">
+      <div class="skeleton">
+        <div style="width:60%"></div>
+        <div style="width:80%"></div>
+        <div style="width:90%"></div>
+        <div style="width:70%"></div>
+        <div style="width:50%"></div>
+      </div>
+    </div>
+    <div class="chips" id="aiChips"></div>
+  `;
+
+  // 插入到结果区域的最后
+  resultSection.appendChild(card);
+  
+  // 渲染芯片按钮
+  renderChipsFixed();
+  
+  console.log('心怜管家卡片创建成功');
+  return card;
+}
+
+// 修复的芯片渲染函数
+function renderChipsFixed() {
+  const chipsContainer = document.getElementById('aiChips');
+  if (!chipsContainer) {
+    console.log('未找到芯片容器');
+    return;
+  }
+  
+  chipsContainer.innerHTML = '';
+  
+  const chipConfigs = [
+    { key: 'chip_career', question: 'q_career' },
+    { key: 'chip_love', question: 'q_love' },
+    { key: 'chip_money', question: 'q_money' },
+    { key: 'chip_list', question: 'q_list' },
+    { key: 'chip_30d', question: 'q_30d' }
+  ];
+  
+  chipConfigs.forEach(config => {
+    const button = document.createElement('button');
+    button.className = 'chip';
+    button.textContent = t(config.key);
+    button.setAttribute('data-q', t(config.question));
+    button.addEventListener('click', function() {
+      const question = this.getAttribute('data-q');
+      if (question) {
+        askAiFixed(question);
+      }
+    });
+    chipsContainer.appendChild(button);
+  });
+  
+  console.log('芯片按钮渲染完成');
+}
+
+// 修复的AI问答函数
+async function askAiFixed(topic) {
+  console.log('AI问答请求:', topic);
+  
+  // 确保卡片存在
+  const card = createButlerCard();
+  if (card) {
+    card.dataset.lastQ = topic;
+    card.dataset.lang = getLang() || 'zh-CN';
+  }
+
+  // 显示加载状态
+  const output = document.getElementById('aiContent');
+  if (output) {
+    output.innerHTML = `
+      <div class="skeleton">
+        <div style="width:60%"></div>
+        <div style="width:80%"></div>
+        <div style="width:90%"></div>
+        <div style="width:70%"></div>
+        <div style="width:50%"></div>
+      </div>
+    `;
+  }
+
+  try {
+    const context = window.__last_report__ || {};
+    const lang = getLang() || 'zh-CN';
+    
+    // 构建提示词
+    const systemPrompt = buildButlerSystemPrompt(lang);
+    const userPrompt = buildUserPrompt(topic, context);
+
+    console.log('发送AI请求到:', `${API_BASE}/api/chat`);
+    
+    const response = await fetch(`${API_BASE}/api/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ]
+      })
+    });
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (e) {
+      console.error('解析响应失败:', e);
+      data = {};
+    }
+
+    let text = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
+    
+    if (!text) {
+      text = lang.startsWith('zh') 
+        ? '抱歉，暂时没有生成到内容，请稍后再试。' 
+        : 'Sorry, no content generated. Please try again.';
+    }
+
+    // 渲染结果
+    if (output) {
+      if (!isVIP()) {
+        // 非会员显示部分内容 + 解锁提示
+        const lines = text.split('\n');
+        const teaser = lines.slice(0, 6).join('\n');
+        output.innerHTML = mdToHtml(teaser) + `
+          <div class="ai-lock-overlay">
+            <div class="tip">💎 ${t('vip_title') || 'VIP Segment'}</div>
+            <div class="sub">${
+              lang.startsWith('zh') 
+                ? '登录/升级后解锁完整解读' 
+                : 'Log in / upgrade to unlock the full guidance.'
+            }</div>
+          </div>`;
+      } else {
+        // 会员显示完整内容
+        output.innerHTML = mdToHtml(text);
+      }
+    }
+    
+    console.log('AI响应渲染完成');
+    
+  } catch (error) {
+    console.error('AI请求失败:', error);
+    if (output) {
+      output.innerHTML = (getLang() || 'zh-CN').startsWith('zh')
+        ? '网络异常或服务繁忙，请稍后重试。'
+        : 'Network error or service busy. Please try again later.';
+    }
+  }
+}
+
+// 修复挂载函数 - 替换原来的mountButlerCard
+function mountButlerCardFixed() {
+  console.log('挂载心怜管家...');
+  const card = createButlerCard();
+  if (card && !card.dataset.autorun) {
+    card.dataset.autorun = '1';
+    // 延迟执行以确保DOM完全渲染
+    setTimeout(() => {
+      askAiFixed(t('q_career'));
+    }, 1000);
+  }
+}
+
+// 覆盖原有的挂载函数
+window.mountButlerCard = mountButlerCardFixed;
+
+// 在生成八字后强制重新挂载管家
+const originalGenChart = window.genChart;
+window.genChart = function() {
+  // 调用原始函数
+  const result = originalGenChart.apply(this, arguments);
+  
+  // 八字生成完成后强制重新挂载管家
+  setTimeout(() => {
+    console.log('八字生成完成，重新挂载心怜管家');
+    mountButlerCardFixed();
+  }, 1500);
+  
+  return result;
+};
+
+// 页面加载时预加载样式
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('页面加载完成，预加载心怜管家样式');
+  fixAiStyles();
+});
+
+// 调试函数 - 在控制台运行此函数检查管家状态
+window.debugButler = function() {
+  console.log('=== 心怜管家调试信息 ===');
+  console.log('结果区域:', document.getElementById('result'));
+  console.log('管家卡片:', document.getElementById('aiCard'));
+  console.log('最后报告:', window.__last_report__);
+  console.log('VIP状态:', isVIP());
+  console.log('当前语言:', getLang());
+  console.log('API地址:', API_BASE);
+};
+
+console.log('心怜管家修复代码已加载 - 使用 debugButler() 检查状态');
+</script>
+  
+<script>
 'use strict';
 
 /* ================== 配置 & 工具 ================== */
