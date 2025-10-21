@@ -693,13 +693,15 @@ html { font-size: 16px; }
       '</div>';
   }
 
-  function readForm(){
-    const name = gid('name')?.value.trim() || '';
-    const place= gid('place')?.value.trim() || '';
-    const date = gid('birthdate')?.value || '';
-    const time = gid('birthtime')?.value || '12:00';
-    return {name, place, date, time};
-  }
+function readForm(){
+  const name = (document.getElementById('name')?.value || '').trim();
+  // Make place optional; default to Singapore for demo so Butler always runs
+  const placeRaw = (document.getElementById('place')?.value || '').trim();
+  const place = placeRaw || 'Singapore';
+  const date  = document.getElementById('birthdate')?.value || '';
+  const time  = document.getElementById('birthtime')?.value || '12:00';
+  return { name, place, date, time };
+}
 
   /* ============== AI 智能解读：多语言输出（修复 headers 自引用） ============== */
   function mdToHtml(md){
@@ -714,95 +716,79 @@ html { font-size: 16px; }
     return localStorage.getItem('vipStatus')==='active' || !!localStorage.getItem('vipEmail');
   }
 
-  // 放在 mdToHtml / isVIP 之后，runAI 之前
-function buildButlerSystemPrompt(lang, topic=''){
-  const BUTLER_LANG_NAME = {
-    'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese',
-    'en':'English','ja':'Japanese','th':'Thai','ms':'Malay'
-  };
-  const ln = BUTLER_LANG_NAME[lang] || 'Simplified Chinese';
-  const HEADER_MAP = {
-    'zh-CN': ['人物画像','关系与沟通','事业与自我实现','金钱与物质','今日/本周可执行清单','温柔提醒'],
-    'zh-TW': ['人物画像','關係與溝通','事業與自我實現','金錢與物質','今日/本週可執行清單','溫柔提醒'],
-    'en':    ['Persona','Relationships & Communication','Career & Self-Actualization','Money & Material','Actionable To-Dos (Today/This Week)','Gentle Reminder'],
-    'ja':    ['人物像','関係とコミュニケーション','キャリアと自己実現','お金と物質','今日/今週の実行リスト','やさしいリマインド'],
-    'th':    ['ภาพบุคคล','ความสัมพันธ์ & การสื่อสาร','การงาน & การเติมเต็มตนเอง','การเงิน & วัตถุ','รายการปฏิบัติ (วันนี้/สัปดาห์นี้)','คำเตือนอ่อนโยน'],
-    'ms':    ['Persona','Hubungan & Komunikasi','Kerjaya & Aktualisasi Diri','Wang & Material','Senarai Tindakan (Hari/Minggu Ini)','Peringatan Lembut']
-  };
-  const headers = HEADER_MAP[lang] || HEADER_MAP['zh-CN'];
+// Simple local fallback so the Butler still renders if API is down/CORS
+function localButlerFallback(lang, sunName, el){
+  const H = (k) => ({
+    'zh-CN': {
+      p:'人物画像', r:'关系与沟通', c:'事业与自我实现', m:'金钱与物质',
+      a:'今日/本周可执行清单', g:'温柔提醒'
+    },
+    'zh-TW': {
+      p:'人物画像', r:'關係與溝通', c:'事業與自我實現', m:'金錢與物質',
+      a:'今日/本週可執行清單', g:'溫柔提醒'
+    },
+    'en': {
+      p:'Persona', r:'Relationships & Communication', c:'Career & Self-Actualization',
+      m:'Money & Material', a:'Actionable To-Dos (Today/This Week)', g:'Gentle Reminder'
+    },
+    'ja': {
+      p:'人物像', r:'関係とコミュニケーション', c:'キャリアと自己実現',
+      m:'お金と物質', a:'今日/今週の実行リスト', g:'やさしいリマインド'
+    },
+    'th': {
+      p:'ภาพบุคคล', r:'ความสัมพันธ์ & การสื่อสาร', c:'การงาน & การเติมเต็มตนเอง',
+      m:'การเงิน & วัตถุ', a:'รายการปฏิบัติ (วันนี้/สัปดาห์นี้)', g:'คำเตือนอ่อนโยน'
+    },
+    'ms': {
+      p:'Persona', r:'Hubungan & Komunikasi', c:'Kerjaya & Aktualisasi Diri',
+      m:'Wang & Material', a:'Senarai Tindakan (Hari/Minggu Ini)', g:'Peringatan Lembut'
+    }
+  }[lang] || arguments.callee('zh-CN'))[k];
 
-  return [
-    `You are "Xinlian Butler". OUTPUT LANGUAGE: ${ln}. Reply strictly in ${ln}.`,
-    'Warm, practical, actionable. No medical/legal conclusions.',
-    'Markdown structure:',
-    `## ${headers[0]}`,
-    `## ${headers[1]} (2–4 bullets)`,
-    `## ${headers[2]} (2–4 bullets)`,
-    `## ${headers[3]} (2–3 bullets)`,
-    `## ${headers[4]} (3–5 bullets; start with verbs; quantify if possible)`,
-    `## ${headers[5]}`,
-    topic ? `Primary focus topic: ${topic}` : ''
-  ].filter(Boolean).join('\n');
+  const tipByEl = (EL_TEXT[lang] || EL_TEXT['zh-CN']) || {};
+  const elTip = tipByEl[el] || '';
+
+  return `
+    <h3 style="margin:12px 0 6px;color:#f2d27a">${H('p')}</h3>
+    <p>${(lang==='en'?'Sun sign: ':'太阳星座：')}${sunName}</p>
+
+    <h3 style="margin:12px 0 6px;color:#f2d27a">${H('r')}</h3>
+    <p>• ${(lang==='en'?'Lead with clarity; mirror feelings before giving advice.':'先确认对方感受，再给建议，沟通更顺。')}</p>
+
+    <h3 style="margin:12px 0 6px;color:#f2d27a">${H('c')}</h3>
+    <p>• ${(lang==='en'?'Pick one priority for this week and define “done.”':'本周只定一个事业优先项，并写出「完成定义」。')}</p>
+
+    <h3 style="margin:12px 0 6px;color:#f2d27a">${H('m')}</h3>
+    <p>• ${(lang==='en'?'Set a simple money ritual (daily expense check-in).':'建立每日金钱检视小仪式。')}</p>
+
+    <h3 style="margin:12px 0 6px;color:#f2d27a">${H('a')}</h3>
+    <p>• ${(lang==='en'?'Block 25 minutes today for the priority.':'今天为优先项预留 25 分钟专注时间。')}</p>
+
+    <h3 style="margin:12px 0 6px;color:#f2d27a">${H('g')}</h3>
+    <p>${elTip}</p>
+  `;
 }
 
-  function ensureAiCard(){
-  if (gid('aiCard')) return;
-  const wrap = gid('chartReport');
-  if (!wrap) return; // 等报告先渲染出来
-
-  const sec = document.createElement('div');
-  sec.className = 'sec';     // 直接用 .report .sec 皮肤
-  sec.id = 'aiCard';
-  sec.innerHTML = `
-    <h3 id="butlerTitle" data-i18n="butler_title">${t('butler_title')}</h3>
-    <div id="aiContent" class="ai-content">
-      <div class="skeleton">
-        <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
-        <div style="width:70%"></div><div style="width:50%"></div>
-      </div>
-    </div>
-    <div class="chips" id="aiChips"></div>`;
-  wrap.appendChild(sec);
-  renderChips();
-}
-
-  function renderChips(){
-    const wrap = gid('aiChips'); if(!wrap) return;
-    wrap.innerHTML = '';
-    const items = [
-      {k:'chip_career', q:'q_career'},
-      {k:'chip_love',   q:'q_love'},
-      {k:'chip_money',  q:'q_money'},
-      {k:'chip_list',   q:'q_list'},
-      {k:'chip_30d',    q:'q_30d'},
-    ];
-    items.forEach(it=>{
-      const btn = document.createElement('button');
-      btn.className='chip';
-      btn.textContent = t(it.k);
-      btn.setAttribute('data-q', t(it.q));
-      wrap.appendChild(btn);
-    });
-  }
-
-async function runAI(topic='') {
+async function runAI(topic=''){
   ensureAiCard();
 
-  // 刷新卡片标题
-  const titleEl = gid('butlerTitle');
+  const titleEl = document.getElementById('butlerTitle');
   if (titleEl) titleEl.textContent = t('butler_title');
 
-  // 基础上下文
   const { name, place, date, time } = readForm();
-  if (!date || !place) return;
+  // Now only the date is required; place auto-fills to Singapore when empty
+  if (!date) {
+    const out = document.getElementById('aiContent');
+    if (out) out.innerHTML = `<div class="ai-content" style="color:#98a7b7">${t('alert_fill')}</div>`;
+    return;
+  }
 
   const lang = getLang();
   const sun  = getSunSign(date);
   const sunName = (sun.name[lang] || sun.name['zh-CN']);
   const el   = sun.el;
 
-  // 骨架占位
-  const out = gid('aiContent');
+  const out = document.getElementById('aiContent');
   if (out) {
     out.innerHTML = `
       <div class="skeleton">
@@ -811,7 +797,6 @@ async function runAI(topic='') {
       </div>`;
   }
 
-  // 系统 / 用户消息（带主题）
   const sys = buildButlerSystemPrompt(lang, topic);
   const usr = [
     `Name: ${name || '-'}`,
@@ -832,17 +817,20 @@ async function runAI(topic='') {
       })
     });
 
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+
     const data = await r.json().catch(()=>({}));
     const raw  = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
     let html   = mdToHtml(raw || '');
 
-    // 非 VIP：仅保留头 + 前两段，并显示解锁提示
+    if (!raw) throw new Error('Empty response');
+
     if (!isVIP()) {
       const parts  = (raw || '').split(/\n##\s+/);
       const header = parts.shift() || '';
       const kept   = [header, ...(parts.slice(0, 2).map(p => '## ' + p))].join('\n\n');
       html = mdToHtml(kept) + `
-        <div class="ai-lock-overlay" style="text-align:center;padding:14px 10px;border-top:1px solid #1f2a36;margin-top:10px">
+        <div class="ai-lock-overlay">
           <div class="tip">${t('vip_tip')}</div>
           <div class="sub" style="margin-top:4px">${t('vip_sub')}</div>
           <a class="btn" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener" style="margin-top:10px">${t('btn_unlock')}</a>
@@ -851,8 +839,32 @@ async function runAI(topic='') {
 
     if (out) out.innerHTML = html;
   } catch (e) {
-    if (out) out.innerHTML = `<div style="color:#98a7b7">${t('err_network')}: ${e.message}</div>`;
+    console.error('[Butler] fetch error:', e);
+    if (out) {
+      out.innerHTML = `
+        <div class="ai-content">
+          <div style="color:#ffd88a;font-weight:700;margin-bottom:6px">${t('err_network')} / ${t('err_busy')}</div>
+          ${localButlerFallback(lang, sunName, el)}
+        </div>`;
+    }
   }
+}
+
+function generateChart(){
+  const {name, place, date, time} = readForm();
+  if (!date){
+    alert(t('alert_fill'));
+    return;
+  }
+  const summary = document.getElementById('chartSummary');
+  if (summary) summary.textContent =
+    (name?name+' · ':'') + date + ' ' + (time||'12:00') + ' @ ' + (place||'Singapore');
+
+  const resultEl = document.getElementById('result');
+  if (resultEl) resultEl.style.display = 'block';
+
+  renderReport({name, date, time: (time||'12:00'), place: (place||'Singapore'), lang: getLang()});
+  runAI();
 }
 
   // 追问芯片（重渲染版：替换整段监听器）
@@ -951,6 +963,7 @@ async function runAI(topic='') {
 </script>
 </body>
 </html>
+
 
 
 
