@@ -286,6 +286,26 @@ html { font-size: 16px; }
   const qs  = (s,root=document)=>root.querySelector(s);
   const gid = (id)=>document.getElementById(id);
 
+  // ✅ 就把 readForm 放在这里（IIFE 顶层、任何函数外）
+  function readForm(){
+    const name  = (gid('name')?.value || '').trim();
+    const place = (gid('place')?.value || '').trim();
+    const date  = gid('birthdate')?.value || '';
+    const time  = gid('birthtime')?.value || '12:00';
+    return { name, place, date, time };
+  }
+
+  /* 下面是 I18N、样式注入、renderReport、mdToHtml、runAI、generateChart、initLangUI 等 */
+  function initLangUI(){ /* ... 这里不要再定义 readForm ... */ }
+  function generateChart(){ /* 里面直接调用 readForm() 即可 */ }
+  function runAI(){ /* 里面直接调用 readForm() 即可 */ }
+
+  document.addEventListener('DOMContentLoaded', ()=>{
+    initLangUI();
+    gid('genBtn')?.addEventListener('click', generateChart);
+  });
+})();
+  
   /* ============== i18n 文案（六语种） ============== */
   const I18N = {
     'zh-CN': {
@@ -569,36 +589,27 @@ html { font-size: 16px; }
   }
 
   function initLangUI(){
-    const sel = gid('langSelect');
-    if(!sel) return;
-    const current = getLang();
-    sel.value = current;
-    document.documentElement.lang = current;
+  const sel = gid('langSelect');
+  if(!sel) return;
+  const current = getLang();
+  sel.value = current;
+  document.documentElement.lang = current;
+  applyI18n();
+  applyChatI18n();
+  sel.addEventListener('change', ()=>{
+    setLang(sel.value);
     applyI18n();
     applyChatI18n();
-    sel.addEventListener('change', ()=>{
-      setLang(sel.value);
-      applyI18n();
-      applyChatI18n();
-      if (qs('#result')?.style.display !== 'none'){
-        const ctx = readForm();
-        if (ctx.date){
-          renderReport({...ctx, lang:getLang()});
-          // 读取表单——缺它不行
-          function readForm(){
-            const name  = (gid('name')?.value || '').trim();
-            const place = (gid('place')?.value || '').trim(); // 地点必填
-            const date  = gid('birthdate')?.value || '';
-            const time  = gid('birthtime')?.value || '12:00';
-            return { name, place, date, time };
-          }
-
-          runAI();
-        }
+    if (qs('#result')?.style.display !== 'none'){
+      const ctx = readForm();
+      if (ctx.date){
+        renderReport({...ctx, lang:getLang()});
+        runAI();
       }
-      renderChips();
-    });
-  }
+    }
+    renderChips();
+  });
+}
 
   /* ============== 太阳星座（近似） ============== */
   const SIGN_LIST = [
@@ -1009,6 +1020,7 @@ function mdToHtml(md){
 </script>
 </body>
 </html>
+
 
 
 
