@@ -29,6 +29,7 @@
     body::before{content:""; position:fixed; inset:0; z-index:-2; background:#090d13 url('') center/cover no-repeat; filter:brightness(.45) saturate(.9) blur(2px)}
     .container{max-width:1100px;margin:0 auto;padding:24px 16px 80px}
 
+    /* 头部 */
     .site-header{position:sticky;top:0;z-index:10;background:#0b0f14cc;border-bottom:1px solid #0f1622;backdrop-filter:saturate(140%) blur(12px)}
     .head-inner{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px 16px}
     .brand{display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--text)}
@@ -46,6 +47,7 @@
     }
     @media (max-width:520px){ .title{font-size:1rem} .lang select{min-width:140px} }
 
+    /* 基础块 */
     .h1{margin:12px 0 6px; color:#ffe084; font-weight:800; font-size:1.8rem}
     .sub{color:var(--muted)}
     .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(10px);padding:18px;margin:16px 0}
@@ -63,6 +65,7 @@
     .report .sec h3{margin:0 0 6px;color:#f2d27a;font-size:1.05rem}
     .report p,.report li{line-height:1.7}
 
+    /* 会员区 */
     .columns{display:grid;gap:12px;grid-template-columns:1fr}
     @media(min-width:900px){ .columns{grid-template-columns:1fr 1fr} }
     .list-block{border:1px solid #263448;background:#0e1520;border-radius:12px;padding:16px}
@@ -78,6 +81,9 @@
     .auth-grid > * { min-width: 0; }
     .panel .body .row.one > * { min-width: 0; }
 
+    footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0}
+
+    /* 聊天 */
     .ss-chat-fab{
       position:fixed;right:18px;bottom:18px;z-index:50;width:56px;height:56px;border-radius:50%;
       background:linear-gradient(180deg,#fff9e6,#e6c76e);color:#191919;display:grid;place-items:center;font-weight:800;
@@ -95,10 +101,9 @@
     .ss-msg.me{margin-left:auto;background:#132033}
     .ss-chat-input{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid #243244}
     .ss-chat-input input{flex:1 1 auto;min-width:0}
-    .ss-chat-input .btn,.ss-chat-input button{flex:0 0 auto;width:auto !重要;white-space:nowrap;padding:10px 14px}
+    .ss-chat-input .btn,.ss-chat-input button{flex:0 0 auto;width:auto !important;white-space:nowrap;padding:10px 14px}
 
-    footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0}
-
+    /* AI 文案区 */
     .ai-content{white-space:pre-wrap;line-height:1.7}
     .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
     .chip{padding:6px 10px;border-radius:999px;border:1px solid #2a3546;background:#0e1520;color:#e8edf3;cursor:pointer}
@@ -108,9 +113,15 @@
     .ai-lock-overlay{position:static;inset:auto;background:none;backdrop-filter:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);text-align:center}
     .ai-lock-overlay .tip{color:#ffd88a;font-weight:700;margin-bottom:4px}
     .ai-lock-overlay .sub{color:var(--muted)}
+
+    .error{color:#ff6b6b;margin-top:8px;display:none}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+    .block{width:100%}
+    .footnote{color:var(--muted);font-size:.85rem;margin-top:8px}
   </style>
 </head>
 <body>
+  <!-- 头部 -->
   <header class="site-header">
     <div class="head-inner container">
       <a class="brand" href="https://astro.5xliving.com" target="_self" rel="nofollow">
@@ -135,6 +146,7 @@
     <h1 class="h1" data-i18n="page_title">灵数简评</h1>
     <p class="sub" data-i18n="site_subtitle">免费版 · 与首页统一风格 | VIP 可解锁完整灵数地图</p>
 
+    <!-- 表单 -->
     <section class="card">
       <div class="row cols-3">
         <div>
@@ -157,11 +169,13 @@
       <div class="error" id="error" style="display:none"></div>
     </section>
 
+    <!-- 结果 -->
     <section class="card" id="result" style="display:none">
       <h2 style="margin:0 0 10px;color:var(--gold)" data-i18n="res_title">心怜管家解读与建议</h2>
       <div id="numReport" class="report"></div>
     </section>
 
+    <!-- 会员区 -->
     <section class="card section">
       <h2 class="group-title" data-i18n="vip_title">🌙 会员区域 VIP Segment</h2>
       <div class="columns">
@@ -190,6 +204,7 @@
       </div>
 
       <div class="group-title" style="margin-top:14px" data-i18n="login_title">💎 登入 VIP 功能</div>
+
       <section class="astro-auth">
         <div class="auth-grid">
           <div class="panel">
@@ -244,422 +259,285 @@
 (function(){
 'use strict';
 
-/* ================= 基础参数 ================= */
-const OFFLINE_MODE = false; // 需要强制离线演示时设为 true
-const API_ENDPOINTS = [
-  'https://throbbing-lab-1440.hello5xliving.workers.dev',
-  // 可以在下面继续追加备用端点
-];
-const API_CHAT_PATH = '/api/chat';
-const API_LOGIN_PATH = '/api/login';
-const API_REGISTER_PATH = '/api/register';
-
+/* ===== 基础常量 ===== */
+const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
 const LANG_KEY = 'site_lang';
 const gid = id => document.getElementById(id);
 
-/* ---------- Polyfills ---------- */
-if(!Element.prototype.matches){Element.prototype.matches=Element.prototype.msMatchesSelector||Element.prototype.webkitMatchesSelector;}
-if(!Element.prototype.closest){Element.prototype.closest=function(s){let el=this;while(el&&el.nodeType===1){if(el.matches(s))return el;el=el.parentElement||el.parentNode;}return null;}}
-
-/* ================= i18n（保留你的 key，补齐必要项） ================= */
+/* ===== i18n（保留你的键，并补全必要项） ===== */
 const translations = {
   "zh-CN": {
-    "page_title": "灵数简评",
-    "site_title": "灵数简评",
-    "site_subtitle": "免费版 · 与首页统一风格 | VIP 可解锁完整灵数地图",
-    "lang_label": "语言",
-    "ph_birthdate": "出生日期",
-    "rule_pyth": "规则",
-    "btn_gen": "生成分析",
+    "page_title":"灵数简评", "site_title":"灵数简评",
+    "site_subtitle":"免费版 · 与首页统一风格 | VIP 可解锁完整灵数地图",
+    "lang_label":"语言", "ph_birthdate":"出生日期", "rule_pyth":"规则", "btn_gen":"生成分析",
     "hint_text":"说明：生命路径 = 生日所有数字相加并降至 1–9（保留 11/22/33）；情感数字 = 出生日（DD）同样规则。",
     "res_title":"心怜管家解读与建议",
-    "vip_title":"🌙 会员区域 VIP Segment",
-    "vip_mingli":"🗝 命理空间专属内容",
-    "vip_love":"姻缘方向：恋爱缘分、婚姻走势",
-    "vip_career":"事业方向：职场发展、创业潜力",
-    "vip_wealth":"财运方向：财位分析、理财时机",
-    "vip_pet":"宠物命理：伴侣动物的性格与缘分",
-    "vip_hepan":"合盘分析：婚期择日、新生择时",
-    "vip_name":"测名分析：公司名、宝宝名、命名改运",
+    "vip_title":"🌙 会员区域 VIP Segment","vip_mingli":"🗝 命理空间专属内容",
+    "vip_love":"姻缘方向：恋爱缘分、婚姻走势","vip_career":"事业方向：职场发展、创业潜力",
+    "vip_wealth":"财运方向：财位分析、理财时机","vip_pet":"宠物命理：伴侣动物的性格与缘分",
+    "vip_hepan":"合盘分析：婚期择日、新生择时","vip_name":"测名分析：公司名、宝宝名、命名改运",
     "vip_fengshui":"财位合盘：住家 / 办公室动线配合",
-    "vip_xinlian":"🌙 心怜空间专属内容",
-    "vip_record":"灵性记录：照片、梦境、声音、愿望祈祷",
+    "vip_xinlian":"🌙 心怜空间专属内容","vip_record":"灵性记录：照片、梦境、声音、愿望祈祷",
     "vip_course":"命理课程：八字 / 塔罗 / 占星 / 灵数 / 人类图",
-    "vip_memorial":"家族纪念系统：亲人灵性纪念 & 延续",
-    "vip_tasks":"每周能量练习 / 神明仪式任务",
-    "vip_shop":"能量商城专属折扣 & 御守订制",
-    "login_title":"💎 登入 VIP 功能",
-    "panel_login_head":"账户登录 / 注册",
-    "ph_email":"邮箱 Email",
-    "ph_label_password":"密码 Password",
-    "ph_password":"密码 Password（至少8位，含大小写数字符号）",
-    "btn_login":"登入账户",
-    "btn_reset":"🔑 重设密码",
-    "btn_register":"注册账户",
-    "note_price":"注册账号赠送一次免费体验",
-    "panel_member_head":"会员服务",
-    "btn_upgrade":"💎 升级为 VIP（月费）",
-    "btn_backshop":"← 返回命理商城",
+    "vip_memorial":"家族纪念系统：亲人灵性纪念 & 延续","vip_tasks":"每周能量练习 / 神明仪式任务",
+    "vip_shop":"能量商城专属折扣 & 御守订制","login_title":"💎 登入 VIP 功能",
+    "panel_login_head":"账户登录 / 注册","ph_email":"邮箱 Email",
+    "ph_label_password":"密码 Password","ph_password":"密码 Password（至少8位，含大小写数字符号）",
+    "btn_login":"登入账户","btn_reset":"🔑 重设密码","btn_register":"注册账户",
+    "note_price":"注册账号赠送一次免费体验","panel_member_head":"会员服务",
+    "btn_upgrade":"💎 升级为 VIP（月费）","btn_backshop":"← 返回命理商城",
     "note_price1":"$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）",
-    "chat_fab":"问",
-    "chat_placeholder":"输入您的问题...",
-    "chat_send":"发送"
+    "chat_fab":"问","chat_placeholder":"输入您的问题...","chat_send":"发送",
+    "ai_title":"心怜管家解读","ai_local_note":"（已切换本地解读源：网络波动）"
   },
   "en": {
-    "page_title":"Numerology Report",
-    "site_title":"Numerology Report",
-    "site_subtitle":"Free version · VIP unlocks the full numerology map",
-    "lang_label":"Language",
-    "ph_birthdate":"Birth date",
-    "rule_pyth":"Rule",
-    "btn_gen":"Generate",
-    "hint_text":"Life Path = sum of all digits of birth date, reduce to 1–9 (keep 11/22/33); Love Number = day (DD), same rule.",
-    "res_title":"Xinlian Butler · Reading & Advice",
-    "chat_fab":"Chat",
-    "chat_placeholder":"Ask me anything...",
-    "chat_send":"Send"
+    "page_title":"Numerology Report","site_title":"Numerology Report",
+    "site_subtitle":"Free version · VIP unlocks full numerology map",
+    "lang_label":"Language","ph_birthdate":"Birth Date","rule_pyth":"Rule","btn_gen":"Generate",
+    "hint_text":"Life Path = sum digits of YYYYMMDD reduced to 1–9 (keep 11/22/33); Love Number = DD reduced.",
+    "res_title":"Insights & Advice","chat_fab":"Chat","chat_placeholder":"Type your question...","chat_send":"Send",
+    "ai_title":"Xinlian Butler · Insights","ai_local_note":"(Using local generator due to network)"
   }
 };
+/* 语言工具 */
 function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
 function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
-function t(key){
-  const lang = getLang();
-  const pack = translations[lang] || translations["zh-CN"];
-  return pack[key] ?? translations["zh-CN"][key] ?? key;
-}
+function t(key){ const pack = translations[getLang()] || translations["zh-CN"]; return pack[key] || (translations["zh-CN"][key] || key); }
 function applyI18n(){
-  document.querySelectorAll("[data-i18n]").forEach(el=>{
-    const key = el.getAttribute("data-i18n");
-    if(key) el.textContent = t(key);
-  });
-  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
-    const key = el.getAttribute("data-i18n-ph");
-    if(key) el.setAttribute("placeholder", t(key));
-  });
-  const titleEl = document.querySelector("title[data-i18n]");
-  if (titleEl) titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
+  document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent = t(el.getAttribute("data-i18n")); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ el.setAttribute("placeholder", t(el.getAttribute("data-i18n-ph"))); });
+  const titleEl = document.querySelector("title[data-i18n]"); if (titleEl) titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
 }
 function applyChatI18n(){
-  const fab = gid('ssChatFab'); 
-  const inp = gid('ssChatInput'); 
-  const btn = gid('ssChatSend');
-  if (fab) fab.textContent = t('chat_fab');
-  if (inp) inp.placeholder = t('chat_placeholder');
-  if (btn) btn.textContent = t('chat_send');
+  const fab = gid('ssChatFab'); const inp = gid('ssChatInput'); const btn = gid('ssChatSend'); const title = document.querySelector('.ss-chat-title');
+  if (fab) fab.textContent = t('chat_fab'); if (inp) inp.placeholder = t('chat_placeholder'); if (btn) btn.textContent = t('chat_send'); if (title) title.textContent = '心怜管家 · Chat';
 }
 
-/* ================= UI/错误提示 ================= */
-function showErr(msg){ const e=gid('error'); if(!e) return; e.textContent=msg; e.style.display='block'; setTimeout(()=>{e.style.display='none';}, 5000); }
-function hideErr(){ const e=gid('error'); if(!e) return; e.style.display='none'; e.textContent=''; }
+/* ===== 错误提示 ===== */
+function showErr(msg){ const e=gid('error'); if(!e) return; e.textContent=msg; e.style.display='block'; setTimeout(()=>{e.style.display='none';}, 4000); }
+function hideErr(){ const e=gid('error'); if(e){ e.style.display='none'; e.textContent=''; }}
 
-/* ================= 保证结果区存在 ================= */
+/* ===== 结构保障 ===== */
 function ensureRootStructure(){
   let result=gid('result');
   if(!result){
     result=document.createElement('section');
-    result.id='result';
-    result.className='card';
-    result.style.display='none';
-    const cards=document.querySelectorAll('.card');
-    if(cards.length) cards[cards.length-1].after(result); else document.querySelector('main').appendChild(result);
-  }
-  if(!result.querySelector('h2')){
-    const h2=document.createElement('h2');
-    h2.style.cssText='margin:0 0 10px;color:var(--gold)';
-    h2.setAttribute('data-i18n','res_title');
-    h2.textContent=t('res_title');
+    result.id='result'; result.className='card'; result.style.display='none';
+    const main=document.querySelector('main')||document.body; main.appendChild(result);
+    const h2=document.createElement('h2'); h2.style.cssText='margin:0 0 10px;color:var(--gold)'; h2.setAttribute('data-i18n','res_title'); h2.textContent=t('res_title');
     result.appendChild(h2);
   }
   let numReport=gid('numReport');
-  if(!numReport){
-    numReport=document.createElement('div');
-    numReport.id='numReport';
-    numReport.className='report';
-    result.appendChild(numReport);
-  }
+  if(!numReport){ numReport=document.createElement('div'); numReport.id='numReport'; numReport.className='report'; result.appendChild(numReport); }
   return numReport;
 }
 
-/* ================= 数字核心 ================= */
+/* ===== 灵数核心 ===== */
 const masters={11:1,22:1,33:1};
 const isMaster=n=>!!masters[n];
 function reduceNum(n){while(n>9&&!isMaster(n)){n=String(n).split('').reduce((a,b)=>a+Number(b),0);}return n;}
 function parseDateDigits(iso){if(!iso)return null;const d=iso.replace(/[^0-9]/g,'');if(d.length<8)return null;return d.split('').map(Number);}
 function calcLifePath(iso){const d=parseDateDigits(iso);if(!d)return null;return reduceNum(d.reduce((a,b)=>a+b,0));}
 function calcLoveNumber(iso){if(!iso)return null;const p=iso.split('-');const dd=Number(p[2]||'0');if(!dd)return null;return reduceNum(dd);}
-function calcPersonalYear(iso,year){if(!iso)return null;const p=iso.split('-');const m=Number(p[1]||'0'),d=Number(p[2]||'0');if(!m||!d)return null;let total=0;(`${m}${d}${year}`).replace(/./g,ch=>total+=Number(ch));return reduceNum(total);}
 
-/* ================= 渲染报告（保留你的分块） ================= */
+/* ===== 渲染报告（保留你的结构，并更有内容） ===== */
 function renderProReport(obj){
   const wrap=ensureRootStructure();
-  const {iso,lp,lv}=obj;
-  const tag = n=> isMaster(n)?`${n}（大师数字）`:n;
+  const {iso,lp,lv} = obj;
   wrap.innerHTML = `
     <div class="sec">
       <h3>基础信息</h3>
-      <p>出生日期：${iso}</p>
+      <p>出生日期: ${iso}</p>
     </div>
     <div class="sec">
       <h3>生命路径数字</h3>
-      <p>${tag(lp)}</p>
+      <p>${lp} ${isMaster(lp) ? '(大师数字)' : ''}</p>
     </div>
     <div class="sec">
       <h3>情感数字</h3>
-      <p>${tag(lv)}</p>
+      <p>${lv} ${isMaster(lv) ? '(大师数字)' : ''}</p>
     </div>
   `;
 }
 
-/* ================= 稳健网络请求（重试/超时/多端点） ================= */
-async function fetchJSONWithTimeout(url, options={}, timeoutMs=15000){
-  return new Promise((resolve,reject)=>{
-    const ctrl = new AbortController();
-    const t = setTimeout(()=>{ctrl.abort(); reject(new Error('timeout'));}, timeoutMs);
-    fetch(url, {...options, signal: ctrl.signal})
-      .then(async r=>{
-        clearTimeout(t);
-        let data=null; try{ data = await r.json(); }catch{ data = {}; }
-        if(!r.ok) { const err = new Error(`HTTP ${r.status}`); err.status=r.status; err.data=data; throw err; }
-        resolve(data);
-      })
-      .catch(e=>{ clearTimeout(t); reject(e); });
-  });
-}
-
-async function apiCall(path, payload, {retries=2, timeout=15000}={}){
-  if(OFFLINE_MODE) throw new Error('offline');
-  let lastErr = null;
-  for(let round=0; round<=retries; round++){
-    const base = API_ENDPOINTS[round % API_ENDPOINTS.length];
-    try{
-      return await fetchJSONWithTimeout(base+path, {
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify(payload||{})
-      }, timeout);
-    }catch(e){
-      lastErr = e;
-      // 对 429/502/503/504 或网络错误做指数退避
-      const status = e.status || 0;
-      if(round < retries && (status===429 || status===502 || status===503 || status===504 || e.name==='AbortError' || e.message==='Failed to fetch' || e.message==='timeout')){
-        await new Promise(r=>setTimeout(r, 600 * Math.pow(2, round)));
-        continue;
-      }
-      break;
-    }
-  }
-  throw lastErr || new Error('unknown');
-}
-
-/* ================= AI 解读（失败→本地兜底） ================= */
-function localNumerologyAdvice({iso, lp, lv}){
-  const briefly = n=>{
-    const map = {
-      1:'领导与开创；行动先于犹豫，练习“请求帮助”。',
-      2:'共感与合作；避免过度在意评价，定界更稳。',
-      3:'表达与灵感；把点子落地成最小行动。',
-      4:'结构与稳健；别被完美主义卡住，先出样。',
-      5:'变化与自由；建立“固定节奏”来积累势能。',
-      6:'责任与关怀；不必对所有人负责，优先自我照顾。',
-      7:'洞察与深潜；把研究成果分享给一个小圈子。',
-      8:'成就与资源；把目标拆成现金流与杠杆两个清单。',
-      9:'疗愈与完成；学会“放下”，为新周期留白。',
-      11:'直觉与灵感放大（大师数）；用冥想稳住通道。',
-      22:'宏观落地（大师数）；从一米见方的小项目开始。',
-      33:'无条件的爱（大师数）；先照顾好自己的能量。'
-    };
-    return map[n] || '';
+/* ===== 本地兜底文案（更像 AI 输出） ===== */
+function localNumerologyInsight({lp,lv}){
+  const tone = {
+    1:'独立/开创，行动要快但别忘记复盘。',
+    2:'温和/协作，设置界线让能量不被耗散。',
+    3:'表达/创意，给自己固定“输出小仪式”。',
+    4:'秩序/稳固，把长期目标拆成周清单。',
+    5:'变化/探索，设定“可控试错”的护栏。',
+    6:'照护/责任，先照顾自己，再照顾世界。',
+    7:'洞察/研究，给直觉找数据作同盟。',
+    8:'权衡/成就，目标要量化，节律要稳定。',
+    9:'利他/整合，保留独处时间补能。',
+    11:'灵感/觉察，练习把灵感写成行动句。',
+    22:'宏观/落地，给愿景配里程碑与预算。',
+    33:'疗愈/服务，先界线后奉献，避免透支。'
   };
+  const key = (n)=>tone[n]||'保持节律与专注，持续小步快跑。';
   return `
 <h3>核心画像</h3>
-<p>生命路径 ${lp} 与情感数字 ${lv} 的组合，显示你的长期路线与亲密/情绪表达方式如何互动。</p>
+<p>生命路径 <b>${lp}</b>${isMaster(lp)?'（大师数字）':''} 与情感数字 <b>${lv}</b>${isMaster(lv)?'（大师数字）':''} 的组合，显示你的长期驱动力与亲密/情绪表达方式的互动。</p>
 
 <h3>优势与盲点</h3>
-<p>• 生命路径：${briefly(lp)}<br>
-• 情感数字：${briefly(lv)}</p>
+<p>• 生命路径：${key(lp)}<br>• 情感数字：${key(lv)}</p>
 
 <h3>今日/本周可执行</h3>
-<p>• 设一个 25 分钟的“最小行动”与复盘。<br>
-• 把一个目标写出“完成定义”。<br>
-• 用手机提醒设置一个固定节奏（每日/每周）。</p>
-  `.trim();
+<p>• 设一个 25 分钟的“单点小冲刺”。<br>• 把一个目标写出“完成定义”。<br>• 用手机闹钟设置一个固定节律（每日/每周）。</p>
+  `;
+}
+
+/* ===== 调用 AI（重试 + 兜底） ===== */
+async function fetchWithRetry(url, options, tries=3){
+  let err;
+  for(let i=0;i<tries;i++){
+    try{
+      const r = await fetch(url, options);
+      if(r.ok) return r;
+      err = new Error('HTTP '+r.status);
+    }catch(e){ err = e; }
+    await new Promise(res=>setTimeout(res, 500*Math.pow(2,i)));
+  }
+  throw err;
+}
+
+function mdToHtml(md){
+  return (md||'')
+   .replace(/^##\s+(.*)$/gim,'<h3>$1</h3>')
+   .replace(/^###\s+(.*)$/gim,'<h4>$1</h4>')
+   .replace(/^\s*[-*]\s+(.*)$/gm,'• $1')
+   .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+   .replace(/\n{2,}/g,'\n\n')
+   .replace(/\n/g,'<br/>');
 }
 
 async function runAI(obj){
-  const elC = ensureRootStructure();
-  const sec = document.createElement('div');
-  sec.className = 'sec';
-  sec.innerHTML = `<h3>心怜管家解读</h3>
-  <div class="skeleton"><div></div><div></div><div></div></div>`;
-  elC.appendChild(sec);
+  const wrap = ensureRootStructure();
+  const sec = document.createElement('div'); sec.className='sec';
+  sec.innerHTML = `<h3>${t('ai_title')}</h3>
+    <div class="skeleton"><div></div><div></div><div></div></div>`;
+  wrap.appendChild(sec);
+
+  const sys = '你是“心怜管家”，专业灵数解读师。生成结构化建议：## 核心画像 ## 优势与盲点 ## 今日/本周可执行（动词开头，量化）。语气温暖、可执行。';
+  const user = `出生日期: ${obj.iso}
+生命路径: ${obj.lp}${isMaster(obj.lp)?'（大师数字）':''}
+情感数字: ${obj.lv}${isMaster(obj.lv)?'（大师数字）':''}`;
 
   try{
-    const data = await apiCall(API_CHAT_PATH, {
-      messages: [
-        { role:'system', content:'你是一位专业的灵数解读师，请给出温暖、清晰、可执行的建议；用中文作答。' },
-        { role:'user', content: `出生日期：${obj.iso}\n生命路径：${obj.lp}${isMaster(obj.lp)?'(大师数字)':''}\n情感数字：${obj.lv}${isMaster(obj.lv)?'(大师数字)':''}\n请输出 3 段：核心画像 / 优势与盲点 / 今日或本周可执行建议。` }
-      ]
-    }, {retries:2, timeout:15000});
+    const r = await fetchWithRetry(`${API_BASE}/api/chat`,{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:[{role:'system',content:sys},{role:'user',content:user}]})
+    }, 3);
 
+    const data = await r.json().catch(()=>({}));
     const raw = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
-    sec.innerHTML = `<h3>心怜管家解读</h3><div class="ai-content">${raw || localNumerologyAdvice(obj)}</div>`;
+    sec.innerHTML = `<h3>${t('ai_title')}</h3><div class="ai-content">${mdToHtml(raw||'')}</div>`;
+    if(!raw){ throw new Error('empty'); }
   }catch(e){
-    // 兜底：本地离线解读
-    sec.innerHTML = `<h3>心怜管家解读</h3>
-      <div class="ai-content">${localNumerologyAdvice(obj)}
-      <div class="muted" style="margin-top:8px;color:#98a7b7">（已使用本地离线解读；原因：${e.message || '网络不可用'}）</div>
-      </div>`;
-    console.warn('[AI Fallback]', e);
+    // 兜底：本地规则生成 + 温柔脚注
+    const local = localNumerologyInsight(obj);
+    sec.innerHTML = `<h3>${t('ai_title')}</h3><div class="ai-content">${local}</div>
+      <div class="footnote">${t('ai_local_note')}</div>`;
+    console.warn('AI fallback:', e?.message||e);
   }
 }
 
-/* ================= 登录/注册（保持你的按钮与字段） ================= */
-async function loginFlow(email, password){
-  try{
-    const data = await apiCall(API_LOGIN_PATH, {email, password}, {retries:1, timeout:12000});
-    if(data?.ok){ localStorage.setItem('vipEmail', data.email || email); alert('登录成功！'); return; }
-    if(data?.msg==='no_account'){ showErr('账户不存在'); return; }
-    if(data?.msg==='wrong_pwd'){ showErr('密码错误'); return; }
-    showErr('登录失败：'+(data?.msg||'未知错误'));
-  }catch(e){
-    showErr('网络错误：'+e.message);
-  }
-}
-async function registerFlow(email, password){
-  try{
-    const data = await apiCall(API_REGISTER_PATH, {email, password}, {retries:1, timeout:12000});
-    if(data?.ok){ alert('注册成功！请登录。'); return; }
-    showErr('注册失败：'+(data?.msg||'未知错误'));
-  }catch(e){
-    showErr('网络错误：'+e.message);
-  }
-}
-
-/* ================= 右下角聊天（重试 & 兜底） ================= */
+/* ===== 聊天组件（保留你的 UI，支持多语言） ===== */
 function mountChat(){
   if(gid('ssChatFab')) return;
-
-  const fab=document.createElement('div');
-  fab.id='ssChatFab';
-  fab.className='ss-chat-fab';
-  fab.textContent=t('chat_fab');
-  fab.title='心怜管家';
-
-  const panel=document.createElement('div');
-  panel.id='ssChatPanel';
-  panel.className='ss-chat-panel';
+  const fab = document.createElement('div'); fab.id='ssChatFab'; fab.className='ss-chat-fab'; fab.title='心怜管家';
+  const panel = document.createElement('div'); panel.id='ssChatPanel'; panel.className='ss-chat-panel'; panel.style.display='none';
   panel.innerHTML = `
-    <div class="ss-chat-head">
-      <div class="ss-chat-title">心怜管家 · Chat</div>
-      <div class="ss-close" id="ssChatClose">✕</div>
-    </div>
+    <div class="ss-chat-head"><div class="ss-chat-title">心怜管家 · Chat</div><div class="ss-close" id="ssChatClose">✕</div></div>
     <div class="ss-chat-body" id="ssChatBody"></div>
     <div class="ss-chat-input">
-      <input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/>
+      <input id="ssChatInput" type="text" />
       <button id="ssChatSend" class="btn">${t('chat_send')}</button>
     </div>`;
-
-  document.body.appendChild(fab);
-  document.body.appendChild(panel);
-
+  document.body.appendChild(fab); document.body.appendChild(panel);
   applyChatI18n();
 
-  const $body=gid('ssChatBody'), $input=gid('ssChatInput');
-  fab.onclick = ()=> panel.style.display='block';
-  gid('ssChatClose').onclick = ()=> panel.style.display='none';
+  const body = gid('ssChatBody'), input = gid('ssChatInput');
+  const open=()=>{ panel.style.display='block'; input&&input.focus(); };
+  const close=()=>{ panel.style.display='none'; };
+  fab.onclick=open; gid('ssChatClose').onclick=close;
 
-  function addMsg(text, me=false){
-    const div=document.createElement('div');
-    div.className='ss-msg'+(me?' me':'');
-    div.textContent=text;
-    $body.appendChild(div);
-    $body.scrollTop=$body.scrollHeight;
-  }
+  function add(text,me=false){ const d=document.createElement('div'); d.className='ss-msg'+(me?' me':''); d.textContent=text; body.appendChild(d); body.scrollTop=body.scrollHeight; }
 
-  async function askChat(prompt){
-    addMsg(prompt,true);
-    if($input){ $input.value=''; $input.focus(); }
+  gid('ssChatSend').onclick = async ()=>{
+    const v = (input?.value||'').trim(); if(!v) return;
+    add(v,true); input.value='';
     try{
-      const data = await apiCall(API_CHAT_PATH,{
-        messages:[
-          {role:'system', content:'你是“心怜管家”，回答要温暖、简洁、准确。'},
-          {role:'user', content: prompt}
-        ]
-      }, {retries:2, timeout:12000});
-      const reply = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
-      addMsg(reply || '（暂无回复）');
+      const r = await fetchWithRetry(`${API_BASE}/api/chat`,{
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({messages:[
+          {role:'system',content:'你是“心怜管家”，回答网站导航/功能/会员相关问题，语气温暖简洁。'},
+          {role:'user',content:v}
+        ]})
+      },2);
+      const data = await r.json().catch(()=>({}));
+      const reply = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '稍后再试。';
+      add(reply);
     }catch(e){
-      addMsg('（已离线）简单建议：把问题拆成 1 个最小行动，25 分钟内完成，然后复盘 3 句。');
+      add('网络有点忙，我稍后再回答。');
     }
-  }
-
-  gid('ssChatSend').onclick = ()=>{ const v=$input?.value.trim(); if(v) askChat(v); };
-  $input?.addEventListener('keydown',e=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); } });
+  };
 }
 
-/* ================= 语言选择 ================= */
+/* ===== 登录/注册（保留你的接口占位，稳健提示） ===== */
+async function safeJson(resp){ try{return await resp.json();}catch{return {ok:false,msg:'upstream_error'};} }
+async function loginFlow(email,password){
+  try{
+    const res = await safeJson(await fetch(`${API_BASE}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}));
+    if(res.ok){ localStorage.setItem('vipEmail',res.email||email); alert('登录成功'); return; }
+    if(res.msg==='no_account') return showErr('账户不存在');
+    if(res.msg==='wrong_pwd') return showErr('密码错误');
+    showErr('登录失败：'+(res.msg||''));
+  }catch(e){ showErr('网络错误：'+e.message); }
+}
+async function registerFlow(email,password){
+  try{
+    const res = await safeJson(await fetch(`${API_BASE}/api/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}));
+    if(res.ok){ alert('注册成功！请登录。'); return; }
+    showErr('注册失败：'+(res.msg||'')); 
+  }catch(e){ showErr('网络错误：'+e.message); }
+}
+
+/* ===== 初始化 ===== */
 function initLangUI(){
-  const select = gid('langSelect');
-  const current = getLang();
-  if(select){
-    select.value = current;
-    select.addEventListener('change', ()=>{
-      setLang(select.value);
-      applyI18n();
-      applyChatI18n();
-    });
-  }
+  const select = gid('langSelect'); const current = getLang();
+  if(select){ select.value = current; select.addEventListener('change', ()=>{ setLang(select.value); applyI18n(); applyChatI18n(); }); }
   applyI18n();
 }
 
-/* ================= Auth 事件绑定（保留你的按钮） ================= */
 function initAuthHandlers(){
-  gid('loginBtn')?.addEventListener('click', async (e)=>{
-    e.preventDefault();
-    const email = gid('email')?.value?.trim();
-    const password = gid('password')?.value || '';
-    if(!email || !password){ showErr('请填写邮箱和密码'); return; }
-    if(password.length<8){ showErr('密码至少 8 位'); return; }
-    await loginFlow(email, password);
-  });
-  gid('registerBtn')?.addEventListener('click', async (e)=>{
-    e.preventDefault();
-    const email = gid('email')?.value?.trim();
-    const password = gid('password')?.value || '';
-    if(!email || !password){ showErr('请填写邮箱和密码'); return; }
-    if(password.length<8){ showErr('密码至少 8 位'); return; }
-    await registerFlow(email, password);
-  });
-  gid('resetBtn')?.addEventListener('click', ()=>{
-    alert('密码重置功能即将开放');
-  });
+  gid('loginForm')?.addEventListener('submit', async (e)=>{ e.preventDefault(); const email=gid('email').value; const pwd=gid('password').value; if(!email||!pwd){showErr('请填写邮箱和密码');return;} await loginFlow(email,pwd); });
+  gid('registerForm')?.addEventListener('submit', async (e)=>{ e.preventDefault(); const email=gid('email').value; const pwd=gid('password').value; if(!email||!pwd){showErr('请填写邮箱和密码');return;} if(pwd.length<8){showErr('密码至少需要8位字符');return;} await registerFlow(email,pwd); });
+  gid('resetBtn')?.addEventListener('click', ()=>alert('密码重置功能即将开放'));
 }
 
-/* ================= 主初始化 ================= */
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', ()=>{
   initLangUI();
   ensureRootStructure();
   mountChat();
   initAuthHandlers();
 
-  const bd = gid('birthdate');
-  const btn = gid('btnGen');
-
+  const bd=gid('birthdate'), btn=gid('btnGen');
   function generateNow(){
-    const iso = bd ? bd.value : '';
+    const iso=bd?bd.value:'';
     if(!iso){ showErr('请选择出生日期'); return; }
     hideErr();
-    const lp = calcLifePath(iso);
-    const lv = calcLoveNumber(iso);
-    if(!lp || !lv){ showErr('日期格式错误，请检查输入'); return; }
-    gid('result').style.display = 'block';
-    renderProReport({iso, lp, lv});
-    runAI({iso, lp, lv});
-    gid('result').scrollIntoView({ behavior:'smooth', block:'start' });
+    const lp=calcLifePath(iso), lv=calcLoveNumber(iso);
+    if(!lp||!lv){ showErr('日期格式错误，请检查输入'); return; }
+    gid('result').style.display='block';
+    renderProReport({iso,lp,lv});
+    runAI({iso,lp,lv});
+    gid('result').scrollIntoView({behavior:'smooth',block:'start'});
   }
-
   btn?.addEventListener('click', generateNow);
-  bd?.addEventListener('keydown', e=>{ if(e.key==='Enter') generateNow(); });
+  bd?.addEventListener('keydown', (e)=>{ if(e.key==='Enter') generateNow(); });
 });
 })();
 </script>
