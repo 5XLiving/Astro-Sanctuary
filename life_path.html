@@ -26,7 +26,7 @@
       font-family: Inter,system-ui,-apple-system,"Noto Sans SC","Segoe UI",Roboto,Arial,sans-serif;
       -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
     }
-    body::before{content:""; position:fixed; inset:0; z-index:-2; background:#090d13; filter:brightness(.45) saturate(.9) blur(2px)}
+    body::before{content:""; position:fixed; inset:0; z-index:-2; background:#090d13 url('') center/cover no-repeat; filter:brightness(.45) saturate(.9) blur(2px)}
     .container{max-width:1100px;margin:0 auto;padding:24px 16px 80px}
 
     .site-header{position:sticky;top:0;z-index:10;background:#0b0f14cc;border-bottom:1px solid #0f1622;backdrop-filter:saturate(140%) blur(12px)}
@@ -108,10 +108,6 @@
     .ai-lock-overlay{position:static;inset:auto;background:none;backdrop-filter:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);text-align:center}
     .ai-lock-overlay .tip{color:#ffd88a;font-weight:700;margin-bottom:4px}
     .ai-lock-overlay .sub{color:var(--muted)}
-    
-    .error{color:#ff6b6b;margin-top:8px;display:none}
-    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
-    .block{width:100%}
   </style>
 </head>
 <body>
@@ -219,7 +215,7 @@
                 <div class="muted" data-i18n="note_price">注册账号赠送一次免费体验</div>
                 <div class="spacer"></div>
                 <div class="error-message" id="authError" style="display:none"></div>
-              </form>
+              </div>
             </div>
           </div>
 
@@ -247,443 +243,94 @@
 <script>
 (function(){
 'use strict';
-const AUTO_RENDER = false;
+const AUTO_RENDER = false; // only on button click
 const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
 const LANG_KEY = 'site_lang';
 const gid = id => document.getElementById(id);
 
-// ========== 修复：添加完整的翻译对象 ==========
-const translations = {
-  "zh-CN": {
-    "page_title": "灵数简评",
-    "site_title": "灵数简评",
-    "site_subtitle": "免费版 · 与首页统一风格 | VIP 可解锁完整灵数地图",
-    "lang_label": "语言",
-    "ph_birthdate": "出生日期",
-    "rule_pyth": "规则",
-    "btn_gen": "生成分析",
-    "hint_text": "说明：生命路径 = 生日所有数字相加并降至 1–9（保留 11/22/33）；情感数字 = 出生日（DD）同样规则。",
-    "res_title": "心怜管家解读与建议",
-    "vip_title": "🌙 会员区域 VIP Segment",
-    "vip_mingli": "🗝 命理空间专属内容",
-    "vip_love": "姻缘方向：恋爱缘分、婚姻走势",
-    "vip_career": "事业方向：职场发展、创业潜力",
-    "vip_wealth": "财运方向：财位分析、理财时机",
-    "vip_pet": "宠物命理：伴侣动物的性格与缘分",
-    "vip_hepan": "合盘分析：婚期择日、新生择时",
-    "vip_name": "测名分析：公司名、宝宝名、命名改运",
-    "vip_fengshui": "财位合盘：住家 / 办公室动线配合",
-    "vip_xinlian": "🌙 心怜空间专属内容",
-    "vip_record": "灵性记录：照片、梦境、声音、愿望祈祷",
-    "vip_course": "命理课程：八字 / 塔罗 / 占星 / 灵数 / 人类图",
-    "vip_memorial": "家族纪念系统：亲人灵性纪念 & 延续",
-    "vip_tasks": "每周能量练习 / 神明仪式任务",
-    "vip_shop": "能量商城专属折扣 & 御守订制",
-    "login_title": "💎 登入 VIP 功能",
-    "panel_login_head": "账户登录 / 注册",
-    "ph_email": "邮箱 Email",
-    "ph_label_password": "密码 Password",
-    "ph_password": "密码 Password（至少8位，含大小写数字符号）",
-    "btn_login": "登入账户",
-    "btn_reset": "🔑 重设密码",
-    "btn_register": "注册账户",
-    "note_price": "注册账号赠送一次免费体验",
-    "panel_member_head": "会员服务",
-    "btn_upgrade": "💎 升级为 VIP（月费）",
-    "btn_backshop": "← 返回命理商城",
-    "note_price1": "$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）",
-    "chat_fab": "💬",
-    "chat_placeholder": "输入您的问题...",
-    "chat_send": "发送"
-  },
-  "en": {
-    "page_title": "Numerology Report",
-    "site_title": "Numerology Report",
-    "site_subtitle": "Free Version · VIP unlocks full numerology map"
-    // 其他英文翻译...
-  }
-  // 其他语言翻译...
-};
+/* ---------- Polyfills ---------- */
+if(!Element.prototype.matches){Element.prototype.matches=Element.prototype.msMatchesSelector||Element.prototype.webkitMatchesSelector;}
+if(!Element.prototype.closest){Element.prototype.closest=function(s){let el=this;while(el&&el.nodeType===1){if(el.matches(s))return el;el=el.parentElement||el.parentNode;}return null;}}
 
-// ========== 修复：添加语言管理功能 ==========
-function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
-function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
-
-function t(key){
-  const lang = getLang();
-  const pack = translations[lang] || translations["zh-CN"];
-  return pack[key] || key;
-}
-
-function applyI18n(){
-  document.querySelectorAll("[data-i18n]").forEach(el=>{
-    const key = el.getAttribute("data-i18n");
-    el.textContent = t(key);
-  });
-  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
-    const key = el.getAttribute("data-i18n-ph");
-    el.setAttribute("placeholder", t(key));
-  });
-  const titleEl = document.querySelector("title[data-i18n]");
-  if (titleEl) titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
-}
-
-function applyChatI18n(){
-  const fab = gid('ssChatFab'); 
-  const inp = gid('ssChatInput'); 
-  const btn = gid('ssChatSend');
-  if (fab) fab.textContent = t('chat_fab');
-  if (inp) inp.placeholder = t('chat_placeholder');
-  if (btn) btn.textContent = t('chat_send');
-}
-
-// ========== 修复：添加错误处理函数 ==========
-function showErr(msg){ 
-  const e = gid('error'); 
-  if(e){ 
-    e.textContent = msg; 
-    e.style.display = 'block'; 
-    setTimeout(()=>{ e.style.display='none'; }, 5000); 
-  }
-}
-
-function hideErr(){ 
-  const e = gid('error'); 
-  if(e){ 
-    e.style.display='none'; 
-    e.textContent=''; 
-  }
-}
-
-// ========== 修复：添加认证相关函数 ==========
-async function safeJson(resp){ 
-  try { 
-    return await resp.json(); 
-  } catch { 
-    return { ok:false, msg:'upstream_error' }; 
-  }
-}
-
-async function loginFlow(email, password){
-  try {
-    const res = await safeJson(await fetch(`${API_BASE}/api/login`, {
-      method:'POST', 
-      headers:{'Content-Type':'application/json'}, 
-      body:JSON.stringify({ email, password })
-    }));
-    
-    if (res.ok === true){
-      localStorage.setItem("vipEmail", res.email || email);
-      alert('登录成功！');
-      return;
-    }
-    
-    if (res.msg === 'no_account') return showErr('账户不存在');
-    if (res.msg === 'wrong_pwd') return showErr('密码错误');
-    showErr('登录失败: ' + (res.msg || ''));
-  } catch(err) {
-    showErr('网络错误: ' + err.message);
-  }
-}
-
-async function registerFlow(email, password){
-  try {
-    const res = await safeJson(await fetch(`${API_BASE}/api/register`, {
-      method:'POST', 
-      headers:{'Content-Type':'application/json'}, 
-      body:JSON.stringify({ email, password })
-    }));
-    
-    if (res.ok === true){
-      alert('注册成功！请登录。');
-      return;
-    }
-    
-    showErr('注册失败: ' + (res.msg || ''));
-  } catch(err) {
-    showErr('网络错误: ' + err.message);
-  }
-}
-
-// ========== 修复：确保结果结构正确 ==========
+/* ---------- Ensure result structure ---------- */
 function ensureRootStructure(){
-  let result = gid('result');
-  if(!result){
-    result = document.createElement('section');
-    result.id = 'result';
-    result.className = 'card';
-    result.style.display = 'none';
-    // 插入到正确的位置
-    const cards = document.querySelectorAll('.card');
-    if(cards.length > 1) {
-      cards[1].parentNode.insertBefore(result, cards[1].nextSibling);
-    } else {
-      document.querySelector('main').appendChild(result);
-    }
-  }
-  
-  let numReport = gid('numReport');
-  if(!numReport){
-    numReport = document.createElement('div');
-    numReport.id = 'numReport';
-    numReport.className = 'report';
-    result.appendChild(numReport);
-  }
-  
-  // 添加标题
-  if(!result.querySelector('h2')){
-    const h2 = document.createElement('h2');
-    h2.style.cssText = 'margin:0 0 10px;color:var(--gold)';
-    h2.setAttribute('data-i18n', 'res_title');
-    h2.textContent = t('res_title');
-    result.insertBefore(h2, numReport);
-  }
-  
+  let result=gid('result');if(!result){result=document.createElement('section');result.id='result';result.style.display='none';document.body.appendChild(result);}
+  let numReport=gid('numReport');if(!numReport){numReport=document.createElement('div');numReport.id='numReport';result.appendChild(numReport);}
   return numReport;
 }
 
-// ========== 灵数核心计算（保持不变） ==========
+/* ---------- Numerology core ---------- */
 const masters={11:1,22:1,33:1};
 const isMaster=n=>!!masters[n];
 function reduceNum(n){while(n>9&&!isMaster(n)){n=String(n).split('').reduce((a,b)=>a+Number(b),0);}return n;}
 function parseDateDigits(iso){if(!iso)return null;const d=iso.replace(/[^0-9]/g,'');if(d.length<8)return null;return d.split('').map(Number);}
 function calcLifePath(iso){const d=parseDateDigits(iso);if(!d)return null;return reduceNum(d.reduce((a,b)=>a+b,0));}
 function calcLoveNumber(iso){if(!iso)return null;const p=iso.split('-');const dd=Number(p[2]||'0');if(!dd)return null;return reduceNum(dd);}
+function calcPersonalYear(iso,year){if(!iso)return null;const p=iso.split('-');const m=Number(p[1]||'0'),d=Number(p[2]||'0');if(!m||!d)return null;let total=0;(`${m}${d}${year}`).replace(/./g,ch=>total+=Number(ch));return reduceNum(total);}
 
-// ========== 修复：渲染报告函数 ==========
+/* ---------- Render report ---------- */
 function renderProReport(obj){
-  const wrap = ensureRootStructure();
-  const {iso,lp,lv} = obj;
-  
-  wrap.innerHTML = `
-    <div class="sec">
-      <h3>基础信息</h3>
-      <p>出生日期: ${iso}</p>
-    </div>
-    <div class="sec">
-      <h3>生命路径数字</h3>
-      <p>${lp} ${isMaster(lp) ? '(大师数字)' : ''}</p>
-    </div>
-    <div class="sec">
-      <h3>情感数字</h3>
-      <p>${lv} ${isMaster(lv) ? '(大师数字)' : ''}</p>
-    </div>
-  `;
+  ensureRootStructure();
+  const wrap=gid('numReport');const {iso,lp,lv}=obj;
+  wrap.innerHTML=`<div class="sec"><h3>基础信息</h3><p>${iso}</p></div>
+  <div class="sec"><h3>生命路径</h3><p>${lp}</p></div>
+  <div class="sec"><h3>情感数字</h3><p>${lv}</p></div>`;
 }
 
-// ========== 修复：AI调用函数 ==========
+/* ---------- Dummy AI call ---------- */
 async function runAI(obj){
-  const elC = gid('numReport');
-  const aiSection = document.createElement('div');
-  aiSection.className = 'sec';
-  aiSection.innerHTML = `<h3>心怜管家解读</h3><p>正在生成中...</p>`;
-  elC.appendChild(aiSection);
-  
+  ensureRootStructure();
+  const elC=gid('numReport');
+  elC.innerHTML+=`<div class="sec"><h3>心怜管家</h3><p>正在生成中...</p></div>`;
   try{
-    const r = await fetch(API_BASE+'/api/chat',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        messages:[
-          {
-            role:'system',
-            content:'你是一位专业的灵数解读师，请根据用户提供的生命路径数字和情感数字，给出温暖、专业且有启发性的解读和建议。'
-          },
-          {
-            role:'user',
-            content:`请分析以下灵数信息：
-出生日期: ${obj.iso}
-生命路径数字: ${obj.lp} ${isMaster(obj.lp) ? '(大师数字)' : ''}
-情感数字: ${obj.lv} ${isMaster(obj.lv) ? '(大师数字)' : ''}
-
-请给出专业的灵数解读和建议。`
-          }
-        ]
-      })
+    const r=await fetch(API_BASE+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({messages:[{role:'system',content:'Xinlian Butler numerology demo'},{role:'user',content:JSON.stringify(obj)}]})
     });
-    
-    const data = await r.json().catch(()=>({}));
-    const raw = data.reply || data.text || '灵数解析完成。根据您的数字组合，您具有独特的能量特质和人生路径。';
-    aiSection.innerHTML = `<h3>心怜管家解读</h3><div class="ai-content">${raw}</div>`;
-  } catch(e) {
-    aiSection.innerHTML = `<h3>心怜管家解读</h3><p>网络连接问题，请稍后重试。错误信息: ${e.message}</p>`;
-  }
+    const data=await r.json().catch(()=>({}));
+    const raw=data.reply||data.text||'解析完成。';
+    elC.innerHTML+=`<div class="sec"><p>${raw}</p></div>`;
+  }catch(e){elC.innerHTML+=`<div class="sec"><p>网络错误：${e.message}</p></div>`;}
 }
 
-// ========== 修复：聊天组件 ==========
+/* ---------- Chat mount (minimal) ---------- */
 function mountChat(){
-  if(gid('ssChatFab')) return;
-  
-  const fab = document.createElement('div');
-  fab.id = 'ssChatFab';
-  fab.className = 'ss-chat-fab';
-  fab.title = '心怜管家';
-  
-  const panel = document.createElement('div');
-  panel.id = 'ssChatPanel';
-  panel.className = 'ss-chat-panel';
-  panel.style.display = 'none';
-  
-  panel.innerHTML = `
-    <div class="ss-chat-head">
-      <div class="ss-chat-title">心怜管家 · Chat</div>
-      <div class="ss-close" id="ssChatClose">✕</div>
-    </div>
-    <div class="ss-chat-body" id="ssChatBody"></div>
-    <div class="ss-chat-input">
-      <input id="ssChatInput" type="text" />
-      <button id="ssChatSend" class="btn">发送</button>
-    </div>`;
-  
-  document.body.appendChild(fab);
-  document.body.appendChild(panel);
-  
-  applyChatI18n();
-  
-  fab.onclick = () => panel.style.display = 'block';
-  gid('ssChatClose').onclick = () => panel.style.display = 'none';
-  
-  gid('ssChatSend').onclick = async () => {
-    const v = gid('ssChatInput').value.trim();
-    if(!v) return;
-    
-    const body = gid('ssChatBody');
-    const userMsg = document.createElement('div');
-    userMsg.className = 'ss-msg me';
-    userMsg.textContent = v;
-    body.appendChild(userMsg);
-    
-    gid('ssChatInput').value = '';
-    
+  if(gid('ssChatFab'))return;
+  const fab=document.createElement('div');fab.id='ssChatFab';fab.className='ss-chat-fab';fab.textContent='问';
+  fab.style.cssText='position:fixed;right:18px;bottom:18px;z-index:50;width:56px;height:56px;border-radius:50%;background:linear-gradient(180deg,#fff9e6,#e6c76e);color:#191919;display:grid;place-items:center;font-weight:800;cursor:pointer;';
+  const panel=document.createElement('div');panel.id='ssChatPanel';panel.className='ss-chat-panel';
+  panel.style.cssText='display:none;position:fixed;right:18px;bottom:88px;width:min(460px,92vw);background:#0e1520;color:#e8edf3;border-radius:14px;padding:10px;';
+  panel.innerHTML=`<div id="ssChatClose" style="text-align:right;cursor:pointer;">✕</div>
+  <div id="ssChatBody" style="max-height:200px;overflow:auto;margin-bottom:8px;"></div>
+  <input id="ssChatInput" placeholder="输入问题..." style="width:80%"><button id="ssChatSend">发送</button>`;
+  document.body.appendChild(fab);document.body.appendChild(panel);
+  fab.onclick=()=>panel.style.display='block';gid('ssChatClose').onclick=()=>panel.style.display='none';
+  gid('ssChatSend').onclick=async()=>{
+    const v=gid('ssChatInput').value.trim();if(!v)return;
+    gid('ssChatBody').innerHTML+=`<div style="text-align:right">${v}</div>`;
     try{
-      const r = await fetch(API_BASE+'/api/chat',{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          messages:[
-            {role:'system',content:'你是"心怜管家"，帮助用户解答灵数相关问题，语气温暖专业。'},
-            {role:'user',content:v}
-          ]
-        })
+      const r=await fetch(API_BASE+'/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({messages:[{role:'system',content:'Xinlian Butler Chat'},{role:'user',content:v}]})
       });
-      
-      const data = await r.json().catch(()=>({}));
-      const reply = data.reply || data.text || '暂时没有回复，请稍后再试。';
-      
-      const botMsg = document.createElement('div');
-      botMsg.className = 'ss-msg';
-      botMsg.textContent = reply;
-      body.appendChild(botMsg);
-      
-      body.scrollTop = body.scrollHeight;
-    } catch(e) {
-      const errorMsg = document.createElement('div');
-      errorMsg.className = 'ss-msg';
-      errorMsg.textContent = '网络错误，请稍后再试。';
-      body.appendChild(errorMsg);
-    }
+      const data=await r.json().catch(()=>({}));
+      const reply=data.reply||data.text||'暂时没有回复。';
+      gid('ssChatBody').innerHTML+=`<div>${reply}</div>`;
+    }catch(e){gid('ssChatBody').innerHTML+=`<div>错误：${e.message}</div>`;}
   };
 }
 
-// ========== 修复：初始化函数 ==========
-function initLangUI(){
-  const select = gid('langSelect');
-  const current = getLang();
-  if(select) { 
-    select.value = current; 
-    select.addEventListener('change', ()=>{
-      setLang(select.value); 
-      applyI18n(); 
-      applyChatI18n();
-    }); 
-  }
-  applyI18n();
-}
-
-function initAuthHandlers(){
-  const loginBtn = gid('loginBtn');
-  const registerBtn = gid('registerBtn');
-  const resetBtn = gid('resetBtn');
-  
-  if(loginBtn){
-    loginBtn.addEventListener('click', async (e)=>{
-      e.preventDefault();
-      const email = gid('email').value;
-      const password = gid('password').value;
-      if(!email || !password){
-        showErr('请填写邮箱和密码');
-        return;
-      }
-      await loginFlow(email, password);
-    });
-  }
-  
-  if(registerBtn){
-    registerBtn.addEventListener('click', async (e)=>{
-      e.preventDefault();
-      const email = gid('email').value;
-      const password = gid('password').value;
-      if(!email || !password){
-        showErr('请填写邮箱和密码');
-        return;
-      }
-      if(password.length < 8){
-        showErr('密码至少需要8位字符');
-        return;
-      }
-      await registerFlow(email, password);
-    });
-  }
-  
-  if(resetBtn){
-    resetBtn.addEventListener('click', ()=>{
-      alert('密码重置功能即将开放');
-    });
-  }
-}
-
-// ========== 主初始化 ==========
-document.addEventListener('DOMContentLoaded', () => {
-  initLangUI();
-  ensureRootStructure(); 
-  mountChat();
-  initAuthHandlers();
-  
-  const bd = gid('birthdate');
-  const btn = gid('btnGen');
-  
+/* ---------- Init ---------- */
+document.addEventListener('DOMContentLoaded',()=>{
+  ensureRootStructure(); mountChat();
+  const bd=gid('birthdate'),btn=gid('btnGen');
   function generateNow(){
-    const iso = bd ? bd.value : '';
-    if(!iso){ 
-      showErr('请选择出生日期'); 
-      return; 
-    }
-    
-    hideErr();
-    const lp = calcLifePath(iso);
-    const lv = calcLoveNumber(iso);
-    
-    if(!lp || !lv){
-      showErr('日期格式错误，请检查输入');
-      return;
-    }
-    
-    gid('result').style.display = 'block';
-    renderProReport({iso, lp, lv});
-    runAI({iso, lp, lv});
-    
-    // 滚动到结果区域
-    gid('result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const iso=bd?bd.value:'';
+    if(!iso){alert('请选择出生日期');return;}
+    const lp=calcLifePath(iso),lv=calcLoveNumber(iso);
+    gid('result').style.display='block';
+    renderProReport({iso,lp,lv});
+    runAI({iso,lp,lv});
   }
-  
-  if(btn) btn.addEventListener('click', generateNow);
-  
-  // 支持回车键生成
-  if(bd){
-    bd.addEventListener('keydown', (e) => {
-      if(e.key === 'Enter') generateNow();
-    });
-  }
+  if(btn)btn.addEventListener('click',generateNow);
 });
 })();
 </script>
