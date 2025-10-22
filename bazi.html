@@ -1529,9 +1529,7 @@ async function askAi(topic){
   ensureAiCard();
   const card = document.getElementById('aiCard');
   if (card) card.dataset.lastQ = topic;  // 记住最近的主题
-
-  // remember which language this content was generated in
- if (card) card.dataset.lang = (getLang && getLang()) || 'zh-CN';
+  if (card) card.dataset.lang = (getLang && getLang()) || 'zh-CN'; // 记录语言，供重渲染用
 
   // 骨架屏
   const out = document.getElementById('aiContent');
@@ -1550,42 +1548,53 @@ async function askAi(topic){
     const sys  = buildButlerSystemPrompt(lang);
     const user = buildUserPrompt(topic, ctx);
 
-    const r = await fetch(`${API_BASE}/api/chat`, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ messages: [
+    // ✅ 用你封装的 fetchJSON（带超时、状态码、自动鉴权）
+    const data = await fetchJSON('/api/chat', {
+      messages: [
         { role:'system', content: sys },
         { role:'user',   content: user }
-      ]})
-    });
+      ]
+    }, { timeout: 12000 });
 
-    let data; try{ data = await r.json(); }catch{ data = {}; }
-    let text = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
+    // 拿回复文本（后端建议返回 { ok:true, reply:"..." }）
+    let text = '';
+    if (data && data.ok !== false) {
+      text = data.reply || data.text || data?.choices?.[0]?.message?.content || '';
+    } else {
+      console.warn('chat api error:', data);
+      text = (getLang && getLang()).startsWith('zh')
+        ? 'AI 服务暂时不可用（网络或上游 5xx）。继续看免费报告不受影响。'
+        : 'AI service temporarily unavailable (network or 5xx). Free report still works.';
+    }
 
+    // 没拿到内容的兜底
     if(!text){
       text = lang.startsWith('zh')
         ? '抱歉，暂时没有生成到内容，请稍后再试。'
         : 'Sorry, no content generated. Please try again.';
     }
 
-    // 非会员只显示前几行 + 引导
-    if(!isVIP()){
-      const teaser = text.split('\n').slice(0,6).join('\n');
-      out.innerHTML = mdToHtml(teaser) + `
-        <div class="ai-lock-overlay">
-          <div class="tip">💎 ${t('vip_title') || 'VIP Segment'}</div>
-          <div class="sub">${
-            lang.startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'
-          }</div>
-        </div>`;
-    }else{
-      out.innerHTML = mdToHtml(text);
+    // VIP 预览/解锁
+    if (out){
+      if(!isVIP()){
+        const teaser = text.split('\n').slice(0, 6).join('\n');
+        out.innerHTML = mdToHtml(teaser) + `
+          <div class="ai-lock-overlay">
+            <div class="tip">💎 ${t('vip_title') || 'VIP Segment'}</div>
+            <div class="sub">${
+              lang.startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'
+            }</div>
+          </div>`;
+      }else{
+        out.innerHTML = mdToHtml(text);
+      }
     }
   }catch(e){
+    console.error('askAi error:', e);
     if(out){
       out.innerHTML = (getLang && getLang()).startsWith('zh')
-        ? '网络异常或服务繁忙，请稍后重试。'
-        : 'Network error or service busy. Please try again later.';
+        ? '网络异常或服务繁忙（例如 502）。请稍后重试。'
+        : 'Network error or service busy (e.g., 502). Please try again later.';
     }
   }
 }
