@@ -141,7 +141,18 @@ html { font-size: 16px; }
 }
 /* 背景层轻微优化，避免频繁重绘 */
 body::before{ will-change: opacity; }
-  </style>
+.sr-only{
+  position:absolute !important; width:1px; height:1px; padding:0; margin:-1px;
+  overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;
+}  
+/* —— 统一 title —— */
+.title{
+  font-family:"Noto Serif SC","Noto Serif",serif;
+  font-weight:600; letter-spacing:.02em;
+  font-size:1.1rem; line-height:1.25;
+}
+@media (max-width:520px){ .title{ font-size:1rem } }  
+</style>
 </head>
 <body>
   <!-- 统一头部 -->
@@ -187,12 +198,14 @@ body::before{ will-change: opacity; }
           </select>
         </div>
         <div>
-          <input id="place" type="text" data-i18n-ph="ph_place"
-          placeholder="城市或坐标，如：Taipei / 25.03,121.56"
-            required
-            pattern="^(.{2,}|-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)$"
-            title="输入城市名或坐标，如 Taipei 或 25.03,121.56"/>
-        </div>
+          <div>
+           <label class="muted" for="place" data-i18n="label_place">出生地点 （必填）</label>
+           <input id="place" type="text" data-i18n-ph="ph_place"
+             placeholder="城市或坐标，如：Taipei / 25.03,121.56"
+             required
+             pattern="^(.{2,}|-?\\d{1,2}(\\.\\d+)?,\\s*-?\\d{1,3}(\\.\\d+)?)$"
+             title="输入城市名或坐标，如 Taipei 或 25.03,121.56"/>
+          </div>
       </div>
       <div class="row cols-3" style="margin-top:10px">
         <div>
@@ -328,36 +341,49 @@ let aiAbort = null;
   
   /* ============== 通用：带超时/退避/重试的 fetch（新增） ============== */
   async function fetchWithRetry(endpoints, body, {
-    retries = 2,           // 每个端点重试次数
-    timeout = 12000,       // 每次请求超时
-    backoffBase = 600      // 退避基数(ms)
-  } = {}) {
-    const retryable = (s)=> s>=500 || s===429 || s===408;
-    for (let i=0;i<endpoints.length;i++){
-      const url = endpoints[i];
-      for (let a=0;a<=retries;a++){
-        try{
-          const ctl = new AbortController();
-          const tid = setTimeout(()=>ctl.abort(), timeout);
-          const res = await fetch(url,{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify(body),
-            signal: ctl.signal
-          });
-          clearTimeout(tid);
-          if (res.ok) return res;
-          if (!retryable(res.status)) throw new Error(`HTTP ${res.status}`);
-          await new Promise(r=>setTimeout(r, backoffBase*(a+1)));
-        }catch(err){
-          if (a===retries) break; // 换下一个端点
-          await new Promise(r=>setTimeout(r, backoffBase*(a+1)));
+  retries = 2,
+  timeout = 12000,
+  backoffBase = 600,
+  signal         // ← 新增：外部 AbortSignal
+} = {}) {
+  const retryable = (s)=> s>=500 || s===429 || s===408;
+
+  for (let i=0;i<endpoints.length;i++){
+    const url = endpoints[i];
+
+    for (let a=0;a<=retries;a++){
+      const ctl = new AbortController();
+      const onAbort = ()=> ctl.abort();
+
+      try{
+        if (signal){
+          if (signal.aborted) throw new DOMException('Aborted','AbortError');
+          signal.addEventListener('abort', onAbort, { once:true });
         }
+
+        const tid = setTimeout(()=>ctl.abort(), timeout);
+        const res = await fetch(url, {
+          method:'POST',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(body),
+          signal: ctl.signal
+        });
+        clearTimeout(tid);
+        if (signal) signal.removeEventListener('abort', onAbort);
+
+        if (res.ok) return res;
+        if (!retryable(res.status)) throw new Error(`HTTP ${res.status}`);
+
+        await new Promise(r=>setTimeout(r, backoffBase*(a+1)));
+      }catch(err){
+        if (signal) signal.removeEventListener('abort', onAbort);
+        if (a===retries) break;
+        await new Promise(r=>setTimeout(r, backoffBase*(a+1)));
       }
     }
-    throw new Error('All endpoints failed');
   }
-
+  throw new Error('All endpoints failed');
+}
   /* ============== i18n 文案（保留你的内容） ============== */
   const I18N = {
     'zh-CN': { /* …你的原文案，已省略… */ 
@@ -687,10 +713,14 @@ let aiAbort = null;
   try{
     if (OFFLINE_MODE) throw new Error('OFFLINE_MODE');
     // 使用现有 fetchWithRetry（不改它的签名）
-    const r = await fetchWithRetry(ENDPOINTS, { messages:[
-      { role:'system', content: sys },
-      { role:'user',   content: usr }
-    ]}, { retries:2, timeout:12000 });
+    const r = await fetchWithRetry(
+  ENDPOINTS,
+  { messages:[
+    { role:'system', content: sys },
+    { role:'user',   content: usr }
+  ]},
+  { retries:2, timeout:12000, signal: aiAbort.signal } // ← 传进来！
+);
 
     if (thisCall.signal.aborted) return; // 被新请求打断
 
@@ -730,19 +760,27 @@ let aiAbort = null;
   }
 }
 
-  /* ============== 生成：基础 + AI（要求日期 & 地点） ============== */
-  function generateChart(){
-  const btn = gid('genBtn'); if (btn){ btn.disabled = true; setTimeout(()=>btn.disabled=false, 900); }
-  const {name, place, date, time} = readForm();
-  ...
-}
-    const summary = gid('chartSummary');
-    const at = place ? (' @ ' + place) : '';
-    if (summary) summary.textContent = (name?name+' · ':'') + date + ' ' + (time||'12:00') + at;
-    const resultEl = gid('result'); if (resultEl) resultEl.style.display = 'block';
-    renderReport({name, date, time: (time||'12:00'), place, lang: getLang()});
-    runAI();
+  // 替换整段 generateChart
+function generateChart(){
+  const btn = gid('genBtn');
+  if (btn){ btn.disabled = true; setTimeout(()=>btn.disabled=false, 900); }
+
+  const { name, place, date, time } = readForm();
+  if (!date || !place){
+    alert(t('alert_fill'));
+    return;
   }
+  
+    const summary = gid('chartSummary');
+  const at = place ? (' @ ' + place) : '';
+  if (summary) summary.textContent = (name?name+' · ':'') + date + ' ' + (time||'12:00') + at;
+
+  const resultEl = gid('result');
+  if (resultEl) resultEl.style.display = 'block';
+
+  renderReport({ name, date, time: (time||'12:00'), place, lang: getLang() });
+  runAI();
+}
 
   // 追问芯片点击
   const debouncedRunAI = debounce((topic)=>runAI(topic), 450);
@@ -849,6 +887,7 @@ document.addEventListener('click', (e)=>{
 </script>
 </body>
 </html>
+
 
 
 
