@@ -1525,17 +1525,15 @@ function buildUserPrompt(topic, ctx){
 
 /* 5) 请求与渲染 */
 async function askAi(topic){
-  // 先确保卡片存在，并记录“上一次主题”
+  // 1) 卡片占位 & 记住最后主题/语言
   ensureAiCard();
   const card = document.getElementById('aiCard');
-  if (card) card.dataset.lastQ = topic;  // 记住最近的主题
-
-  // remember which language this content was generated in
- if (card) card.dataset.lang = (getLang && getLang()) || 'zh-CN';
-
-  // 骨架屏
+  if (card){
+    card.dataset.lastQ = topic;
+    card.dataset.lang  = (getLang && getLang()) || 'zh-CN';
+  }
   const out = document.getElementById('aiContent');
-  if (out) {
+  if (out){
     out.innerHTML = `
       <div class="skeleton">
         <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
@@ -1544,46 +1542,59 @@ async function askAi(topic){
   }
 
   try{
-    // 组 Prompt（含语言）
+    // 2) 组装 Prompt
     const ctx  = window.__last_report__ || {};
     const lang = (getLang && getLang()) || 'zh-CN';
     const sys  = buildButlerSystemPrompt(lang);
     const user = buildUserPrompt(topic, ctx);
 
+    // 3) 用你封装好的 fetchJSON（带 CORS/超时/非 JSON 兜底）
     const data = await fetchJSON('/api/chat', {
-  messages: [
-    { role:'system', content: sys },
-    { role:'user',   content: user }
-  ]
-}, { timeout: 15000 });
+      messages: [
+        { role: 'system', content: sys },
+        { role: 'user',   content: user }
+      ]
+    }, { timeout: 20000 }); // 20s
 
-let text = (data && data.ok !== false && data.reply) ? data.reply : '';
-
-    if(!text){
-      text = lang.startsWith('zh')
-        ? '抱歉，暂时没有生成到内容，请稍后再试。'
-        : 'Sorry, no content generated. Please try again.';
+    // 4) 更稳的抽取：兼容多种字段
+    if (!data || data.ok === false){
+      throw new Error(`api_error|status=${data?.status||''}|msg=${data?.msg||''}`);
     }
+    const text = data.reply
+      || data.text
+      || data.content
+      || data?.choices?.[0]?.message?.content
+      || '';
 
-    // 非会员只显示前几行 + 引导
-    if(!isVIP()){
+    if (!text.trim()) throw new Error('empty_reply');
+
+    // 5) 渲染（非 VIP 只展示前几行 + 解锁提示）
+    if (!isVIP()){
       const teaser = text.split('\n').slice(0,6).join('\n');
       out.innerHTML = mdToHtml(teaser) + `
         <div class="ai-lock-overlay">
-          <div class="tip">💎 ${t('vip_title') || 'VIP Segment'}</div>
-          <div class="sub">${
-            lang.startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'
-          }</div>
+          <div class="tip">💎 ${t('vip_title')||'VIP Segment'}</div>
+          <div class="sub">${lang.startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'}</div>
         </div>`;
     }else{
       out.innerHTML = mdToHtml(text);
     }
-  }catch(e){
-    if(out){
-      out.innerHTML = (getLang && getLang()).startsWith('zh')
-        ? '网络异常或服务繁忙，请稍后重试。'
-        : 'Network error or service busy. Please try again later.';
-    }
+
+  }catch(err){
+    console.warn('[Butler] /api/chat error →', err);
+    if (!out) return;
+    const zh = (getLang?.()||'zh-CN').startsWith('zh');
+    const nice = zh ? '网络异常或接口未返回内容。' : 'Network error or empty reply.';
+    out.innerHTML = `
+      ${nice}<br>
+      <small style="color:#98a7b7">(${String(err.message||err).slice(0,140)})</small>
+      <div style="margin-top:8px">
+        <button class="btn btn-mini" id="aiRetry">重试</button>
+      </div>`;
+    document.getElementById('aiRetry')?.addEventListener('click', ()=>{
+      const lastQ = document.getElementById('aiCard')?.dataset.lastQ || t('q_career');
+      askAi(lastQ);
+    });
   }
 }
 
