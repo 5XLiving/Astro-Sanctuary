@@ -1013,16 +1013,30 @@ class ButlerAI {
       stemTraits: {
         '甲': { nature: '阳木', image: '参天大树', traits: ['领导力', '正直', '开拓精神'], weakness: ['固执', '缺乏弹性'] },
         '乙': { nature: '阴木', image: '藤蔓花草', traits: ['灵活', '适应力强', '艺术性'], weakness: ['优柔寡断', '依赖性强'] },
-        '丙': { nature: '阳火', image: '太阳', traits: ['热情', '光明',感染力], weakness: ['急躁', '冲动'] },
+        '丙': { nature: '阳火', image: '太阳', traits: ['热情', '光明', '感染力'], weakness: ['急躁', '冲动'] },
         '丁': { nature: '阴火', image: '灯烛', traits: ['细致', '专注', '智慧'], weakness: ['多疑', '计较'] },
-        // 其他天干...
+        '戊': { nature: '阳土', image: '城墙厚土', traits: ['稳重', '诚信', '责任心'], weakness: ['固执', '缺乏变通'] },
+        '己': { nature: '阴土', image: '田园之土', traits: ['包容', '细腻', '务实'], weakness: ['优柔寡断', '依赖性强'] },
+        '庚': { nature: '阳金', image: '刀剑利器', traits: ['果断', '刚毅', '正义感'], weakness: ['固执', '缺乏柔情'] },
+        '辛': { nature: '阴金', image: '珠宝首饰', traits: ['精致', '敏锐', '追求完美'], weakness: ['计较', '缺乏大气'] },
+        '壬': { nature: '阳水', image: '江河湖海', traits: ['智慧', '包容', '适应力'], weakness: ['随波逐流', '缺乏原则'] },
+        '癸': { nature: '阴水', image: '雨露之水', traits: ['细腻', '敏感', '洞察力'], weakness: ['多虑', '缺乏决断'] }
       },
       
       // 地支深度特质
       branchTraits: {
         '寅': { season: '春', element: '木', traits: ['开创', '活力', '冒险'], image: '猛虎出林' },
+        '卯': { season: '春', element: '木', traits: ['温和', '细腻', '艺术'], image: '月宫玉兔' },
+        '辰': { season: '春', element: '土', traits: ['稳重', '包容', '蓄势'], image: '蟠龙腾云' },
+        '巳': { season: '夏', element: '火', traits: ['智慧', '变化', '敏锐'], image: '灵蛇出洞' },
         '午': { season: '夏', element: '火', traits: ['热情', '表现', '行动力'], image: '骏马奔腾' },
-        // 其他地支...
+        '未': { season: '夏', element: '土', traits: ['温和', '包容', '务实'], image: '白羊献瑞' },
+        '申': { season: '秋', element: '金', traits: ['机智', '灵活', '善变'], image: '灵猴摘果' },
+        '酉': { season: '秋', element: '金', traits: ['精致', '完美', '坚持'], image: '金鸡报晓' },
+        '戌': { season: '秋', element: '土', traits: ['忠诚', '稳重', '守护'], image: '忠犬守门' },
+        '亥': { season: '冬', element: '水', traits: ['包容', '随和', '智慧'], image: '福猪送财' },
+        '子': { season: '冬', element: '水', traits: ['智慧', '内敛', '机敏'], image: '灵鼠偷粮' },
+        '丑': { season: '冬', element: '土', traits: ['勤奋', '踏实', '耐力'], image: '勤牛耕田' }
       },
       
       // 十神深度解读
@@ -1035,6 +1049,83 @@ class ButlerAI {
     };
   }
 
+  // 新增缺失的方法实现
+  getGroundStrength(pillars) {
+    let score = 0;
+    const dayStem = pillars.day.stem;
+    const dayElement = this.advancedKnowledge.stemTraits[dayStem].nature.slice(-1); // 获取日主五行
+    
+    // 检查地支中是否有日主的根
+    Object.values(pillars).forEach(pillar => {
+      const branchElement = this.advancedKnowledge.branchTraits[pillar.branch]?.element;
+      if (branchElement === dayElement) {
+        score += 2; // 得地
+      }
+    });
+    
+    return score;
+  }
+
+  getTrendStrength(pillars, counts) {
+    const dayStem = pillars.day.stem;
+    const dayElement = this.advancedKnowledge.stemTraits[dayStem].nature.slice(-1);
+    
+    // 计算同类五行数量
+    const sameElementCount = counts[dayElement] || 0;
+    
+    if (sameElementCount >= 3) return 3; // 得势
+    if (sameElementCount >= 2) return 2; // 一般
+    return 1; // 不得势
+  }
+
+  analyzeUsefulElements(strength, dmElem) {
+    if (strength === '偏强') {
+      return {
+        strategy: '泄秀/制化',
+        useful: this.getWeakeningElements(dmElem),
+        avoid: [dmElem],
+        advice: '宜泄不宜补，寻求平衡发展'
+      };
+    } else if (strength === '偏弱') {
+      return {
+        strategy: '生扶/补助',
+        useful: this.getStrengtheningElements(dmElem),
+        avoid: this.getWeakeningElements(dmElem),
+        advice: '需要生扶补助，增强自身能量'
+      };
+    } else {
+      return {
+        strategy: '调和',
+        useful: ['木','火','土','金','水'],
+        avoid: [],
+        advice: '保持平衡，顺势而为'
+      };
+    }
+  }
+
+  getStrengtheningElements(element) {
+    const map = {
+      '木': ['木', '水'],
+      '火': ['火', '木'],
+      '土': ['土', '火'],
+      '金': ['金', '土'],
+      '水': ['水', '金']
+    };
+    return map[element] || [];
+  }
+
+  getWeakeningElements(element) {
+    const map = {
+      '木': ['火', '土', '金'],
+      '火': ['土', '金', '水'],
+      '土': ['金', '水', '木'],
+      '金': ['水', '木', '火'],
+      '水': ['木', '火', '土']
+    };
+    return map[element] || [];
+  }
+
+  // 其他现有方法保持不变...
   analyzeBazi(baziData) {
     const { pillars, counts, percents, timeUnknown } = baziData;
     
