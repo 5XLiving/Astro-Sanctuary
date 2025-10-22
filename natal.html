@@ -127,12 +127,7 @@ html { font-size: 16px; }
   font-size: 1.1rem !important;
   line-height: 1.25;
 }
-  /* —— 统一 title —— */
-.title{
-  font-family:"Noto Serif SC","Noto Serif",serif;
-  font-weight:600; letter-spacing:.02em;
-  font-size:1.1rem; line-height:1.25;
-}
+
 @media (max-width:520px){ .title{ font-size:1rem } }
   /* —— 低运动/低资源设备的兜底 —— */
 @media (prefers-reduced-motion: reduce){
@@ -200,13 +195,11 @@ body::before{ will-change: opacity; }
         <div>
           <div>
            <label class="muted" for="place" data-i18n="label_place">出生地点 （必填）</label>
-           <input id="place" type="text" data-i18n-ph="ph_place"
-             placeholder="城市或坐标，如：Taipei / 25.03,121.56"
-             required
-             pattern="^(.{2,}|-?\\d{1,2}(\\.\\d+)?,\\s*-?\\d{1,3}(\\.\\d+)?)$"
-             title="输入城市名或坐标，如 Taipei 或 25.03,121.56"/>
-          </div>
-      </div>
+           <input id="place" ... 
+           pattern="^(.{2,}|-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)$"
+           title="输入城市名或坐标，如 Taipei 或 25.03,121.56"/>
+        </div>      <!-- 关掉“地点”的外层列 -->
+      </div>        <!-- ← 新增：关掉 .row -->
       <div class="row cols-3" style="margin-top:10px">
         <div>
           <label class="muted" for="birthdate" data-i18n="label_birthdate">出生日期</label>
@@ -635,41 +628,51 @@ let aiAbort = null;
   }
 
   function mdToHtml(md){
-    return (md||'')
-      .replace(/^###?\s+(.*)$/gm,'<h3 style="margin:8px 0 4px;color:#f2d27a">$1</h3>')
-      .replace(/^\s*[-*]\s+(.*)$/gm,'• $1')
-      .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
-      .replace(/\n{2,}/g,'\n\n')
-      .replace(/\n/g,'<br/>');
-  }
+  const esc = (s)=> String(s)
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;');
+
+  const safe = esc(md || '');
+  return safe
+    .replace(/^###?\s+(.*)$/gm,'<h3 style="margin:8px 0 4px;color:#f2d27a">$1</h3>')
+    .replace(/^\s*[-*]\s+(.*)$/gm,'• $1')
+    .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+    .replace(/\n{2,}/g,'\n\n')
+    .replace(/\n/g,'<br/>');
+}
 
   function isVIP(){
     return localStorage.getItem('vipStatus')==='active' || !!localStorage.getItem('vipEmail');
   }
 
   function localButlerFallback(lang, sunName, el){
-    const H = (k) => ({
-      'zh-CN': {p:'人物画像', r:'关系与沟通', c:'事业与自我实现', m:'金钱与物质', a:'今日/本周可执行清单', g:'温柔提醒'},
-      'zh-TW': {p:'人物画像', r:'關係與溝通', c:'事業與自我實現', m:'金錢與物質', a:'今日/本週可執行清單', g:'溫柔提醒'},
-      'en': {p:'Persona', r:'Relationships & Communication', c:'Career & Self-Actualization', m:'Money & Material', a:'Actionable To-Dos (Today/This Week)', g:'Gentle Reminder'}
-    }[lang] || arguments.callee('zh-CN'))[k];
-    const tipByEl = (EL_TEXT[lang] || EL_TEXT['zh-CN']) || {};
-    const elTip = tipByEl[el] || '';
-    return `
-      <h3 style="margin:12px 0 6px;color:#f2d27a">${H('p')}</h3>
-      <p>${(lang==='en'?'Sun sign: ':'太阳星座：')}${sunName}</p>
-      <h3 style="margin:12px 0 6px;color:#f2d27a">${H('r')}</h3>
-      <p>• ${(lang==='en'?'Lead with clarity; mirror feelings before giving advice.':'先确认对方感受，再给建议，沟通更顺。')}</p>
-      <h3 style="margin:12px 0 6px;color:#f2d27a">${H('c')}</h3>
-      <p>• ${(lang==='en'?'Pick one priority for this week and define “done.”':'本周只定一个事业优先项，并写出「完成定义」。')}</p>
-      <h3 style="margin:12px 0 6px;color:#f2d27a">${H('m')}</h3>
-      <p>• ${(lang==='en'?'Set a simple money ritual (daily expense check-in).':'建立每日金钱检视小仪式。')}</p>
-      <h3 style="margin:12px 0 6px;color:#f2d27a">${H('a')}</h3>
-      <p>• ${(lang==='en'?'Block 25 minutes today for the priority.':'今天为优先项预留 25 分钟专注时间。')}</p>
-      <h3 style="margin:12px 0 6px;color:#f2d27a">${H('g')}</h3>
-      <p>${elTip}</p>
-    `;
-  }
+  const MAP = {
+    'zh-CN': {p:'人物画像', r:'关系与沟通', c:'事业与自我实现', m:'金钱与物质', a:'今日/本周可执行清单', g:'温柔提醒'},
+    'zh-TW': {p:'人物画像', r:'關係與溝通', c:'事業與自我實現', m:'金錢與物質', a:'今日/本週可執行清單', g:'溫柔提醒'},
+    'en':    {p:'Persona', r:'Relationships & Communication', c:'Career & Self-Actualization', m:'Money & Material', a:'Actionable To-Dos (Today/This Week)', g:'Gentle Reminder'}
+  };
+  const dict = MAP[lang] || MAP['zh-CN'];
+  const H = (k)=> dict[k];
+
+  const tipByEl = (EL_TEXT[lang] || EL_TEXT['zh-CN']) || {};
+  const elTip = tipByEl[el] || '';
+
+  return `
+    <h3 style="margin:12px 0 6px;color:#f2d27a">${H('p')}</h3>
+    <p>${(lang==='en'?'Sun sign: ':'太阳星座：')}${sunName}</p>
+    <h3 style="margin:12px 0 6px;color:#f2d27a">${H('r')}</h3>
+    <p>• ${(lang==='en'?'Lead with clarity; mirror feelings before giving advice.':'先确认对方感受，再给建议，沟通更顺。')}</p>
+    <h3 style="margin:12px 0 6px;color:#f2d27a">${H('c')}</h3>
+    <p>• ${(lang==='en'?'Pick one priority for this week and define “done.”':'本周只定一个事业优先项，并写出「完成定义」。')}</p>
+    <h3 style="margin:12px 0 6px;color:#f2d27a">${H('m')}</h3>
+    <p>• ${(lang==='en'?'Set a simple money ritual (daily expense check-in).':'建立每日金钱检视小仪式。')}</p>
+    <h3 style="margin:12px 0 6px;color:#f2d27a">${H('a')}</h3>
+    <p>• ${(lang==='en'?'Block 25 minutes today for the priority.':'今天为优先项预留 25 分钟专注时间。')}</p>
+    <h3 style="margin:12px 0 6px;color:#f2d27a">${H('g')}</h3>
+    <p>${elTip}</p>
+  `;
+}
 
   /* ============== 智能解读：接入重试/备份/离线 ============== */
   async function runAI(topic=''){
@@ -887,6 +890,7 @@ document.addEventListener('click', (e)=>{
 </script>
 </body>
 </html>
+
 
 
 
