@@ -1550,17 +1550,14 @@ async function askAi(topic){
     const sys  = buildButlerSystemPrompt(lang);
     const user = buildUserPrompt(topic, ctx);
 
-    const r = await fetch(`${API_BASE}/api/chat`, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ messages: [
-        { role:'system', content: sys },
-        { role:'user',   content: user }
-      ]})
-    });
+    const data = await fetchJSON('/api/chat', {
+  messages: [
+    { role:'system', content: sys },
+    { role:'user',   content: user }
+  ]
+}, { timeout: 15000 });
 
-    let data; try{ data = await r.json(); }catch{ data = {}; }
-    let text = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
+let text = (data && data.ok !== false && data.reply) ? data.reply : '';
 
     if(!text){
       text = lang.startsWith('zh')
@@ -1836,11 +1833,11 @@ async function genChart(){
 
   const btn=$('genBtn'), tx=$('genBtnText'), ld=$('genBtnLoading');
   if(btn) btn.disabled = true;
-  if(tx) tx.style.display = 'none';
-  if(ld) ld.style.display = 'inline-block';
+  if(tx)  tx.style.display = 'none';
+  if(ld)  ld.style.display = 'inline-block';
 
   try{
-    const [Y,M,D] = birth.split('-').map(Number);
+    const [Y, M, D] = birth.split('-').map(Number);
     let hour = 12;
     if (!timeUnknown){
       const t = ($('birthtime')?.value || '').trim();
@@ -1850,27 +1847,35 @@ async function genChart(){
       }
     }
 
+    // 计算
     const { pillars, counts, percents, timeUnknown: tu } =
       baziCalculator.calculateBazi(Y, M, D, hour, timeUnknown);
 
+    // 显示结果区与日期行
     $('result')?.style.setProperty('display','block');
     const timeText = tu ? '时间不详' : (hour + '时');
     setText('bazi-date', `出生日期: ${Y}年${M}月${D}日 ${timeText}`);
-    if (tu){ const el=$('bazi-date'); if(el) el.innerHTML += ' <span class="badge-warn">未纳入时柱</span>'; }
+    if (tu){
+      const el = $('bazi-date');
+      if (el) el.innerHTML += ' <span class="badge-warn">未纳入时柱</span>';
+    }
 
+    // 四柱卡 & 经典表格
     renderPillars($('bazi-pillars'), pillars, tu);
     displayClassicArea(pillars, tu);
 
+    // 五行进度条
     setBar($('bar-木'), percents.wood);  setText('pct-木',  Math.round(percents.wood)  + '%');
     setBar($('bar-火'), percents.fire);  setText('pct-火',  Math.round(percents.fire)  + '%');
     setBar($('bar-土'), percents.earth); setText('pct-土',  Math.round(percents.earth) + '%');
     setBar($('bar-金'), percents.metal); setText('pct-金',  Math.round(percents.metal) + '%');
     setBar($('bar-水'), percents.water); setText('pct-水',  Math.round(percents.water) + '%');
 
+    // 强弱与喜忌
     const st  = judgeStrength(pillars.day.stem, pillars.month.branch, counts);
     const adv = chooseUseful(st.mark, pillars.day.element);
 
-    // 本地化“最强/最弱”提示
+    // “最强 / 最弱”提示（多语言）
     {
       const keys = Object.keys(counts);
       const maxK = keys.reduce((a,b)=> counts[a] > counts[b] ? a : b);
@@ -1885,27 +1890,27 @@ async function genChart(){
       );
     }
 
-    // 存入上下文（修正字段名：timeUnknown）
+    // 写入上下文（注意字段名 timeUnknown）
     window.__last_report__ = { pillars, percents, st, adv, timeUnknown: tu };
 
-    // 顺序很重要：免费/富报告 → 管家
+    // 顺序：简报 → 富报告 → 管家
     mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
     mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
-    mountButlerCard(); // <- 确保管家在最下方
+    mountButlerCard(); // 管家在最下方
 
     console.log(
       '实际 →',
-      pillars.year.stem+pillars.year.branch,
-      pillars.month.stem+pillars.month.branch,
-      pillars.day.stem+pillars.day.branch,
-      tu ? '？' : (pillars.hour.stem+pillars.hour.branch)
+      pillars.year.stem + pillars.year.branch,
+      pillars.month.stem + pillars.month.branch,
+      pillars.day.stem + pillars.day.branch,
+      tu ? '？' : (pillars.hour.stem + pillars.hour.branch)
     );
   } catch (err){
     console.error(err);
     showErr('计算八字时出现错误，请重试');
   } finally {
     if(btn) btn.disabled = false;
-    if(tx)  tx.style.display = 'inline';
+    if(tx)  tx.style.display = 'inline-block';
     if(ld)  ld.style.display = 'none';
   }
 }
@@ -1920,7 +1925,7 @@ function mountRichReport({ pillars, percents, st, adv, timeUnknown }) {
   }
   host.innerHTML = buildRichReportHTML({ pillars, percents, st, adv, timeUnknown });
 
-  // 👉 确保“管家”容器在报告之后
+  // 确保“管家”挂载点在报告之后
   let bhost = document.getElementById('butler-host');
   if (!bhost && host.parentNode) {
     bhost = document.createElement('div');
