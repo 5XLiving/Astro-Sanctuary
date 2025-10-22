@@ -487,329 +487,6 @@ html { font-size: 16px; }
       </div>
     </div>
   </div>
-
-<script>
-/* ================== 快速修复心怜管家渲染问题 ================== */
-
-// 修复样式注入 - 确保AI样式正确加载
-function fixAiStyles() {
-  const existingStyle = document.getElementById('ai-style-fixed');
-  if (existingStyle) return;
-  
-  const style = document.createElement('style');
-  style.id = 'ai-style-fixed';
-  style.textContent = `
-    #aiCard {
-      margin-top: 20px;
-      border: 1px solid #1f2a36;
-      border-radius: 14px;
-      background: #11161dcc;
-      padding: 18px;
-      backdrop-filter: blur(10px);
-    }
-    #butlerTitle {
-      color: #ffe084;
-      font-size: 1.2rem;
-      margin: 0 0 12px;
-      font-weight: 800;
-      display: flex;
-      gap: 8px;
-      align-items: center;
-    }
-    #butlerTitle::before {
-      content: "";
-      width: 4px;
-      height: 18px;
-      background: #d4af37;
-      border-radius: 2px;
-    }
-    .ai-content {
-      white-space: pre-wrap;
-      line-height: 1.7;
-      color: #e8edf3;
-      margin-bottom: 16px;
-    }
-    .chips {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 12px;
-    }
-    .chip {
-      padding: 6px 12px;
-      border-radius: 999px;
-      border: 1px solid #2a3546;
-      background: #0e1520;
-      color: #e8edf3;
-      cursor: pointer;
-      font-size: 0.9rem;
-      transition: all 0.2s ease;
-    }
-    .chip:hover {
-      border-color: #f2d27a;
-      box-shadow: 0 0 0 2px rgba(242,210,122,0.15) inset;
-    }
-    .skeleton {
-      display: grid;
-      gap: 8px;
-    }
-    .skeleton div {
-      height: 12px;
-      border-radius: 6px;
-      background: linear-gradient(90deg, #1a2431, #1f2b3b, #1a2431);
-      animation: sh 1.2s infinite;
-    }
-    @keyframes sh {
-      0% { opacity: 0.5; }
-      50% { opacity: 1; }
-      100% { opacity: 0.5; }
-    }
-    .ai-lock-overlay {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid #1f2a36;
-      text-align: center;
-    }
-    .ai-lock-overlay .tip {
-      color: #ffd88a;
-      font-weight: 700;
-      margin-bottom: 4px;
-    }
-    .ai-lock-overlay .sub {
-      color: #98a7b7;
-      font-size: 0.9rem;
-    }
-  `;
-  document.head.appendChild(style);
-}
-
-// 强化的管家卡片创建函数
-function createButlerCard() {
-  console.log('创建心怜管家卡片...');
-  
-  // 确保样式已加载
-  fixAiStyles();
-  
-  const resultSection = document.getElementById('result');
-  if (!resultSection) {
-    console.error('未找到结果区域');
-    return null;
-  }
-
-  // 移除可能存在的旧卡片
-  const oldCard = document.getElementById('aiCard');
-  if (oldCard) {
-    oldCard.remove();
-  }
-
-  // 创建新的卡片
-  const card = document.createElement('div');
-  card.id = 'aiCard';
-  card.className = 'card'; // 使用现有的card样式
-  card.innerHTML = `
-    <div class="h2" id="butlerTitle">${t('butler_title') || '心怜管家 · 解读'}</div>
-    <div id="aiContent" class="ai-content">
-      <div class="skeleton">
-        <div style="width:60%"></div>
-        <div style="width:80%"></div>
-        <div style="width:90%"></div>
-        <div style="width:70%"></div>
-        <div style="width:50%"></div>
-      </div>
-    </div>
-    <div class="chips" id="aiChips"></div>
-  `;
-
-  // 插入到结果区域的最后
-  resultSection.appendChild(card);
-  
-  // 渲染芯片按钮
-  renderChipsFixed();
-  
-  console.log('心怜管家卡片创建成功');
-  return card;
-}
-
-// 修复的芯片渲染函数
-function renderChipsFixed() {
-  const chipsContainer = document.getElementById('aiChips');
-  if (!chipsContainer) {
-    console.log('未找到芯片容器');
-    return;
-  }
-  
-  chipsContainer.innerHTML = '';
-  
-  const chipConfigs = [
-    { key: 'chip_career', question: 'q_career' },
-    { key: 'chip_love', question: 'q_love' },
-    { key: 'chip_money', question: 'q_money' },
-    { key: 'chip_list', question: 'q_list' },
-    { key: 'chip_30d', question: 'q_30d' }
-  ];
-  
-  chipConfigs.forEach(config => {
-    const button = document.createElement('button');
-    button.className = 'chip';
-    button.textContent = t(config.key);
-    button.setAttribute('data-q', t(config.question));
-    button.addEventListener('click', function() {
-      const question = this.getAttribute('data-q');
-      if (question) {
-        askAiFixed(question);
-      }
-    });
-    chipsContainer.appendChild(button);
-  });
-  
-  console.log('芯片按钮渲染完成');
-}
-
-// 修复的AI问答函数
-async function askAiFixed(topic) {
-  console.log('AI问答请求:', topic);
-  
-  // 确保卡片存在
-  const card = createButlerCard();
-  if (card) {
-    card.dataset.lastQ = topic;
-    card.dataset.lang = getLang() || 'zh-CN';
-  }
-
-  // 显示加载状态
-  const output = document.getElementById('aiContent');
-  if (output) {
-    output.innerHTML = `
-      <div class="skeleton">
-        <div style="width:60%"></div>
-        <div style="width:80%"></div>
-        <div style="width:90%"></div>
-        <div style="width:70%"></div>
-        <div style="width:50%"></div>
-      </div>
-    `;
-  }
-
-  try {
-    const context = window.__last_report__ || {};
-    const lang = getLang() || 'zh-CN';
-    
-    // 构建提示词
-    const systemPrompt = buildButlerSystemPrompt(lang);
-    const userPrompt = buildUserPrompt(topic, context);
-
-    console.log('发送AI请求到:', `${API_BASE}/api/chat`);
-    
-    const response = await fetch(`${API_BASE}/api/chat`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ]
-      })
-    });
-
-    let data;
-    try {
-      data = await response.json();
-    } catch (e) {
-      console.error('解析响应失败:', e);
-      data = {};
-    }
-
-    let text = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
-    
-    if (!text) {
-      text = lang.startsWith('zh') 
-        ? '抱歉，暂时没有生成到内容，请稍后再试。' 
-        : 'Sorry, no content generated. Please try again.';
-    }
-
-    // 渲染结果
-    if (output) {
-      if (!isVIP()) {
-        // 非会员显示部分内容 + 解锁提示
-        const lines = text.split('\n');
-        const teaser = lines.slice(0, 6).join('\n');
-        output.innerHTML = mdToHtml(teaser) + `
-          <div class="ai-lock-overlay">
-            <div class="tip">💎 ${t('vip_title') || 'VIP Segment'}</div>
-            <div class="sub">${
-              lang.startsWith('zh') 
-                ? '登录/升级后解锁完整解读' 
-                : 'Log in / upgrade to unlock the full guidance.'
-            }</div>
-          </div>`;
-      } else {
-        // 会员显示完整内容
-        output.innerHTML = mdToHtml(text);
-      }
-    }
-    
-    console.log('AI响应渲染完成');
-    
-  } catch (error) {
-    console.error('AI请求失败:', error);
-    if (output) {
-      output.innerHTML = (getLang() || 'zh-CN').startsWith('zh')
-        ? '网络异常或服务繁忙，请稍后重试。'
-        : 'Network error or service busy. Please try again later.';
-    }
-  }
-}
-
-// 修复挂载函数 - 替换原来的mountButlerCard
-function mountButlerCardFixed() {
-  console.log('挂载心怜管家...');
-  const card = createButlerCard();
-  if (card && !card.dataset.autorun) {
-    card.dataset.autorun = '1';
-    // 延迟执行以确保DOM完全渲染
-    setTimeout(() => {
-      askAiFixed(t('q_career'));
-    }, 1000);
-  }
-}
-
-// 覆盖原有的挂载函数
-window.mountButlerCard = mountButlerCardFixed;
-
-// 在生成八字后强制重新挂载管家
-const originalGenChart = window.genChart;
-window.genChart = function() {
-  // 调用原始函数
-  const result = originalGenChart.apply(this, arguments);
-  
-  // 八字生成完成后强制重新挂载管家
-  setTimeout(() => {
-    console.log('八字生成完成，重新挂载心怜管家');
-    mountButlerCardFixed();
-  }, 1500);
-  
-  return result;
-};
-
-// 页面加载时预加载样式
-document.addEventListener('DOMContentLoaded', function() {
-  console.log('页面加载完成，预加载心怜管家样式');
-  fixAiStyles();
-});
-
-// 调试函数 - 在控制台运行此函数检查管家状态
-window.debugButler = function() {
-  console.log('=== 心怜管家调试信息 ===');
-  console.log('结果区域:', document.getElementById('result'));
-  console.log('管家卡片:', document.getElementById('aiCard'));
-  console.log('最后报告:', window.__last_report__);
-  console.log('VIP状态:', isVIP());
-  console.log('当前语言:', getLang());
-  console.log('API地址:', API_BASE);
-};
-
-console.log('心怜管家修复代码已加载 - 使用 debugButler() 检查状态');
-</script>
   
 <script>
 'use strict';
@@ -2243,13 +1920,14 @@ function mountRichReport({ pillars, percents, st, adv, timeUnknown }) {
   }
   host.innerHTML = buildRichReportHTML({ pillars, percents, st, adv, timeUnknown });
 
-  // 👉 确保“管家”容器在报告之后
-  let bhost = document.getElementById('butler-host');
-  if (!bhost && host.parentNode) {
-    bhost = document.createElement('div');
-    bhost.id = 'butler-host';
-    host.parentNode.insertBefore(bhost, host.nextSibling);
+  // 👉 确保“管家”容器在报告之后（没有就创建一个占位）
+  let butlerHost = document.getElementById('butler-host');
+  if (!butlerHost) {
+    butlerHost = document.createElement('div');
+    butlerHost.id = 'butler-host';
+    host.parentNode.insertBefore(butlerHost, host.nextSibling);
   }
+}
 
   if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
 }
@@ -2309,38 +1987,95 @@ function rerenderReportsIfAny(){
 
 /* ================== 估时间向导（仅勾选不详时触发） ================== */
 (function initBirthtimeWizard(){
-  const tChk=$('timeUnknown'), tInput=$('birthtime'), btn=$('guessTimeBtn');
-  const twMask=$('twMask'), twGrid=$('twGrid'), twApply=$('twApply'), twCancel=$('twCancel');
-  if(!tInput||!tChk||!twMask||!twGrid||!twApply||!twCancel) return;
+  const tChk   = $('timeUnknown');
+  const tInput = $('birthtime');
+  const twMask = $('twMask');
+  const twGrid = $('twGrid');
+  const twApply= $('twApply');
+  const twCancel=$('twCancel');
+  if(!tInput || !tChk || !twMask || !twGrid || !twApply || !twCancel) return;
 
-  const DZ=[
-    ['子','23:00–01:00','00:00'],['丑','01:00–03:00','02:00'],['寅','03:00–05:00','04:00'],['卯','05:00–07:00','06:00'],
-    ['辰','07:00–09:00','08:00'],['巳','09:00–11:00','10:00'],['午','11:00–13:00','12:00'],['未','13:00–15:00','14:00'],
-    ['申','15:00–17:00','16:00'],['酉','17:00–19:00','18:00'],['戌','19:00–21:00','20:00'],['亥','21:00–23:00','22:00']
+  // 地支双小时段 + 建议中位时间
+  const DZ = [
+    ['子','23:00–01:00','00:00'],
+    ['丑','01:00–03:00','02:00'],
+    ['寅','03:00–05:00','04:00'],
+    ['卯','05:00–07:00','06:00'],
+    ['辰','07:00–09:00','08:00'],
+    ['巳','09:00–11:00','10:00'],
+    ['午','11:00–13:00','12:00'],
+    ['未','13:00–15:00','14:00'],
+    ['申','15:00–17:00','16:00'],
+    ['酉','17:00–19:00','18:00'],
+    ['戌','19:00–21:00','20:00'],
+    ['亥','21:00–23:00','22:00']
   ];
-  let selected=null;
+
+  let pick = null;
 
   function openWizard(){
-    twMask.style.display='flex'; selected=null; twApply.disabled=true;
-    if(!twGrid.dataset.built){
-      DZ.forEach(([z,range])=>{
-        const b=document.createElement('button'); b.type='button'; b.className='tw-btn'; b.textContent=`${z}（${range}）`;
-        b.addEventListener('click',()=>{ [...twGrid.children].forEach(x=>x.classList.remove('active')); b.classList.add('active'); selected=z; twApply.disabled=false;});
-        twGrid.appendChild(b);
-      }); twGrid.dataset.built='1';
-    }else{ [...twGrid.children].forEach(x=>x.classList.remove('active')); }
-  }
-  function closeWizard(){ twMask.style.display='none'; }
+    // 生成按钮
+    twGrid.innerHTML = '';
+    DZ.forEach(([zhi, range])=>{
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'tw-btn';
+      btn.setAttribute('data-zhi', zhi);
+      btn.setAttribute('data-range', range);
+      btn.textContent = `${zhi}时 ${range}`;
+      btn.addEventListener('click', ()=>{
+        // 单选
+        twGrid.querySelectorAll('.tw-btn').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        pick = zhi;
+        twApply.disabled = false;
+      });
+      twGrid.appendChild(btn);
+    });
 
-  tChk.addEventListener('change', ()=>{ tInput.disabled=tChk.checked; if(tChk.checked) openWizard(); else closeWizard(); });
-  btn && btn.addEventListener('click', openWizard);
-  twCancel.addEventListener('click', closeWizard);
-  twApply.addEventListener('click', ()=>{
-    if(!selected) return;
-    const mid=Object.fromEntries(DZ.map(([z,_,m])=>[z,m]))[selected];
-    tInput.value=mid; tInput.disabled=false; tChk.checked=false; closeWizard();
+    twApply.disabled = true;
+    pick = null;
+
+    // 打开弹窗
+    twMask.style.display = 'flex';
+    twMask.setAttribute('aria-hidden', 'false');
+  }
+
+  function closeWizard(){
+    twMask.style.display = 'none';
+    twMask.setAttribute('aria-hidden', 'true');
+  }
+
+  // 勾选“不详” → 打开向导；取消勾选 → 直接使用 time 输入框
+  tChk.addEventListener('change', ()=>{
+    if (tChk.checked){
+      openWizard();
+    } else {
+      // 如果取消“不详”，不强改时间；保留用户手动输入
+      closeWizard();
+    }
   });
-  tInput.disabled=tChk.checked;
+
+  // 取消
+  twCancel.addEventListener('click', ()=>{
+    // 仍保持“不详”被勾选（用户可以再改），只关闭弹窗
+    closeWizard();
+  });
+
+  // 填入中位时间
+  twApply.addEventListener('click', ()=>{
+    if (!pick) return;
+    const mid = DZ.find(([zhi])=> zhi===pick)?.[2] || '12:00';
+    // 写回输入框，并自动取消“不详”
+    tInput.value = mid;
+    tChk.checked = false;
+    closeWizard();
+  });
+
+  // 点击遮罩也可关闭
+  twMask.addEventListener('click', (e)=>{
+    if (e.target === twMask) closeWizard();
+  });
 })();
 
 /* ================== 登录流程（统一使用 fetchJSON） ================== */
@@ -2593,5 +2328,267 @@ document.addEventListener('DOMContentLoaded', ()=>{
   console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+H.branch);
 })();
 </script>
+<script>
+/* ================== 5XLiving · Butler（整合版，无冲突） ================== */
+(function(){
+  'use strict';
+
+  // —— 依赖的工具函数（若外部未定义则给兜底）——
+  const API_BASE = window.API_BASE || 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+  const t = window.t || (k => k);
+  const getLang = window.getLang || (() => document.documentElement.lang || 'zh-CN');
+  const ELABEL = window.ELABEL || (() => ({wood:'木',fire:'火',earth:'土',metal:'金',water:'水'}));
+  const isVIP = window.isVIP || (() => !!(localStorage.getItem('vipStatus')==='active'||localStorage.getItem('vipEmail')));
+
+  /* ---------- 样式 ---------- */
+  (function injectStyle(){
+    if (document.getElementById('butler-style')) return;
+    const css = `
+      #aiCard{margin-top:14px;border:1px solid #1f2a36;border-radius:14px;background:#11161dcc;padding:16px}
+      #butlerTitle{color:#ffe084;font-size:1.1rem;margin:0 0 10px;font-weight:800;display:flex;gap:8px;align-items:center}
+      #butlerTitle::before{content:"";width:4px;height:18px;background:#d4af37;border-radius:2px}
+      .ai-content{white-space:pre-wrap;line-height:1.7;color:#e8edf3}
+      .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+      .chip{padding:6px 12px;border-radius:999px;border:1px solid #2a3546;background:#0e1520;color:#e8edf3;cursor:pointer;font-size:.9rem}
+      .chip:hover{border-color:#f2d27a;box-shadow:0 0 0 2px rgba(242,210,122,.15) inset}
+      .skeleton{display:grid;gap:8px}
+      .skeleton div{height:12px;border-radius:6px;background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);animation:sh 1.2s infinite}
+      @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
+      .ai-lock-overlay{margin-top:10px;padding-top:10px;border-top:1px solid #1f2a36;text-align:center}
+      .ai-lock-overlay .tip{color:#ffd88a;font-weight:700;margin-bottom:4px}
+      .ai-lock-overlay .sub{color:#98a7b7;font-size:.9rem}
+    `;
+    const style = document.createElement('style');
+    style.id = 'butler-style';
+    style.textContent = css;
+    document.head.appendChild(style);
+  })();
+
+  /* ---------- 小工具 ---------- */
+  function mdToHtml(md){
+    return (md||'')
+      .replace(/^###?\s+(.*)$/gm,'<h3 style="margin:12px 0 6px;color:#f2d27a">$1</h3>')
+      .replace(/^\s*[-*]\s+(.*)$/gm,'• $1')
+      .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+      .replace(/\n{2,}/g,'\n\n')
+      .replace(/\n/g,'<br/>');
+  }
+
+  const BUTLER_LANG_NAME = {
+    'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese','en':'English','ja':'Japanese','th':'Thai','ms':'Malay'
+  };
+
+  function buildButlerSystemPrompt(lang){
+    const ln = BUTLER_LANG_NAME[lang] || BUTLER_LANG_NAME['zh-CN'];
+    return [
+      `You are a concise Bazi assistant. Reply in ${ln}.`,
+      `Constraints:`,
+      `- Use short paragraphs and bullet points; be concrete and actionable.`,
+      `- If hour pillar is missing, include a brief caution.`,
+      `- Avoid deterministic predictions; focus on tendencies and practical tips.`,
+      `- Mirror the user's language tone (polite, warm).`
+    ].join('\n');
+  }
+
+  function buildUserPrompt(topic, ctx){
+    const ln = BUTLER_LANG_NAME[getLang()] || BUTLER_LANG_NAME['zh-CN'];
+    const E  = ELABEL();
+    const {pillars, percents, st, adv, timeUnknown} = ctx || {};
+    const elemLine = ['wood','fire','earth','metal','water']
+      .map(k => `${E[k]} ${Math.round((percents||{})[k]||0)}%`).join(' · ');
+    const fav   = (adv?.useful||[]).join('/');
+    const avoid = (adv?.avoid ||[]).join('/');
+    const hourTxt = timeUnknown ? t('rpt_time_unknown') || '时间不详' :
+      `${pillars?.hour?.stem||''}${pillars?.hour?.branch||''}`;
+
+    const lines = [
+      `Bazi summary:`,
+      `Year ${pillars?.year?.stem||''}${pillars?.year?.branch||''} · Month ${pillars?.month?.stem||''}${pillars?.month?.branch||''} · Day ${pillars?.day?.stem||''}${pillars?.day?.branch||''} · Hour ${hourTxt}`,
+      `Day Master: ${pillars?.day?.stem||''} (${pillars?.day?.element||''})`,
+      `Season: ${st?.season||''}; Strength: ${st?.mark||''}; Strategy: ${st?.focus||''}`,
+      `Elements: ${elemLine}`,
+      `Favorable: ${fav||'-'}; Avoid: ${avoid||'-'}`,
+      timeUnknown ? `Caution: hour pillar excluded.` : ``,
+      ``,
+      `Task: ${topic}`,
+      `Language: ${ln}. Reply ONLY in ${ln}.`
+    ].filter(Boolean);
+
+    return lines.join('\n');
+  }
+
+  /* ---------- DOM：创建卡片 + 芯片 ---------- */
+  function ensureAiCard(){
+    const host = document.getElementById('result') || document.body;
+    if (!host) return null;
+
+    let card = document.getElementById('aiCard');
+    if (card) return card;
+
+    card = document.createElement('div');
+    card.id = 'aiCard';
+    card.innerHTML = `
+      <div class="h2" id="butlerTitle">${t('butler_title') || '心怜管家 · 解读'}</div>
+      <div id="aiContent" class="ai-content">
+        <div class="skeleton">
+          <div style="width:60%"></div><div style="width:80%"></div>
+          <div style="width:90%"></div><div style="width:70%"></div><div style="width:50%"></div>
+        </div>
+      </div>
+      <div class="chips" id="aiChips"></div>
+    `;
+    host.appendChild(card);
+    renderChips();
+    return card;
+  }
+
+  function renderChips(){
+    const wrap = document.getElementById('aiChips');
+    if (!wrap) return;
+    wrap.innerHTML = '';
+    [
+      {k:'chip_career', q:'q_career'},
+      {k:'chip_love',   q:'q_love'},
+      {k:'chip_money',  q:'q_money'},
+      {k:'chip_list',   q:'q_list'},
+      {k:'chip_30d',    q:'q_30d'}
+    ].forEach(cfg=>{
+      const btn = document.createElement('button');
+      btn.className = 'chip';
+      btn.textContent = t(cfg.k) || cfg.k;
+      btn.dataset.q = t(cfg.q) || cfg.q;
+      btn.addEventListener('click', ()=> askAi(btn.dataset.q));
+      wrap.appendChild(btn);
+    });
+  }
+
+  /* ---------- 请求 & 渲染 ---------- */
+  async function askAi(topic){
+    const card = ensureAiCard();
+    if (card) {
+      card.dataset.lastQ = topic;
+      card.dataset.lang  = getLang();
+    }
+    const out = document.getElementById('aiContent');
+    if (out) {
+      out.innerHTML = `
+        <div class="skeleton">
+          <div style="width:60%"></div><div style="width:80%"></div>
+          <div style="width:90%"></div><div style="width:70%"></div><div style="width:50%"></div>
+        </div>`;
+    }
+
+    try{
+      const ctx  = window.__last_report__ || {};
+      const lang = getLang();
+      const sys  = buildButlerSystemPrompt(lang);
+      const user = buildUserPrompt(topic, ctx);
+
+      const r = await fetch(\`\${API_BASE}/api/chat\`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ messages:[
+          {role:'system',content:sys},
+          {role:'user',  content:user}
+        ]})
+      });
+
+      let data; try{ data = await r.json(); }catch{ data = {}; }
+      let text = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
+      if (!text) text = lang.startsWith('zh') ? '抱歉，暂时没有生成到内容，请稍后再试。' : 'Sorry, no content generated. Please try again.';
+
+      if (!isVIP()){
+        const teaser = text.split('\n').slice(0,6).join('\n');
+        out.innerHTML = mdToHtml(teaser) + `
+          <div class="ai-lock-overlay">
+            <div class="tip">💎 ${t('vip_title') || 'VIP Segment'}</div>
+            <div class="sub">${lang.startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'}</div>
+          </div>`;
+      }else{
+        out.innerHTML = mdToHtml(text);
+      }
+    }catch(e){
+      if (out) {
+        out.innerHTML = getLang().startsWith('zh')
+          ? '网络异常或服务繁忙，请稍后重试。'
+          : 'Network error or service busy. Please try again later.';
+      }
+    }
+  }
+
+  function mountButlerCard(){
+    const card = ensureAiCard();
+    if (card && !card.dataset.autorun){
+      card.dataset.autorun = '1';
+      askAi(t('q_career') || '请结合我的八字给职业建议。');
+    }
+  }
+
+  // —— 语言切换时：只重生内容，不破坏其它逻辑 —— 
+  (function patchRerender(){
+    const orig = window.rerenderReportsIfAny;
+    window.rerenderReportsIfAny = function(){
+      if (typeof orig === 'function') orig();
+      // 刷新标题/芯片
+      const titleEl = document.getElementById('butlerTitle');
+      if (titleEl) titleEl.textContent = t('butler_title') || '心怜管家 · 解读';
+      renderChips();
+
+      const card   = document.getElementById('aiCard');
+      const out    = document.getElementById('aiContent');
+      const newLng = getLang();
+      const lastQ  = (card && card.dataset.lastQ) || (t('q_career')||'');
+      // 首次或语言变更时再生
+      if (!out || out.querySelector('.skeleton') || (card && card.dataset.lang !== newLng)){
+        if (card) card.dataset.lang = newLng;
+        askAi(lastQ);
+      }
+    };
+  })();
+
+  // —— 向外暴露必要接口（供现有代码调用）——
+  window.askAi = askAi;
+  window.mountButlerCard = mountButlerCard;
+
+  // 若已有八字结果，确保卡片存在；否则等生成后由 genChart 流程触发
+  document.addEventListener('DOMContentLoaded', ()=>{
+    const resultHasChart = !!document.getElementById('result');
+    if (resultHasChart && window.__last_report__) mountButlerCard();
+  });
+})();
+
+document.addEventListener('DOMContentLoaded', () => {
+  // 初始化语言
+  const saved = getLang();
+  setLang(saved);
+  applyI18n();
+
+  // 绑定语言切换
+  const langSel = document.getElementById('langSelect');
+  if (langSel) {
+    langSel.value = saved;
+    langSel.addEventListener('change', () => {
+      setLang(langSel.value);
+      applyI18n();
+      if (typeof window.rerenderReportsIfAny === 'function') {
+        window.rerenderReportsIfAny(); // 刷新标题/芯片，并在语言变更时重生内容
+      }
+    });
+  }
+
+  // 绑定“生成八字”
+  const genBtn = document.getElementById('genBtn');
+  if (genBtn) genBtn.addEventListener('click', genChart);
+
+  // 勾选“时间不详”时禁用 time 输入，取消时恢复
+  const chkUnknown = document.getElementById('timeUnknown');
+  const timeInput  = document.getElementById('birthtime');
+  if (chkUnknown && timeInput) {
+    const sync = () => { timeInput.disabled = chkUnknown.checked; };
+    chkUnknown.addEventListener('change', sync);
+    sync();
+  }
+});  
+</script>  
 </body>
 </html>
