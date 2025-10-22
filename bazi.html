@@ -624,14 +624,6 @@ function updateButlerChips() {
   }
 }
 
-// 语言管理函数（保持您提供的）
-const LANG_KEY = "site_lang";
-function getLang() { /* ... */ }
-function setLang(code) { /* ... */ }
-function t(key) { /* ... */ }
-function applyTranslations() { /* ... */ }
-function updateButlerChips() { /* ... */ }
-
 // ================== 配置 & 工具函数 ==================
 const $ = id => document.getElementById(id);
 
@@ -815,7 +807,7 @@ class BaziCalculator {
 
 const baziCalculator = new BaziCalculator();
 
-// ================== 完整的 ButlerAI 类 ==================
+// ================== 完整的 ButlerAI 类（包含多语言支持） ==================
 class ButlerAI {
   constructor() {
     this.currentAnalysis = null;
@@ -948,217 +940,6 @@ class ButlerAI {
     };
 
     return personalityMap[dayStem]?.[strength === '偏强' ? 'strong' : (strength === '偏弱' ? 'weak' : 'balanced')] || '具有独特的个性特质';
-  }
-
-  // 这里继续添加您之前提供的多语言相关方法...
-  // getAnalysisInCurrentLanguage(), localizeAnalysis(), tStrength(), tStrategy(), tAdvice()
-  // generateComprehensiveAnalysis(), answerQuestion(), getCareerAdvice(), getLoveAdvice() 等
-  
-  // ... [保持您提供的所有多语言方法]
-}
-
-const butlerAI = new ButlerAI();
-
-// ================== 界面渲染函数 ==================
-function renderPillars(root, p, timeUnknown = false) {
-  if (!root) return;
-  root.innerHTML = '';
-  
-  [['年柱', p.year], ['月柱', p.month], ['日柱', p.day], ['时柱', p.hour]].forEach(([tit, v]) => {
-    const isUnknown = (tit === '时柱' && timeUnknown);
-    const stem = isUnknown ? '？' : v.stem;
-    const branch = isUnknown ? '？' : v.branch;
-    
-    const div = document.createElement('div');
-    div.className = 'pillar';
-    div.innerHTML = `
-      <div class="tit">${tit}</div>
-      <div class="gz">${stem}${branch}</div>
-    `;
-    root.appendChild(div);
-  });
-}
-
-function displayClassicArea(p, timeUnknown) {
-  const getElement = (s, b) => baziCalculator.getElement(s, b);
-  const getNayin = (s, b) => baziCalculator.getNayin(s, b);
-  
-  // 天干
-  setText('year-stem', p.year.stem);
-  setText('month-stem', p.month.stem);
-  setText('day-stem', p.day.stem);
-  setText('hour-stem', timeUnknown ? '？' : p.hour.stem);
-  
-  // 地支
-  setText('year-branch', p.year.branch);
-  setText('month-branch', p.month.branch);
-  setText('day-branch', p.day.branch);
-  setText('hour-branch', timeUnknown ? '？' : p.hour.branch);
-  
-  // 五行
-  setText('year-element', getElement(p.year.stem, p.year.branch));
-  setText('month-element', getElement(p.month.stem, p.month.branch));
-  setText('day-element', getElement(p.day.stem, p.day.branch));
-  setText('hour-element', timeUnknown ? '未知' : getElement(p.hour.stem, p.hour.branch));
-  
-  // 纳音
-  setText('year-nayin', getNayin(p.year.stem, p.year.branch));
-  setText('month-nayin', getNayin(p.month.stem, p.month.branch));
-  setText('day-nayin', getNayin(p.day.stem, p.day.branch));
-  setText('hour-nayin', timeUnknown ? '未知' : getNayin(p.hour.stem, p.hour.branch));
-}
-
-// ================== 主逻辑函数 ==================
-async function genChart() {
-  const birth = ($('birthdate')?.value || '').trim();
-  const timeUnknown = $('timeUnknown')?.checked || false;
-  
-  if (!birth) {
-    showErr(t('err_birthdate_required'));
-    return;
-  }
-
-  const btn = $('genBtn');
-  const tx = $('genBtnText');
-  const ld = $('genBtnLoading');
-  
-  if (btn) btn.disabled = true;
-  if (tx) tx.style.display = 'none';
-  if (ld) ld.style.display = 'inline-block';
-
-  try {
-    const [Y, M, D] = birth.split('-').map(Number);
-    let hour = 12;
-    
-    if (!timeUnknown) {
-      const t = ($('birthtime')?.value || '').trim();
-      if (t) {
-        const h = parseInt(t.split(':')[0], 10);
-        if (!Number.isNaN(h)) hour = h;
-      }
-    }
-
-    // 计算八字
-    const baziData = baziCalculator.calculateBazi(Y, M, D, hour, timeUnknown);
-    const { pillars, counts, percents, timeUnknown: tu } = baziData;
-
-    // 显示结果区域
-    $('result')?.style.setProperty('display', 'block');
-    
-    // 更新日期显示
-    const timeText = tu ? t('cb_time_unknown') : (hour + '时');
-    setText('bazi-date', `${t('label_birthdate')}: ${Y}年${M}月${D}日 ${timeText}`);
-    if (tu) {
-      const el = $('bazi-date');
-      if (el) el.innerHTML += ' <span class="badge-warn">未纳入时柱</span>';
-    }
-
-    // 渲染四柱
-    renderPillars($('bazi-pillars'), pillars, tu);
-    displayClassicArea(pillars, tu);
-
-    // 更新五行条
-    setBar($('bar-木'), percents.wood);
-    setText('pct-木', Math.round(percents.wood) + '%');
-    setBar($('bar-火'), percents.fire);
-    setText('pct-火', Math.round(percents.fire) + '%');
-    setBar($('bar-土'), percents.earth);
-    setText('pct-土', Math.round(percents.earth) + '%');
-    setBar($('bar-金'), percents.metal);
-    setText('pct-金', Math.round(percents.metal) + '%');
-    setBar($('bar-水'), percents.water);
-    setText('pct-水', Math.round(percents.water) + '%');
-
-    // 五行平衡提示
-    const elements = [
-      { name: t('el_wood'), value: percents.wood },
-      { name: t('el_fire'), value: percents.fire },
-      { name: t('el_earth'), value: percents.earth },
-      { name: t('el_metal'), value: percents.metal },
-      { name: t('el_water'), value: percents.water }
-    ];
-    
-    const strongest = elements.reduce((a, b) => a.value > b.value ? a : b);
-    const weakest = elements.reduce((a, b) => a.value < b.value ? a : b);
-    
-    setText('bazi-elements-balance', 
-      `五行中${strongest.name}元素最强，${weakest.name}元素最弱。`
-    );
-
-    // 心怜管家分析
-    showButlerLoading();
-    
-    // 模拟分析时间
-    setTimeout(() => {
-      const analysis = butlerAI.analyzeBazi(baziData);
-      updateButlerDisplay(butlerAI.getAnalysisInCurrentLanguage(), 'comprehensive');
-    }, 1000);
-
-  } catch (err) {
-    console.error(err);
-    showErr(t('err_calculation_failed'));
-  } finally {
-    if (btn) btn.disabled = false;
-    if (tx) tx.style.display = 'inline';
-    if (ld) ld.style.display = 'none';
-  }
-}
-
-// ================== 事件监听 ==================
-document.addEventListener('DOMContentLoaded', () => {
-  // 初始化语言系统
-  initLanguageSystem();
-  
-  // 生成按钮事件
-  const genBtn = $('genBtn');
-  if (genBtn) {
-    genBtn.addEventListener('click', genChart);
-  }
-
-  // 心怜管家芯片点击事件
-  document.addEventListener('click', (e) => {
-    if (e.target.classList.contains('butler-chip')) {
-      const questionType = e.target.getAttribute('data-question');
-      if (butlerAI.currentAnalysis) {
-        updateButlerDisplay(butlerAI.getAnalysisInCurrentLanguage(), questionType);
-      } else {
-        showErr('请先生成八字命盘');
-      }
-    }
-  });
-
-  // 出生时间不详复选框事件
-  const timeUnknown = $('timeUnknown');
-  const birthtime = $('birthtime');
-  if (timeUnknown && birthtime) {
-    timeUnknown.addEventListener('change', () => {
-      birthtime.disabled = timeUnknown.checked;
-    });
-  }
-
-  // 设置默认日期为今天
-  const birthdate = $('birthdate');
-  if (birthdate && !birthdate.value) {
-    birthdate.value = new Date().toISOString().split('T')[0];
-  }
-
-  // 输入框回车事件
-  ['birthdate', 'birthtime'].forEach(id => {
-    const el = $(id);
-    if (el) {
-      el.addEventListener('keydown', e => {
-        if (e.key === 'Enter') {
-          genChart();
-        }
-      });
-    }
-  });
-});
-  
-// ================== 更新 ButlerAI 类支持多语言 ==================
-class ButlerAI {
-  constructor() {
-    this.currentAnalysis = null;
   }
 
   // 获取当前语言的分析内容
@@ -1307,8 +1088,6 @@ class ButlerAI {
 
   // 更新建议方法以支持多语言
   getCareerAdvice(analysis, lang) {
-    // 这里可以添加多语言的职业建议
-    // 为了简洁，我先返回中文版本
     return this.getCareerAdvice_zh(analysis);
   }
 
@@ -1347,7 +1126,6 @@ class ButlerAI {
     return advice;
   }
 
-  // 其他建议方法类似...
   getLoveAdvice(analysis, lang) {
     return this.getLoveAdvice_zh(analysis);
   }
@@ -1367,11 +1145,70 @@ class ButlerAI {
     return advice;
   }
 
-  // 其他方法保持不变...
-  // ... [保持原有的 analyzeBazi, judgeStrength, analyzeUsefulElements 等方法]
+  getWealthAdvice(analysis, lang) {
+    return `💰 财运分析建议：\n\n基于您的八字分析，建议关注与${analysis.usefulElements.useful.join('、')}相关的投资领域。`;
+  }
+
+  getHealthAdvice(analysis, lang) {
+    return `🌿 健康养生建议：\n\n建议多关注${analysis.usefulElements.useful.join('、')}元素的养生方法，保持五行平衡。`;
+  }
+
+  getPersonalityDetail(analysis, lang) {
+    return `🌟 性格特质：\n\n${analysis.personality}`;
+  }
 }
 
-// ================== 更新界面渲染函数 ==================
+const butlerAI = new ButlerAI();
+
+// ================== 界面渲染函数 ==================
+function renderPillars(root, p, timeUnknown = false) {
+  if (!root) return;
+  root.innerHTML = '';
+  
+  [['年柱', p.year], ['月柱', p.month], ['日柱', p.day], ['时柱', p.hour]].forEach(([tit, v]) => {
+    const isUnknown = (tit === '时柱' && timeUnknown);
+    const stem = isUnknown ? '？' : v.stem;
+    const branch = isUnknown ? '？' : v.branch;
+    
+    const div = document.createElement('div');
+    div.className = 'pillar';
+    div.innerHTML = `
+      <div class="tit">${tit}</div>
+      <div class="gz">${stem}${branch}</div>
+    `;
+    root.appendChild(div);
+  });
+}
+
+function displayClassicArea(p, timeUnknown) {
+  const getElement = (s, b) => baziCalculator.getElement(s, b);
+  const getNayin = (s, b) => baziCalculator.getNayin(s, b);
+  
+  // 天干
+  setText('year-stem', p.year.stem);
+  setText('month-stem', p.month.stem);
+  setText('day-stem', p.day.stem);
+  setText('hour-stem', timeUnknown ? '？' : p.hour.stem);
+  
+  // 地支
+  setText('year-branch', p.year.branch);
+  setText('month-branch', p.month.branch);
+  setText('day-branch', p.day.branch);
+  setText('hour-branch', timeUnknown ? '？' : p.hour.branch);
+  
+  // 五行
+  setText('year-element', getElement(p.year.stem, p.year.branch));
+  setText('month-element', getElement(p.month.stem, p.month.branch));
+  setText('day-element', getElement(p.day.stem, p.day.branch));
+  setText('hour-element', timeUnknown ? '未知' : getElement(p.hour.stem, p.hour.branch));
+  
+  // 纳音
+  setText('year-nayin', getNayin(p.year.stem, p.year.branch));
+  setText('month-nayin', getNayin(p.month.stem, p.month.branch));
+  setText('day-nayin', getNayin(p.day.stem, p.day.branch));
+  setText('hour-nayin', timeUnknown ? '未知' : getNayin(p.hour.stem, p.hour.branch));
+}
+
 function updateButlerDisplay(analysis, questionType = 'comprehensive') {
   const butlerContent = $('butler-content');
   if (!butlerContent) return;
@@ -1400,13 +1237,100 @@ function showButlerLoading() {
   `;
 }
 
-// ================== 更新错误消息函数 ==================
-function showErr(msgKey) {
-  const e = $("error");
-  if (!e) return;
-  e.textContent = t(msgKey);
-  e.style.display = "block";
-  setTimeout(() => { e.style.display = 'none' }, 5000);
+// ================== 主逻辑函数 ==================
+async function genChart() {
+  const birth = ($('birthdate')?.value || '').trim();
+  const timeUnknown = $('timeUnknown')?.checked || false;
+  
+  if (!birth) {
+    showErr(t('err_birthdate_required'));
+    return;
+  }
+
+  const btn = $('genBtn');
+  const tx = $('genBtnText');
+  const ld = $('genBtnLoading');
+  
+  if (btn) btn.disabled = true;
+  if (tx) tx.style.display = 'none';
+  if (ld) ld.style.display = 'inline-block';
+
+  try {
+    const [Y, M, D] = birth.split('-').map(Number);
+    let hour = 12;
+    
+    if (!timeUnknown) {
+      const t = ($('birthtime')?.value || '').trim();
+      if (t) {
+        const h = parseInt(t.split(':')[0], 10);
+        if (!Number.isNaN(h)) hour = h;
+      }
+    }
+
+    // 计算八字
+    const baziData = baziCalculator.calculateBazi(Y, M, D, hour, timeUnknown);
+    const { pillars, counts, percents, timeUnknown: tu } = baziData;
+
+    // 显示结果区域
+    $('result')?.style.setProperty('display', 'block');
+    
+    // 更新日期显示
+    const timeText = tu ? t('cb_time_unknown') : (hour + '时');
+    setText('bazi-date', `${t('label_birthdate')}: ${Y}年${M}月${D}日 ${timeText}`);
+    if (tu) {
+      const el = $('bazi-date');
+      if (el) el.innerHTML += ' <span class="badge-warn">未纳入时柱</span>';
+    }
+
+    // 渲染四柱
+    renderPillars($('bazi-pillars'), pillars, tu);
+    displayClassicArea(pillars, tu);
+
+    // 更新五行条
+    setBar($('bar-木'), percents.wood);
+    setText('pct-木', Math.round(percents.wood) + '%');
+    setBar($('bar-火'), percents.fire);
+    setText('pct-火', Math.round(percents.fire) + '%');
+    setBar($('bar-土'), percents.earth);
+    setText('pct-土', Math.round(percents.earth) + '%');
+    setBar($('bar-金'), percents.metal);
+    setText('pct-金', Math.round(percents.metal) + '%');
+    setBar($('bar-水'), percents.water);
+    setText('pct-水', Math.round(percents.water) + '%');
+
+    // 五行平衡提示
+    const elements = [
+      { name: t('el_wood'), value: percents.wood },
+      { name: t('el_fire'), value: percents.fire },
+      { name: t('el_earth'), value: percents.earth },
+      { name: t('el_metal'), value: percents.metal },
+      { name: t('el_water'), value: percents.water }
+    ];
+    
+    const strongest = elements.reduce((a, b) => a.value > b.value ? a : b);
+    const weakest = elements.reduce((a, b) => a.value < b.value ? a : b);
+    
+    setText('bazi-elements-balance', 
+      `五行中${strongest.name}元素最强，${weakest.name}元素最弱。`
+    );
+
+    // 心怜管家分析
+    showButlerLoading();
+    
+    // 模拟分析时间
+    setTimeout(() => {
+      const analysis = butlerAI.analyzeBazi(baziData);
+      updateButlerDisplay(butlerAI.getAnalysisInCurrentLanguage(), 'comprehensive');
+    }, 1000);
+
+  } catch (err) {
+    console.error(err);
+    showErr(t('err_calculation_failed'));
+  } finally {
+    if (btn) btn.disabled = false;
+    if (tx) tx.style.display = 'inline';
+    if (ld) ld.style.display = 'none';
+  }
 }
 
 // ================== 初始化语言系统 ==================
@@ -1422,7 +1346,7 @@ function initLanguageSystem() {
   applyTranslations();
 }
 
-// ================== 更新主事件监听 ==================
+// ================== 事件监听 ==================
 document.addEventListener('DOMContentLoaded', () => {
   // 初始化语言系统
   initLanguageSystem();
@@ -1445,7 +1369,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // 其他事件监听保持不变...
+  // 出生时间不详复选框事件
   const timeUnknown = $('timeUnknown');
   const birthtime = $('birthtime');
   if (timeUnknown && birthtime) {
@@ -1472,21 +1396,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 });
-
-// 更新 genChart 函数中的错误提示
-async function genChart() {
-  const birth = ($('birthdate')?.value || '').trim();
-  const timeUnknown = $('timeUnknown')?.checked || false;
-  
-  if (!birth) {
-    showErr('err_birthdate_required');
-    return;
-  }
-
-  // ... 其余 genChart 函数代码保持不变
-  // 只需要将 showErr('计算八字时出现错误，请重试') 改为：
-  // showErr('err_calculation_failed');
-}
 
 console.log('多语言心怜管家系统已加载完成！');
 console.log('支持语言：简体中文、English、日本語');
