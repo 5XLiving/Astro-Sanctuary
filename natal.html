@@ -260,69 +260,17 @@
 (function(){
   'use strict';
 
-  /* ===== 常量 / 工具 ===== */
+  /* =========================
+     常量 & 小工具
+  ========================== */
   const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
-  const ENDPOINTS = [API_BASE + '/api/chat'];
-  const OFFLINE_MODE = false;
+  const ENDPOINTS = [API_BASE + '/api/chat'];   // 如需多线路，直接在此数组追加
+  const OFFLINE_MODE = false;                   // 需要强制离线测试时改为 true
 
-  const LANG_KEY = 'site_lang';
   const qs  = (s,root=document)=>root.querySelector(s);
   const gid = (id)=>document.getElementById(id);
 
-  /* ===== 表单读取 ===== */
-  function readForm(){
-    const name  = (gid('name')?.value || '').trim();
-    const place = (gid('place')?.value || '').trim();
-    const date  = gid('birthdate')?.value || '';
-    const time  = gid('birthtime')?.value || '12:00';
-    return { name, place, date, time };
-  }
-
-  /* ===== 防抖 & 中止控制 ===== */
-  function debounce(fn, delay=450){ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), delay); }; }
-  let aiAbort = null;
-
-  /* ===== 带超时/重试的 fetch ===== */
-  async function fetchWithRetry(endpoints, body, {
-    retries = 2,
-    timeout = 12000,
-    backoffBase = 600,
-    signal
-  } = {}) {
-    const retryable = (s)=> s>=500 || s===429 || s===408;
-    for (let i=0;i<endpoints.length;i++){
-      const url = endpoints[i];
-      for (let a=0;a<=retries;a++){
-        const ctl = new AbortController();
-        const onAbort = ()=> ctl.abort();
-        try{
-          if (signal){
-            if (signal.aborted) throw new DOMException('Aborted','AbortError');
-            signal.addEventListener('abort', onAbort, { once:true });
-          }
-          const tid = setTimeout(()=>ctl.abort(), timeout);
-          const res = await fetch(url,{
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
-            body: JSON.stringify(body),
-            signal: ctl.signal
-          });
-          clearTimeout(tid);
-          if (signal) signal.removeEventListener('abort', onAbort);
-          if (res.ok) return res;
-          if (!retryable(res.status)) throw new Error(`HTTP ${res.status}`);
-          await new Promise(r=>setTimeout(r, backoffBase*(a+1)));
-        }catch(err){
-          if (signal) signal.removeEventListener('abort', onAbort);
-          if (a===retries) break;
-          await new Promise(r=>setTimeout(r, backoffBase*(a+1)));
-        }
-      }
-    }
-    throw new Error('All endpoints failed');
-  }
-
-  /* ===== i18n（最小必要） ===== */
+  // i18n（最小必要）
   const I18N = {
     'zh-CN': {
       page_title:'本命星盘解析', lang_label:'语言',
@@ -343,7 +291,81 @@
   function getLang(){ return 'zh-CN'; }
   function t(key){ return (I18N[getLang()]||{})[key] || key; }
 
-  /* ===== 星座（近似） ===== */
+  /* =========================
+     表单读取
+  ========================== */
+  function readForm(){
+    const name  = (gid('name')?.value || '').trim();
+    const place = (gid('place')?.value || '').trim();
+    const date  = gid('birthdate')?.value || '';
+    const time  = gid('birthtime')?.value || '12:00';
+    return { name, place, date, time };
+  }
+
+  /* =========================
+     Fetch：重试 / 超时 / 取消
+  ========================== */
+  let aiAbort = null; // 仅 AI 读卡使用
+  function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+  function isRetryable(status){ return status>=500 || status===429 || status===408; }
+
+  async function fetchWithRetry(endpoints, body, {
+    retries = 2,
+    timeout = 15000,
+    backoffBase = 700,
+    signal
+  } = {}){
+    let lastErr;
+    for (const url of endpoints){
+      for (let a=0; a<=retries; a++){
+        const ctl = new AbortController();
+        const timer = setTimeout(()=>ctl.abort('timeout'), timeout);
+        const onAbort = ()=> ctl.abort('outer-abort');
+        if (signal){
+          if (signal.aborted){ clearTimeout(timer); throw new DOMException('Aborted','AbortError'); }
+          signal.addEventListener('abort', onAbort, { once:true });
+        }
+        try{
+          const res = await fetch(url, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify(body),
+            signal: ctl.signal,
+            cache:'no-store',
+            credentials:'omit',
+            keepalive:true
+          });
+          clearTimeout(timer);
+          signal?.removeEventListener('abort', onAbort);
+
+          if (res.ok) return res;
+          if (!isRetryable(res.status)) throw new Error('HTTP '+res.status);
+          await sleep(backoffBase*(a+1));
+        }catch(err){
+          clearTimeout(timer);
+          signal?.removeEventListener('abort', onAbort);
+          lastErr = err;
+          if (err?.name==='AbortError') throw err; // 主动取消直接抛出
+          if (a===retries) break;                   // 换下一个 endpoint
+          await sleep(backoffBase*(a+1));
+        }
+      }
+    }
+    throw lastErr || new Error('All endpoints failed');
+  }
+
+  async function safeJson(res){
+    const ct = (res.headers.get('content-type') || '').toLowerCase();
+    if (ct.includes('application/json')) return res.json();
+    const txt = await res.text();
+    console.warn('[Butler] Non-JSON response head:', txt.slice(0,180));
+    throw new Error('Non-JSON response');
+  }
+
+  /* =========================
+     星座（近似占位）
+  ========================== */
   const SIGN_LIST = [
     {key:'Aries',start:[3,21],end:[4,19],el:'fire', name:{'zh-CN':'白羊座'}},
     {key:'Taurus',start:[4,20],end:[5,20],el:'earth',name:{'zh-CN':'金牛座'}},
@@ -376,8 +398,11 @@
     }
   };
 
-  /* ===== AI Butler 样式注入（骨架屏） ===== */
+  /* =========================
+     Butler 样式注入（骨架屏）
+  ========================== */
   (function injectAiStyle(){
+    if (gid('ai-style')) return;
     const style = document.createElement('style'); style.id='ai-style';
     style.textContent = `
       .ai-content{white-space:pre-wrap;line-height:1.5}
@@ -393,13 +418,14 @@
     document.head.appendChild(style);
   })();
 
-  /* ===== 渲染报告 ===== */
+  /* =========================
+     报告渲染（前半屏）
+  ========================== */
   function renderReport(obj){
     const lang = 'zh-CN';
     const sign = getSunSign(obj.date);
     const signName = sign.name[lang];
     const tips = (EL_TEXT[lang] || EL_TEXT['zh-CN'])[sign.el];
-
     const disclaimer = '＊当前仅展示太阳星座示意；完整本命盘需使用出生地与精确时刻计算。';
 
     if(!gid('chartReport')){
@@ -408,7 +434,6 @@
       tmp.className = 'report';
       (gid('result') || document.body).appendChild(tmp);
     }
-
     const at = obj.place ? (' @ ' + obj.place) : '';
     gid('chartReport').innerHTML =
       '<div class="sec">'+
@@ -493,6 +518,9 @@
     ].filter(Boolean).join('\n');
   }
 
+  /* =========================
+     AI Butler 主流程
+  ========================== */
   async function runAI(topic=''){
     ensureAiCard();
     const titleEl = gid('butlerTitle'); if (titleEl) titleEl.textContent = t('butler_title');
@@ -504,6 +532,7 @@
       return;
     }
 
+    // 取消上一次正在进行的请求
     if (aiAbort){ aiAbort.abort(); aiAbort = null; }
     aiAbort = new AbortController();
     const thisCall = aiAbort;
@@ -532,21 +561,21 @@
 
     try{
       if (OFFLINE_MODE) throw new Error('OFFLINE_MODE');
-      const r = await fetchWithRetry(
+
+      const res = await fetchWithRetry(
         ENDPOINTS,
         { messages:[ { role:'system', content: sys }, { role:'user', content: usr } ] },
-        { retries:2, timeout:12000, signal: aiAbort.signal }
+        { retries:2, timeout:15000, signal: thisCall.signal }
       );
-
       if (thisCall.signal.aborted) return;
 
-      const data = await r.json().catch(()=>({}));
+      const data = await safeJson(res);                        // 更严格的 JSON 解析
       const raw  = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
-      let html   = mdToHtml(raw || '');
       if (!raw) throw new Error('Empty response');
 
+      let html = mdToHtml(raw);
       if (!isVIP()){
-        const parts  = (raw || '').split(/\n##\s+/);
+        const parts  = raw.split(/\n##\s+/);
         const header = parts.shift() || '';
         const kept   = [header, ...(parts.slice(0, 2).map(p => '## ' + p))].join('\n\n');
         html = mdToHtml(kept) + `
@@ -559,7 +588,7 @@
       if (out) out.innerHTML = html;
 
     }catch(e){
-      if (e?.name === 'AbortError') return;
+      if (e?.name === 'AbortError') return; // 主动取消不提示
       console.error('[Butler] fetch error:', e);
       if (out){
         out.innerHTML = `
@@ -575,7 +604,9 @@
     }
   }
 
-  /* ===== 生成：校验通过后再渲染 + AI ===== */
+  /* =========================
+     生成：校验 → 渲染 → 调 AI
+  ========================== */
   function generateChart(){
     const btn = gid('genBtn');
     if (btn){ btn.disabled = true; setTimeout(()=>btn.disabled=false, 900); }
@@ -597,14 +628,17 @@
     runAI();
   }
 
-  /* ===== 右下角 Chat 悬浮球 ===== */
+  /* =========================
+     右下角 Chat 悬浮球
+  ========================== */
   function mountChat(){
     if (gid('ssChatFab')) return;
+
     const chatFab=document.createElement('div'); chatFab.className='ss-chat-fab'; chatFab.id='ssChatFab'; chatFab.title=t('butler_chat_title');
     const chatPanel=document.createElement('div'); chatPanel.className='ss-chat-panel'; chatPanel.id='ssChatPanel';
     chatPanel.setAttribute('role','dialog');
     chatPanel.setAttribute('aria-label',t('butler_chat_title'));
-    chatPanel.setAttribute('aria-modal','true'); // ✅ 加上 aria-modal
+    chatPanel.setAttribute('aria-modal','true');
 
     chatPanel.innerHTML = `
       <div class="ss-chat-head"><div class="ss-chat-title">${t('butler_chat_title')}</div><div class="ss-close" id="ssChatClose">✕</div></div>
@@ -622,49 +656,68 @@
     chatFab.textContent = t('chat_fab');
     chatFab.addEventListener('click',openPanel); $close&&$close.addEventListener('click',closePanel);
 
-    function addMsg(text,me=false){ const div=document.createElement('div'); div.className='ss-msg'+(me?' me':''); div.textContent=text; $body.appendChild(div); $body.scrollTop=$body.scrollHeight; }
+    function addMsg(text,me=false){
+      const div=document.createElement('div'); div.className='ss-msg'+(me?' me':'');
+      div.textContent=text; $body.appendChild(div); $body.scrollTop=$body.scrollHeight;
+    }
+
+    let chatAbort = null;
     async function askChat(prompt){
       addMsg(prompt,true); if($input){ $input.value=''; $input.focus(); }
+
+      if (chatAbort){ chatAbort.abort(); chatAbort = null; }
+      chatAbort = new AbortController();
+      const thisCall = chatAbort;
+
       const sys = [
         `You are "Xinlian Butler". OUTPUT LANGUAGE: ${BUTLER_LANG_NAME[getLang()] || 'Simplified Chinese'}.`,
         'Help visitors understand features, navigation and VIP. Tone: warm, concise, professional.'
       ].join('\n');
+
       try{
         if (OFFLINE_MODE) throw new Error('OFFLINE_MODE');
-        const r = await fetchWithRetry(ENDPOINTS, { messages:[
-          {role:'system',content:sys},
-          {role:'user',content:prompt}
-        ]}, { retries:2, timeout:12000 });
-        const data = await r.json().catch(()=>({}));
+        const res = await fetchWithRetry(
+          ENDPOINTS,
+          { messages:[ {role:'system',content:sys}, {role:'user',content:prompt} ] },
+          { retries:2, timeout:15000, signal: thisCall.signal }
+        );
+        if (thisCall.signal.aborted) return;
+        const data  = await safeJson(res);
         const reply = data?.reply??data?.text??data?.choices?.[0]?.message?.content??'';
         addMsg(reply || t('err_busy'));
       }catch(e){
+        if (e?.name === 'AbortError') return;
         addMsg(`${t('err_network')}，${t('err_busy')}（本地离线模式）`);
+      }finally{
+        if (thisCall === chatAbort) chatAbort = null;
       }
     }
+
     $send&&$send.addEventListener('click',()=>{ const v=$input?.value.trim(); if(v) askChat(v); });
     $input&&$input.addEventListener('keydown',(e)=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
   }
 
-  /* ===== 初始化 ===== */
+  /* =========================
+     初始化
+  ========================== */
   document.addEventListener('DOMContentLoaded', ()=>{
-    // 出生日期默认今天
+    // 出生日期默认今天（仅空白时）
     if (gid('birthdate') && !gid('birthdate').value){
       gid('birthdate').value = new Date().toISOString().split('T')[0];
     }
 
-    // 表单 submit：先做原生校验，再生成
+    // 表单 submit：原生校验通过后再生成
     const form = gid('chartForm');
     if (form){
       form.addEventListener('submit', (e)=>{
-        e.preventDefault();                 // 阻止默认提交
-        if (!form.reportValidity()) return; // 触发浏览器原生校验
-        generateChart();                    // 通过才生成
+        e.preventDefault();
+        if (!form.reportValidity()) return;
+        generateChart();
       });
     }
 
-    // 不再单独绑 genBtn 点击；避免重复触发
-    // gid('genBtn')?.addEventListener('click', generateChart);  ← 已移除
+    // 不再单独绑 genBtn 点击，避免重复触发
+    // gid('genBtn')?.addEventListener('click', generateChart);
 
     mountChat();
   });
@@ -673,3 +726,4 @@
 </script>
 </body>
 </html>
+
