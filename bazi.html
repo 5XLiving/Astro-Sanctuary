@@ -1,4 +1,5 @@
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1525,15 +1526,17 @@ function buildUserPrompt(topic, ctx){
 
 /* 5) 请求与渲染 */
 async function askAi(topic){
-  // 1) 卡片占位 & 记住最后主题/语言
+  // 先确保卡片存在，并记录“上一次主题”
   ensureAiCard();
   const card = document.getElementById('aiCard');
-  if (card){
-    card.dataset.lastQ = topic;
-    card.dataset.lang  = (getLang && getLang()) || 'zh-CN';
-  }
+  if (card) card.dataset.lastQ = topic;  // 记住最近的主题
+
+  // remember which language this content was generated in
+ if (card) card.dataset.lang = (getLang && getLang()) || 'zh-CN';
+
+  // 骨架屏
   const out = document.getElementById('aiContent');
-  if (out){
+  if (out) {
     out.innerHTML = `
       <div class="skeleton">
         <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
@@ -1542,59 +1545,49 @@ async function askAi(topic){
   }
 
   try{
-    // 2) 组装 Prompt
+    // 组 Prompt（含语言）
     const ctx  = window.__last_report__ || {};
     const lang = (getLang && getLang()) || 'zh-CN';
     const sys  = buildButlerSystemPrompt(lang);
     const user = buildUserPrompt(topic, ctx);
 
-    // 3) 用你封装好的 fetchJSON（带 CORS/超时/非 JSON 兜底）
-    const data = await fetchJSON('/api/chat', {
-      messages: [
-        { role: 'system', content: sys },
-        { role: 'user',   content: user }
-      ]
-    }, { timeout: 20000 }); // 20s
+    const r = await fetch(`${API_BASE}/api/chat`, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({ messages: [
+        { role:'system', content: sys },
+        { role:'user',   content: user }
+      ]})
+    });
 
-    // 4) 更稳的抽取：兼容多种字段
-    if (!data || data.ok === false){
-      throw new Error(`api_error|status=${data?.status||''}|msg=${data?.msg||''}`);
+    let data; try{ data = await r.json(); }catch{ data = {}; }
+    let text = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
+
+    if(!text){
+      text = lang.startsWith('zh')
+        ? '抱歉，暂时没有生成到内容，请稍后再试。'
+        : 'Sorry, no content generated. Please try again.';
     }
-    const text = data.reply
-      || data.text
-      || data.content
-      || data?.choices?.[0]?.message?.content
-      || '';
 
-    if (!text.trim()) throw new Error('empty_reply');
-
-    // 5) 渲染（非 VIP 只展示前几行 + 解锁提示）
-    if (!isVIP()){
+    // 非会员只显示前几行 + 引导
+    if(!isVIP()){
       const teaser = text.split('\n').slice(0,6).join('\n');
       out.innerHTML = mdToHtml(teaser) + `
         <div class="ai-lock-overlay">
-          <div class="tip">💎 ${t('vip_title')||'VIP Segment'}</div>
-          <div class="sub">${lang.startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'}</div>
+          <div class="tip">💎 ${t('vip_title') || 'VIP Segment'}</div>
+          <div class="sub">${
+            lang.startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'
+          }</div>
         </div>`;
     }else{
       out.innerHTML = mdToHtml(text);
     }
-
-  }catch(err){
-    console.warn('[Butler] /api/chat error →', err);
-    if (!out) return;
-    const zh = (getLang?.()||'zh-CN').startsWith('zh');
-    const nice = zh ? '网络异常或接口未返回内容。' : 'Network error or empty reply.';
-    out.innerHTML = `
-      ${nice}<br>
-      <small style="color:#98a7b7">(${String(err.message||err).slice(0,140)})</small>
-      <div style="margin-top:8px">
-        <button class="btn btn-mini" id="aiRetry">重试</button>
-      </div>`;
-    document.getElementById('aiRetry')?.addEventListener('click', ()=>{
-      const lastQ = document.getElementById('aiCard')?.dataset.lastQ || t('q_career');
-      askAi(lastQ);
-    });
+  }catch(e){
+    if(out){
+      out.innerHTML = (getLang && getLang()).startsWith('zh')
+        ? '网络异常或服务繁忙，请稍后重试。'
+        : 'Network error or service busy. Please try again later.';
+    }
   }
 }
 
@@ -1844,11 +1837,11 @@ async function genChart(){
 
   const btn=$('genBtn'), tx=$('genBtnText'), ld=$('genBtnLoading');
   if(btn) btn.disabled = true;
-  if(tx)  tx.style.display = 'none';
-  if(ld)  ld.style.display = 'inline-block';
+  if(tx) tx.style.display = 'none';
+  if(ld) ld.style.display = 'inline-block';
 
   try{
-    const [Y, M, D] = birth.split('-').map(Number);
+    const [Y,M,D] = birth.split('-').map(Number);
     let hour = 12;
     if (!timeUnknown){
       const t = ($('birthtime')?.value || '').trim();
@@ -1858,35 +1851,27 @@ async function genChart(){
       }
     }
 
-    // 计算
     const { pillars, counts, percents, timeUnknown: tu } =
       baziCalculator.calculateBazi(Y, M, D, hour, timeUnknown);
 
-    // 显示结果区与日期行
     $('result')?.style.setProperty('display','block');
     const timeText = tu ? '时间不详' : (hour + '时');
     setText('bazi-date', `出生日期: ${Y}年${M}月${D}日 ${timeText}`);
-    if (tu){
-      const el = $('bazi-date');
-      if (el) el.innerHTML += ' <span class="badge-warn">未纳入时柱</span>';
-    }
+    if (tu){ const el=$('bazi-date'); if(el) el.innerHTML += ' <span class="badge-warn">未纳入时柱</span>'; }
 
-    // 四柱卡 & 经典表格
     renderPillars($('bazi-pillars'), pillars, tu);
     displayClassicArea(pillars, tu);
 
-    // 五行进度条
     setBar($('bar-木'), percents.wood);  setText('pct-木',  Math.round(percents.wood)  + '%');
     setBar($('bar-火'), percents.fire);  setText('pct-火',  Math.round(percents.fire)  + '%');
     setBar($('bar-土'), percents.earth); setText('pct-土',  Math.round(percents.earth) + '%');
     setBar($('bar-金'), percents.metal); setText('pct-金',  Math.round(percents.metal) + '%');
     setBar($('bar-水'), percents.water); setText('pct-水',  Math.round(percents.water) + '%');
 
-    // 强弱与喜忌
     const st  = judgeStrength(pillars.day.stem, pillars.month.branch, counts);
     const adv = chooseUseful(st.mark, pillars.day.element);
 
-    // “最强 / 最弱”提示（多语言）
+    // 本地化“最强/最弱”提示
     {
       const keys = Object.keys(counts);
       const maxK = keys.reduce((a,b)=> counts[a] > counts[b] ? a : b);
@@ -1901,27 +1886,27 @@ async function genChart(){
       );
     }
 
-    // 写入上下文（注意字段名 timeUnknown）
+    // 存入上下文（修正字段名：timeUnknown）
     window.__last_report__ = { pillars, percents, st, adv, timeUnknown: tu };
 
-    // 顺序：简报 → 富报告 → 管家
+    // 顺序很重要：免费/富报告 → 管家
     mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
     mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
-    mountButlerCard(); // 管家在最下方
+    mountButlerCard(); // <- 确保管家在最下方
 
     console.log(
       '实际 →',
-      pillars.year.stem + pillars.year.branch,
-      pillars.month.stem + pillars.month.branch,
-      pillars.day.stem + pillars.day.branch,
-      tu ? '？' : (pillars.hour.stem + pillars.hour.branch)
+      pillars.year.stem+pillars.year.branch,
+      pillars.month.stem+pillars.month.branch,
+      pillars.day.stem+pillars.day.branch,
+      tu ? '？' : (pillars.hour.stem+pillars.hour.branch)
     );
   } catch (err){
     console.error(err);
     showErr('计算八字时出现错误，请重试');
   } finally {
     if(btn) btn.disabled = false;
-    if(tx)  tx.style.display = 'inline-block';
+    if(tx)  tx.style.display = 'inline';
     if(ld)  ld.style.display = 'none';
   }
 }
@@ -1936,7 +1921,7 @@ function mountRichReport({ pillars, percents, st, adv, timeUnknown }) {
   }
   host.innerHTML = buildRichReportHTML({ pillars, percents, st, adv, timeUnknown });
 
-  // 确保“管家”挂载点在报告之后
+  // 👉 确保“管家”容器在报告之后
   let bhost = document.getElementById('butler-host');
   if (!bhost && host.parentNode) {
     bhost = document.createElement('div');
