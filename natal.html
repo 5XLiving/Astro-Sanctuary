@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="description" content="5XLiving 本命星盘：输入出生日期、时间和地点，获得个性化解读。">
+  <meta name="theme-color" content="#0b0f14">
+  <link rel="preconnect" href="https://throbbing-lab-1440.hello5xliving.workers.dev" crossorigin>
   <title>本命星盘 · Natal Chart | 5XLiving</title>
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -124,6 +127,20 @@ html { font-size: 16px; }
   font-size: 1.1rem !important;
   line-height: 1.25;
 }
+  /* —— 统一 title —— */
+.title{
+  font-family:"Noto Serif SC","Noto Serif",serif;
+  font-weight:600; letter-spacing:.02em;
+  font-size:1.1rem; line-height:1.25;
+}
+@media (max-width:520px){ .title{ font-size:1rem } }
+  /* —— 低运动/低资源设备的兜底 —— */
+@media (prefers-reduced-motion: reduce){
+  .site-header{ backdrop-filter:none }
+  .skeleton div{ animation:none }
+}
+/* 背景层轻微优化，避免频繁重绘 */
+body::before{ will-change: opacity; }
   </style>
 </head>
 <body>
@@ -170,8 +187,11 @@ html { font-size: 16px; }
           </select>
         </div>
         <div>
-          <label class="muted" for="place" data-i18n="label_place">出生地点 （必填）</label>
-          <input id="place" type="text" data-i18n-ph="ph_place" placeholder="城市或坐标，如：Taipei / 25.03,121.56" />
+          <input id="place" type="text" data-i18n-ph="ph_place"
+          placeholder="城市或坐标，如：Taipei / 25.03,121.56"
+            required
+            pattern="^(.{2,}|-?\d{1,2}(\.\d+)?,\s*-?\d{1,3}(\.\d+)?)$"
+            title="输入城市名或坐标，如 Taipei 或 25.03,121.56"/>
         </div>
       </div>
       <div class="row cols-3" style="margin-top:10px">
@@ -302,6 +322,10 @@ html { font-size: 16px; }
     return { name, place, date, time };
   }
 
+  // —— 防抖 & AI 调用中止控制 —— 
+function debounce(fn, delay=450){ let t; return (...args)=>{ clearTimeout(t); t=setTimeout(()=>fn(...args), delay); }; }
+let aiAbort = null;
+  
   /* ============== 通用：带超时/退避/重试的 fetch（新增） ============== */
   async function fetchWithRetry(endpoints, body, {
     retries = 2,           // 每个端点重试次数
@@ -386,13 +410,16 @@ html { font-size: 16px; }
   };
 
   function getLang(){
-    const saved = localStorage.getItem(LANG_KEY);
-    if (saved && I18N[saved]) return saved;
-    const raw = (navigator.language || 'zh-CN').replace('_','-');
-    const map = {'zh':'zh-CN','zh-CN':'zh-CN','zh-SG':'zh-CN','zh-TW':'zh-TW','zh-HK':'zh-TW',
-                 'en':'en','en-US':'en','en-GB':'en','en-AU':'en','ja':'ja','ja-JP':'ja','th':'th','ms':'ms'};
-    return map[raw] || 'zh-CN';
-  }
+  const saved = localStorage.getItem(LANG_KEY);
+  if (saved && I18N[saved]) return saved;
+  const picks = (navigator.languages && navigator.languages.length ? navigator.languages : [navigator.language || 'zh-CN'])
+    .map(s=>s.replace('_','-'));
+  const map = {'zh':'zh-CN','zh-CN':'zh-CN','zh-SG':'zh-CN','zh-TW':'zh-TW','zh-HK':'zh-TW',
+               'en':'en','en-US':'en','en-GB':'en','en-AU':'en','ja':'ja','ja-JP':'ja','th':'th','ms':'ms'};
+  for (const k of picks){ if (map[k]) return map[k]; if (map[k.split('-')[0]]) return map[k.split('-')[0]]; }
+  return 'zh-CN';
+}
+  
   function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
   function t(key){
     const L = I18N[getLang()] || I18N['zh-CN'];
@@ -620,91 +647,95 @@ html { font-size: 16px; }
 
   /* ============== 智能解读：接入重试/备份/离线 ============== */
   async function runAI(topic=''){
-    ensureAiCard();
-    const titleEl = gid('butlerTitle');
-    if (titleEl) titleEl.textContent = t('butler_title');
+  ensureAiCard();
+  const titleEl = gid('butlerTitle'); if (titleEl) titleEl.textContent = t('butler_title');
 
-    const { name, place, date, time } = readForm();
-    const out = gid('aiContent');
+  const { name, place, date, time } = readForm();
+  const out = gid('aiContent');
+  if (!date){
+    if (out) out.innerHTML = `<div class="ai-content" style="color:#98a7b7">${t('alert_fill')}</div>`;
+    return;
+  }
 
-    if (!date) {
-      if (out) out.innerHTML = `<div class="ai-content" style="color:#98a7b7">${t('alert_fill')}</div>`;
-      return;
-    }
+  // —— 中止上一次未完成的请求 —— 
+  if (aiAbort){ aiAbort.abort(); aiAbort = null; }
+  aiAbort = new AbortController();
+  const thisCall = aiAbort;
 
-    const lang = getLang();
-    const sun  = getSunSign(date);
-    const sunName = (sun.name[lang] || sun.name['zh-CN']);
-    const el   = sun.el;
+  const lang = getLang();
+  const sun  = getSunSign(date);
+  const sunName = (sun.name[lang] || sun.name['zh-CN']);
+  const el   = sun.el;
 
-    if (out) {
-      out.innerHTML = `
-        <div class="skeleton">
-          <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
-          <div style="width:70%"></div><div style="width:50%"></div>
+  if (out){
+    out.innerHTML = `
+      <div class="skeleton">
+        <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
+        <div style="width:70%"></div><div style="width:50%"></div>
+      </div>`;
+  }
+
+  const sys = buildButlerSystemPrompt(lang, topic);
+  const at = place ? (' @ ' + place) : '';
+  const usr = [
+    `Name: ${name || '-'}`,
+    `Birth: ${date} ${time || '12:00'}${at}`,
+    `Sun sign: ${sunName} (element: ${el})`,
+    topic ? `Task: ${topic}` : `Task: ${t('chip_career')}`
+  ].join('\n');
+
+  try{
+    if (OFFLINE_MODE) throw new Error('OFFLINE_MODE');
+    // 使用现有 fetchWithRetry（不改它的签名）
+    const r = await fetchWithRetry(ENDPOINTS, { messages:[
+      { role:'system', content: sys },
+      { role:'user',   content: usr }
+    ]}, { retries:2, timeout:12000 });
+
+    if (thisCall.signal.aborted) return; // 被新请求打断
+
+    const data = await r.json().catch(()=>({}));
+    const raw  = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
+    let html   = mdToHtml(raw || '');
+    if (!raw) throw new Error('Empty response');
+
+    if (!isVIP()){
+      const parts  = (raw || '').split(/\n##\s+/);
+      const header = parts.shift() || '';
+      const kept   = [header, ...(parts.slice(0, 2).map(p => '## ' + p))].join('\n\n');
+      html = mdToHtml(kept) + `
+        <div class="ai-lock-overlay">
+          <div class="tip">${t('vip_tip')}</div>
+          <div class="sub" style="margin-top:4px">${t('vip_sub')}</div>
+          <a class="btn" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener">${t('btn_unlock')}</a>
         </div>`;
     }
+    if (out) out.innerHTML = html;
 
-    const sys = buildButlerSystemPrompt(lang, topic);
-    const at = place ? (' @ ' + place) : '';
-    const usr = [
-      `Name: ${name || '-'}`,
-      `Birth: ${date} ${time || '12:00'}${at}`,
-      `Sun sign: ${sunName} (element: ${el})`,
-      topic ? `Task: ${topic}` : `Task: ${t('chip_career')}`
-    ].join('\n');
-
-    try {
-      // ★ 新：重试/多端点/离线
-      if (OFFLINE_MODE) throw new Error('OFFLINE_MODE');
-      const r = await fetchWithRetry(ENDPOINTS, { messages:[
-        { role: 'system', content: sys },
-        { role: 'user',   content: usr }
-      ]}, { retries:2, timeout:12000 });
-
-      const data = await r.json().catch(()=>({}));
-      const raw  = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
-      let html   = mdToHtml(raw || '');
-      if (!raw) throw new Error('Empty response');
-
-      if (!isVIP()) {
-        const parts  = (raw || '').split(/\n##\s+/);
-        const header = parts.shift() || '';
-        const kept   = [header, ...(parts.slice(0, 2).map(p => '## ' + p))].join('\n\n');
-        html = mdToHtml(kept) + `
-          <div class="ai-lock-overlay">
-            <div class="tip">${t('vip_tip')}</div>
-            <div class="sub" style="margin-top:4px">${t('vip_sub')}</div>
-            <a class="btn" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener" style="margin-top:10px">${t('btn_unlock')}</a>
-          </div>`;
-      }
-      if (out) out.innerHTML = html;
-
-    } catch (e) {
-      console.error('[Butler] fetch error:', e);
-      if (out) {
-        const lang = getLang();
-        const sun  = getSunSign(readForm().date);
-        const sunName = (sun.name[lang] || sun.name['zh-CN']);
-        const el   = sun.el;
-        out.innerHTML = `
-          <div class="ai-content">
-            <div style="color:#ffd88a;font-weight:700;margin-bottom:6px">
-              ${t('err_network')} / ${t('err_busy')}（已切换为本地离线解读）
-            </div>
-            ${localButlerFallback(lang, sunName, el)}
-          </div>`;
-      }
+  }catch(e){
+    if (e?.name === 'AbortError') return; // 主动中止，不提示
+    console.error('[Butler] fetch error:', e);
+    if (out){
+      const sunName = (getSunSign(readForm().date).name[lang] || sun.name['zh-CN']);
+      out.innerHTML = `
+        <div class="ai-content">
+          <div style="color:#ffd88a;font-weight:700;margin-bottom:6px">
+            ${t('err_network')} / ${t('err_busy')}（已切换为本地离线解读）
+          </div>
+          ${localButlerFallback(lang, sunName, el)}
+        </div>`;
     }
+  } finally {
+    if (thisCall === aiAbort) aiAbort = null;
   }
+}
 
   /* ============== 生成：基础 + AI（要求日期 & 地点） ============== */
   function generateChart(){
-    const {name, place, date, time} = readForm();
-    if (!date || !place){
-      alert(t('alert_fill'));
-      return;
-    }
+  const btn = gid('genBtn'); if (btn){ btn.disabled = true; setTimeout(()=>btn.disabled=false, 900); }
+  const {name, place, date, time} = readForm();
+  ...
+}
     const summary = gid('chartSummary');
     const at = place ? (' @ ' + place) : '';
     if (summary) summary.textContent = (name?name+' · ':'') + date + ' ' + (time||'12:00') + at;
@@ -714,21 +745,19 @@ html { font-size: 16px; }
   }
 
   // 追问芯片点击
-  document.addEventListener('click', (e)=>{
-    const btn = e.target.closest('.chip');
-    if (!btn) return;
-    const topic = btn.getAttribute('data-q') || btn.textContent || '';
-    const aiCard = gid('aiCard');
-    if (aiCard) {
-      aiCard.dataset.topic = topic;
-      aiCard.dataset.lang  = getLang();
-    }
-    const ctx = readForm();
-    if (ctx.date) {
-      renderReport({ ...ctx, lang: getLang() });
-    }
-    runAI(topic);
-  });
+  const debouncedRunAI = debounce((topic)=>runAI(topic), 450);
+document.addEventListener('click', (e)=>{
+  const btn = e.target.closest('.chip');
+  if (!btn) return;
+  const topic = btn.getAttribute('data-q') || btn.textContent || '';
+  const aiCard = gid('aiCard');
+  if (aiCard) {
+    aiCard.dataset.topic = topic;
+    aiCard.dataset.lang  = getLang();
+  }
+  const ctx = readForm(); if (ctx.date){ renderReport({ ...ctx, lang: getLang() }); }
+  debouncedRunAI(topic);
+});
 
   /* ============== 右下角 Chat 悬浮球（接入重试） ============== */
   function mountChat(){
@@ -820,6 +849,7 @@ html { font-size: 16px; }
 </script>
 </body>
 </html>
+
 
 
 
