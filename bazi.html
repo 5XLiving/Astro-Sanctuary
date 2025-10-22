@@ -250,6 +250,12 @@ html { font-size: 16px; }
     .tw-foot{display:flex;gap:10px;justify-content:flex-end;padding:12px 14px;border-top:1px solid #243244}
     .auth-grid > * { min-width: 0; }
     .panel .body .row.one > * { min-width: 0; }
+
+    /* —— 简易报告样式 —— */
+    .report{margin-top:12px;display:grid;gap:10px}
+    .report .sec{padding:12px;border:1px solid var(--line);background:#0e1520;border-radius:12px}
+    .report .sec h3{margin:0 0 6px;color:var(--gold2);font-size:1.05rem}
+    .report p,.report li{line-height:1.7}
   
     .sr-only{
       position:absolute !important;
@@ -2063,11 +2069,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (pwd)   pwd.setAttribute('autocomplete','new-password');
   })();
 
+  // Default date today (若为空)
+    var bd=document.querySelector('#birthdate');
+    if(bd && !bd.value){ bd.value = new Date().toISOString().split('T')[0]; }
+  });
+  
   // 生成命盘按钮和输入回车
   const genBtn = $('genBtn');
   if (genBtn && typeof genChart === 'function') {
     genBtn.addEventListener('click', genChart);
   }
+
   ['birthdate','birthtime'].forEach(id=>{
     const el=$(id);
     if(el) el.addEventListener('keydown', e=>{
@@ -2116,8 +2128,141 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }catch(err){ showAuthErr(t('err_reset_fail')+(err?.message||'')); }
     finally{ lock($('resetBtn'),false); }
   });
-});
+  
+  // === Box 样式（新） ===
+(function injectBoxStyle(){
+  const id='box-style'; const old=document.getElementById(id); if (old) old.remove();
+  const style=document.createElement('style'); style.id=id;
+  style.textContent = `
+    :root{
+      --box-bg:#0b111a;
+      --box-line:#1f2a36;
+      --box-text:#e8edf3;
+      --box-title:#ffd88a;
+      --muted:#9db0c3;
+    }
+    .box{background:var(--box-bg); border:1px solid var(--box-line); border-radius:12px; padding:14px 16px; margin:14px 0;}
+    .box-h{color:var(--box-title); font-weight:700; margin-bottom:8px;}
+    .box-c{color:var(--box-text); line-height:1.7;}
+    .box .muted{color:var(--muted);}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .chip{padding:6px 10px;border-radius:999px;border:1px solid #2a3546;background:#0e1520;color:#e8edf3;cursor:pointer}
+    .skeleton{display:grid;gap:8px}
+    .skeleton div{height:12px;border-radius:6px;background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);animation:sh 1.2s infinite}
+    @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
+    .ai-lock-overlay{position:static;inset:auto;background:none;backdrop-filter:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--box-line);text-align:center}
+    .ai-lock-overlay .tip{color:#ffd88a;font-weight:700;margin-bottom:4px}
+    .ai-lock-overlay .sub{color:var(--muted)}
+  `;
+  document.head.appendChild(style);
+})();
 
+/* === BAZI：把每一段包进 .box（非侵入式）=== */
+/* === BAZI：把每一段包进 .box（保留 #aiCard / #butlerTitle）=== */
+(function boxifyBazi(){
+  function wrapSec(sec){
+    if (!sec || sec.closest('.box')) return;
+
+    const isAiCard = sec.id === 'aiCard';             // 关键：是否管家卡
+    const titleEl  = sec.querySelector('h3');
+    const titleTxt = titleEl ? titleEl.textContent.trim() : '';
+    const titleId  = titleEl ? titleEl.id : '';
+
+    const frag = document.createDocumentFragment();
+    if (titleEl) titleEl.remove();
+    while (sec.firstChild) frag.appendChild(sec.firstChild);
+
+    const box = document.createElement('div');
+    box.className = 'box';
+
+    // ✅ 保留 id 和 dataset，避免后续 runAI 找不到 #aiCard
+    if (isAiCard){
+      box.id = 'aiCard';
+      for (const k in sec.dataset) box.dataset[k] = sec.dataset[k];
+    }
+
+    const h = document.createElement('div');
+    h.className = 'box-h';
+    h.textContent = titleTxt || '';
+
+    // ✅ 如果原本标题是 #butlerTitle，也把 id 迁移过来，便于多语言刷新
+    if (titleId === 'butlerTitle') h.id = 'butlerTitle';
+
+    const c = document.createElement('div');
+    c.className = 'box-c';
+    c.appendChild(frag);
+
+    box.appendChild(h);
+    box.appendChild(c);
+    sec.replaceWith(box);
+  }
+
+  function wrapCard(card){
+    if (!card || card.classList.contains('box')) return;
+    const titleEl = card.querySelector('.h2');
+    const title   = titleEl ? titleEl.textContent.trim() : '';
+    if (titleEl) titleEl.remove();
+
+    const box = document.createElement('div'); box.className = 'box';
+    const h   = document.createElement('div'); h.className   = 'box-h'; h.textContent = title || '';
+    const c   = document.createElement('div'); c.className   = 'box-c';
+    while (card.firstChild) c.appendChild(card.firstChild);
+    box.appendChild(h); box.appendChild(c);
+    card.replaceWith(box);
+  }
+
+  function applyAll(root){
+    if (!root) return;
+    // 富报告
+    root.querySelectorAll('#rich-report .sec').forEach(wrapSec);
+    // ✅ 管家卡片（不管有没有 .sec，都包）
+    const ai = root.querySelector('#aiCard'); if (ai) wrapSec(ai);
+    // 免费简报
+    root.querySelectorAll('#xl-free-report .card').forEach(wrapCard);
+  }
+
+  // 1) 先跑一次
+  applyAll(document.getElementById('result') || document);
+
+  // 2) 挂钩你现有的渲染函数（保持你原逻辑不变）
+  const _mountRich = window.mountRichReport;
+  if (typeof _mountRich === 'function'){
+    window.mountRichReport = function(...args){
+      _mountRich.apply(this, args);
+      applyAll(document.getElementById('result') || document);
+    };
+  }
+  const _mountExt = window.mountExtensionsIntoResult;
+  if (typeof _mountExt === 'function'){
+    window.mountExtensionsIntoResult = function(...args){
+      _mountExt.apply(this, args);
+      applyAll(document.getElementById('result') || document);
+    };
+  }
+  const _rerender = window.rerenderReportsIfAny;
+  if (typeof _rerender === 'function'){
+    window.rerenderReportsIfAny = function(...args){
+      _rerender.apply(this, args);
+      applyAll(document.getElementById('result') || document);
+    };
+  }
+
+  // 3) 兜底：监听 #aiCard 动态插入（先插入后 wrap 的场景）
+  const root = document.getElementById('result') || document.body;
+  if (root) {
+    const mo = new MutationObserver((mutList)=>{
+      for (const m of mutList){
+        for (const n of m.addedNodes){
+          if (!(n instanceof HTMLElement)) continue;
+          const ai = (n.id === 'aiCard') ? n : n.querySelector?.('#aiCard');
+          if (ai && !ai.closest('.box')) wrapSec(ai);
+        }
+      }
+    });
+    mo.observe(root, { childList:true, subtree:true });
+  }
+})();
+  
 /* ================== 自测：1978-02-21 12:00 → 戊午 甲寅 甲寅 庚午 ================== */
 (function(){
   const c=new BaziCalculator(); const Y=c.calculateYearPillar(1978); const M=c.calculateMonthPillar(1978,2,21); const D=c.calculateDayPillar(1978,2,21); const H=c.calculateHourPillar(D.stem,12);
