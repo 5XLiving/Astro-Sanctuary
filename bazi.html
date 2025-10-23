@@ -207,6 +207,20 @@
       margin-top: 15px;
     }
 
+    /* 喜用神分析样式 */
+    .useful-elements {
+      display: grid;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .useful-elements div {
+      padding: 8px 12px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 8px;
+      border-left: 3px solid var(--gold);
+    }
+
     /* 响应式调整 */
     @media (max-width:520px){
       .title{font-size:1rem}
@@ -475,6 +489,7 @@
           </div>
         </div>
       </section>
+    </section>
 
     <footer>© 5XLiving • Astro Sanctuary</footer>
   </main>
@@ -979,10 +994,10 @@ class GrowthAdvisor {
   }
 }
 
+// ================== 增强的喜用神分析 ==================
 class ButlerAI {
   constructor() {
     this.currentAnalysis = null;
-    this.growthAdvisor = new GrowthAdvisor();
     this.advancedKnowledge = this.initAdvancedKnowledge();
   }
 
@@ -1001,6 +1016,185 @@ class ButlerAI {
         '癸': { nature: '阴水', image: '雨露之水', traits: ['细腻', '敏感', '洞察力'], weakness: ['多虑', '缺乏决断'] }
       }
     };
+  }
+
+  // 增强的喜用神分析
+  analyzeUsefulElements(analysis) {
+    const { pillars, counts, percents, strength } = analysis;
+    const dayElement = pillars.day.element;
+    
+    // 1. 判断身强身弱
+    const isStrong = strength.mark === '偏强';
+    
+    // 2. 计算各五行力量
+    const elementPower = this.calculateElementPower(pillars, counts);
+    
+    // 3. 确定喜用神
+    let useful = [];
+    let avoid = [];
+    
+    if (isStrong) {
+      // 身强：喜克泄耗
+      useful = this.getWeakeningElements(dayElement);
+      avoid = this.getStrengtheningElements(dayElement);
+    } else {
+      // 身弱：喜生扶
+      useful = this.getStrengtheningElements(dayElement);
+      avoid = this.getWeakeningElements(dayElement);
+    }
+    
+    // 4. 调候用神（根据季节）
+    const seasonElement = this.getSeasonElement(pillars.month.branch);
+    const conditioningElements = this.getConditioningElements(dayElement, seasonElement);
+    
+    // 合并调候用神
+    useful = [...new Set([...useful, ...conditioningElements.useful])];
+    avoid = [...new Set([...avoid, ...conditioningElements.avoid])];
+    
+    return {
+      strategy: isStrong ? '泄秀制化' : '生扶补助',
+      useful,
+      avoid,
+      advice: isStrong ? '宜泄不宜补，寻求平衡发展' : '需要生扶补助，增强自身能量',
+      elementPower,
+      conditioning: conditioningElements.reason
+    };
+  }
+
+  // 计算五行力量（考虑地支藏干）
+  calculateElementPower(pillars, counts) {
+    const power = {木:0, 火:0, 土:0, 金:0, 水:0};
+    
+    // 天干直接计数
+    Object.values(pillars).forEach(pillar => {
+      if (pillar.stem && pillar.stem !== '？') {
+        const element = this.getStemElement(pillar.stem);
+        power[element] += 1;
+      }
+    });
+    
+    // 地支藏干加权计算
+    Object.values(pillars).forEach(pillar => {
+      if (pillar.branch && pillar.branch !== '？') {
+        const hiddenStems = this.getHiddenStems(pillar.branch);
+        hiddenStems.forEach(stem => {
+          const element = this.getStemElement(stem);
+          power[element] += 0.3; // 地支藏干权重
+        });
+      }
+    });
+    
+    return power;
+  }
+
+  // 地支藏干表
+  getHiddenStems(branch) {
+    const hiddenMap = {
+      '子': ['癸'],
+      '丑': ['己','癸','辛'],
+      '寅': ['甲','丙','戊'],
+      '卯': ['乙'],
+      '辰': ['戊','乙','癸'],
+      '巳': ['丙','庚','戊'],
+      '午': ['丁','己'],
+      '未': ['己','丁','乙'],
+      '申': ['庚','壬','戊'],
+      '酉': ['辛'],
+      '戌': ['戊','辛','丁'],
+      '亥': ['壬','甲']
+    };
+    return hiddenMap[branch] || [];
+  }
+
+  // 调候用神（根据季节）
+  getSeasonElement(monthBranch) {
+    const seasonMap = {
+      '寅':'木', '卯':'木', '辰':'木',
+      '巳':'火', '午':'火', '未':'火',
+      '申':'金', '酉':'金', '戌':'金',
+      '亥':'水', '子':'水', '丑':'水'
+    };
+    return seasonMap[monthBranch] || '土';
+  }
+
+  getConditioningElements(dayElement, seasonElement) {
+    const conditioningRules = {
+      // 春木旺，需金制木，火暖局，土培木
+      '木': {
+        '木': { useful: ['金','火','土'], avoid: ['水','木'], reason: '春木旺相，需金修剪，火暖局，土培根' },
+        '火': { useful: ['水','金'], avoid: ['木','火'], reason: '春木生火，需水润局，金制木' },
+        '土': { useful: ['火','金'], avoid: ['木','水'], reason: '春土虚，需火生土，金制木' },
+        '金': { useful: ['土','水'], avoid: ['火','木'], reason: '春金休囚，需土生金，水泄木' },
+        '水': { useful: ['金','火'], avoid: ['土','木'], reason: '春水休囚，需金生水，火调候' }
+      },
+      // 夏火旺，需水制火，土泄火，金生水
+      '火': {
+        '木': { useful: ['水','金'], avoid: ['木','火'], reason: '夏火炎，需水济火，金生水' },
+        '火': { useful: ['水','土','金'], avoid: ['木','火'], reason: '夏火旺极，急需水制，土泄火' },
+        '土': { useful: ['水','金'], avoid: ['火','木'], reason: '夏土焦，需水润土，金生水' },
+        '金': { useful: ['水','土'], avoid: ['火','木'], reason: '夏金死，需水生扶，土晦火' },
+        '水': { useful: ['金','木'], avoid: ['土','火'], reason: '夏水绝，需金生水，木泄火' }
+      }
+      // 其他季节规则类似，可以继续补充...
+    };
+    
+    return conditioningRules[seasonElement]?.[dayElement] || 
+           { useful: [], avoid: [], reason: '平衡为要' };
+  }
+
+  // 在analyzeBazi方法中整合喜用神分析
+  analyzeBazi(baziData) {
+    const { pillars, counts, percents, timeUnknown } = baziData;
+    
+    // 深度分析命局
+    const strength = this.judgeAdvancedStrength(pillars, counts);
+    const usefulElements = this.analyzeUsefulElements({
+      pillars, counts, percents, strength
+    });
+    
+    this.currentAnalysis = {
+      pillars,
+      strength,
+      usefulElements, // 现在包含完整的喜用神分析
+      percents,
+      timeUnknown,
+      comprehensive: this.generateAdvancedAnalysis(pillars, strength, usefulElements, percents, timeUnknown)
+    };
+
+    return this.currentAnalysis;
+  }
+
+  // 更新生成综合解读方法，显示喜用神
+  generateAdvancedAnalysis(pillars, strength, usefulElements, percents, timeUnknown, lang = 'zh-CN') {
+    const dayMaster = pillars.day.stem;
+    const dayElement = pillars.day.element;
+    
+    let analysis = `🌳 命格深度解析\n\n`;
+    analysis += `您的八字日主为${dayMaster}${dayElement}，命局${strength.mark}。\n\n`;
+    
+    analysis += `📊 五行能量分布\n`;
+    analysis += `木 ${Math.round(percents.wood)}% | 火 ${Math.round(percents.fire)}% | 土 ${Math.round(percents.earth)}% | 金 ${Math.round(percents.metal)}% | 水 ${Math.round(percents.water)}%\n\n`;
+    
+    // 喜用神分析
+    analysis += `🎯 喜用神分析\n`;
+    analysis += `• 发展策略：${usefulElements.strategy}\n`;
+    analysis += `• 喜用元素：${usefulElements.useful.join('、')}\n`;
+    analysis += `• 忌避元素：${usefulElements.avoid.join('、')}\n`;
+    analysis += `• 调候要点：${usefulElements.conditioning}\n`;
+    analysis += `• 具体建议：${usefulElements.advice}\n\n`;
+    
+    // 五行力量详情
+    analysis += `💪 五行力量详情\n`;
+    Object.entries(usefulElements.elementPower).forEach(([element, power]) => {
+      const stars = '★'.repeat(Math.round(power));
+      analysis += `• ${element}：${stars} (${power.toFixed(1)})\n`;
+    });
+    
+    if (timeUnknown) {
+      analysis += `\n⚠️ 提示：由于出生时间不详，时柱未纳入分析，建议仅供参考。`;
+    }
+    
+    return analysis;
   }
 
   // 快速总览方法
@@ -1065,6 +1259,89 @@ class ButlerAI {
         : `\n\n⚠️ 提示：因出生时间不详，未纳入时柱`);
     }
     return s;
+  }
+
+  // 判断身强身弱
+  judgeAdvancedStrength(pillars, counts) {
+    const dayElement = pillars.day.element;
+    const sameElementCount = counts[dayElement] || 0;
+    
+    let mark, focus;
+    if (sameElementCount >= 3) {
+      mark = '偏强';
+      focus = '泄秀制化';
+    } else if (sameElementCount <= 1) {
+      mark = '偏弱';
+      focus = '生扶补助';
+    } else {
+      mark = '平衡';
+      focus = '守中调和';
+    }
+    
+    return { mark, focus };
+  }
+
+  // 辅助方法
+  tStrength(strength) {
+    const map = {
+      '偏强': t('analysis_strength_strong'),
+      '偏弱': t('analysis_strength_weak'),
+      '平衡': t('analysis_strength_balanced')
+    };
+    return map[strength] || strength;
+  }
+
+  tStrategy(strategy) {
+    const map = {
+      '泄秀/制化': t('analysis_strategy_drain'),
+      '补助/顺势': t('analysis_strategy_support'),
+      '守中/调和': t('analysis_strategy_balance')
+    };
+    return map[strategy] || strategy;
+  }
+
+  hasWoodFireStructure(pillars) {
+    const woodCount = this.countElement(pillars, '木');
+    const fireCount = this.countElement(pillars, '火');
+    return woodCount >= 2 && fireCount >= 2;
+  }
+
+  countElement(pillars, element) {
+    let count = 0;
+    Object.values(pillars).forEach(pillar => {
+      if (this.getStemElement(pillar.stem) === element) count++;
+    });
+    return count;
+  }
+
+  getStemElement(stem) {
+    return {
+      '甲':'木', '乙':'木', '丙':'火', '丁':'火', 
+      '戊':'土', '己':'土', '庚':'金', '辛':'金', 
+      '壬':'水', '癸':'水'
+    }[stem];
+  }
+
+  getStrengtheningElements(element) {
+    const map = {
+      '木': ['木', '水'],
+      '火': ['火', '木'],
+      '土': ['土', '火'],
+      '金': ['金', '土'],
+      '水': ['水', '金']
+    };
+    return map[element] || [];
+  }
+
+  getWeakeningElements(element) {
+    const map = {
+      '木': ['火', '土', '金'],
+      '火': ['土', '金', '水'],
+      '土': ['金', '水', '木'],
+      '金': ['水', '木', '火'],
+      '水': ['木', '火', '土']
+    };
+    return map[element] || [];
   }
 
   // 深度指导方法
@@ -1151,118 +1428,6 @@ class ButlerAI {
     return (lang==='en'
       ? `🌟 Personality Insights\n\nCore strengths: ${traits}\nGrowth areas: ${watch}`
       : `🌟 性格深度解析\n\n核心优势：${traits}\n成长方向：${watch}`);
-  }
-
-  // 辅助方法
-  tStrength(strength) {
-    const map = {
-      '偏强': t('analysis_strength_strong'),
-      '偏弱': t('analysis_strength_weak'),
-      '平衡': t('analysis_strength_balanced')
-    };
-    return map[strength] || strength;
-  }
-
-  tStrategy(strategy) {
-    const map = {
-      '泄秀/制化': t('analysis_strategy_drain'),
-      '补助/顺势': t('analysis_strategy_support'),
-      '守中/调和': t('analysis_strategy_balance')
-    };
-    return map[strategy] || strategy;
-  }
-
-  hasWoodFireStructure(pillars) {
-    const woodCount = this.countElement(pillars, '木');
-    const fireCount = this.countElement(pillars, '火');
-    return woodCount >= 2 && fireCount >= 2;
-  }
-
-  countElement(pillars, element) {
-    let count = 0;
-    Object.values(pillars).forEach(pillar => {
-      if (this.advancedKnowledge.stemTraits[pillar.stem]?.nature.includes(element)) count++;
-      // 简化处理，实际应该检查地支元素
-    });
-    return count;
-  }
-
-  analyzeBazi(baziData) {
-    const { pillars, counts, percents, timeUnknown } = baziData;
-    
-    // 简化的命局分析
-    const strength = this.judgeStrength(pillars, counts);
-    const usefulElements = this.analyzeUsefulElements(strength.mark, pillars.day.element);
-
-    this.currentAnalysis = {
-      pillars,
-      strength,
-      usefulElements,
-      percents,
-      timeUnknown
-    };
-
-    return this.currentAnalysis;
-  }
-
-  judgeStrength(pillars, counts) {
-    const dayElement = pillars.day.element;
-    const sameElementCount = counts[dayElement] || 0;
-    
-    let mark, focus;
-    if (sameElementCount >= 3) {
-      mark = '偏强';
-      focus = '泄秀制化';
-    } else if (sameElementCount <= 1) {
-      mark = '偏弱';
-      focus = '生扶补助';
-    } else {
-      mark = '平衡';
-      focus = '守中调和';
-    }
-    
-    return { mark, focus };
-  }
-
-  analyzeUsefulElements(strength, dmElem) {
-    if (strength === '偏强') {
-      return {
-        useful: this.getWeakeningElements(dmElem),
-        avoid: [dmElem]
-      };
-    } else if (strength === '偏弱') {
-      return {
-        useful: this.getStrengtheningElements(dmElem),
-        avoid: this.getWeakeningElements(dmElem)
-      };
-    } else {
-      return {
-        useful: ['木','火','土','金','水'],
-        avoid: []
-      };
-    }
-  }
-
-  getStrengtheningElements(element) {
-    const map = {
-      '木': ['木', '水'],
-      '火': ['火', '木'],
-      '土': ['土', '火'],
-      '金': ['金', '土'],
-      '水': ['水', '金']
-    };
-    return map[element] || [];
-  }
-
-  getWeakeningElements(element) {
-    const map = {
-      '木': ['火', '土', '金'],
-      '火': ['土', '金', '水'],
-      '土': ['金', '水', '木'],
-      '金': ['水', '木', '火'],
-      '水': ['木', '火', '土']
-    };
-    return map[element] || [];
   }
 
   answerQuestion(questionType) {
@@ -1368,6 +1533,26 @@ function showGrowthTracker(analysis) {
   }
 }
 
+// 新增：显示喜用神分析
+function displayUsefulElements(usefulElements) {
+  const elementsDiv = document.createElement('div');
+  elementsDiv.className = 'card';
+  elementsDiv.innerHTML = `
+    <div class="h2">🎯 喜用神分析</div>
+    <div class="useful-elements">
+      <div><strong>发展策略：</strong>${usefulElements.strategy}</div>
+      <div><strong>喜用元素：</strong>${usefulElements.useful.join('、')}</div>
+      <div><strong>忌避元素：</strong>${usefulElements.avoid.join('、')}</div>
+      <div><strong>调候要点：</strong>${usefulElements.conditioning}</div>
+      <div><strong>具体建议：</strong>${usefulElements.advice}</div>
+    </div>
+  `;
+  
+  // 插入到五行分析后面
+  const elementsSection = $('bazi-elements-balance').closest('.card');
+  elementsSection.after(elementsDiv);
+}
+ 
 // ================== 主逻辑函数 ==================
 async function genChart() {
   const birth = ($('birthdate')?.value || '').trim();
@@ -1453,6 +1638,8 @@ async function genChart() {
       const analysis = butlerAI.analyzeBazi(baziData);
       // 显示快速总览
       updateButlerDisplay(butlerAI.getOverviewInCurrentLanguage(), 'overview');
+      // 显示喜用神分析
+      displayUsefulElements(analysis.usefulElements);
       // 显示成长跟踪器
       showGrowthTracker(analysis);
     }, 1000);
