@@ -364,42 +364,42 @@
         </div>
       </div>
 
-<!-- 喜用神分析部分 - 合并为一个 -->
-<div class="card">
+<!-- 喜用神分析部分 - 修改为动态显示 -->
+<div class="card" id="useful-elements-section" style="display:none;">
   <div class="h2">🎯 喜用神分析</div>
   
-  <!-- 五行能量条 -->
-  <div class="bar-row"><span data-i18n="el_wood">木</span><div class="bar"><i id="bar-木" style="width:25%"></i></div><span id="pct-木">25%</span></div>
-  <div class="bar-row"><span data-i18n="el_fire">火</span><div class="bar"><i id="bar-火" style="width:38%"></i></div><span id="pct-火">38%</span></div>
-  <div class="bar-row"><span data-i18n="el_earth">土</span><div class="bar"><i id="bar-土" style="width:25%"></i></div><span id="pct-土">25%</span></div>
-  <div class="bar-row"><span data-i18n="el_metal">金</span><div class="bar"><i id="bar-金" style="width:0%"></i></div><span id="pct-金">0%</span></div>
-  <div class="bar-row"><span data-i18n="el_water">水</span><div class="bar"><i id="bar-水" style="width:13%"></i></div><span id="pct-水">13%</span></div>
+  <!-- 五行能量条 - 动态更新 -->
+  <div class="bar-row"><span data-i18n="el_wood">木</span><div class="bar"><i id="bar-wood-dynamic"></i></div><span id="pct-wood-dynamic">0%</span></div>
+  <div class="bar-row"><span data-i18n="el_fire">火</span><div class="bar"><i id="bar-fire-dynamic"></i></div><span id="pct-fire-dynamic">0%</span></div>
+  <div class="bar-row"><span data-i18n="el_earth">土</span><div class="bar"><i id="bar-earth-dynamic"></i></div><span id="pct-earth-dynamic">0%</span></div>
+  <div class="bar-row"><span data-i18n="el_metal">金</span><div class="bar"><i id="bar-metal-dynamic"></i></div><span id="pct-metal-dynamic">0%</span></div>
+  <div class="bar-row"><span data-i18n="el_water">水</span><div class="bar"><i id="bar-water-dynamic"></i></div><span id="pct-water-dynamic">0%</span></div>
   
-  <div id="bazi-elements-balance" class="muted" style="margin-top:8px" data-i18n="element_balance_desc">
+  <div id="bazi-elements-balance-dynamic" class="muted" style="margin-top:8px" data-i18n="element_balance_desc">
     五行中火元素最强，金元素最弱。
   </div>
 
-  <!-- 分析建议部分 -->
+  <!-- 分析建议部分 - 动态更新 -->
   <div class="analysis-details" style="margin-top:16px;padding-top:16px;border-top:1px solid #eee;">
     <div class="analysis-row">
       <strong data-i18n="strategy_label">发展策略：</strong>
-      <span data-i18n="strategy_value">生扶补助</span>
+      <span id="strategy-value-dynamic">生扶补助</span>
     </div>
     <div class="analysis-row">
       <strong data-i18n="favorable_elements">喜用元素：</strong>
-      <span data-i18n="favorable_value">木、水</span>
+      <span id="favorable-value-dynamic">木、水</span>
     </div>
     <div class="analysis-row">
       <strong data-i18n="avoid_elements">忌避元素：</strong>
-      <span data-i18n="avoid_value">火、土、金</span>
+      <span id="avoid-value-dynamic">火、土、金</span>
     </div>
     <div class="analysis-row">
       <strong data-i18n="adjustment_key">调候要点：</strong>
-      <span data-i18n="adjustment_value">平衡为要</span>
+      <span id="adjustment-value-dynamic">平衡为要</span>
     </div>
     <div class="analysis-row">
       <strong data-i18n="specific_suggestions">具体建议：</strong>
-      <span data-i18n="suggestions_value">需要生扶补助，增强自身能量</span>
+      <span id="suggestions-value-dynamic">需要生扶补助，增强自身能量</span>
     </div>
   </div>
 </div>
@@ -2075,8 +2075,8 @@ async function genChart() {
       const analysis = butlerAI.analyzeBazi(baziData);
       // 显示快速总览
       updateButlerDisplay(butlerAI.getOverviewInCurrentLanguage(), 'overview');
-      // 显示喜用神分析
-      displayUsefulElements(analysis.usefulElements);
+      // 显示喜用神分析 - 使用新的动态显示函数
+      updateUsefulElementsDisplay(analysis);
       // 显示成长跟踪器
       showGrowthTracker(analysis);
     }, 1000);
@@ -2091,6 +2091,51 @@ async function genChart() {
   }
 }
 
+// 新增：更新喜用神分析显示
+function updateUsefulElementsDisplay(analysis) {
+  const section = $('#useful-elements-section');
+  if (section) {
+    section.style.display = 'block';
+  }
+  
+  const { percents, usefulElements } = analysis;
+  
+  // 更新五行条
+  setBar($('bar-wood-dynamic'), percents.wood);
+  setText('pct-wood-dynamic', Math.round(percents.wood) + '%');
+  setBar($('bar-fire-dynamic'), percents.fire);
+  setText('pct-fire-dynamic', Math.round(percents.fire) + '%');
+  setBar($('bar-earth-dynamic'), percents.earth);
+  setText('pct-earth-dynamic', Math.round(percents.earth) + '%');
+  setBar($('bar-metal-dynamic'), percents.metal);
+  setText('pct-metal-dynamic', Math.round(percents.metal) + '%');
+  setBar($('bar-water-dynamic'), percents.water);
+  setText('pct-water-dynamic', Math.round(percents.water) + '%');
+  
+  // 更新五行平衡提示
+  const elements = [
+    { name: t('el_wood'), value: percents.wood },
+    { name: t('el_fire'), value: percents.fire },
+    { name: t('el_earth'), value: percents.earth },
+    { name: t('el_metal'), value: percents.metal },
+    { name: t('el_water'), value: percents.water }
+  ];
+  
+  const strongest = elements.reduce((a, b) => a.value > b.value ? a : b);
+  const weakest = elements.reduce((a, b) => a.value < b.value ? a : b);
+  
+  setText('bazi-elements-balance-dynamic', 
+    `五行中${strongest.name}元素最强，${weakest.name}元素最弱。`
+  );
+  
+  // 更新分析建议
+  setText('strategy-value-dynamic', usefulElements.strategy);
+  setText('favorable-value-dynamic', usefulElements.useful.join('、'));
+  setText('avoid-value-dynamic', usefulElements.avoid.join('、'));
+  setText('adjustment-value-dynamic', usefulElements.conditioning);
+  setText('suggestions-value-dynamic', usefulElements.advice);
+}
+
 // ================== 初始化语言系统 ==================
 function initLanguageSystem() {
   const langSelect = $('langSelect');
@@ -2101,21 +2146,13 @@ function initLanguageSystem() {
       // 重新生成当前内容
       if (butlerAI.currentAnalysis) {
         updateButlerDisplay(butlerAI.getOverviewInCurrentLanguage(), 'overview');
+        // 同时更新喜用神分析的多语言
+        updateUsefulElementsDisplay(butlerAI.currentAnalysis);
       }
     });
   }
   
   applyTranslations();
-}
-
-// 语言切换函数
-function switchLanguage(lang) {
-  document.querySelectorAll('[data-i18n]').forEach(element => {
-    const key = element.getAttribute('data-i18n');
-    if (translations[lang] && translations[lang][key]) {
-      element.textContent = translations[lang][key];
-    }
-  });
 }
   
 // ================== 事件监听 ==================
