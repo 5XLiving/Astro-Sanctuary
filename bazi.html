@@ -1629,6 +1629,71 @@ async function aiRequest(messages, {timeout=15000, retries=2}={}){
   }
 }
 
+async function askAi(topic){
+  ensureAiCard();
+  const card = document.getElementById('aiCard');
+  const out  = document.getElementById('aiContent');
+  const chipsWrap = document.getElementById('aiChips');
+  const lang = (getLang && getLang()) || 'zh-CN';
+
+  if (card){ card.dataset.lastQ = topic; card.dataset.lang = lang; }
+
+  // skeleton
+  if (out){
+    out.innerHTML = `
+      <div class="skeleton">
+        <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
+        <div style="width:70%"></div><div style="width:50%"></div>
+      </div>`;
+  }
+
+  // lock chips during request
+  const disableChips = (v)=> {
+    if (!chipsWrap) return;
+    chipsWrap.querySelectorAll('.chip').forEach(c=>{
+      c.disabled = v;
+      c.style.opacity = v ? .6 : 1;
+      c.style.pointerEvents = v ? 'none' : 'auto';
+    });
+  };
+  disableChips(true);
+
+  try{
+    const ctx  = window.__last_report__ || {};
+    const sys  = buildButlerSystemPrompt(lang);
+    const user = buildUserPrompt(topic, ctx);
+
+    const { ok, data } = await aiRequest(
+      [{ role:'system', content: sys }, { role:'user', content: user }],
+      { timeout: 15000, retries: 2 }
+    );
+
+    let text = ok ? extractAIText(data) : "";
+    if (!text) text = localFallbackButler(topic, ctx);
+
+    if (!isVIP()){
+      const teaser = text.split('\n').slice(0,6).join('\n');
+      out.innerHTML = mdToHtml(teaser) + `
+        <div class="ai-lock-overlay">
+          <div class="tip">💎 ${t('vip_title') || 'VIP Segment'}</div>
+          <div class="sub">${lang.startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'}</div>
+        </div>`;
+    }else{
+      out.innerHTML = mdToHtml(text);
+    }
+  }catch(e){
+    if (e?.name !== 'AbortError' && out){
+      out.innerHTML = (lang.startsWith('zh')
+        ? '网络异常或服务繁忙。已切换到离线简版指引。'
+        : 'Network error or service busy. Showing offline guidance.');
+      const ctx = window.__last_report__ || {};
+      out.innerHTML += '<br><br>' + mdToHtml(localFallbackButler(t('q_career'), ctx));
+    }
+  }finally{
+    disableChips(false);
+  }
+}  
+
 /* 6) 与页面交互：芯片点击 & 语言切换 & 排盘完成后挂载 */
 document.addEventListener('click', (e)=>{
   const el = e.target;
