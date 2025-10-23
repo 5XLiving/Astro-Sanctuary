@@ -1049,6 +1049,132 @@ class ButlerAI {
     };
   }
 
+  // 获取当前语言的分析内容
+  getAnalysisInCurrentLanguage() {
+    if (!this.currentAnalysis) return null;
+    
+    const lang = getLang();
+    return this.localizeAnalysis(this.currentAnalysis, lang);
+  }
+
+  localizeAnalysis(analysis, lang) {
+    const localized = { ...analysis };
+    
+    // 本地化强度描述
+    localized.strength.mark = this.tStrength(localized.strength.mark);
+    localized.strength.focus = this.tStrategy(localized.strength.focus);
+    
+    // 本地化建议
+    localized.usefulElements.strategy = this.tStrategy(localized.usefulElements.strategy);
+    localized.usefulElements.advice = this.tAdvice(localized.usefulElements.advice, lang);
+    
+    // 重新生成综合解读
+    localized.comprehensive = this.generateComprehensiveAnalysis(
+      localized.pillars, 
+      localized.strength, 
+      localized.usefulElements, 
+      localized.percents, 
+      localized.timeUnknown,
+      lang
+    );
+    
+    return localized;
+  }
+
+  tStrength(strength) {
+    const map = {
+      '偏强': t('analysis_strength_strong'),
+      '偏弱': t('analysis_strength_weak'),
+      '平衡': t('analysis_strength_balanced')
+    };
+    return map[strength] || strength;
+  }
+
+  tStrategy(strategy) {
+    const map = {
+      '泄秀/制化': t('analysis_strategy_drain'),
+      '补助/顺势': t('analysis_strategy_support'),
+      '守中/调和': t('analysis_strategy_balance')
+    };
+    return map[strategy] || strategy;
+  }
+
+  tAdvice(advice, lang) {
+    const adviceMap = {
+      'zh-CN': {
+        '宜泄不宜补，寻求平衡发展': '宜泄不宜补，寻求平衡发展',
+        '需要生扶补助，增强自身能量': '需要生扶补助，增强自身能量',
+        '保持平衡，顺势而为': '保持平衡，顺势而为'
+      },
+      'en': {
+        '宜泄不宜补，寻求平衡发展': 'Better to drain than to supplement, seek balanced development',
+        '需要生扶补助，增强自身能量': 'Need support and nourishment to enhance personal energy',
+        '保持平衡，顺势而为': 'Maintain balance, go with the flow'
+      },
+      'ja': {
+        '宜泄不宜补，寻求平衡发展': '補うより泄らす方が良く、バランスの取れた発展を求める',
+        '需要生扶补助，增强自身能量': 'サポートと栄養が必要で、自身のエネルギーを高める',
+        '保持平衡，顺势而为': 'バランスを保ち、流れに身を任せる'
+      }
+    };
+    
+    return adviceMap[lang]?.[advice] || advice;
+  }
+
+  // 更新生成综合解读方法，支持多语言
+  generateComprehensiveAnalysis(pillars, strength, usefulElements, percents, timeUnknown, lang = 'zh-CN') {
+    const dayMaster = pillars.day.stem;
+    const dayElement = pillars.day.element;
+    
+    let analysis = '';
+    
+    if (lang === 'zh-CN') {
+      analysis = `您的八字日主为${dayMaster}${dayElement}，命局${strength.mark}。\n\n`;
+      analysis += `📊 五行分布：\n`;
+      analysis += `木 ${Math.round(percents.wood)}% | 火 ${Math.round(percents.fire)}% | 土 ${Math.round(percents.earth)}% | 金 ${Math.round(percents.metal)}% | 水 ${Math.round(percents.water)}%\n\n`;
+      analysis += `🎯 发展策略：\n`;
+      analysis += `宜采用"${strength.focus}"的策略，${usefulElements.advice}\n\n`;
+      analysis += `💎 喜用元素：\n`;
+      analysis += `增强：${usefulElements.useful.join('、')}\n`;
+      if (usefulElements.avoid.length > 0) {
+        analysis += `注意：${usefulElements.avoid.join('、')}\n`;
+      }
+    } else if (lang === 'en') {
+      analysis = `Your Bazi Day Master is ${dayMaster}${dayElement}, chart is ${strength.mark}.\n\n`;
+      analysis += `📊 Five Elements:\n`;
+      analysis += `Wood ${Math.round(percents.wood)}% | Fire ${Math.round(percents.fire)}% | Earth ${Math.round(percents.earth)}% | Metal ${Math.round(percents.metal)}% | Water ${Math.round(percents.water)}%\n\n`;
+      analysis += `🎯 Development Strategy:\n`;
+      analysis += `Use "${strength.focus}" strategy, ${usefulElements.advice}\n\n`;
+      analysis += `💎 Favorable Elements:\n`;
+      analysis += `Enhance: ${usefulElements.useful.join(', ')}\n`;
+      if (usefulElements.avoid.length > 0) {
+        analysis += `Avoid: ${usefulElements.avoid.join(', ')}\n`;
+      }
+    } else if (lang === 'ja') {
+      analysis = `あなたの八字日主は${dayMaster}${dayElement}、命局は${strength.mark}です。\n\n`;
+      analysis += `📊 五行分布：\n`;
+      analysis += `木 ${Math.round(percents.wood)}% | 火 ${Math.round(percents.fire)}% | 土 ${Math.round(percents.earth)}% | 金 ${Math.round(percents.metal)}% | 水 ${Math.round(percents.water)}%\n\n`;
+      analysis += `🎯 発展戦略：\n`;
+      analysis += `"${strength.focus}"の戦略を採用し、${usefulElements.advice}\n\n`;
+      analysis += `💎 有利な要素：\n`;
+      analysis += `強化：${usefulElements.useful.join('、')}\n`;
+      if (usefulElements.avoid.length > 0) {
+        analysis += `注意：${usefulElements.avoid.join('、')}\n`;
+      }
+    }
+    
+    if (timeUnknown) {
+      const timeWarning = {
+        'zh-CN': `\n⚠️ 提示：由于出生时间不详，时柱未纳入分析，建议仅供参考。`,
+        'en': `\n⚠️ Note: Birth time unknown, hour pillar excluded from analysis. Use as reference only.`,
+        'ja': `\n⚠️ 注意：出生時間不明のため、時柱は分析に含まれていません。参考としてご利用ください。`
+      };
+      analysis += timeWarning[lang] || timeWarning['zh-CN'];
+    }
+    
+    return analysis;
+  }
+
   // 新增缺失的方法实现
   getGroundStrength(pillars) {
     let score = 0;
