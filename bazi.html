@@ -88,7 +88,6 @@
       position:fixed;right:18px;bottom:88px;z-index:50;width:min(460px,92vw);display:none;
       background:#0e1520;border:1px solid #243244;border-radius:14px;box-shadow:var(--shadow)
     }
-    .ss-chat-fab, .ss-chat-panel { display: none !important; }
     .ss-chat-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #243244}
     .ss-chat-title{font-weight:700}
     .ss-close{cursor:pointer;opacity:.8}
@@ -495,6 +494,7 @@ html { font-size: 16px; }
 const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
 
 const $ = id => document.getElementById(id);
+const gid = id => document.getElementById(id);  
 function showErr(msg){ const e=$("error"); if(!e) return; e.textContent=msg; e.style.display="block"; setTimeout(()=>{e.style.display='none'},5000); }
 function hideErr(){ const e=$("error"); if(!e) return; e.style.display="none"; e.textContent=""; }
 function showAuthErr(msg){ const e=$("authError"); if(!e) return; e.textContent=msg; e.style.display="block"; setTimeout(()=>{e.style.display='none'},5000); }
@@ -610,6 +610,7 @@ const translations = {
 
     // —— Butler / Report keys（中文） ——
     butler_title: "心怜管家 · 解读",
+    butler_chat_title: "心怜管家 · 小聊",
     day_master: "日主",
     chart_strength: "命局",
     season: "季节",
@@ -688,6 +689,7 @@ const translations = {
     rpt_strategy_drain: "泄秀/制化",
     rpt_strategy_support: "生扶/补助",
     rpt_strategy_balance: "调和",
+  
 
     // AI 芯片 & 任务
     chip_career: "事业",
@@ -778,6 +780,7 @@ const translations = {
 
     // —— Butler / Report keys（English） ——
     butler_title: "Xinlian Butler · Insight",
+    butler_chat_title: "Xinlian Butler · Chat",
     day_master: "Day Master",
     chart_strength: "Chart Strength",
     season: "Season",
@@ -942,6 +945,7 @@ const translations = {
     elements_balance_tpl: "{max}が最も強く、{min}が最も弱い。",
 
     butler_title: "心怜バトラー · インサイト",
+    butler_chat_title: "心怜バトラー · チャット",
     day_master: "日主",
     chart_strength: "チャートの強さ",
     season: "季節",
@@ -1106,6 +1110,7 @@ const translations = {
     elements_balance_tpl: "เด่นสุด: {max} · อ่อนสุด: {min}",
 
     butler_title: "ผู้ช่วยซินเหลียน · วิเคราะห์",
+    butler_chat_title: "ผู้ช่วยซินเหลียน · แชต",
     day_master: "Day Master",
     chart_strength: "ความแข็งแรงของดวง",
     season: "ฤดูกาล",
@@ -1270,6 +1275,7 @@ const translations = {
     elements_balance_tpl: "Terkuat: {max} · Terlemah: {min}",
 
     butler_title: "Xinlian Butler · Insight",
+    butler_chat_title: "Xinlian Butler · Chat",
     day_master: "Day Master",
     chart_strength: "Kekuatan Carta",
     season: "Musim",
@@ -1476,6 +1482,7 @@ function renderChips(){
 /* 4) Prompt 生成（多语言） */
 const BUTLER_LANG_NAME = {
   'zh-CN':'Simplified Chinese',
+  'zh-TW':'Traditional Chinese',
   'en':'English',
   'ja':'Japanese',
   'th':'Thai',
@@ -1759,6 +1766,106 @@ function mountButlerCard(){
   };
 })();
 
+/* =========================
+   右下角 Chat 悬浮球
+========================== */
+function mountChat(){
+  if (gid('ssChatFab')) return;
+
+  const chatFab = document.createElement('div');
+  chatFab.className = 'ss-chat-fab';
+  chatFab.id = 'ssChatFab';
+  chatFab.title = t('butler_chat_title');
+
+  const chatPanel = document.createElement('div');
+  chatPanel.className = 'ss-chat-panel';
+  chatPanel.id = 'ssChatPanel';
+  chatPanel.setAttribute('role','dialog');
+  chatPanel.setAttribute('aria-label', t('butler_chat_title'));
+  chatPanel.setAttribute('aria-modal','true');
+
+  chatPanel.innerHTML = `
+    <div class="ss-chat-head">
+      <div class="ss-chat-title">${t('butler_chat_title')}</div>
+      <div class="ss-close" id="ssChatClose">✕</div>
+    </div>
+    <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
+    <div class="ss-chat-input">
+      <input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/>
+      <button id="ssChatSend" class="btn">${t('chat_send')}</button>
+    </div>`;
+
+  document.body.appendChild(chatFab);
+  document.body.appendChild(chatPanel);
+
+  const $body  = gid('ssChatBody');
+  const $input = gid('ssChatInput');
+  const $send  = gid('ssChatSend');
+  const $close = gid('ssChatClose');
+
+  const openPanel  = ()=>{ chatPanel.style.display='block'; $input && $input.focus(); };
+  const closePanel = ()=>{ chatPanel.style.display='none'; };
+
+  chatFab.textContent = t('chat_fab');
+  chatFab.addEventListener('click', openPanel);
+  $close && $close.addEventListener('click', closePanel);
+
+  function addMsg(text, me=false){
+    const div = document.createElement('div');
+    div.className = 'ss-msg' + (me ? ' me' : '');
+    div.textContent = text;
+    $body.appendChild(div);
+    $body.scrollTop = $body.scrollHeight;
+  }
+
+  let chatAbort = null;
+  async function askChat(prompt){
+    addMsg(prompt, true);
+    if($input){ $input.value=''; $input.focus(); }
+
+    if (chatAbort){ chatAbort.abort(); chatAbort = null; }
+    chatAbort = new AbortController();
+    const thisCall = chatAbort;
+
+    const sys = [
+      `You are "Xinlian Butler". OUTPUT LANGUAGE: ${BUTLER_LANG_NAME[getLang()] || 'Simplified Chinese'}.`,
+      'Help visitors understand features, navigation and VIP. Tone: warm, concise, professional.'
+    ].join('\n');
+
+    try{
+      const { ok, data } = await aiRequest(
+        [{ role:'system', content: sys }, { role:'user', content: prompt }],
+        { timeout: 15000, retries: 2 }
+      );
+      if (thisCall.signal.aborted) return;
+
+      let reply = ok ? extractAIText(data) : '';
+      if (!reply) reply = (getLang() === 'zh-CN'
+        ? '网络异常或服务繁忙，请稍后重试。'
+        : 'Network error or service busy. Please try again later.');
+
+      addMsg(reply);
+    }catch(e){
+      if (e?.name === 'AbortError') return;
+      addMsg(getLang().startsWith('zh')
+        ? '网络异常或服务繁忙，请稍后重试。'
+        : 'Network error or service busy. Please try again later.');
+    }finally{
+      if (thisCall === chatAbort) chatAbort = null;
+    }
+  }
+
+  $send && $send.addEventListener('click', ()=>{
+    const v = $input?.value.trim();
+    if (v) askChat(v);
+  });
+  $input && $input.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter'){
+      const v = $input.value.trim();
+      if (v) askChat(v);
+    }
+  });
+}
 
 /* ================== 报告函数最小实现（兜底） ================== */
 (function ensureReportFallbacks(){
@@ -2037,27 +2144,52 @@ function mountRichReport({ pillars, percents, st, adv, timeUnknown }) {
 
 /* ================== 语言：初始化 + 切换后重渲染 ================== */
 function applyChatI18n(){
-  const fab=$('ssChatFab'), inp=$('ssChatInput'), btn=$('ssChatSend');
-  if (fab) fab.textContent = t('chat_fab');
-  if (inp) inp.placeholder = t('chat_placeholder');
-  if (btn) btn.textContent = t('chat_send');
-}
-function initLangUI(){
-  const sel = document.getElementById('langSelect');
-  if(!sel) return;
-  const current = getLang();
-  sel.value = current;
-  document.documentElement.lang = current;
-  applyI18n();
-  applyChatI18n();
+  const fab   = gid('ssChatFab');
+  const panel = gid('ssChatPanel');
+  if (fab)   fab.textContent = t('chat_fab');
+  if (panel) panel.setAttribute('aria-label', t('butler_chat_title'));
 
-  sel.addEventListener('change', ()=>{
-    setLang(sel.value);
-    applyI18n();
-    applyChatI18n();
-    rerenderReportsIfAny();
-  });
+  const title = panel?.querySelector('.ss-chat-title');
+  if (title) title.textContent = t('butler_chat_title');
+
+  const input = gid('ssChatInput');
+  if (input) input.setAttribute('placeholder', t('chat_placeholder'));
+
+  const send = gid('ssChatSend');
+  if (send)  send.textContent = t('chat_send');
 }
+
+function rerenderReportsIfAny(){
+  const ctx = window.__last_report__;
+  if (!ctx) return;
+
+  const { pillars, percents, st, adv, timeUnknown } = ctx;
+
+  mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown });
+  if (typeof mountRichReport === 'function') {
+    mountRichReport({ pillars, percents, st, adv, timeUnknown });
+  }
+  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
+
+  const E = ELABEL();
+  const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
+  const entries = Object.entries(percents || {});
+  const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
+  const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
+  setText('bazi-elements-balance',
+    t('elements_balance_tpl')
+      .replace('{max}', key2Locale[strongestK])
+      .replace('{min}', key2Locale[weakestK])
+  );
+
+  const titleEl = document.getElementById('butlerTitle');
+  if (titleEl) titleEl.textContent = t('butler_title');
+  renderChips();
+
+  // 面板若已掛載，這裡會同步刷新語系
+  applyChatI18n();
+}
+
 function rerenderReportsIfAny(){
   const ctx = window.__last_report__;
   if (!ctx) return;
@@ -2066,7 +2198,9 @@ function rerenderReportsIfAny(){
 
   // 1) 重新渲染报告（免费+富报告）
   mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown });
-  mountRichReport({ pillars, percents, st, adv, timeUnknown });
+  if (typeof mountRichReport === 'function') {
+    mountRichReport({ pillars, percents, st, adv, timeUnknown });
+  }
   if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
 
   // 2) 切语言后同步刷新“最强/最弱”提示
@@ -2086,6 +2220,18 @@ function rerenderReportsIfAny(){
   const titleEl = document.getElementById('butlerTitle');
   if (titleEl) titleEl.textContent = t('butler_title');
   renderChips();
+
+    const fab = gid('ssChatFab');
+if (fab) fab.textContent = t('chat_fab');
+const panel = gid('ssChatPanel');
+if (panel){
+  panel.setAttribute('aria-label', t('butler_chat_title'));
+  const title = panel.querySelector('.ss-chat-title');
+  if (title) title.textContent = t('butler_chat_title');
+  const input = gid('ssChatInput');
+  if (input) input.setAttribute('placeholder', t('chat_placeholder'));
+  const send = gid('ssChatSend');
+  if (send) send.textContent = t('chat_send');
 }
 
 /* ================== 估时间向导（仅勾选不详时触发） ================== */
@@ -2366,6 +2512,28 @@ document.addEventListener('DOMContentLoaded', ()=>{
     mo.observe(root, { childList:true, subtree:true });
   }
 })();
+
+document.addEventListener('DOMContentLoaded', () => {
+  // 初始化語言下拉
+  const sel = $('langSelect');
+  if (sel){
+    sel.value = getLang();
+    document.documentElement.lang = getLang();
+    applyI18n();
+  }
+
+  // 掛載聊天 + 套文案
+  mountChat();
+  applyChatI18n();
+
+  // 切換語言時同步刷新聊天 UI
+  sel?.addEventListener('change', ()=>{
+    setLang(sel.value);
+    applyI18n();
+    applyChatI18n();
+    if (typeof rerenderReportsIfAny === 'function') rerenderReportsIfAny();
+  });
+});
   
 /* ================== 自测：1978-02-21 12:00 → 戊午 甲寅 甲寅 庚午 ================== */
 (function(){
