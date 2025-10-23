@@ -1523,69 +1523,108 @@ function buildUserPrompt(topic, ctx){
   return lines.join('\n');
 }
 
-/* 5) 请求与渲染 */
-async function askAi(topic){
-  // 先确保卡片存在，并记录“上一次主题”
-  ensureAiCard();
-  const card = document.getElementById('aiCard');
-  if (card) card.dataset.lastQ = topic;  // 记住最近的主题
+// === Butler helpers: put these ABOVE "/* 5) 请求与渲染 */" ===
+let aiReqCtrl = null;
 
-  // remember which language this content was generated in
- if (card) card.dataset.lang = (getLang && getLang()) || 'zh-CN';
+function extractAIText(data){
+  if (!data) return "";
+  if (typeof data === "string") return data.trim();
+  if (data.reply) return String(data.reply).trim();
+  if (data.text) return String(data.text).trim();
+  if (data.output) return String(data.output).trim();
+  if (data.content) return String(data.content).trim();
 
-  // 骨架屏
-  const out = document.getElementById('aiContent');
-  if (out) {
-    out.innerHTML = `
-      <div class="skeleton">
-        <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
-        <div style="width:70%"></div><div style="width:50%"></div>
-      </div>`;
+  if (Array.isArray(data.choices) && data.choices[0]) {
+    const c = data.choices[0];
+    if (c.message?.content) return String(c.message.content).trim();
+    if (c.delta?.content)   return String(c.delta.content).trim();
   }
-
-  try{
-    // 组 Prompt（含语言）
-    const ctx  = window.__last_report__ || {};
-    const lang = (getLang && getLang()) || 'zh-CN';
-    const sys  = buildButlerSystemPrompt(lang);
-    const user = buildUserPrompt(topic, ctx);
-
-    const r = await fetch(`${API_BASE}/api/chat`, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify({ messages: [
-        { role:'system', content: sys },
-        { role:'user',   content: user }
-      ]})
-    });
-
-    let data; try{ data = await r.json(); }catch{ data = {}; }
-    let text = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
-
-    if(!text){
-      text = lang.startsWith('zh')
-        ? '抱歉，暂时没有生成到内容，请稍后再试。'
-        : 'Sorry, no content generated. Please try again.';
+  if (Array.isArray(data.candidates) && data.candidates[0]) {
+    const parts = data.candidates[0].content?.parts || data.candidates[0].content || [];
+    const txt = (Array.isArray(parts) ? parts.map(p=>p.text||"").join("\n") : "");
+    if (txt.trim()) return txt.trim();
+  }
+  if (data.raw && typeof data.raw === "string" && data.raw.includes("data:")) {
+    const lines = data.raw.split("\n").filter(l => l.trim().startsWith("data:"));
+    for (let i=lines.length-1;i>=0;i--){
+      const js = lines[i].replace(/^data:\s*/,"").trim();
+      try{
+        const obj = JSON.parse(js);
+        const got = extractAIText(obj);
+        if (got) return got;
+      }catch{}
     }
+  }
+  return "";
+}
 
-    // 非会员只显示前几行 + 引导
-    if(!isVIP()){
-      const teaser = text.split('\n').slice(0,6).join('\n');
-      out.innerHTML = mdToHtml(teaser) + `
-        <div class="ai-lock-overlay">
-          <div class="tip">💎 ${t('vip_title') || 'VIP Segment'}</div>
-          <div class="sub">${
-            lang.startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'
-          }</div>
-        </div>`;
-    }else{
-      out.innerHTML = mdToHtml(text);
-    }
-  }catch(e){
-    if(out){
-      out.innerHTML = (getLang && getLang()).startsWith('zh')
-        ? '网络异常或服务繁忙，请稍后重试。'
-        : 'Network error or service busy. Please try again later.';
+function localFallbackButler(topic, ctx){
+  const { percents={}, timeUnknown } = ctx || {};
+  const kv = [
+    [t('el_wood'), Math.round(percents.wood||0)],
+    [t('el_fire'), Math.round(percents.fire||0)],
+    [t('el_earth'),Math.round(percents.earth||0)],
+    [t('el_metal'),Math.round(percents.metal||0)],
+    [t('el_water'),Math.round(percents.water||0)],
+  ];
+  const strongest = kv.reduce((a,b)=> a[1]>=b[1]?a:b)[0];
+  const weakest   = kv.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
+  const caution = timeUnknown ? (t('rpt_time_hint') || '出生时间不详，未纳入时柱，仅供参考。') : '';
+
+  return [
+    `**${t('butler_title')||'心怜管家 · 解读'}（${navigator.onLine ? 'Fallback' : '离线模式'}）**`,
+    `- ${t('rpt_wuxing_label')||'五行'}：${kv.map(([k,v])=>`${k} ${v}%`).join(' · ')}`,
+    `- ${t('rpt_balance_focus_label')||'调衡要点'}：${strongest} ${t('rpt_strongest_word')||'偏旺'}；${weakest} ${t('rpt_weakest_word')||'偏弱'}`,
+    caution,
+    ``,
+    `**${t('rpt_strategy_label')||'策略'}**`,
+    `- ${t('rpt_strategy_support')||'生扶/补助'}：围绕“${weakest}”做环境与作息补强（色彩、方位、起居）。`,
+    `- ${t('rpt_strategy_drain')||'泄秀/制化'}：适度分配“${strongest}”相关活动，避免过犹不及。`,
+    ``,
+    `**${t('dev_strategy')||'发展策略'}**`,
+    `- ${t('chip_career')||'事业'}：用“${strongest}”发力，但用流程去守“${weakest}”。`,
+    `- ${t('chip_money')||'财运'}：把控现金流，不把资源全压在强项赛道；保留 30% 机动。`,
+    `- ${t('chip_love')||'感情'}：先肯定强项，再谈节奏与边界。`,
+  ].join("\n");
+}
+
+async function aiRequest(messages, {timeout=15000, retries=2}={}){
+  if (aiReqCtrl) aiReqCtrl.abort();            // cancel previous
+  aiReqCtrl = new AbortController();
+
+  const url = `${API_BASE}/api/chat?_ts=${Date.now()}`;
+  const body = {
+    messages,
+    nonce: (crypto?.getRandomValues
+      ? Array.from(crypto.getRandomValues(new Uint32Array(2))).join('-')
+      : String(Math.random()))
+  };
+
+  for (let attempt=0; attempt<=retries; attempt++){
+    try{
+      const r = await fetch(url, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'Cache-Control':'no-cache' },
+        mode:'cors',
+        cache:'no-store',
+        body: JSON.stringify(body),
+        signal: aiReqCtrl.signal
+      });
+      const raw = await r.text();
+      let data; try{ data = raw ? JSON.parse(raw) : {}; }catch{ data = { ok:false, raw }; }
+      if (!r.ok) {
+        if (r.status>=500 || r.status===429) throw new Error(`http_${r.status}`);
+        return { ok:false, data };
+      }
+      return { ok:true, data };
+    }catch(e){
+      if (e.name === 'AbortError') throw e;
+      if (attempt < retries) {
+        const wait = 400 + Math.floor(Math.random()*400) * (attempt+1);
+        await new Promise(res=>setTimeout(res, wait));
+        continue;
+      }
+      return { ok:false, data:{ msg: e.message||'network_error' } };
     }
   }
 }
@@ -1618,7 +1657,7 @@ function mountButlerCard(){
   const aiCard = document.getElementById('aiCard');
   if (aiCard && !aiCard.dataset.autorun) {
     aiCard.dataset.autorun = '1';
-    askAi(t('q_career'));  // 默认先给“事业”建议
+    askAi(t('q_career'));
   }
 }
 
