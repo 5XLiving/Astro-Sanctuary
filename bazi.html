@@ -1386,24 +1386,28 @@ function ELABEL(){
   };
 }
 
-<!-- 从这一行开始粘贴 -->
 /* ================== Butler AI 卡片（芯片/锁定/多语言） ================== */
 /* 0) Chat Mirror：浮窗 = 管家预览 + 芯片克隆（幂等） */
 (function butlerChatBridge(){
   if (window.__butlerMirrorHooked) return; window.__butlerMirrorHooked = true;
   const MIRROR_TO_CHAT = true;
 
-  function ensureChat(){
-    if (typeof mountChat === 'function') try{ mountChat(); }catch(_){}
-  }
-  window.openChat = window.openChat || function(){
+  // 统一强制显示浮窗（覆盖任何 display:none !important）
+  function forceShowChat(){
+    try{ if (typeof mountChat === 'function') mountChat(); }catch(_){}
+    const fab = document.getElementById('ssChatFab');
+    if (fab) fab.style.setProperty('display','flex','important');
     const p = document.getElementById('ssChatPanel');
-    if (p) p.style.display = 'block';
-  };
+    if (p)  p.style.setProperty('display','block','important');
+  }
+  // 兼容旧调用名
+  window.ensureChatVisibleNow = forceShowChat;
+  window.openChat = forceShowChat;
 
-  window.updateChatButlerFromHtml = window.updateChatButlerFromHtml || function(html){
+  // 把 AI 卡片内容放进浮窗顶部
+  function updateChatButlerFromHtml(html){
     if (!MIRROR_TO_CHAT) return;
-    ensureChat();
+    try{ if (typeof mountChat === 'function') mountChat(); }catch(_){}
     const body = document.getElementById('ssChatBody');
     if (!body) return;
 
@@ -1415,9 +1419,11 @@ function ELABEL(){
       body.prepend(box);
     }
     box.innerHTML = html || '';
-  };
+  }
+  window.updateChatButlerFromHtml = window.updateChatButlerFromHtml || updateChatButlerFromHtml;
 
-  window.syncChipsToChat = window.syncChipsToChat || function(){
+  // 同步芯片到浮窗
+  function syncChipsToChat(){
     if (!MIRROR_TO_CHAT) return;
     const chips = document.getElementById('aiChips');
     const body  = document.getElementById('ssChatBody');
@@ -1439,7 +1445,8 @@ function ELABEL(){
     chips.querySelectorAll('.chip').forEach(c=>{
       row.appendChild(c.cloneNode(true)); // 点击由 document 委托接
     });
-  };
+  }
+  window.syncChipsToChat = window.syncChipsToChat || syncChipsToChat;
 
   // 轻量防抖：减少镜像抖动
   const rafMirrorUpdate = (() => {
@@ -1447,15 +1454,12 @@ function ELABEL(){
     return (html) => {
       if (html === last) return;
       cancelAnimationFrame(raf);
-      raf = requestAnimationFrame(()=>{
-        updateChatButlerFromHtml(html);
-        last = html;
-      });
+      raf = requestAnimationFrame(()=>{ updateChatButlerFromHtml(html); last = html; });
     };
   })();
   window.__rafMirrorUpdate = rafMirrorUpdate;
 
-  // 一次性 Hook：把 Butler 的渲染结果镜像到浮窗
+  // Hook：让你的渲染自动镜像到浮窗
   const _renderMainOverview = window.renderMainOverview;
   if (typeof _renderMainOverview === 'function'){
     window.renderMainOverview = function(ctx){
@@ -1463,7 +1467,7 @@ function ELABEL(){
       const html = document.getElementById('aiContent')?.innerHTML || '';
       rafMirrorUpdate(html);
       syncChipsToChat();
-      openChat();
+      forceShowChat();
     };
   }
   const _askAi = window.askAi;
@@ -1473,6 +1477,7 @@ function ELABEL(){
       const html = document.getElementById('aiContent')?.innerHTML || '';
       rafMirrorUpdate(html);
       syncChipsToChat();
+      forceShowChat();
     };
   }
   const _renderChips = window.renderChips;
@@ -1482,18 +1487,19 @@ function ELABEL(){
       syncChipsToChat();
     };
   }
-  // i18n 同步标题/占位
+
+  // i18n：同步浮窗标题与占位
   const _applyChatI18n = window.applyChatI18n;
   window.applyChatI18n = function(){
     if (_applyChatI18n) _applyChatI18n();
     const head = document.querySelector('.ss-chat-head .ss-chat-title');
-    if (head) head.textContent = t('butler_chat_title');
+    if (head) head.textContent = t('butler_title');                // ← 用已有 key
     const inp = document.getElementById('ssChatInput');
-    if (inp) inp.placeholder = t('butler_chat_hint') || t('chat_placeholder');
+    if (inp)  inp.placeholder = t('chat_placeholder');
   };
 })();
 
-/* 1) Butler 样式 */
+/* 1) Butler 样式（页面内隐藏管家卡，只在浮窗显示镜像） */
 (function injectAiStyle(){
   const old=document.getElementById('ai-style'); if(old) old.remove();
   const style=document.createElement('style'); style.id='ai-style';
@@ -1509,14 +1515,12 @@ function ELABEL(){
     .ai-lock-overlay{position:static;inset:auto;background:none;backdrop-filter:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);text-align:center}
     .ai-lock-overlay .tip{color:#ffd88a;font-weight:700;margin-bottom:4px}
     .ai-lock-overlay .sub{color:var(--muted)}
-
-    /* ====== 仅浮窗显示 Butler：页面内隐藏 ====== */
     #aiCard{display:none !important;}
   `;
   document.head.appendChild(style);
 })();
 
-/* 2) 工具函数 */
+/* 2) 工具函数（保持原样） */
 function mdToHtml(md){
   return (md||'')
     .replace(/^###?\s+(.*)$/gm,'<h3 style="margin:12px 0 6px;color:#f2d27a">$1</h3>')
@@ -1538,10 +1542,7 @@ function ensureAiCard(){
   if (!target) return;
 
   let card = document.getElementById('aiCard');
-  if (card) {
-    if (card.parentElement !== target) target.appendChild(card);
-    return;
-  }
+  if (card) { if (card.parentElement !== target) target.appendChild(card); return; }
 
   const sec = document.createElement('div');
   sec.className = 'sec';
@@ -1571,15 +1572,14 @@ function mainLabel(){
 function renderChips(){
   const wrap = document.getElementById('aiChips'); if(!wrap) return;
   wrap.innerHTML = '';
-  const items = [
+  [
     { label: mainLabel(),           topic: 'current' },
     { k:'chip_career', q:'q_career', topic:'career' },
     { k:'chip_love',   q:'q_love',   topic:'love'   },
     { k:'chip_money',  q:'q_money',  topic:'money'  },
     { k:'chip_list',   q:'q_list',   topic:'list'   },
     { k:'chip_30d',    q:'q_30d',    topic:'30d'    },
-  ];
-  items.forEach(it=>{
+  ].forEach(it=>{
     const btn = document.createElement('button');
     btn.className = 'chip';
     btn.textContent = it.label || t(it.k);
@@ -1591,12 +1591,7 @@ function renderChips(){
 
 /* 4) Prompt 生成（多语言） */
 const BUTLER_LANG_NAME = {
-  'zh-CN':'Simplified Chinese',
-  'zh-TW':'Traditional Chinese',
-  'en':'English',
-  'ja':'Japanese',
-  'th':'Thai',
-  'ms':'Malay'
+  'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese','en':'English','ja':'Japanese','th':'Thai','ms':'Malay'
 };
 function buildButlerSystemPrompt(lang){
   const ln = BUTLER_LANG_NAME[lang] || BUTLER_LANG_NAME['zh-CN'];
@@ -1612,14 +1607,11 @@ function buildButlerSystemPrompt(lang){
 function buildUserPrompt(topic, ctx, topicType){
   const {pillars, percents, st, adv, timeUnknown} = ctx || {};
   const ln = BUTLER_LANG_NAME[(getLang && getLang()) || 'zh-CN'] || 'Simplified Chinese';
-
   const E = { wood:t('el_wood'), fire:t('el_fire'), earth:t('el_earth'), metal:t('el_metal'), water:t('el_water') };
-  const elemLine = ['wood','fire','earth','metal','water']
-    .map(k=>`${E[k]} ${Math.round((percents||{})[k]||0)}%`).join(' · ');
+  const elemLine = ['wood','fire','earth','metal','water'].map(k=>`${E[k]} ${Math.round((percents||{})[k]||0)}%`).join(' · ');
   const fav   = (adv?.useful||[]).join('/');
   const avoid = (adv?.avoid ||[]).join('/');
   const hourTxt = timeUnknown ? t('rpt_time_unknown') : ((pillars?.hour?.stem||'') + (pillars?.hour?.branch||''));
-
   return [
     `Bazi summary:`,
     `Year ${pillars?.year?.stem||''}${pillars?.year?.branch||''} · Month ${pillars?.month?.stem||''}${pillars?.month?.branch||''} · Day ${pillars?.day?.stem||''}${pillars?.day?.branch||''} · Hour ${hourTxt||''}`,
@@ -1645,7 +1637,6 @@ function extractAIText(data){
   if (data.text) return String(data.text).trim();
   if (data.output) return String(data.output).trim();
   if (data.content) return String(data.content).trim();
-
   if (Array.isArray(data.choices) && data.choices[0]) {
     const c = data.choices[0];
     if (c.message?.content) return String(c.message.content).trim();
@@ -1660,11 +1651,7 @@ function extractAIText(data){
     const lines = data.raw.split("\n").filter(l => l.trim().startsWith("data:"));
     for (let i=lines.length-1;i>=0;i--){
       const js = lines[i].replace(/^data:\s*/,"").trim();
-      try{
-        const obj = JSON.parse(js);
-        const got = extractAIText(obj);
-        if (got) return got;
-      }catch{}
+      try{ const obj = JSON.parse(js); const got = extractAIText(obj); if (got) return got; }catch{}
     }
   }
   return "";
@@ -1672,7 +1659,6 @@ function extractAIText(data){
 async function aiRequest(messages, {timeout=15000, retries=2}={}){
   if (aiReqCtrl) aiReqCtrl.abort();
   aiReqCtrl = new AbortController();
-
   const url = `${API_BASE}/api/chat?_ts=${Date.now()}`;
   const body = {
     messages,
@@ -1680,16 +1666,12 @@ async function aiRequest(messages, {timeout=15000, retries=2}={}){
       ? Array.from(crypto.getRandomValues(new Uint32Array(2))).join('-')
       : String(Math.random()))
   };
-
   for (let attempt=0; attempt<=retries; attempt++){
     try{
       const r = await fetch(url, {
         method:'POST',
         headers:{ 'Content-Type':'application/json', 'Cache-Control':'no-cache' },
-        mode:'cors',
-        cache:'no-store',
-        body: JSON.stringify(body),
-        signal: aiReqCtrl.signal
+        mode:'cors', cache:'no-store', body: JSON.stringify(body), signal: aiReqCtrl.signal
       });
       const raw = await r.text();
       let data; try{ data = raw ? JSON.parse(raw) : {}; }catch{ data = { ok:false, raw }; }
@@ -1700,11 +1682,7 @@ async function aiRequest(messages, {timeout=15000, retries=2}={}){
       return { ok:true, data };
     }catch(e){
       if (e.name === 'AbortError') throw e;
-      if (attempt < retries) {
-        const wait = 400 + Math.floor(Math.random()*400) * (attempt+1);
-        await new Promise(res=>setTimeout(res, wait));
-        continue;
-      }
+      if (attempt < retries) { const wait = 400 + Math.floor(Math.random()*400) * (attempt+1); await new Promise(res=>setTimeout(res, wait)); continue; }
       return { ok:false, data:{ msg: e.message||'network_error' } };
     }
   }
@@ -1746,13 +1724,14 @@ function renderCurrentData(ctx){
   const aiCard = document.getElementById('aiCard');
   if (aiCard){ aiCard.dataset.lastQ='__current__'; aiCard.dataset.lastTopicType='current'; }
 
-// 镜像到浮窗
-if (out){
-  (__rafMirrorUpdate || updateChatButlerFromHtml)(out.innerHTML);
-  syncChipsToChat();
-  ensureChatVisibleNow();     // ← 原来是 openChat()
+  // 镜像到浮窗
+  if (out){
+    (__rafMirrorUpdate || updateChatButlerFromHtml)(out.innerHTML);
+    syncChipsToChat();
+    ensureChatVisibleNow();
+  }
 }
-  
+
 function renderMainOverview(ctx){
   ensureAiCard();
   const out = document.getElementById('aiContent');
@@ -1764,7 +1743,7 @@ function renderMainOverview(ctx){
 
   (__rafMirrorUpdate || updateChatButlerFromHtml)(out.innerHTML);
   syncChipsToChat();
-  ensureChatVisibleNow();     // ← 原来是 openChat()
+  ensureChatVisibleNow();
 }
 
 /* 7) 兜底内容（按主题分支） */
@@ -1855,7 +1834,7 @@ function localFallbackButler(topicType, ctx){
       strategy
     ].join('\n');
   }
-  // 默认（总览）
+  // —— 主（总览）
   return [
     head, five, bal, caution, '',
     `${t('rpt_strategy_label')||'策略'}`,
@@ -1869,55 +1848,19 @@ function localFallbackButler(topicType, ctx){
   ].join('\n');
 }
 
-/* 让浮窗一定能看到（如果你本身已有样式，这段只在缺失时兜底） */
-(function injectChatFallbackStyle(){
-  if (document.getElementById('chat-fallback-style')) return;
-  const s=document.createElement('style'); s.id='chat-fallback-style';
-  s.textContent = `
-    .ss-chat-fab{
-      position:fixed; right:16px; bottom:16px; z-index:2147483647;
-      background:#0e1520; color:#e8edf3; border:1px solid #2a3546;
-      padding:10px 14px; border-radius:999px; cursor:pointer; display:flex; align-items:center; gap:8px;
-    }
-    .ss-chat-panel{
-      position:fixed; right:16px; bottom:84px; z-index:2147483647;
-      width:360px; max-width:92vw; height:520px; display:none;
-      background:#0b111a; border:1px solid #1f2a36; border-radius:12px; overflow:hidden;
-      box-shadow:0 12px 40px rgba(0,0,0,.45);
-    }
-    .ss-chat-head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #1f2a36;color:#ffd88a}
-    .ss-chat-body{height:calc(520px - 112px); overflow:auto; padding:12px}
-    .ss-chat-input{display:flex; gap:8px; padding:12px; border-top:1px solid #1f2a36}
-    .ss-chat-input input{flex:1; background:#0e1520; border:1px solid #2a3546; color:#e8edf3; border-radius:8px; padding:10px}
-    .ss-chat-input .btn{background:#1a2431; color:#e8edf3; border:1px solid #2a3546; border-radius:8px; padding:10px 12px; cursor:pointer}
-    .ss-msg{background:#0e1520; border:1px solid #2a3546; border-radius:10px; padding:10px 12px; margin-bottom:8px; color:#e8edf3}
-    .ss-msg.me{background:#162235}
-  `;
-  document.head.appendChild(s);
-})();
-
-/* 强制挂载并打开浮窗（多处会调用，安全幂等） */
-function ensureChatVisibleNow(){
-  try{ if (typeof mountChat === 'function') mountChat(); }catch(_){}
-  const fab = document.getElementById('ssChatFab');
-  if (fab) fab.style.display = 'flex';
-  const p = document.getElementById('ssChatPanel');
-  if (p) p.style.display = 'block';
-}
-
 /* 8) 浮窗入口（若外部没定义则提供） */
 if (typeof window.mountChat !== 'function'){
   window.mountChat = function(){
     if (document.getElementById('ssChatFab')) return;
 
-    const chatFab   = document.createElement('div'); chatFab.className='ss-chat-fab'; chatFab.id='ssChatFab'; chatFab.title=t('butler_chat_title');
+    const chatFab   = document.createElement('div'); chatFab.className='ss-chat-fab'; chatFab.id='ssChatFab'; chatFab.title=t('butler_title');
     const chatPanel = document.createElement('div'); chatPanel.className='ss-chat-panel'; chatPanel.id='ssChatPanel';
     chatPanel.setAttribute('role','dialog');
-    chatPanel.setAttribute('aria-label',t('butler_chat_title'));
+    chatPanel.setAttribute('aria-label',t('butler_title'));
     chatPanel.setAttribute('aria-modal','true');
 
     chatPanel.innerHTML = `
-      <div class="ss-chat-head"><div class="ss-chat-title">${t('butler_chat_title')}</div><div class="ss-close" id="ssChatClose">✕</div></div>
+      <div class="ss-chat-head"><div class="ss-chat-title">${t('butler_title')}</div><div class="ss-close" id="ssChatClose">✕</div></div>
       <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
       <div class="ss-chat-input">
         <input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/>
@@ -1932,7 +1875,7 @@ if (typeof window.mountChat !== 'function'){
     const $send  = document.getElementById('ssChatSend');
     const $close = document.getElementById('ssChatClose');
 
-    const openPanel  = ()=>{ chatPanel.style.display='block'; $input && $input.focus(); };
+    const openPanel  = ()=>{ chatPanel.style.setProperty('display','block','important'); $input && $input.focus(); };
     const closePanel = ()=>{ chatPanel.style.display='none'; };
 
     chatFab.textContent = t('chat_fab');
@@ -1992,16 +1935,13 @@ if (typeof window.mountChat !== 'function'){
     }
 
     $send  && $send.addEventListener('click', dispatchUserInput);
-    $input && $input.addEventListener('keydown', (e)=>{
-      if (e.key === 'Enter') dispatchUserInput();
-    });
+    $input && $input.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') dispatchUserInput(); });
   };
 }
 
 /* 9) askAi：统一出口（VIP 预览 + 浮窗同步） */
 async function askAi(userTask, topicType){
   ensureAiCard();
-  if (typeof mountChat === 'function') try{ mountChat(); }catch(_){}
   const card = document.getElementById('aiCard');
   const out  = document.getElementById('aiContent');
   const chipsWrap = document.getElementById('aiChips');
@@ -2038,6 +1978,7 @@ async function askAi(userTask, topicType){
     let text = ok ? extractAIText(data) : "";
     if (!text) text = localFallbackButler(topicType || 'generic', ctx);
 
+    // “主”不锁；专题按你原逻辑预览锁
     if (!isVIP() && topicType !== 'current'){
       const teaser = text.split('\n').slice(0,6).join('\n');
       out.innerHTML = mdToHtml(teaser) + `
@@ -2048,27 +1989,23 @@ async function askAi(userTask, topicType){
     }else{
       out.innerHTML = mdToHtml(text);
     }
-
-    const html = out.innerHTML;
-    (__rafMirrorUpdate || updateChatButlerFromHtml)(html);
-    syncChipsToChat();
-    openChat();
   }catch(e){
     if (e?.name !== 'AbortError' && out){
       const ctx = window.__last_report__ || {};
       out.innerHTML = mdToHtml(localFallbackButler(topicType || 'generic', ctx));
-
-      const html = out.innerHTML;
-      (__rafMirrorUpdate || updateChatButlerFromHtml)(html);
-      syncChipsToChat();
-      openChat();
     }
   }finally{
+    // 镜像 & 显示
+    if (out){
+      (__rafMirrorUpdate || updateChatButlerFromHtml)(out.innerHTML);
+      syncChipsToChat();
+      ensureChatVisibleNow();
+    }
     disableChips(false);
   }
 }
 
-/* 10) 芯片点击（页面/浮窗共用） */
+/* 10) 芯片点击 & 语言切换 */
 document.addEventListener('click', (e)=>{
   const el = e.target;
   if(el && el.classList.contains('chip')){
@@ -2082,129 +2019,42 @@ document.addEventListener('click', (e)=>{
   }
 });
 
-/* ----------------- ！！！以下保留并优化你后续的所有功能 ！！！ ----------------- */
+// 切语言时刷新标题与芯片，并用上一次主题重生
+(function patchRerenderForAi(){
+  const _orig = (typeof rerenderReportsIfAny==='function') ? rerenderReportsIfAny : null;
+  window.rerenderReportsIfAny = function(){
+    if(_orig) _orig();
 
-/* 11) 报告挂载（免费 + 富报告） */
-function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
-  const resultEl = document.getElementById('result');
-  if (!resultEl) return;
+    const titleEl = document.getElementById('butlerTitle');
+    if (titleEl) titleEl.textContent = t('butler_title');
+    renderChips();
 
-  let freeNode = document.getElementById('xl-free-report');
-  if (!freeNode) {
-    freeNode = document.createElement('div');
-    freeNode.id = 'xl-free-report';
-    resultEl.appendChild(freeNode);
-  }
-  freeNode.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown});
-} // ←←← 必须有这一行，结束函数
+    const aiCard = document.getElementById('aiCard');
+    const newLang = (getLang && getLang()) || 'zh-CN';
+    const lastQ   = (aiCard && aiCard.dataset.lastQ) || 'current';
+    const lastTopicType = (aiCard && aiCard.dataset.lastTopicType) || 'current';
+    if (!aiCard) return;
 
-function mountButlerCard(){
-  ensureAiCard();
-  const aiCard = document.getElementById('aiCard');
-  if (aiCard && !aiCard.dataset.autorun) {
-    aiCard.dataset.autorun = '1';
-    renderMainOverview(window.__last_report__ || {});  // 首屏“主”
-  }
-}
-
-/* 12) 富报告 + 管家容器安放 */
-function mountRichReport({ pillars, percents, st, adv, timeUnknown }) {
-  let host = document.getElementById('rich-report');
-  if (!host) {
-    host = document.createElement('div');
-    host.id = 'rich-report';
-    const result = document.getElementById('result');
-    if (result) result.appendChild(host);
-  }
-  host.innerHTML = buildRichReportHTML({ pillars, percents, st, adv, timeUnknown });
-
-  let bhost = document.getElementById('butler-host');
-  if (!bhost && host.parentNode) {
-    bhost = document.createElement('div');
-    bhost.id = 'butler-host';
-    host.parentNode.insertBefore(bhost, host.nextSibling);
-  }
-
-  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
-}
-
-/* 13) 语言：初始化 + 切换后重渲染（合并 Butler 刷新逻辑，避免二次 Hook 冲突） */
-function applyChatI18n(){
-  const fab=$('ssChatFab'), inp=$('ssChatInput'), btn=$('ssChatSend');
-  if (fab) fab.textContent = t('chat_fab');
-  if (inp) inp.placeholder = t('chat_placeholder');
-  if (btn) btn.textContent = t('chat_send');
-}
-function initLangUI(){
-  const sel = document.getElementById('langSelect');
-  if(!sel) return;
-  const current = getLang();
-  sel.value = current;
-  document.documentElement.lang = current;
-  applyI18n();
-  applyChatI18n();
-
-  sel.addEventListener('change', ()=>{
-    setLang(sel.value);
-    applyI18n();
-    applyChatI18n();
-    rerenderReportsIfAny();
-  });
-}
-function rerenderReportsIfAny(){
-  const ctx = window.__last_report__;
-  if (!ctx) return;
-
-  const { pillars, percents, st, adv, timeUnknown } = ctx;
-
-  // 1) 重新渲染报告（免费+富报告）
-  mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown });
-  mountRichReport({ pillars, percents, st, adv, timeUnknown });
-  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
-
-  // 2) 切语言后同步刷新“最强/最弱”提示
-  const E = ELABEL();
-  const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
-  const entries = Object.entries(percents || {});
-  const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
-  const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
-  setText(
-    'bazi-elements-balance',
-    t('elements_balance_tpl')
-      .replace('{max}', key2Locale[strongestK])
-      .replace('{min}', key2Locale[weakestK])
-  );
-
-  // 3) 刷新 AI 卡片标题与芯片文案
-  const titleEl = document.getElementById('butlerTitle');
-  if (titleEl) titleEl.textContent = t('butler_title');
-  renderChips();
-
-  // 4) Butler 内容按上次主题自动刷新 + 同步浮窗
-  const aiCard = document.getElementById('aiCard');
-  const newLang = (getLang && getLang()) || 'zh-CN';
-  const lastQ   = (aiCard && aiCard.dataset.lastQ) || '__current__';
-  const lastTopicType = (aiCard && aiCard.dataset.lastTopicType) || 'current';
-  if (!aiCard) return;
-
-  if (aiCard.dataset.lang !== newLang) {
-    aiCard.dataset.lang = newLang;
-    if (lastTopicType === 'current'){
-      renderMainOverview(window.__last_report__ || {});
-    }else{
-      askAi(lastQ, lastTopicType);
+    if (aiCard.dataset.lang !== newLang) {
+      aiCard.dataset.lang = newLang;
+      if (lastTopicType === 'current'){
+        renderMainOverview(window.__last_report__ || {});
+      }else{
+        askAi(lastQ, lastTopicType);
+      }
+      return;
     }
-    return;
-  }
-  const out = document.getElementById('aiContent');
-  if (out && out.querySelector('.skeleton')) {
-    if (lastTopicType === 'current'){
-      renderMainOverview(window.__last_report__ || {});
-    }else{
-      askAi(lastQ, lastTopicType);
+
+    const out = document.getElementById('aiContent');
+    if (out && out.querySelector('.skeleton')) {
+      if (lastTopicType === 'current'){
+        renderCurrentData(window.__last_report__ || {});
+      }else{
+        askAi(lastQ, lastTopicType);
+      }
     }
-  }
-}
+  };
+})();
 
 /* 14) 估时间向导 */
 (function initBirthtimeWizard(){
