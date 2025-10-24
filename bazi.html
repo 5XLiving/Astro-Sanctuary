@@ -1456,27 +1456,45 @@ function ensureAiCard(){
   renderChips();
 }
   
+// 放在原位置：替换整个 renderChips()
+function mainLabel(){
+  const L = (getLang && getLang()) || 'zh-CN';
+  if (L.startsWith('zh')) return '主（当前渲染资料）';
+  if (L === 'en') return 'Main (Current Data)';
+  if (L === 'ja') return '主（現在のデータ）';
+  if (L === 'th') return 'หลัก (ข้อมูลปัจจุบัน)';
+  if (L === 'ms') return 'Utama (Data Semasa)';
+  return 'Main';
+}
+
 function renderChips(){
-  const wrap=document.getElementById('aiChips'); if(!wrap) return;
-  wrap.innerHTML='';
-  [
-    {k:'chip_career',q:'q_career'},
-    {k:'chip_love',  q:'q_love'},
-    {k:'chip_money', q:'q_money'},
-    {k:'chip_list',  q:'q_list'},
-    {k:'chip_30d',   q:'q_30d'}
-  ].forEach(it=>{
-    const btn=document.createElement('button');
-    btn.className='chip';
-    btn.textContent=t(it.k);
-    btn.setAttribute('data-q', t(it.q));
+  const wrap = document.getElementById('aiChips'); if(!wrap) return;
+  wrap.innerHTML = '';
+
+  const items = [
+    { label: mainLabel(),           topic: 'current' },          // ← 新增的“主”
+    { k:'chip_career', q:'q_career', topic:'career' },
+    { k:'chip_love',   q:'q_love',   topic:'love'   },
+    { k:'chip_money',  q:'q_money',  topic:'money'  },
+    { k:'chip_list',   q:'q_list',   topic:'list'   },
+    { k:'chip_30d',    q:'q_30d',    topic:'30d'    },
+  ];
+
+  items.forEach(it=>{
+    const btn = document.createElement('button');
+    btn.className = 'chip';
+    btn.textContent = it.label || t(it.k);
+    if (it.q) btn.setAttribute('data-q', t(it.q));
+    btn.setAttribute('data-topic', it.topic);
     wrap.appendChild(btn);
   });
 }
 
 /* 4) Prompt 生成（多语言） */
+// [PATCH] 增补 zh-TW，和你现有翻译保持一致
 const BUTLER_LANG_NAME = {
   'zh-CN':'Simplified Chinese',
+  'zh-TW':'Traditional Chinese',
   'en':'English',
   'ja':'Japanese',
   'th':'Thai',
@@ -1559,7 +1577,45 @@ function extractAIText(data){
   return "";
 }
 
-function localFallbackButler(topic, ctx){
+/* -------------------- [PATCH] 新增：直接渲染“主（当前渲染资料）” -------------------- */
+function renderCurrentData(ctx){
+  ensureAiCard();
+  const out = document.getElementById('aiContent');
+  const { pillars={}, percents={}, st={}, adv={}, timeUnknown } = ctx || {};
+  const E = ELABEL();
+
+  const elemLine = [
+    `${E.wood} ${Math.round(percents.wood||0)}%`,
+    `${E.fire} ${Math.round(percents.fire||0)}%`,
+    `${E.earth} ${Math.round(percents.earth||0)}%`,
+    `${E.metal} ${Math.round(percents.metal||0)}%`,
+    `${E.water} ${Math.round(percents.water||0)}%`,
+  ].join(' · ');
+
+  const hourTxt = timeUnknown ? (t('rpt_time_unknown') || '时间不详')
+    : `${pillars?.hour?.stem||''}${pillars?.hour?.branch||''}`;
+
+  const md = [
+    `### ${getLang().startsWith('zh') ? '当前渲染资料' : 'Current Context'}`,
+    `- 年柱：${(pillars?.year?.stem||'')}${(pillars?.year?.branch||'')}`,
+    `- 月柱：${(pillars?.month?.stem||'')}${(pillars?.month?.branch||'')}`,
+    `- 日柱：${(pillars?.day?.stem||'')}${(pillars?.day?.branch||'')}`,
+    `- 时柱：${hourTxt}`,
+    `- 季节/强弱：${st?.season||''} / ${st?.mark||''}`,
+    `- 策略：${st?.focus||''}`,
+    `- 五行：${elemLine}`,
+    (adv?.useful?.length || adv?.avoid?.length)
+      ? `- 喜用/忌：${(adv.useful||[]).join('/') || '-'} / ${(adv.avoid||[]).join('/') || '-'}` : ''
+  ].filter(Boolean).join('\n');
+
+  if (out) out.innerHTML = mdToHtml(md);
+
+  const aiCard = document.getElementById('aiCard');
+  if (aiCard){ aiCard.dataset.lastQ='__current__'; aiCard.dataset.lastTopicType='current'; }
+}
+
+/* -------------------- [PATCH] 改造 fallback：按主题分支 -------------------- */
+function localFallbackButler(topic, ctx, topicType='overview'){
   const { percents={}, timeUnknown } = ctx || {};
   const kv = [
     [t('el_wood'), Math.round(percents.wood||0)],
@@ -1572,21 +1628,75 @@ function localFallbackButler(topic, ctx){
   const weakest   = kv.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
   const caution = timeUnknown ? (t('rpt_time_hint') || '出生时间不详，未纳入时柱，仅供参考。') : '';
 
-  return [
-    `**${t('butler_title')||'心怜管家 · 解读'}（${navigator.onLine ? 'Fallback' : '离线模式'}）**`,
+  const head = `**${t('butler_title')||'心怜管家 · 解读'}（${navigator.onLine ? 'Fallback' : '离线模式'}）**`;
+  const base = [
     `- ${t('rpt_wuxing_label')||'五行'}：${kv.map(([k,v])=>`${k} ${v}%`).join(' · ')}`,
     `- ${t('rpt_balance_focus_label')||'调衡要点'}：${strongest} ${t('rpt_strongest_word')||'偏旺'}；${weakest} ${t('rpt_weakest_word')||'偏弱'}`,
-    caution,
-    ``,
+    caution
+  ].filter(Boolean).join('\n');
+
+  if (topicType === 'career'){
+    return [head, base, '',
+      `**${t('chip_career')||'事业'}**`,
+      `- 方向：围绕“${strongest}”相关职能发力；用流程守住“${weakest}”。`,
+      `- 近期开口：设 1 个可量化目标（如：签 1 单 / 发布 1 版 / 产出 1 篇）。`,
+      `- 节奏：每周复盘，保留 30% 机动。`
+    ].join('\n');
+  }
+  if (topicType === 'love'){
+    return [head, base, '',
+      `**${t('chip_love')||'感情'}**`,
+      `- 相处：先肯定对方“${strongest}”，在“${weakest}”处设边界。`,
+      `- 沟通：每周 1 次深聊（30–45 分），用“事实—感受—请求”。`,
+      `- 避坑：情绪高时暂停 15 分钟再继续。`
+    ].join('\n');
+  }
+  if (topicType === 'money'){
+    return [head, base, '',
+      `**${t('chip_money')||'财运'}**`,
+      `- 现金流：强项赛道当进水口，不 All-in；预留 30% 备用金。`,
+      `- 配比：稳健/增长 = 7/3；每月账本复盘。`,
+      `- 开支：砍 1 个低效订阅；在“${weakest}”上做 1 个小投入。`
+    ].join('\n');
+  }
+  if (topicType === 'list'){
+    return [head, base, '',
+      `**${t('chip_list')||'今日待办'}（3–5 条）**`,
+      `1) 用“${strongest}”做 45 分钟深度任务（关手机）。`,
+      `2) 针对“${weakest}”做 15 分钟补强（色彩/方位/运动/阅读）。`,
+      `3) 清 3 件 <10 分钟杂事。`,
+      `4) 晚 10 分钟复盘：成绩/阻碍/明日 1 点。`
+    ].join('\n');
+  }
+  if (topicType === '30d'){
+    return [head, base, '',
+      `**${t('chip_30d')||'30天建议'}（围绕“${weakest}”做微练习）**`,
+      `- 规则：每天 1 小步，同一时段，打 ✅/❌。`,
+      `- 周期：每 7 天微调强度。`,
+      `- 示例：第 1–7 天固定 10 分钟“${weakest}”相关练习，逐周 +5 分钟。`
+    ].join('\n');
+  }
+  if (topicType === 'health'){
+    return [head, base, '',
+      `**健康 / 作息（聚焦“${weakest}”）**`,
+      `- 睡眠：固定作息，睡前 30 分远离屏幕。`,
+      `- 饮食：减少精制糖；一餐加入“${weakest}”色食材。`,
+      `- 运动：每日 20–30 分中低强度，周末加长。`
+    ].join('\n');
+  }
+
+  // overview / 默认
+  return [
+    head, base, '',
     `**${t('rpt_strategy_label')||'策略'}**`,
-    `- ${t('rpt_strategy_support')||'生扶/补助'}：围绕“${weakest}”做环境与作息补强（色彩、方位、起居）。`,
+    `- ${t('rpt_strategy_support')||'生扶/补助'}：围绕“${weakest}”做环境/作息补强。`,
     `- ${t('rpt_strategy_drain')||'泄秀/制化'}：适度分配“${strongest}”相关活动，避免过犹不及。`,
-    ``,
+    '',
     `**${t('dev_strategy')||'发展策略'}**`,
-    `- ${t('chip_career')||'事业'}：用“${strongest}”发力，但用流程去守“${weakest}”。`,
-    `- ${t('chip_money')||'财运'}：把控现金流，不把资源全压在强项赛道；保留 30% 机动。`,
-    `- ${t('chip_love')||'感情'}：先肯定强项，再谈节奏与边界。`,
-  ].join("\n");
+    `- 事业：用“${strongest}”推进；用流程守“${weakest}”。`,
+    `- 财运：控现金流，不把资源全压强项；预留 30% 机动。`,
+    `- 感情：先肯定强项，再谈节奏与边界。`
+  ].join('\n');
 }
 
 async function aiRequest(messages, {timeout=15000, retries=2}={}){
@@ -1630,14 +1740,15 @@ async function aiRequest(messages, {timeout=15000, retries=2}={}){
   }
 }
 
-async function askAi(topic){
+/* -------------------- [PATCH] askAi 支持 topicType -------------------- */
+async function askAi(topic, topicType='overview'){
   ensureAiCard();
   const card = document.getElementById('aiCard');
   const out  = document.getElementById('aiContent');
   const chipsWrap = document.getElementById('aiChips');
   const lang = (getLang && getLang()) || 'zh-CN';
 
-  if (card){ card.dataset.lastQ = topic; card.dataset.lang = lang; }
+  if (card){ card.dataset.lastQ = topic; card.dataset.lang = lang; card.dataset.lastTopicType = topicType; }
 
   // skeleton
   if (out){
@@ -1670,7 +1781,7 @@ async function askAi(topic){
     );
 
     let text = ok ? extractAIText(data) : "";
-    if (!text) text = localFallbackButler(topic, ctx);
+    if (!text) text = localFallbackButler(topic, ctx, topicType);
 
     if (!isVIP()){
       const teaser = text.split('\n').slice(0,6).join('\n');
@@ -1688,7 +1799,7 @@ async function askAi(topic){
         ? '网络异常或服务繁忙。已切换到离线简版指引。'
         : 'Network error or service busy. Showing offline guidance.');
       const ctx = window.__last_report__ || {};
-      out.innerHTML += '<br><br>' + mdToHtml(localFallbackButler(t('q_career'), ctx));
+      out.innerHTML += '<br><br>' + mdToHtml(localFallbackButler(t('q_career'), ctx, topicType));
     }
   }finally{
     disableChips(false);
@@ -1696,11 +1807,17 @@ async function askAi(topic){
 }  
 
 /* 6) 与页面交互：芯片点击 & 语言切换 & 排盘完成后挂载 */
+// [PATCH] 点击时分发 data-topic；“主”直接渲染
 document.addEventListener('click', (e)=>{
   const el = e.target;
   if(el && el.classList.contains('chip')){
     const q = el.getAttribute('data-q') || '';
-    if(q) askAi(q);
+    const topicType = el.getAttribute('data-topic') || 'overview';
+    if (topicType === 'current'){
+      renderCurrentData(window.__last_report__ || {});
+      return;
+    }
+    if(q) askAi(q, topicType);
   }
 });
 
@@ -1723,11 +1840,12 @@ function mountButlerCard(){
   const aiCard = document.getElementById('aiCard');
   if (aiCard && !aiCard.dataset.autorun) {
     aiCard.dataset.autorun = '1';
-    askAi(t('q_career'));
+    askAi(t('q_career')); // 保持你的默认触发
   }
 }
 
 // 语言切换时，仅刷新标题与芯片文案（不自动翻译/重生管家内容）
+// [PATCH] 保留 lastTopicType
 (function patchRerenderForAi(){
   const _orig = (typeof rerenderReportsIfAny==='function') ? rerenderReportsIfAny : null;
 
@@ -1743,19 +1861,28 @@ function mountButlerCard(){
     const aiCard = document.getElementById('aiCard');
     const newLang = (getLang && getLang()) || 'zh-CN';
     const lastQ   = (aiCard && aiCard.dataset.lastQ) || t('q_career');
+    const lastTopicType = (aiCard && aiCard.dataset.lastTopicType) || 'overview';
 
     if (!aiCard) return;
 
     if (aiCard.dataset.lang !== newLang) {
       aiCard.dataset.lang = newLang;
-      askAi(lastQ); // <- regenerate in the new language
+      if (lastTopicType === 'current'){
+        renderCurrentData(window.__last_report__ || {});
+      }else{
+        askAi(lastQ, lastTopicType); // <- regenerate in the new language
+      }
       return;
     }
 
     // If content hasn't been generated yet (still skeleton), generate once
     const out = document.getElementById('aiContent');
     if (out && out.querySelector('.skeleton')) {
-      askAi(lastQ);
+      if (lastTopicType === 'current'){
+        renderCurrentData(window.__last_report__ || {});
+      }else{
+        askAi(lastQ, lastTopicType);
+      }
     }
   };
 })();
@@ -2164,7 +2291,7 @@ async function loginFlow(email,password){
 document.addEventListener('DOMContentLoaded', ()=>{
   initLangUI();
 
-    // —— 最小防自动填充（不预设邮箱/密码）——
+  // —— 最小防自动填充（不预设邮箱/密码）——
   (() => {
     const form = document.getElementById('loginForm');
     if (form) form.setAttribute('autocomplete','off');
@@ -2175,66 +2302,66 @@ document.addEventListener('DOMContentLoaded', ()=>{
   })();
 
   // Default date today (若为空)
-    var bd=document.querySelector('#birthdate');
-    if(bd && !bd.value){ bd.value = new Date().toISOString().split('T')[0]; }
-  });
+  var bd=document.querySelector('#birthdate');
+  if(bd && !bd.value){ bd.value = new Date().toISOString().split('T')[0]; }
+});
   
-  // 生成命盘按钮和输入回车
-  const genBtn = $('genBtn');
-  if (genBtn && typeof genChart === 'function') {
-    genBtn.addEventListener('click', genChart);
-  }
+// 生成命盘按钮和输入回车
+const genBtn = $('genBtn');
+if (genBtn && typeof genChart === 'function') {
+  genBtn.addEventListener('click', genChart);
+}
 
-  ['birthdate','birthtime'].forEach(id=>{
-    const el=$(id);
-    if(el) el.addEventListener('keydown', e=>{
-      if(e.key==='Enter' && typeof genChart === 'function') genChart();
-    });
+['birthdate','birthtime'].forEach(id=>{
+  const el=$(id);
+  if(el) el.addEventListener('keydown', e=>{
+    if(e.key==='Enter' && typeof genChart === 'function') genChart();
   });
+});
 
-  // 注册
-  $('registerForm')?.addEventListener('submit', async (e)=>{
-    e.preventDefault(); hideAuthErr();
-    const email=$('email')?.value.trim(); const password=$('password')?.value.trim();
-    if(!email||!password) return showAuthErr(t('err_need_ep'));
-    if(!strongPwd(password)) return showAuthErr(t('err_pwd_rule'));
-    lock($('registerBtn'),true);
-    try{
-      const res=await fetchJSON('/api/register',{email,password});
-      if(res.ok===true){ localStorage.setItem('vipEmail',email); location.href='vip_trial.html'; return; }
-      if((res.msg||"").toString().toLowerCase()==='exists'){ await loginFlow(email,password); return; }
-      return showAuthErr((res.msg&&(res.msg+''))||t('err_register_fail'));
-    }catch(err){ showAuthErr(t('err_register_fail')+(err?.message||'')); }
-    finally{ lock($('registerBtn'),false); }
-  });
+// 注册
+$('registerForm')?.addEventListener('submit', async (e)=>{
+  e.preventDefault(); hideAuthErr();
+  const email=$('email')?.value.trim(); const password=$('password')?.value.trim();
+  if(!email||!password) return showAuthErr(t('err_need_ep'));
+  if(!strongPwd(password)) return showAuthErr(t('err_pwd_rule'));
+  lock($('registerBtn'),true);
+  try{
+    const res=await fetchJSON('/api/register',{email,password});
+    if(res.ok===true){ localStorage.setItem('vipEmail',email); location.href='vip_trial.html'; return; }
+    if((res.msg||"").toString().toLowerCase()==='exists'){ await loginFlow(email,password); return; }
+    return showAuthErr((res.msg&&(res.msg+''))||t('err_register_fail'));
+  }catch(err){ showAuthErr(t('err_register_fail')+(err?.message||'')); }
+  finally{ lock($('registerBtn'),false); }
+});
 
-  // 登录
-  $('loginForm')?.addEventListener('submit', async (e)=>{
-    e.preventDefault(); hideAuthErr();
-    const email=$('email')?.value.trim(); const password=$('password')?.value.trim();
-    if(!email||!password) return showAuthErr(t('err_need_ep'));
-    lock($('loginBtn'),true);
-    try{ await loginFlow(email,password); }
-    catch(err){ showAuthErr(t('err_login_fail')+(err?.message||'')); }
-    finally{ lock($('loginBtn'),false); }
-  });
+// 登录
+$('loginForm')?.addEventListener('submit', async (e)=>{
+  e.preventDefault(); hideAuthErr();
+  const email=$('email')?.value.trim(); const password=$('password')?.value.trim();
+  if(!email||!password) return showAuthErr(t('err_need_ep'));
+  lock($('loginBtn'),true);
+  try{ await loginFlow(email,password); }
+  catch(err){ showAuthErr(t('err_login_fail')+(err?.message||'')); }
+  finally{ lock($('loginBtn'),false); }
+});
 
-  // 重置密码
-  $('resetBtn')?.addEventListener('click', async ()=>{
-    hideAuthErr();
-    let email=prompt(t('prompt_email')); if(email===null) return; email=email.trim(); if(!email) return showAuthErr(t('err_email_empty'));
-    let newPassword=prompt(t('prompt_newpwd')); if(newPassword===null) return; newPassword=newPassword.trim(); if(!newPassword) return showAuthErr(t('err_pwd_empty'));
-    if(!strongPwd(newPassword)) return showAuthErr(t('err_pwd_rule'));
-    lock($('resetBtn'),true);
-    try{
-      const res=await fetchJSON('/api/reset',{email,newPassword});
-      if(!res.ok){ const extra=res.msg?` ${(typeof res.msg==='string')?res.msg:JSON.stringify(res.msg)}`:''; return showAuthErr(extra||t('err_reset_fail')); }
-      alert(t('msg_reset_ok'));
-    }catch(err){ showAuthErr(t('err_reset_fail')+(err?.message||'')); }
-    finally{ lock($('resetBtn'),false); }
-  });
+// 重置密码
+$('resetBtn')?.addEventListener('click', async ()=>{
+  hideAuthErr();
+  let email=prompt(t('prompt_email')); if(email===null) return; email=email.trim(); if(!email) return showAuthErr(t('err_email_empty'));
+  let newPassword=prompt(t('prompt_newpwd')); if(newPassword===null) return; newPassword=newPassword.trim(); if(!newPassword) return showAuthErr(t('err_pwd_empty'));
+  if(!strongPwd(newPassword)) return showAuthErr(t('err_pwd_rule'));
+  lock($('resetBtn'),true);
+  try{
+    const res=await fetchJSON('/api/reset',{email,newPassword});
+    if(!res.ok){ const extra=res.msg?` ${(typeof res.msg==='string')?res.msg:JSON.stringify(res.msg)}`:''; return showAuthErr(extra||t('err_reset_fail')); }
+    alert(t('msg_reset_ok'));
+  }catch(err){ showAuthErr(t('err_reset_fail')+(err?.message||'')); }
+  finally{ lock($('resetBtn'),false); }
+});
   
-  // === Box 样式（新） ===
+// === Box 样式（新） ===
 (function injectBoxStyle(){
   const id='box-style'; const old=document.getElementById(id); if (old) old.remove();
   const style=document.createElement('style'); style.id=id;
