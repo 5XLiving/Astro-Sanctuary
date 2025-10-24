@@ -1387,8 +1387,114 @@ function ELABEL(){
   };
 }
 
+<!-- 从这一行开始粘贴 -->
 /* ================== Butler AI 卡片（芯片/锁定/多语言） ================== */
-/* 1) 样式注入 */
+/* 0) Chat Mirror：浮窗 = 管家预览 + 芯片克隆（幂等） */
+(function butlerChatBridge(){
+  if (window.__butlerMirrorHooked) return; window.__butlerMirrorHooked = true;
+  const MIRROR_TO_CHAT = true;
+
+  function ensureChat(){
+    if (typeof mountChat === 'function') try{ mountChat(); }catch(_){}
+  }
+  window.openChat = window.openChat || function(){
+    const p = document.getElementById('ssChatPanel');
+    if (p) p.style.display = 'block';
+  };
+
+  window.updateChatButlerFromHtml = window.updateChatButlerFromHtml || function(html){
+    if (!MIRROR_TO_CHAT) return;
+    ensureChat();
+    const body = document.getElementById('ssChatBody');
+    if (!body) return;
+
+    let box = document.getElementById('ssButlerPreview');
+    if (!box){
+      box = document.createElement('div');
+      box.id = 'ssButlerPreview';
+      box.className = 'ss-msg';
+      body.prepend(box);
+    }
+    box.innerHTML = html || '';
+  };
+
+  window.syncChipsToChat = window.syncChipsToChat || function(){
+    if (!MIRROR_TO_CHAT) return;
+    const chips = document.getElementById('aiChips');
+    const body  = document.getElementById('ssChatBody');
+    if (!chips || !body) return;
+
+    let row = document.getElementById('ssButlerChips');
+    if (!row){
+      row = document.createElement('div');
+      row.id = 'ssButlerChips';
+      row.className = 'chips';
+      const preview = document.getElementById('ssButlerPreview');
+      if (preview && preview.nextSibling){
+        body.insertBefore(row, preview.nextSibling);
+      }else{
+        body.prepend(row);
+      }
+    }
+    row.innerHTML = '';
+    chips.querySelectorAll('.chip').forEach(c=>{
+      row.appendChild(c.cloneNode(true)); // 点击由 document 委托接
+    });
+  };
+
+  // 轻量防抖：减少镜像抖动
+  const rafMirrorUpdate = (() => {
+    let raf = 0, last = '';
+    return (html) => {
+      if (html === last) return;
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(()=>{
+        updateChatButlerFromHtml(html);
+        last = html;
+      });
+    };
+  })();
+  window.__rafMirrorUpdate = rafMirrorUpdate;
+
+  // 一次性 Hook：把 Butler 的渲染结果镜像到浮窗
+  const _renderMainOverview = window.renderMainOverview;
+  if (typeof _renderMainOverview === 'function'){
+    window.renderMainOverview = function(ctx){
+      _renderMainOverview.call(this, ctx);
+      const html = document.getElementById('aiContent')?.innerHTML || '';
+      rafMirrorUpdate(html);
+      syncChipsToChat();
+      openChat();
+    };
+  }
+  const _askAi = window.askAi;
+  if (typeof _askAi === 'function'){
+    window.askAi = async function(q, topic){
+      await _askAi.call(this, q, topic);
+      const html = document.getElementById('aiContent')?.innerHTML || '';
+      rafMirrorUpdate(html);
+      syncChipsToChat();
+    };
+  }
+  const _renderChips = window.renderChips;
+  if (typeof _renderChips === 'function'){
+    window.renderChips = function(){
+      _renderChips.call(this);
+      syncChipsToChat();
+    };
+  }
+  // i18n 同步标题/占位
+  const _applyChatI18n = window.applyChatI18n;
+  window.applyChatI18n = function(){
+    if (_applyChatI18n) _applyChatI18n();
+    const head = document.querySelector('.ss-chat-head .ss-chat-title');
+    if (head) head.textContent = t('butler_chat_title');
+    const inp = document.getElementById('ssChatInput');
+    if (inp) inp.placeholder = t('butler_chat_hint') || t('chat_placeholder');
+  };
+})();
+
+/* 1) Butler 样式 */
 (function injectAiStyle(){
   const old=document.getElementById('ai-style'); if(old) old.remove();
   const style=document.createElement('style'); style.id='ai-style';
@@ -1431,12 +1537,10 @@ function ensureAiCard(){
 
   let card = document.getElementById('aiCard');
   if (card) {
-    // 若已存在但位置不对，搬到 target，确保排在报告之后
     if (card.parentElement !== target) target.appendChild(card);
     return;
   }
 
-  // 首次创建
   const sec = document.createElement('div');
   sec.className = 'sec';
   sec.id = 'aiCard';
@@ -1453,8 +1557,6 @@ function ensureAiCard(){
   target.appendChild(sec);
   renderChips();
 }
-  
-// 放在原位置：替换整个 renderChips()
 function mainLabel(){
   const L = (getLang && getLang()) || 'zh-CN';
   if (L.startsWith('zh')) return '主（当前渲染资料）';
@@ -1464,20 +1566,17 @@ function mainLabel(){
   if (L === 'ms') return 'Utama (Data Semasa)';
   return 'Main';
 }
-
 function renderChips(){
   const wrap = document.getElementById('aiChips'); if(!wrap) return;
   wrap.innerHTML = '';
-
   const items = [
-    { label: mainLabel(),           topic: 'current' },          // ← 新增的“主”
+    { label: mainLabel(),           topic: 'current' },
     { k:'chip_career', q:'q_career', topic:'career' },
     { k:'chip_love',   q:'q_love',   topic:'love'   },
     { k:'chip_money',  q:'q_money',  topic:'money'  },
     { k:'chip_list',   q:'q_list',   topic:'list'   },
     { k:'chip_30d',    q:'q_30d',    topic:'30d'    },
   ];
-
   items.forEach(it=>{
     const btn = document.createElement('button');
     btn.className = 'chip';
@@ -1489,7 +1588,6 @@ function renderChips(){
 }
 
 /* 4) Prompt 生成（多语言） */
-// [PATCH] 增补 zh-TW，和你现有翻译保持一致
 const BUTLER_LANG_NAME = {
   'zh-CN':'Simplified Chinese',
   'zh-TW':'Traditional Chinese',
@@ -1536,9 +1634,8 @@ function buildUserPrompt(topic, ctx, topicType){
   ].filter(Boolean).join('\n');
 }
 
-// === Butler helpers: put these ABOVE "/* 5) 请求与渲染 */" ===
+/* 5) AI 通道 */
 let aiReqCtrl = null;
-
 function extractAIText(data){
   if (!data) return "";
   if (typeof data === "string") return data.trim();
@@ -1570,168 +1667,8 @@ function extractAIText(data){
   }
   return "";
 }
-
-/* -------------------- [PATCH] 新增：直接渲染“主（当前渲染资料）” -------------------- */
-function renderCurrentData(ctx){
-  ensureAiCard();
-  const out = document.getElementById('aiContent');
-  const { pillars={}, percents={}, st={}, adv={}, timeUnknown } = ctx || {};
-  const E = ELABEL();
-
-  const elemLine = [
-    `${E.wood} ${Math.round(percents.wood||0)}%`,
-    `${E.fire} ${Math.round(percents.fire||0)}%`,
-    `${E.earth} ${Math.round(percents.earth||0)}%`,
-    `${E.metal} ${Math.round(percents.metal||0)}%`,
-    `${E.water} ${Math.round(percents.water||0)}%`,
-  ].join(' · ');
-
-  const hourTxt = timeUnknown ? (t('rpt_time_unknown') || '时间不详')
-    : `${pillars?.hour?.stem||''}${pillars?.hour?.branch||''}`;
-
-  const md = [
-    `### ${getLang().startsWith('zh') ? '当前渲染资料' : 'Current Context'}`,
-    `- 年柱：${(pillars?.year?.stem||'')}${(pillars?.year?.branch||'')}`,
-    `- 月柱：${(pillars?.month?.stem||'')}${(pillars?.month?.branch||'')}`,
-    `- 日柱：${(pillars?.day?.stem||'')}${(pillars?.day?.branch||'')}`,
-    `- 时柱：${hourTxt}`,
-    `- 季节/强弱：${st?.season||''} / ${st?.mark||''}`,
-    `- 策略：${st?.focus||''}`,
-    `- 五行：${elemLine}`,
-    (adv?.useful?.length || adv?.avoid?.length)
-      ? `- 喜用/忌：${(adv.useful||[]).join('/') || '-'} / ${(adv.avoid||[]).join('/') || '-'}` : ''
-  ].filter(Boolean).join('\n');
-
-  if (out) out.innerHTML = mdToHtml(md);
-
-  const aiCard = document.getElementById('aiCard');
-  if (aiCard){ aiCard.dataset.lastQ='__current__'; aiCard.dataset.lastTopicType='current'; }
-}
-
-// “主（当前渲染资料）”：用本地总览，和你截图一致
-function renderMainOverview(ctx){
-  ensureAiCard();
-  const out = document.getElementById('aiContent');
-  if (!out) return;
-  out.innerHTML = mdToHtml(localFallbackButler('current', ctx || window.__last_report__ || {}));
-
-  const aiCard = document.getElementById('aiCard');
-  if (aiCard){ 
-    aiCard.dataset.lastQ = '__current__';
-    aiCard.dataset.lastTopicType = 'current';
-  }
-}
-  
-/* -------------------- [PATCH] 改造 fallback：按主题分支 -------------------- */
-function localFallbackButler(topicType, ctx){
-  const { percents = {}, timeUnknown } = ctx || {};
-  const kv = [
-    [t('el_wood') || '木', Math.round(percents.wood||0)],
-    [t('el_fire') || '火', Math.round(percents.fire||0)],
-    [t('el_earth')|| '土', Math.round(percents.earth||0)],
-    [t('el_metal')|| '金', Math.round(percents.metal||0)],
-    [t('el_water')|| '水', Math.round(percents.water||0)],
-  ];
-  const strongest = kv.reduce((a,b)=> a[1]>=b[1]?a:b)[0];
-  const weakest   = kv.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
-  const caution   = timeUnknown ? (t('rpt_time_hint') || '出生时间不详，未纳入时柱，仅供参考。') : '';
-
-  const head = `**${t('butler_title')||'心怜管家 · 解读'}**`;
-  const five = `- ${t('rpt_wuxing_label')||'五行分布'}：` + kv.map(([k,v])=>`${k} ${v}%`).join(' · ');
-  const bal  = `- ${t('rpt_balance_focus_label')||'调衡要点'}：${strongest} ${t('rpt_strongest_word')||'偏旺'}；${weakest} ${t('rpt_weakest_word')||'偏弱'}`;
-
-  // 共用“策略”小段
-  const strategy = [
-    '', `${t('rpt_strategy_label')||'策略'}`,
-    `- ${t('rpt_strategy_support')||'生扶/补助'}：围绕“${weakest}”做环境与作息补强（色彩、方位、起居）。`,
-    `- ${t('rpt_strategy_drain')||'泄秀/制化'}：适度分配“${strongest}”相关活动，避免过犹不及。`,
-  ].join('\n');
-
-  if (topicType === 'career') {
-    return [
-      head, five, bal, caution, '',
-      '**事业 · 快速建议**',
-      `- 方向：围绕“喜用”展开；少碰“忌”。`,
-      `- 角色：${strongest}强→偏执行/开拓；${weakest}弱→用流程与复盘补位。`,
-      `- 突破：选一个“2周可交付”的小项目，用${strongest}切入，沉淀SOP守${weakest}。`,
-      `- 节奏：每周一次复盘；给学习/精炼预留30%时间。`,
-      strategy
-    ].join('\n');
-  }
-
-  if (topicType === 'love') {
-    return [
-      head, five, bal, caution, '',
-      '**感情 · 快速建议**',
-      `- 相处节奏：先肯定${strongest}的表达；沟通时照顾${weakest}的需求。`,
-      `- 边界：列出3件“必需/可谈/拒绝”，减少过度消耗（多见于${strongest}偏旺）。`,
-      `- 约会：选择有利“喜用”的场景，降低“忌”的触发。`,
-      strategy
-    ].join('\n');
-  }
-
-  if (topicType === 'money') {
-    return [
-      head, five, bal, caution, '',
-      '**财运 · 快速建议**',
-      `- 现金流：保留3–6个月安全垫；单一投入≤总资金70%。`,
-      `- 收入侧：在“${strongest}”相关赛道做强项变现；用SOP守“${weakest}”风险。`,
-      `- 配比：进取${strongest} : 稳健${weakest} ≈ 7:3（按自身调整）。`,
-      strategy
-    ].join('\n');
-  }
-
-  if (topicType === 'list') {
-    return [
-      head, five, bal, caution, '',
-      '**今日待办 · 3–5条**',
-      `1) 用“${strongest}”完成一个30分钟的小成果（可交付）。`,
-      `2) 针对“${weakest}”做10分钟补强（学习/复盘/收纳其相关事项）。`,
-      `3) 处理一个遗留小坑（≤15分钟）。`,
-      `4) 晚间复盘：记录今天1条可复用SOP。`,
-      strategy
-    ].join('\n');
-  }
-
-  if (topicType === '30d') {
-    return [
-      head, five, bal, caution, '',
-      '**30天建议 · 纲要**',
-      `- 第1周：围绕“${weakest}”做5~10分钟日练（睡眠/饮食/运动三选一）。`,
-      `- 第2周：把“${strongest}”用于产出，每天一个可展示的小成果。`,
-      `- 第3周：建立SOP守“${weakest}”（本周沉淀2条流程）。`,
-      `- 第4周：复盘优化 + 小结展示。`,
-      strategy
-    ].join('\n');
-  }
-
-  if (topicType === 'health') {
-    return [
-      head, five, bal, caution, '',
-      '**健康 · 作息**',
-      `- 睡眠：固定入睡时窗；睡前30分钟低刺激（护“${weakest}”）。`,
-      `- 饮食：减少过度刺激“${strongest}”的食物；补充有利“${weakest}”的颜色/口味。`,
-      `- 运动：每周3次20分钟中低强度；配合拉伸与呼吸。`,
-      `- 节律：早晚各5分钟安静时段，做情绪/呼吸校准。`,
-      strategy
-    ].join('\n');
-  }
-
-  // —— 主（总览）或默认 ——（与你截图一致）
-  return [
-    head, five, bal, caution, '',
-    `${t('rpt_strategy_label')||'策略'}`,
-    `- ${t('rpt_strategy_support')||'生扶/补助'}：围绕“${weakest}”做环境与作息补强（色彩、方位、起居）。`,
-    `- ${t('rpt_strategy_drain')||'泄秀/制化'}：适度分配“${strongest}”相关活动，避免过犹不及。`,
-    '',
-    `${t('dev_strategy')||'发展策略'}：`,
-    `- ${t('chip_career')||'事业'}：用“${strongest}”发力，但用流程去守“${weakest}”。`,
-    `- ${t('chip_money')||'财运'}：把控现金流；保留30%机动。`,
-    `- ${t('chip_love')||'感情'}：先肯定强项，再谈节奏与边界。`,
-  ].join('\n');
-}
 async function aiRequest(messages, {timeout=15000, retries=2}={}){
-  if (aiReqCtrl) aiReqCtrl.abort();            // cancel previous
+  if (aiReqCtrl) aiReqCtrl.abort();
   aiReqCtrl = new AbortController();
 
   const url = `${API_BASE}/api/chat?_ts=${Date.now()}`;
@@ -1771,9 +1708,262 @@ async function aiRequest(messages, {timeout=15000, retries=2}={}){
   }
 }
 
-/* -------------------- [PATCH] askAi 支持 topicType -------------------- */
+/* 6) Butler 渲染（主总览 + 兜底） */
+function renderCurrentData(ctx){
+  ensureAiCard();
+  const out = document.getElementById('aiContent');
+  const { pillars={}, percents={}, st={}, adv={}, timeUnknown } = ctx || {};
+  const E = ELABEL();
+
+  const elemLine = [
+    `${E.wood} ${Math.round(percents.wood||0)}%`,
+    `${E.fire} ${Math.round(percents.fire||0)}%`,
+    `${E.earth} ${Math.round(percents.earth||0)}%`,
+    `${E.metal} ${Math.round(percents.metal||0)}%`,
+    `${E.water} ${Math.round(percents.water||0)}%`,
+  ].join(' · ');
+
+  const hourTxt = timeUnknown ? (t('rpt_time_unknown') || '时间不详')
+    : `${pillars?.hour?.stem||''}${pillars?.hour?.branch||''}`;
+
+  const md = [
+    `### ${getLang().startsWith('zh') ? '当前渲染资料' : 'Current Context'}`,
+    `- 年柱：${(pillars?.year?.stem||'')}${(pillars?.year?.branch||'')}`,
+    `- 月柱：${(pillars?.month?.stem||'')}${(pillars?.month?.branch||'')}`,
+    `- 日柱：${(pillars?.day?.stem||'')}${(pillars?.day?.branch||'')}`,
+    `- 时柱：${hourTxt}`,
+    `- 季节/强弱：${st?.season||''} / ${st?.mark||''}`,
+    `- 策略：${st?.focus||''}`,
+    `- 五行：${elemLine}`,
+    (adv?.useful?.length || adv?.avoid?.length)
+      ? `- 喜用/忌：${(adv.useful||[]).join('/') || '-'} / ${(adv.avoid||[]).join('/') || '-'}` : ''
+  ].filter(Boolean).join('\n');
+
+  if (out) out.innerHTML = mdToHtml(md);
+
+  const aiCard = document.getElementById('aiCard');
+  if (aiCard){ aiCard.dataset.lastQ='__current__'; aiCard.dataset.lastTopicType='current'; }
+
+  // 镜像到浮窗
+  if (out){
+    (__rafMirrorUpdate || updateChatButlerFromHtml)(out.innerHTML);
+    syncChipsToChat();
+    openChat();
+  }
+}
+function renderMainOverview(ctx){
+  ensureAiCard();
+  const out = document.getElementById('aiContent');
+  if (!out) return;
+  out.innerHTML = mdToHtml(localFallbackButler('current', ctx || window.__last_report__ || {}));
+
+  const aiCard = document.getElementById('aiCard');
+  if (aiCard){ aiCard.dataset.lastQ='__current__'; aiCard.dataset.lastTopicType='current'; }
+
+  (__rafMirrorUpdate || updateChatButlerFromHtml)(out.innerHTML);
+  syncChipsToChat();
+  openChat();
+}
+
+/* 7) 兜底内容（按主题分支） */
+function localFallbackButler(topicType, ctx){
+  const { percents = {}, timeUnknown } = ctx || {};
+  const kv = [
+    [t('el_wood') || '木', Math.round(percents.wood||0)],
+    [t('el_fire') || '火', Math.round(percents.fire||0)],
+    [t('el_earth')|| '土', Math.round(percents.earth||0)],
+    [t('el_metal')|| '金', Math.round(percents.metal||0)],
+    [t('el_water')|| '水', Math.round(percents.water||0)],
+  ];
+  const strongest = kv.reduce((a,b)=> a[1]>=b[1]?a:b)[0];
+  const weakest   = kv.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
+  const caution   = timeUnknown ? (t('rpt_time_hint') || '出生时间不详，未纳入时柱，仅供参考。') : '';
+
+  const head = `**${t('butler_title')||'心怜管家 · 解读'}**`;
+  const five = `- ${t('rpt_wuxing_label')||'五行分布'}：` + kv.map(([k,v])=>`${k} ${v}%`).join(' · ');
+  const bal  = `- ${t('rpt_balance_focus_label')||'调衡要点'}：${strongest} ${t('rpt_strongest_word')||'偏旺'}；${weakest} ${t('rpt_weakest_word')||'偏弱'}`;
+
+  const strategy = [
+    '', `${t('rpt_strategy_label')||'策略'}`,
+    `- ${t('rpt_strategy_support')||'生扶/补助'}：围绕“${weakest}”做环境与作息补强（色彩、方位、起居）。`,
+    `- ${t('rpt_strategy_drain')||'泄秀/制化'}：适度分配“${strongest}”相关活动，避免过犹不及。`,
+  ].join('\n');
+
+  if (topicType === 'career') {
+    return [
+      head, five, bal, caution, '',
+      '**事业 · 快速建议**',
+      `- 方向：围绕“喜用”展开；少碰“忌”。`,
+      `- 角色：${strongest}强→偏执行/开拓；${weakest}弱→用流程与复盘补位。`,
+      `- 突破：选一个“2周可交付”的小项目，用${strongest}切入，沉淀SOP守${weakest}。`,
+      `- 节奏：每周一次复盘；给学习/精炼预留30%时间。`,
+      strategy
+    ].join('\n');
+  }
+  if (topicType === 'love') {
+    return [
+      head, five, bal, caution, '',
+      '**感情 · 快速建议**',
+      `- 相处节奏：先肯定${strongest}的表达；沟通时照顾${weakest}的需求。`,
+      `- 边界：列出3件“必需/可谈/拒绝”，减少过度消耗（多见于${strongest}偏旺）。`,
+      `- 约会：选择有利“喜用”的场景，降低“忌”的触发。`,
+      strategy
+    ].join('\n');
+  }
+  if (topicType === 'money') {
+    return [
+      head, five, bal, caution, '',
+      '**财运 · 快速建议**',
+      `- 现金流：保留3–6个月安全垫；单一投入≤总资金70%。`,
+      `- 收入侧：在“${strongest}”相关赛道做强项变现；用SOP守“${weakest}”风险。`,
+      `- 配比：进取${strongest} : 稳健${weakest} ≈ 7:3（按自身调整）。`,
+      strategy
+    ].join('\n');
+  }
+  if (topicType === 'list') {
+    return [
+      head, five, bal, caution, '',
+      '**今日待办 · 3–5条**',
+      `1) 用“${strongest}”完成一个30分钟的小成果（可交付）。`,
+      `2) 针对“${weakest}”做10分钟补强（学习/复盘/收纳其相关事项）。`,
+      `3) 处理一个遗留小坑（≤15分钟）。`,
+      `4) 晚间复盘：记录今天1条可复用SOP。`,
+      strategy
+    ].join('\n');
+  }
+  if (topicType === '30d') {
+    return [
+      head, five, bal, caution, '',
+      '**30天建议 · 纲要**',
+      `- 第1周：围绕“${weakest}”做5~10分钟日练（睡眠/饮食/运动三选一）。`,
+      `- 第2周：把“${strongest}”用于产出，每天一个可展示的小成果。`,
+      `- 第3周：建立SOP守“${weakest}”（本周沉淀2条流程）。`,
+      `- 第4周：复盘优化 + 小结展示。`,
+      strategy
+    ].join('\n');
+  }
+  if (topicType === 'health') {
+    return [
+      head, five, bal, caution, '',
+      '**健康 · 作息**',
+      `- 睡眠：固定入睡时窗；睡前30分钟低刺激（护“${weakest}”）。`,
+      `- 饮食：减少过度刺激“${strongest}”的食物；补充有利“${weakest}”的颜色/口味。`,
+      `- 运动：每周3次20分钟中低强度；配合拉伸与呼吸。`,
+      `- 节律：早晚各5分钟安静时段，做情绪/呼吸校准。`,
+      strategy
+    ].join('\n');
+  }
+  // 默认（总览）
+  return [
+    head, five, bal, caution, '',
+    `${t('rpt_strategy_label')||'策略'}`,
+    `- ${t('rpt_strategy_support')||'生扶/补助'}：围绕“${weakest}”做环境与作息补强（色彩、方位、起居）。`,
+    `- ${t('rpt_strategy_drain')||'泄秀/制化'}：适度分配“${strongest}”相关活动，避免过犹不及。`,
+    '',
+    `${t('dev_strategy')||'发展策略'}：`,
+    `- ${t('chip_career')||'事业'}：用“${strongest}”发力，但用流程去守“${weakest}”。`,
+    `- ${t('chip_money')||'财运'}：把控现金流；保留30%机动。`,
+    `- ${t('chip_love')||'感情'}：先肯定强项，再谈节奏与边界。`,
+  ].join('\n');
+}
+
+/* 8) 浮窗入口（若外部没定义则提供） */
+if (typeof window.mountChat !== 'function'){
+  window.mountChat = function(){
+    if (document.getElementById('ssChatFab')) return;
+
+    const chatFab   = document.createElement('div'); chatFab.className='ss-chat-fab'; chatFab.id='ssChatFab'; chatFab.title=t('butler_chat_title');
+    const chatPanel = document.createElement('div'); chatPanel.className='ss-chat-panel'; chatPanel.id='ssChatPanel';
+    chatPanel.setAttribute('role','dialog');
+    chatPanel.setAttribute('aria-label',t('butler_chat_title'));
+    chatPanel.setAttribute('aria-modal','true');
+
+    chatPanel.innerHTML = `
+      <div class="ss-chat-head"><div class="ss-chat-title">${t('butler_chat_title')}</div><div class="ss-close" id="ssChatClose">✕</div></div>
+      <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
+      <div class="ss-chat-input">
+        <input id="ssChatInput" type="text" placeholder="${t('chat_placeholder')}"/>
+        <button id="ssChatSend" class="btn">${t('chat_send')}</button>
+      </div>`;
+
+    document.body.appendChild(chatFab);
+    document.body.appendChild(chatPanel);
+
+    const $body  = document.getElementById('ssChatBody');
+    const $input = document.getElementById('ssChatInput');
+    const $send  = document.getElementById('ssChatSend');
+    const $close = document.getElementById('ssChatClose');
+
+    const openPanel  = ()=>{ chatPanel.style.display='block'; $input && $input.focus(); };
+    const closePanel = ()=>{ chatPanel.style.display='none'; };
+
+    chatFab.textContent = t('chat_fab');
+    chatFab.addEventListener('click', openPanel);
+    $close && $close.addEventListener('click', closePanel);
+
+    function addMsg(text, me=false){
+      const div = document.createElement('div');
+      div.className = 'ss-msg' + (me?' me':'');
+      div.textContent = String(text || '');
+      $body.appendChild(div);
+      $body.scrollTop = $body.scrollHeight;
+    }
+
+    let chatAbort = null;
+    async function askChat(prompt){
+      addMsg(prompt, true);
+      if ($input){ $input.value=''; $input.focus(); }
+
+      if (chatAbort){ chatAbort.abort(); chatAbort = null; }
+      chatAbort = new AbortController();
+      const sig = chatAbort;
+
+      const sys = [
+        `You are "Xinlian Butler". OUTPUT LANGUAGE: ${BUTLER_LANG_NAME[getLang()] || 'Simplified Chinese'}.`,
+        'Help visitors understand features, navigation and VIP. Tone: warm, concise, professional.'
+      ].join('\n');
+
+      try{
+        const { ok, data } = await aiRequest(
+          [{role:'system',content:sys},{role:'user',content:prompt}],
+          { timeout:15000, retries:2 }
+        );
+        if (sig.signal.aborted) return;
+        const reply = ok ? extractAIText(data) : '';
+        addMsg(reply || t('err_login_fail'));
+      }catch(e){
+        if (e?.name === 'AbortError') return;
+        addMsg('网络波动，请稍后重试。');
+      }finally{
+        if (sig === chatAbort) chatAbort = null;
+      }
+    }
+
+    function dispatchUserInput(){
+      const v = $input?.value.trim();
+      if (!v) return;
+
+      if (window.__last_report__ && typeof askAi === 'function'){
+        addMsg(v, true);
+        try{ askAi(v, 'followup'); }
+        catch(_){ askChat(v); }
+        $input.value=''; $input.focus();
+      }else{
+        askChat(v);
+      }
+    }
+
+    $send  && $send.addEventListener('click', dispatchUserInput);
+    $input && $input.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter') dispatchUserInput();
+    });
+  };
+}
+
+/* 9) askAi：统一出口（VIP 预览 + 浮窗同步） */
 async function askAi(userTask, topicType){
   ensureAiCard();
+  if (typeof mountChat === 'function') try{ mountChat(); }catch(_){}
   const card = document.getElementById('aiCard');
   const out  = document.getElementById('aiContent');
   const chipsWrap = document.getElementById('aiChips');
@@ -1810,7 +2000,6 @@ async function askAi(userTask, topicType){
     let text = ok ? extractAIText(data) : "";
     if (!text) text = localFallbackButler(topicType || 'generic', ctx);
 
-    // “主”不锁；专题按你原逻辑预览锁
     if (!isVIP() && topicType !== 'current'){
       const teaser = text.split('\n').slice(0,6).join('\n');
       out.innerHTML = mdToHtml(teaser) + `
@@ -1821,24 +2010,32 @@ async function askAi(userTask, topicType){
     }else{
       out.innerHTML = mdToHtml(text);
     }
+
+    const html = out.innerHTML;
+    (__rafMirrorUpdate || updateChatButlerFromHtml)(html);
+    syncChipsToChat();
+    openChat();
   }catch(e){
     if (e?.name !== 'AbortError' && out){
       const ctx = window.__last_report__ || {};
       out.innerHTML = mdToHtml(localFallbackButler(topicType || 'generic', ctx));
+
+      const html = out.innerHTML;
+      (__rafMirrorUpdate || updateChatButlerFromHtml)(html);
+      syncChipsToChat();
+      openChat();
     }
   }finally{
     disableChips(false);
   }
 }
 
-/* 6) 与页面交互：芯片点击 & 语言切换 & 排盘完成后挂载 */
-// [PATCH] 点击时分发 data-topic；“主”直接渲染
+/* 10) 芯片点击（页面/浮窗共用） */
 document.addEventListener('click', (e)=>{
   const el = e.target;
   if(el && el.classList.contains('chip')){
     const topicType = el.getAttribute('data-topic') || 'current';
     const q = el.getAttribute('data-q') || '';
-
     if (topicType === 'current'){
       renderMainOverview(window.__last_report__ || {});
       return;
@@ -1847,11 +2044,13 @@ document.addEventListener('click', (e)=>{
   }
 });
 
+/* ----------------- ！！！以下保留并优化你后续的所有功能 ！！！ ----------------- */
+
+/* 11) 报告挂载（免费 + 富报告） */
 function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
   const resultEl = document.getElementById('result');
   if (!resultEl) return;
 
-  // 免费报告
   let freeNode = document.getElementById('xl-free-report');
   if (!freeNode) {
     freeNode = document.createElement('div');
@@ -1866,151 +2065,305 @@ function mountButlerCard(){
   const aiCard = document.getElementById('aiCard');
   if (aiCard && !aiCard.dataset.autorun) {
     aiCard.dataset.autorun = '1';
-    renderMainOverview(window.__last_report__ || {});  // ← 首屏就是“主”
+    renderMainOverview(window.__last_report__ || {});  // 首屏“主”
   }
 }
 
-// 语言切换时，仅刷新标题与芯片文案（不自动翻译/重生管家内容）
-// [PATCH] 保留 lastTopicType
-(function patchRerenderForAi(){
-  const _orig = (typeof rerenderReportsIfAny==='function') ? rerenderReportsIfAny : null;
-
-  window.rerenderReportsIfAny = function(){
-    if(_orig) _orig();
-
-    // refresh title & chips text
-    const titleEl = document.getElementById('butlerTitle');
-    if (titleEl) titleEl.textContent = t('butler_title');
-    renderChips();
-
-    // if language changed, regenerate Butler with the last topic
-const aiCard = document.getElementById('aiCard');
-const newLang = (getLang && getLang()) || 'zh-CN';
-const lastQ   = (aiCard && aiCard.dataset.lastQ) || t('q_overview');
-const lastTopicType = (aiCard && aiCard.dataset.lastTopicType) || 'current';
-
-if (!aiCard) return;
-
-if (aiCard.dataset.lang !== newLang) {
-  aiCard.dataset.lang = newLang;
-  if (lastTopicType === 'current'){
-    renderMainOverview(window.__last_report__ || {});
-  }else{
-    askAi(lastQ, lastTopicType);
+/* 12) 富报告 + 管家容器安放 */
+function mountRichReport({ pillars, percents, st, adv, timeUnknown }) {
+  let host = document.getElementById('rich-report');
+  if (!host) {
+    host = document.createElement('div');
+    host.id = 'rich-report';
+    const result = document.getElementById('result');
+    if (result) result.appendChild(host);
   }
-  return;
+  host.innerHTML = buildRichReportHTML({ pillars, percents, st, adv, timeUnknown });
+
+  let bhost = document.getElementById('butler-host');
+  if (!bhost && host.parentNode) {
+    bhost = document.createElement('div');
+    bhost.id = 'butler-host';
+    host.parentNode.insertBefore(bhost, host.nextSibling);
+  }
+
+  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
 }
 
-    // If content hasn't been generated yet (still skeleton), generate once
-    const out = document.getElementById('aiContent');
-    if (out && out.querySelector('.skeleton')) {
-      if (lastTopicType === 'current'){
-        renderCurrentData(window.__last_report__ || {});
-      }else{
-        askAi(lastQ, lastTopicType);
-      }
+/* 13) 语言：初始化 + 切换后重渲染（合并 Butler 刷新逻辑，避免二次 Hook 冲突） */
+function applyChatI18n(){
+  const fab=$('ssChatFab'), inp=$('ssChatInput'), btn=$('ssChatSend');
+  if (fab) fab.textContent = t('chat_fab');
+  if (inp) inp.placeholder = t('chat_placeholder');
+  if (btn) btn.textContent = t('chat_send');
+}
+function initLangUI(){
+  const sel = document.getElementById('langSelect');
+  if(!sel) return;
+  const current = getLang();
+  sel.value = current;
+  document.documentElement.lang = current;
+  applyI18n();
+  applyChatI18n();
+
+  sel.addEventListener('change', ()=>{
+    setLang(sel.value);
+    applyI18n();
+    applyChatI18n();
+    rerenderReportsIfAny();
+  });
+}
+function rerenderReportsIfAny(){
+  const ctx = window.__last_report__;
+  if (!ctx) return;
+
+  const { pillars, percents, st, adv, timeUnknown } = ctx;
+
+  // 1) 重新渲染报告（免费+富报告）
+  mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown });
+  mountRichReport({ pillars, percents, st, adv, timeUnknown });
+  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
+
+  // 2) 切语言后同步刷新“最强/最弱”提示
+  const E = ELABEL();
+  const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
+  const entries = Object.entries(percents || {});
+  const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
+  const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
+  setText(
+    'bazi-elements-balance',
+    t('elements_balance_tpl')
+      .replace('{max}', key2Locale[strongestK])
+      .replace('{min}', key2Locale[weakestK])
+  );
+
+  // 3) 刷新 AI 卡片标题与芯片文案
+  const titleEl = document.getElementById('butlerTitle');
+  if (titleEl) titleEl.textContent = t('butler_title');
+  renderChips();
+
+  // 4) Butler 内容按上次主题自动刷新 + 同步浮窗
+  const aiCard = document.getElementById('aiCard');
+  const newLang = (getLang && getLang()) || 'zh-CN';
+  const lastQ   = (aiCard && aiCard.dataset.lastQ) || '__current__';
+  const lastTopicType = (aiCard && aiCard.dataset.lastTopicType) || 'current';
+  if (!aiCard) return;
+
+  if (aiCard.dataset.lang !== newLang) {
+    aiCard.dataset.lang = newLang;
+    if (lastTopicType === 'current'){
+      renderMainOverview(window.__last_report__ || {});
+    }else{
+      askAi(lastQ, lastTopicType);
     }
-  };
+    return;
+  }
+  const out = document.getElementById('aiContent');
+  if (out && out.querySelector('.skeleton')) {
+    if (lastTopicType === 'current'){
+      renderMainOverview(window.__last_report__ || {});
+    }else{
+      askAi(lastQ, lastTopicType);
+    }
+  }
+}
+
+/* 14) 估时间向导 */
+(function initBirthtimeWizard(){
+  const tChk=$('timeUnknown'), tInput=$('birthtime'), btn=$('guessTimeBtn');
+  const twMask=$('twMask'), twGrid=$('twGrid'), twApply=$('twApply'), twCancel=$('twCancel');
+  if(!tInput||!tChk||!twMask||!twGrid||!twApply||!twCancel) return;
+
+  const DZ=[
+    ['子','23:00–01:00','00:00'],['丑','01:00–03:00','02:00'],['寅','03:00–05:00','04:00'],['卯','05:00–07:00','06:00'],
+    ['辰','07:00–09:00','08:00'],['巳','09:00–11:00','10:00'],['午','11:00–13:00','12:00'],['未','13:00–15:00','14:00'],
+    ['申','15:00–17:00','16:00'],['酉','17:00–19:00','18:00'],['戌','19:00–21:00','20:00'],['亥','21:00–23:00','22:00']
+  ];
+  let selected=null;
+
+  function openWizard(){
+    twMask.style.display='flex'; selected=null; twApply.disabled=true;
+    if(!twGrid.dataset.built){
+      DZ.forEach(([z,range])=>{
+        const b=document.createElement('button'); b.type='button'; b.className='tw-btn'; b.textContent=`${z}（${range}）`;
+        b.addEventListener('click',()=>{ [...twGrid.children].forEach(x=>x.classList.remove('active')); b.classList.add('active'); selected=z; twApply.disabled=false;});
+        twGrid.appendChild(b);
+      }); twGrid.dataset.built='1';
+    }else{ [...twGrid.children].forEach(x=>x.classList.remove('active')); }
+  }
+  function closeWizard(){ twMask.style.display='none'; }
+
+  tChk.addEventListener('change', ()=>{ tInput.disabled=tChk.checked; if(tChk.checked) openWizard(); else closeWizard(); });
+  btn && btn.addEventListener('click', openWizard);
+  twCancel.addEventListener('click', closeWizard);
+  twApply.addEventListener('click', ()=>{
+    if(!selected) return;
+    const mid=Object.fromEntries(DZ.map(([z,_,m])=>[z,m]))[selected];
+    tInput.value=mid; tInput.disabled=false; tChk.checked=false; closeWizard();
+  });
+  tInput.disabled=tChk.checked;
 })();
 
+/* 15) 登录/注册/重置密码 */
+async function loginFlow(email,password){
+  const res = await fetchJSON('/api/login', { email, password });
+  const msg=(res.msg||"").toString().toLowerCase();
+  let expired=false;
+  if(res.expired===true) expired=true;
+  else if(msg==='expired') expired=true;
+  else if(res.expiresAt){
+    const ts=Date.parse(res.expiresAt);
+    if(!Number.isNaN(ts)&&ts<Date.now()) expired=true;
+  }
 
-/* ================== 报告函数最小实现（兜底） ================== */
-(function ensureReportFallbacks(){
-  if (typeof window.buildFreeReportHTML !== 'function') {
-    window.buildFreeReportHTML = function({ pillars, percents, st, adv, timeUnknown } = {}) {
-      const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-      const E = ELABEL();
-      const p = percents || {};
-      const ym = `${esc(pillars?.year?.stem||'')}${esc(pillars?.year?.branch||'')}`;
-      const mm = `${esc(pillars?.month?.stem||'')}${esc(pillars?.month?.branch||'')}`;
-      const dm = `${esc(pillars?.day?.stem||'')}${esc(pillars?.day?.branch||'')}`;
-      const hm = timeUnknown ? t('rpt_time_unknown') : `${esc(pillars?.hour?.stem||'')}${esc(pillars?.hour?.branch||'')}`;
-      const fav = (adv?.useful||[]).join('/'), avoid = (adv?.avoid||[]).join('/');
+  if(expired){
+    const go=confirm(t('err_expired')+'。是否前往续费？');
+    if(go){
+      const a=document.createElement('a');
+      a.href='https://yourshopifyshop.com/products/monthly-vip';
+      a.target='_blank'; a.rel='noopener noreferrer';
+      document.body.appendChild(a); a.click(); a.remove();
+    }
+    return;
+  }
 
-      return `
-        <div class="card">
-          <div class="h2">${esc(t('rpt_free_title'))}</div>
-          <div>${esc(t('rpt_pillars_label'))}：${ym}｜${mm}｜${dm}｜${hm}</div>
-          <div>${esc(t('rpt_daymaster_label'))}：${esc(pillars?.day?.stem||'')}（${esc(pillars?.day?.element||'')}）</div>
-          <div>${esc(t('rpt_season_label'))}：${esc(st?.season||'-')} ｜ ${esc(t('rpt_chart_label'))}：${esc(st?.mark||'-')}</div>
-          <div style="margin-top:8px">${esc(t('rpt_wuxing_label'))}：${E.wood} ${Math.round(p.wood||0)}% · ${E.fire} ${Math.round(p.fire||0)}% · ${E.earth} ${Math.round(p.earth||0)}% · ${E.metal} ${Math.round(p.metal||0)}% · ${E.water} ${Math.round(p.water||0)}%</div>
-          ${timeUnknown ? `<div class="muted" style="margin-top:6px">${esc(t('rpt_time_hint'))}</div>` : ''}
-          <div style="margin-top:8px">${esc(t('rpt_fav_avoid_template').replace('{fav}', fav||'-').replace('{avoid}', avoid||'-'))}</div>
-        </div>
-      `;
+  if(res.ok===true){
+    localStorage.setItem('vipEmail',res.email||email);
+    location.href='https://astro.5xliving.com/vip_soul_sanctuary.html';
+    return;
+  }
+
+  if(msg==='no_account') return showAuthErr(t('err_no_account'));
+  if(msg==='wrong_pwd') return showAuthErr(t('err_wrong_pwd'));
+  const extra = res.msg ? ` ${(typeof res.msg==='string')?res.msg:JSON.stringify(res.msg)}` : '';
+  return showAuthErr(t('err_login_fail')+extra);
+}
+
+/* 16) Box 样式（新） */
+(function injectBoxStyle(){
+  const id='box-style'; const old=document.getElementById(id); if (old) old.remove();
+  const style=document.createElement('style'); style.id=id;
+  style.textContent = `
+    :root{
+      --box-bg:#0b111a;
+      --box-line:#1f2a36;
+      --box-text:#e8edf3;
+      --box-title:#ffd88a;
+      --muted:#9db0c3;
+    }
+    .box{background:var(--box-bg); border:1px solid var(--box-line); border-radius:12px; padding:14px 16px; margin:14px 0;}
+    .box-h{color:var(--box-title); font-weight:700; margin-bottom:8px;}
+    .box-c{color:var(--box-text); line-height:1.7;}
+    .box .muted{color:var(--muted);}
+    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+    .chip{padding:6px 10px;border-radius:999px;border:1px solid #2a3546;background:#0e1520;color:#e8edf3;cursor:pointer}
+    .skeleton{display:grid;gap:8px}
+    .skeleton div{height:12px;border-radius:6px;background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);animation:sh 1.2s infinite}
+    @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
+    .ai-lock-overlay{position:static;inset:auto;background:none;backdrop-filter:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--box-line);text-align:center}
+    .ai-lock-overlay .tip{color:#ffd88a;font-weight:700;margin-bottom:4px}
+    .ai-lock-overlay .sub{color:var(--muted)}
+  `;
+  document.head.appendChild(style);
+})();
+
+/* 17) Boxify：把每个 .sec/.card 包进 .box，同时保留 #aiCard 与 #butlerTitle */
+(function boxifyBazi(){
+  function wrapSec(sec){
+    if (!sec || sec.closest('.box')) return;
+
+    const isAiCard = sec.id === 'aiCard';
+    const titleEl  = sec.querySelector('h3');
+    const titleTxt = titleEl ? titleEl.textContent.trim() : '';
+    const titleId  = titleEl ? titleEl.id : '';
+
+    const frag = document.createDocumentFragment();
+    if (titleEl) titleEl.remove();
+    while (sec.firstChild) frag.appendChild(sec.firstChild);
+
+    const box = document.createElement('div');
+    box.className = 'box';
+
+    if (isAiCard){
+      box.id = 'aiCard';
+      for (const k in sec.dataset) box.dataset[k] = sec.dataset[k];
+    }
+
+    const h = document.createElement('div');
+    h.className = 'box-h';
+    h.textContent = titleTxt || '';
+    if (titleId === 'butlerTitle') h.id = 'butlerTitle';
+
+    const c = document.createElement('div');
+    c.className = 'box-c';
+    c.appendChild(frag);
+
+    box.appendChild(h);
+    box.appendChild(c);
+    sec.replaceWith(box);
+  }
+
+  function wrapCard(card){
+    if (!card || card.classList.contains('box')) return;
+    const titleEl = card.querySelector('.h2');
+    const title   = titleEl ? titleEl.textContent.trim() : '';
+    if (titleEl) titleEl.remove();
+
+    const box = document.createElement('div'); box.className = 'box';
+    const h   = document.createElement('div'); h.className   = 'box-h'; h.textContent = title || '';
+    const c   = document.createElement('div'); c.className   = 'box-c';
+    while (card.firstChild) c.appendChild(card.firstChild);
+    box.appendChild(h); box.appendChild(c);
+    card.replaceWith(box);
+  }
+
+  function applyAll(root){
+    if (!root) return;
+    root.querySelectorAll('#rich-report .sec').forEach(wrapSec);
+    const ai = root.querySelector('#aiCard'); if (ai) wrapSec(ai);
+    root.querySelectorAll('#xl-free-report .card').forEach(wrapCard);
+  }
+
+  applyAll(document.getElementById('result') || document);
+
+  const _mountRich = window.mountRichReport;
+  if (typeof _mountRich === 'function'){
+    window.mountRichReport = function(...args){
+      _mountRich.apply(this, args);
+      applyAll(document.getElementById('result') || document);
+    };
+  }
+  const _mountExt = window.mountExtensionsIntoResult;
+  if (typeof _mountExt === 'function'){
+    window.mountExtensionsIntoResult = function(...args){
+      _mountExt.apply(this, args);
+      applyAll(document.getElementById('result') || document);
+    };
+  }
+  const _rerender = window.rerenderReportsIfAny;
+  if (typeof _rerender === 'function'){
+    window.rerenderReportsIfAny = function(...args){
+      _rerender.apply(this, args);
+      applyAll(document.getElementById('result') || document);
     };
   }
 
-  // ✅ 关键：给出“1–9 段”的完整 fallback
-  if (typeof window.buildRichReportHTML !== 'function') {
-    window.buildRichReportHTML = function({ pillars, percents, st, adv, timeUnknown } = {}) {
-      const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-      const E = ELABEL(); const p = percents || {};
-      const kv = [[E.wood,p.wood||0],[E.fire,p.fire||0],[E.earth,p.earth||0],[E.metal,p.metal||0],[E.water,p.water||0]];
-      const strongest = kv.reduce((a,b)=> a[1]>=b[1]?a:b)[0];
-      const weakest   = kv.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
-      const absent    = kv.filter(([,v])=>Math.round(v)===0).map(([k])=>k);
-
-      const ym = `${esc(pillars?.year?.stem||'')}${esc(pillars?.year?.branch||'')}`;
-      const mm = `${esc(pillars?.month?.stem||'')}${esc(pillars?.month?.branch||'')}`;
-      const dm = `${esc(pillars?.day?.stem||'')}${esc(pillars?.day?.branch||'')}`;
-      const hm = timeUnknown ? t('rpt_time_unknown') : `${esc(pillars?.hour?.stem||'')}${esc(pillars?.hour?.branch||'')}`;
-      const fav=(adv?.useful||[]).join('/'), avoid=(adv?.avoid||[]).join('/');
-
-      const sec=(title,body)=>`<div class="sec"><h3>${esc(title)}</h3><div class="ai-content">${body}</div></div>`;
-      const bullet = arr => (arr||[]).map(x=>`• ${esc(x)}`).join('<br>');
-
-      return [
-        // 1) 总览
-        sec(t('rpt_sec_overview_title'),
-          `${esc(t('rpt_pillars_label'))}：${ym}｜${mm}｜${dm}｜${hm}<br>`+
-          `${esc(t('rpt_daymaster_label'))}：${esc(pillars?.day?.stem||'')}（${esc(pillars?.day?.element||'')}）<br>`+
-          `${esc(t('rpt_season_label'))}：${esc(st?.season||'-')} ｜ ${esc(t('rpt_chart_label'))}：${esc(st?.mark||'-')}`+
-          (timeUnknown?`<br><span class="muted">${esc(t('rpt_time_hint'))}</span>`:'')
-        ),
-
-        // 2) 五行能量
-        sec(t('rpt_sec_elements_title'),
-          `${E.wood} ${Math.round(p.wood||0)}% · ${E.fire} ${Math.round(p.fire||0)}% · ${E.earth} ${Math.round(p.earth||0)}% · ${E.metal} ${Math.round(p.metal||0)}% · ${E.water} ${Math.round(p.water||0)}%<br>`+
-          `${esc(t('rpt_balance_focus_label'))}：${esc(strongest)} ${esc(t('rpt_strongest_word'))}，${esc(weakest)} ${esc(t('rpt_weakest_word'))}`+
-          (absent.length?`，${esc(t('rpt_absent_prefix'))}${esc(absent.join('/'))}`:'')
-        ),
-
-        // 3) 性格与天赋（占位）
-        sec(t('rpt_sec_traits_title'),
-          bullet([t('rpt_traits_intro'), t('rpt_traits_adv'), t('rpt_traits_chal')])
-        ),
-
-        // 4) 格局与喜忌
-        sec(t('rpt_sec_structure_title'),
-          `${esc(t('rpt_structure_line_template').replace('{fav}', fav||'-').replace('{avoid}', avoid||'-'))}<br>`+
-          `${esc(t('rpt_strategy_label'))} ${esc(st?.focus||'-')}`
-        ),
-
-        // 5) 事业与发展（试读）
-        sec(t('rpt_sec_career_title'),
-          `${esc(t('rpt_career_fields_placeholder'))}<br>`+
-          `${esc(t('rpt_dev_strategy_prefix'))}${esc(st?.focus||'-')}`
-        ),
-
-        // 6) 感情（试读）
-        sec(t('rpt_sec_love_title'), esc(t('rpt_love_placeholder'))),
-
-        // 7) 财富（试读）
-        sec(t('rpt_sec_wealth_title'), esc(t('rpt_wealth_suggestion_template').replace('{fav}', fav||'-'))),
-
-        // 8) 健康
-        sec(t('rpt_sec_health_title'), esc(t('rpt_health_placeholder_template').replace('{weak}', weakest))),
-
-        // 9) 环境与色彩
-        sec(t('rpt_sec_env_title'), esc(t('rpt_env_placeholder')))
-      ].join('');
-    };
+  const root = document.getElementById('result') || document.body;
+  if (root) {
+    const mo = new MutationObserver((mutList)=>{
+      for (const m of mutList){
+        for (const n of m.addedNodes){
+          if (!(n instanceof HTMLElement)) continue;
+          const ai = (n.id === 'aiCard') ? n : n.querySelector?.('#aiCard');
+          if (ai && !ai.closest('.box')) wrapSec(ai);
+        }
+      }
+    });
+    mo.observe(root, { childList:true, subtree:true });
   }
 })();
 
-
-/* ================== 八字计算器（简化） ================== */
+/* 18) 八字计算器 + 规则 */
 class BaziCalculator{
   constructor(){
     this.HEAVENLY_STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
@@ -2041,7 +2394,6 @@ class BaziCalculator{
 }
 const baziCalculator = new BaziCalculator();
 
-/* ================== 规则/渲染 ================== */
 function renderPillars(root,p,timeUnknown=false){
   if(!root) return; root.innerHTML='';
   [['年柱',p.year],['月柱',p.month],['日柱',p.day],['时柱',p.hour]].forEach(([tit,v])=>{
@@ -2076,8 +2428,6 @@ function chooseUseful(strength,dmElem){
   if(strength==='偏弱') return {strategy:'生扶/补助', useful:({木:['木','水'],火:['火','木'],土:['土','火'],金:['金','土'],水:['水','金']})[dmElem], avoid:[]};
   return {strategy:'调和', useful:['木','火','土','金','水'], avoid:[]};
 }
-
-/* ——（可选）旧管家面板定位：若无 #assistant-panel 则不动作 —— */
 function relocateButlerPanel(){
   const panel  = document.getElementById('assistant-panel');
   const anchor = document.getElementById('butler-anchor');
@@ -2086,7 +2436,7 @@ function relocateButlerPanel(){
   }
 }
 
-/* ================== 生成命盘 ================== */
+/* 19) 生成命盘主流程 */
 async function genChart(){
   const birth = ($('birthdate')?.value || '').trim();
   const timeUnknown = $('timeUnknown')?.checked || false;
@@ -2143,13 +2493,13 @@ async function genChart(){
       );
     }
 
-    // 存入上下文（修正字段名：timeUnknown）
+    // 存上下文
     window.__last_report__ = { pillars, percents, st, adv, timeUnknown: tu };
 
-    // 顺序很重要：免费/富报告 → 管家
+    // 顺序：免费/富报告 → 管家
     mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
     mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
-    mountButlerCard(); // <- 确保管家在最下方
+    mountButlerCard();
 
     console.log(
       '实际 →',
@@ -2168,156 +2518,88 @@ async function genChart(){
   }
 }
 
-function mountRichReport({ pillars, percents, st, adv, timeUnknown }) {
-  let host = document.getElementById('rich-report');
-  if (!host) {
-    host = document.createElement('div');
-    host.id = 'rich-report';
-    const result = document.getElementById('result');
-    if (result) result.appendChild(host);
+/* 20) 报告模板（兜底：免费+富报告） */
+(function ensureReportFallbacks(){
+  if (typeof window.buildFreeReportHTML !== 'function') {
+    window.buildFreeReportHTML = function({ pillars, percents, st, adv, timeUnknown } = {}) {
+      const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+      const E = ELABEL();
+      const p = percents || {};
+      const ym = `${esc(pillars?.year?.stem||'')}${esc(pillars?.year?.branch||'')}`;
+      const mm = `${esc(pillars?.month?.stem||'')}${esc(pillars?.month?.branch||'')}`;
+      const dm = `${esc(pillars?.day?.stem||'')}${esc(pillars?.day?.branch||'')}`;
+      const hm = timeUnknown ? t('rpt_time_unknown') : `${esc(pillars?.hour?.stem||'')}${esc(pillars?.hour?.branch||'')}`;
+      const fav = (adv?.useful||[]).join('/'), avoid = (adv?.avoid||[]).join('/');
+
+      return `
+        <div class="card">
+          <div class="h2">${esc(t('rpt_free_title'))}</div>
+          <div>${esc(t('rpt_pillars_label'))}：${ym}｜${mm}｜${dm}｜${hm}</div>
+          <div>${esc(t('rpt_daymaster_label'))}：${esc(pillars?.day?.stem||'')}（${esc(pillars?.day?.element||'')}）</div>
+          <div>${esc(t('rpt_season_label'))}：${esc(st?.season||'-')} ｜ ${esc(t('rpt_chart_label'))}：${esc(st?.mark||'-')}</div>
+          <div style="margin-top:8px">${esc(t('rpt_wuxing_label'))}：${E.wood} ${Math.round(p.wood||0)}% · ${E.fire} ${Math.round(p.fire||0)}% · ${E.earth} ${Math.round(p.earth||0)}% · ${E.metal} ${Math.round(p.metal||0)}% · ${E.water} ${Math.round(p.water||0)}%</div>
+          ${timeUnknown ? `<div class="muted" style="margin-top:6px">${esc(t('rpt_time_hint'))}</div>` : ''}
+          <div style="margin-top:8px">${esc(t('rpt_fav_avoid_template').replace('{fav}', fav||'-').replace('{avoid}', avoid||'-'))}</div>
+        </div>
+      `;
+    };
   }
-  host.innerHTML = buildRichReportHTML({ pillars, percents, st, adv, timeUnknown });
 
-  // 👉 确保“管家”容器在报告之后
-  let bhost = document.getElementById('butler-host');
-  if (!bhost && host.parentNode) {
-    bhost = document.createElement('div');
-    bhost.id = 'butler-host';
-    host.parentNode.insertBefore(bhost, host.nextSibling);
+  if (typeof window.buildRichReportHTML !== 'function') {
+    window.buildRichReportHTML = function({ pillars, percents, st, adv, timeUnknown } = {}) {
+      const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+      const E = ELABEL(); const p = percents || {};
+      const kv = [[E.wood,p.wood||0],[E.fire,p.fire||0],[E.earth,p.earth||0],[E.metal,p.metal||0],[E.water,p.water||0]];
+      const strongest = kv.reduce((a,b)=> a[1]>=b[1]?a:b)[0];
+      const weakest   = kv.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
+      const absent    = kv.filter(([,v])=>Math.round(v)===0).map(([k])=>k);
+
+      const ym = `${esc(pillars?.year?.stem||'')}${esc(pillars?.year?.branch||'')}`;
+      const mm = `${esc(pillars?.month?.stem||'')}${esc(pillars?.month?.branch||'')}`;
+      const dm = `${esc(pillars?.day?.stem||'')}${esc(pillars?.day?.branch||'')}`;
+      const hm = timeUnknown ? t('rpt_time_unknown') : `${esc(pillars?.hour?.stem||'')}${esc(pillars?.hour?.branch||'')}`;
+      const fav=(adv?.useful||[]).join('/'), avoid=(adv?.avoid||[]).join('/');
+
+      const sec=(title,body)=>`<div class="sec"><h3>${esc(title)}</h3><div class="ai-content">${body}</div></div>`;
+      const bullet = arr => (arr||[]).map(x=>`• ${esc(x)}`).join('<br>');
+
+      return [
+        sec(t('rpt_sec_overview_title'),
+          `${esc(t('rpt_pillars_label'))}：${ym}｜${mm}｜${dm}｜${hm}<br>`+
+          `${esc(t('rpt_daymaster_label'))}：${esc(pillars?.day?.stem||'')}（${esc(pillars?.day?.element||'')}）<br>`+
+          `${esc(t('rpt_season_label'))}：${esc(st?.season||'-')} ｜ ${esc(t('rpt_chart_label'))}：${esc(st?.mark||'-')}`+
+          (timeUnknown?`<br><span class="muted">${esc(t('rpt_time_hint'))}</span>`:'')
+        ),
+        sec(t('rpt_sec_elements_title'),
+          `${E.wood} ${Math.round(p.wood||0)}% · ${E.fire} ${Math.round(p.fire||0)}% · ${E.earth} ${Math.round(p.earth||0)}% · ${E.metal} ${Math.round(p.metal||0)}% · ${E.water} ${Math.round(p.water||0)}%<br>`+
+          `${esc(t('rpt_balance_focus_label'))}：${esc(strongest)} ${esc(t('rpt_strongest_word'))}，${esc(weakest)} ${esc(t('rpt_weakest_word'))}`+
+          (absent.length?`，${esc(t('rpt_absent_prefix'))}${esc(absent.join('/'))}`:'')
+        ),
+        sec(t('rpt_sec_traits_title'),
+          bullet([t('rpt_traits_intro'), t('rpt_traits_adv'), t('rpt_traits_chal')])
+        ),
+        sec(t('rpt_sec_structure_title'),
+          `${esc(t('rpt_structure_line_template').replace('{fav}', fav||'-').replace('{avoid}', avoid||'-'))}<br>`+
+          `${esc(t('rpt_strategy_label'))} ${esc(st?.focus||'-')}`
+        ),
+        sec(t('rpt_sec_career_title'),
+          `${esc(t('rpt_career_fields_placeholder'))}<br>`+
+          `${esc(t('rpt_dev_strategy_prefix'))}${esc(st?.focus||'-')}`
+        ),
+        sec(t('rpt_sec_love_title'), esc(t('rpt_love_placeholder'))),
+        sec(t('rpt_sec_wealth_title'), esc(t('rpt_wealth_suggestion_template').replace('{fav}', fav||'-'))),
+        sec(t('rpt_sec_health_title'), esc(t('rpt_health_placeholder_template').replace('{weak}', weakest))),
+        sec(t('rpt_sec_env_title'), esc(t('rpt_env_placeholder')))
+      ].join('');
+    };
   }
-
-  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
-}
-
-/* ================== 语言：初始化 + 切换后重渲染 ================== */
-function applyChatI18n(){
-  const fab=$('ssChatFab'), inp=$('ssChatInput'), btn=$('ssChatSend');
-  if (fab) fab.textContent = t('chat_fab');
-  if (inp) inp.placeholder = t('chat_placeholder');
-  if (btn) btn.textContent = t('chat_send');
-}
-function initLangUI(){
-  const sel = document.getElementById('langSelect');
-  if(!sel) return;
-  const current = getLang();
-  sel.value = current;
-  document.documentElement.lang = current;
-  applyI18n();
-  applyChatI18n();
-
-  sel.addEventListener('change', ()=>{
-    setLang(sel.value);
-    applyI18n();
-    applyChatI18n();
-    rerenderReportsIfAny();
-  });
-}
-function rerenderReportsIfAny(){
-  const ctx = window.__last_report__;
-  if (!ctx) return;
-
-  const { pillars, percents, st, adv, timeUnknown } = ctx;
-
-  // 1) 重新渲染报告（免费+富报告）
-  mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown });
-  mountRichReport({ pillars, percents, st, adv, timeUnknown });
-  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
-
-  // 2) 切语言后同步刷新“最强/最弱”提示
-  const E = ELABEL();
-  const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
-  const entries = Object.entries(percents || {});
-  const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
-  const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
-  setText(
-    'bazi-elements-balance',
-    t('elements_balance_tpl')
-      .replace('{max}', key2Locale[strongestK])
-      .replace('{min}', key2Locale[weakestK])
-  );
-
-  // 3) 刷新 AI 卡片标题与芯片文案
-  const titleEl = document.getElementById('butlerTitle');
-  if (titleEl) titleEl.textContent = t('butler_title');
-  renderChips();
-}
-
-/* ================== 估时间向导（仅勾选不详时触发） ================== */
-(function initBirthtimeWizard(){
-  const tChk=$('timeUnknown'), tInput=$('birthtime'), btn=$('guessTimeBtn');
-  const twMask=$('twMask'), twGrid=$('twGrid'), twApply=$('twApply'), twCancel=$('twCancel');
-  if(!tInput||!tChk||!twMask||!twGrid||!twApply||!twCancel) return;
-
-  const DZ=[
-    ['子','23:00–01:00','00:00'],['丑','01:00–03:00','02:00'],['寅','03:00–05:00','04:00'],['卯','05:00–07:00','06:00'],
-    ['辰','07:00–09:00','08:00'],['巳','09:00–11:00','10:00'],['午','11:00–13:00','12:00'],['未','13:00–15:00','14:00'],
-    ['申','15:00–17:00','16:00'],['酉','17:00–19:00','18:00'],['戌','19:00–21:00','20:00'],['亥','21:00–23:00','22:00']
-  ];
-  let selected=null;
-
-  function openWizard(){
-    twMask.style.display='flex'; selected=null; twApply.disabled=true;
-    if(!twGrid.dataset.built){
-      DZ.forEach(([z,range])=>{
-        const b=document.createElement('button'); b.type='button'; b.className='tw-btn'; b.textContent=`${z}（${range}）`;
-        b.addEventListener('click',()=>{ [...twGrid.children].forEach(x=>x.classList.remove('active')); b.classList.add('active'); selected=z; twApply.disabled=false;});
-        twGrid.appendChild(b);
-      }); twGrid.dataset.built='1';
-    }else{ [...twGrid.children].forEach(x=>x.classList.remove('active')); }
-  }
-  function closeWizard(){ twMask.style.display='none'; }
-
-  tChk.addEventListener('change', ()=>{ tInput.disabled=tChk.checked; if(tChk.checked) openWizard(); else closeWizard(); });
-  btn && btn.addEventListener('click', openWizard);
-  twCancel.addEventListener('click', closeWizard);
-  twApply.addEventListener('click', ()=>{
-    if(!selected) return;
-    const mid=Object.fromEntries(DZ.map(([z,_,m])=>[z,m]))[selected];
-    tInput.value=mid; tInput.disabled=false; tChk.checked=false; closeWizard();
-  });
-  tInput.disabled=tChk.checked;
 })();
 
-/* ================== 登录流程（统一使用 fetchJSON） ================== */
-async function loginFlow(email,password){
-  const res = await fetchJSON('/api/login', { email, password });
-  const msg=(res.msg||"").toString().toLowerCase();
-  let expired=false;
-  if(res.expired===true) expired=true;
-  else if(msg==='expired') expired=true;
-  else if(res.expiresAt){
-    const ts=Date.parse(res.expiresAt);
-    if(!Number.isNaN(ts)&&ts<Date.now()) expired=true;
-  }
-
-  if(expired){
-    const go=confirm(t('err_expired')+'。是否前往续费？');
-    if(go){
-      const a=document.createElement('a');
-      a.href='https://yourshopifyshop.com/products/monthly-vip';
-      a.target='_blank'; a.rel='noopener noreferrer';
-      document.body.appendChild(a); a.click(); a.remove();
-    }
-    return;
-  }
-
-  if(res.ok===true){
-    localStorage.setItem('vipEmail',res.email||email);
-    location.href='https://astro.5xliving.com/vip_soul_sanctuary.html';
-    return;
-  }
-
-  if(msg==='no_account') return showAuthErr(t('err_no_account'));
-  if(msg==='wrong_pwd') return showAuthErr(t('err_wrong_pwd'));
-  const extra = res.msg ? ` ${(typeof res.msg==='string')?res.msg:JSON.stringify(res.msg)}` : '';
-  return showAuthErr(t('err_login_fail')+extra);
-}
-
-/* —— 表单事件绑定（合并为一次 DOMContentLoaded） —— */
+/* 21) DOM Ready 与表单事件 */
 document.addEventListener('DOMContentLoaded', ()=>{
   initLangUI();
 
-  // —— 最小防自动填充（不预设邮箱/密码）——
+  // 防自动填充
   (() => {
     const form = document.getElementById('loginForm');
     if (form) form.setAttribute('autocomplete','off');
@@ -2327,17 +2609,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (pwd)   pwd.setAttribute('autocomplete','new-password');
   })();
 
-  // Default date today (若为空)
+  // Default date today
   var bd=document.querySelector('#birthdate');
   if(bd && !bd.value){ bd.value = new Date().toISOString().split('T')[0]; }
+
+  // 确保浮窗可用
+  try { if (typeof mountChat === 'function') mountChat(); } catch(_) {}
 });
-  
-// 生成命盘按钮和输入回车
+
+// 生成命盘按钮 + 回车
 const genBtn = $('genBtn');
 if (genBtn && typeof genChart === 'function') {
   genBtn.addEventListener('click', genChart);
 }
-
 ['birthdate','birthtime'].forEach(id=>{
   const el=$(id);
   if(el) el.addEventListener('keydown', e=>{
@@ -2386,142 +2670,8 @@ $('resetBtn')?.addEventListener('click', async ()=>{
   }catch(err){ showAuthErr(t('err_reset_fail')+(err?.message||'')); }
   finally{ lock($('resetBtn'),false); }
 });
-  
-// === Box 样式（新） ===
-(function injectBoxStyle(){
-  const id='box-style'; const old=document.getElementById(id); if (old) old.remove();
-  const style=document.createElement('style'); style.id=id;
-  style.textContent = `
-    :root{
-      --box-bg:#0b111a;
-      --box-line:#1f2a36;
-      --box-text:#e8edf3;
-      --box-title:#ffd88a;
-      --muted:#9db0c3;
-    }
-    .box{background:var(--box-bg); border:1px solid var(--box-line); border-radius:12px; padding:14px 16px; margin:14px 0;}
-    .box-h{color:var(--box-title); font-weight:700; margin-bottom:8px;}
-    .box-c{color:var(--box-text); line-height:1.7;}
-    .box .muted{color:var(--muted);}
-    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-    .chip{padding:6px 10px;border-radius:999px;border:1px solid #2a3546;background:#0e1520;color:#e8edf3;cursor:pointer}
-    .skeleton{display:grid;gap:8px}
-    .skeleton div{height:12px;border-radius:6px;background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);animation:sh 1.2s infinite}
-    @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
-    .ai-lock-overlay{position:static;inset:auto;background:none;backdrop-filter:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--box-line);text-align:center}
-    .ai-lock-overlay .tip{color:#ffd88a;font-weight:700;margin-bottom:4px}
-    .ai-lock-overlay .sub{color:var(--muted)}
-  `;
-  document.head.appendChild(style);
-})();
 
-/* === BAZI：把每一段包进 .box（非侵入式）=== */
-/* === BAZI：把每一段包进 .box（保留 #aiCard / #butlerTitle）=== */
-(function boxifyBazi(){
-  function wrapSec(sec){
-    if (!sec || sec.closest('.box')) return;
-
-    const isAiCard = sec.id === 'aiCard';             // 关键：是否管家卡
-    const titleEl  = sec.querySelector('h3');
-    const titleTxt = titleEl ? titleEl.textContent.trim() : '';
-    const titleId  = titleEl ? titleEl.id : '';
-
-    const frag = document.createDocumentFragment();
-    if (titleEl) titleEl.remove();
-    while (sec.firstChild) frag.appendChild(sec.firstChild);
-
-    const box = document.createElement('div');
-    box.className = 'box';
-
-    // ✅ 保留 id 和 dataset，避免后续 runAI 找不到 #aiCard
-    if (isAiCard){
-      box.id = 'aiCard';
-      for (const k in sec.dataset) box.dataset[k] = sec.dataset[k];
-    }
-
-    const h = document.createElement('div');
-    h.className = 'box-h';
-    h.textContent = titleTxt || '';
-
-    // ✅ 如果原本标题是 #butlerTitle，也把 id 迁移过来，便于多语言刷新
-    if (titleId === 'butlerTitle') h.id = 'butlerTitle';
-
-    const c = document.createElement('div');
-    c.className = 'box-c';
-    c.appendChild(frag);
-
-    box.appendChild(h);
-    box.appendChild(c);
-    sec.replaceWith(box);
-  }
-
-  function wrapCard(card){
-    if (!card || card.classList.contains('box')) return;
-    const titleEl = card.querySelector('.h2');
-    const title   = titleEl ? titleEl.textContent.trim() : '';
-    if (titleEl) titleEl.remove();
-
-    const box = document.createElement('div'); box.className = 'box';
-    const h   = document.createElement('div'); h.className   = 'box-h'; h.textContent = title || '';
-    const c   = document.createElement('div'); c.className   = 'box-c';
-    while (card.firstChild) c.appendChild(card.firstChild);
-    box.appendChild(h); box.appendChild(c);
-    card.replaceWith(box);
-  }
-
-  function applyAll(root){
-    if (!root) return;
-    // 富报告
-    root.querySelectorAll('#rich-report .sec').forEach(wrapSec);
-    // ✅ 管家卡片（不管有没有 .sec，都包）
-    const ai = root.querySelector('#aiCard'); if (ai) wrapSec(ai);
-    // 免费简报
-    root.querySelectorAll('#xl-free-report .card').forEach(wrapCard);
-  }
-
-  // 1) 先跑一次
-  applyAll(document.getElementById('result') || document);
-
-  // 2) 挂钩你现有的渲染函数（保持你原逻辑不变）
-  const _mountRich = window.mountRichReport;
-  if (typeof _mountRich === 'function'){
-    window.mountRichReport = function(...args){
-      _mountRich.apply(this, args);
-      applyAll(document.getElementById('result') || document);
-    };
-  }
-  const _mountExt = window.mountExtensionsIntoResult;
-  if (typeof _mountExt === 'function'){
-    window.mountExtensionsIntoResult = function(...args){
-      _mountExt.apply(this, args);
-      applyAll(document.getElementById('result') || document);
-    };
-  }
-  const _rerender = window.rerenderReportsIfAny;
-  if (typeof _rerender === 'function'){
-    window.rerenderReportsIfAny = function(...args){
-      _rerender.apply(this, args);
-      applyAll(document.getElementById('result') || document);
-    };
-  }
-
-  // 3) 兜底：监听 #aiCard 动态插入（先插入后 wrap 的场景）
-  const root = document.getElementById('result') || document.body;
-  if (root) {
-    const mo = new MutationObserver((mutList)=>{
-      for (const m of mutList){
-        for (const n of m.addedNodes){
-          if (!(n instanceof HTMLElement)) continue;
-          const ai = (n.id === 'aiCard') ? n : n.querySelector?.('#aiCard');
-          if (ai && !ai.closest('.box')) wrapSec(ai);
-        }
-      }
-    });
-    mo.observe(root, { childList:true, subtree:true });
-  }
-})();
-  
-/* ================== 自测：1978-02-21 12:00 → 戊午 甲寅 甲寅 庚午 ================== */
+/* 22) 自测：1978-02-21 12:00 → 戊午 甲寅 甲寅 庚午 */
 (function(){
   const c=new BaziCalculator(); const Y=c.calculateYearPillar(1978); const M=c.calculateMonthPillar(1978,2,21); const D=c.calculateDayPillar(1978,2,21); const H=c.calculateHourPillar(D.stem,12);
   console.log('应为 → 年 戊午｜月 甲寅｜日 甲寅｜时 庚午');
