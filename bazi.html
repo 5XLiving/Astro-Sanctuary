@@ -1747,13 +1747,13 @@ function renderCurrentData(ctx){
   const aiCard = document.getElementById('aiCard');
   if (aiCard){ aiCard.dataset.lastQ='__current__'; aiCard.dataset.lastTopicType='current'; }
 
-  // 镜像到浮窗
-  if (out){
-    (__rafMirrorUpdate || updateChatButlerFromHtml)(out.innerHTML);
-    syncChipsToChat();
-    openChat();
-  }
+// 镜像到浮窗
+if (out){
+  (__rafMirrorUpdate || updateChatButlerFromHtml)(out.innerHTML);
+  syncChipsToChat();
+  ensureChatVisibleNow();     // ← 原来是 openChat()
 }
+  
 function renderMainOverview(ctx){
   ensureAiCard();
   const out = document.getElementById('aiContent');
@@ -1765,7 +1765,7 @@ function renderMainOverview(ctx){
 
   (__rafMirrorUpdate || updateChatButlerFromHtml)(out.innerHTML);
   syncChipsToChat();
-  openChat();
+  ensureChatVisibleNow();     // ← 原来是 openChat()
 }
 
 /* 7) 兜底内容（按主题分支） */
@@ -1868,6 +1868,42 @@ function localFallbackButler(topicType, ctx){
     `- ${t('chip_money')||'财运'}：把控现金流；保留30%机动。`,
     `- ${t('chip_love')||'感情'}：先肯定强项，再谈节奏与边界。`,
   ].join('\n');
+}
+
+/* 让浮窗一定能看到（如果你本身已有样式，这段只在缺失时兜底） */
+(function injectChatFallbackStyle(){
+  if (document.getElementById('chat-fallback-style')) return;
+  const s=document.createElement('style'); s.id='chat-fallback-style';
+  s.textContent = `
+    .ss-chat-fab{
+      position:fixed; right:16px; bottom:16px; z-index:2147483647;
+      background:#0e1520; color:#e8edf3; border:1px solid #2a3546;
+      padding:10px 14px; border-radius:999px; cursor:pointer; display:flex; align-items:center; gap:8px;
+    }
+    .ss-chat-panel{
+      position:fixed; right:16px; bottom:84px; z-index:2147483647;
+      width:360px; max-width:92vw; height:520px; display:none;
+      background:#0b111a; border:1px solid #1f2a36; border-radius:12px; overflow:hidden;
+      box-shadow:0 12px 40px rgba(0,0,0,.45);
+    }
+    .ss-chat-head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-bottom:1px solid #1f2a36;color:#ffd88a}
+    .ss-chat-body{height:calc(520px - 112px); overflow:auto; padding:12px}
+    .ss-chat-input{display:flex; gap:8px; padding:12px; border-top:1px solid #1f2a36}
+    .ss-chat-input input{flex:1; background:#0e1520; border:1px solid #2a3546; color:#e8edf3; border-radius:8px; padding:10px}
+    .ss-chat-input .btn{background:#1a2431; color:#e8edf3; border:1px solid #2a3546; border-radius:8px; padding:10px 12px; cursor:pointer}
+    .ss-msg{background:#0e1520; border:1px solid #2a3546; border-radius:10px; padding:10px 12px; margin-bottom:8px; color:#e8edf3}
+    .ss-msg.me{background:#162235}
+  `;
+  document.head.appendChild(s);
+})();
+
+/* 强制挂载并打开浮窗（多处会调用，安全幂等） */
+function ensureChatVisibleNow(){
+  try{ if (typeof mountChat === 'function') mountChat(); }catch(_){}
+  const fab = document.getElementById('ssChatFab');
+  if (fab) fab.style.display = 'flex';
+  const p = document.getElementById('ssChatPanel');
+  if (p) p.style.display = 'block';
 }
 
 /* 8) 浮窗入口（若外部没定义则提供） */
