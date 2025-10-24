@@ -1,5 +1,6 @@
 
 
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1490,7 +1491,10 @@ function renderChips(){
     { k:'chip_career', q:'q_career', topic:'career' },
     { k:'chip_love',   q:'q_love',   topic:'love'   },
     { k:'chip_money',  q:'q_money',  topic:'money'  },
-    { k:'chip_health', q:'q_health', topic:'health' },
+
+    // ← 这里插入“健康”
+    { label: '健康', q: '请结合八字给出健康与作息建议：睡眠/饮食/运动/节律；围绕最弱五行给1-3条可执行调整。', topic:'health' },
+
     { k:'chip_list',   q:'q_list',   topic:'list'   },
     { k:'chip_30d',    q:'q_30d',    topic:'30d'    },
   ];
@@ -1888,31 +1892,35 @@ function mountButlerCard(){
 }
 
 // 语言切换时，仅刷新标题与芯片文案（不自动翻译/重生管家内容）
+// [PATCH] 保留 lastTopicType
 (function patchRerenderForAi(){
-  const _orig = (typeof rerenderReportsIfAny === 'function') ? rerenderReportsIfAny : null;
+  const _orig = (typeof rerenderReportsIfAny==='function') ? rerenderReportsIfAny : null;
 
   window.rerenderReportsIfAny = function(){
-    if (_orig) _orig();
+    if(_orig) _orig();
 
-    // 刷新标题 & 芯片文案
+    // refresh title & chips text
     const titleEl = document.getElementById('butlerTitle');
     if (titleEl) titleEl.textContent = t('butler_title');
     renderChips();
 
-    // 用上次主题在新语言下重渲染
-    const aiCard = document.getElementById('aiCard');
-    if (!aiCard) return;
+    // if language changed, regenerate Butler with the last topic
+const aiCard = document.getElementById('aiCard');
+const newLang = (getLang && getLang()) || 'zh-CN';
+const lastQ   = (aiCard && aiCard.dataset.lastQ) || t('q_overview');
+const lastTopicType = (aiCard && aiCard.dataset.lastTopicType) || 'current';
 
-    const lastQ         = aiCard.dataset.lastQ || '__current__';
-    const lastTopicType = aiCard.dataset.lastTopicType || 'current';
+if (!aiCard) return;
 
-    if (lastTopicType === 'current' || lastQ === '__current__') {
-      renderMainOverview(window.__last_report__ || {});
-    } else {
-      askAi(lastQ, lastTopicType);
-    }
-  };
-})();
+if (aiCard.dataset.lang !== newLang) {
+  aiCard.dataset.lang = newLang;
+  if (lastTopicType === 'current'){
+    renderMainOverview(window.__last_report__ || {});
+  }else{
+    askAi(lastQ, lastTopicType);
+  }
+  return;
+}
 
     // If content hasn't been generated yet (still skeleton), generate once
     const out = document.getElementById('aiContent');
