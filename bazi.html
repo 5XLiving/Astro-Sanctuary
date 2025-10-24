@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <title>八字命理 · 5XLiving</title>
+  <title data-i18n="title_bazi_brief">八字简评 · 5XLiving</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -2483,6 +2483,40 @@ async function genChart(){
   }
 })();
 
+/* === 初始化语言 UI，并在切换时应用多语言 === */
+function initLangUI(){
+  const sel = document.getElementById('langSelect');
+  const cur = (typeof getLang === 'function' ? getLang() : 'zh-CN') || 'zh-CN';
+
+  // 1) 首次渲染：让下拉与当前语言同步
+  if (sel){
+    const has = Array.from(sel.options).some(o => o.value === cur);
+    sel.value = has ? cur : 'zh-CN';
+  }
+
+  // 2) 应用一次多语言到整页与浮窗
+  if (typeof applyI18n === 'function') applyI18n();
+  if (typeof applyChatI18n === 'function') applyChatI18n();
+
+  // 3) 监听切换：写入 localStorage，并刷新文案/芯片/管家镜像
+  if (sel){
+    sel.addEventListener('change', (e) => {
+      const v = e.target.value || 'zh-CN';
+      if (typeof setLang === 'function') setLang(v);
+
+      if (typeof applyI18n === 'function') applyI18n();
+      if (typeof applyChatI18n === 'function') applyChatI18n();
+
+      // 让芯片与概览根据新语言重绘（有则重绘，无则忽略）
+      try { if (typeof renderChips === 'function') renderChips(); } catch(_) {}
+      try { if (typeof renderMainOverview === 'function') renderMainOverview(window.__last_report__ || {}); } catch(_) {}
+    });
+  }
+}
+
+// 可选：确保全局可见（更稳）
+window.initLangUI = initLangUI;
+  
 /* 21) DOM Ready 与表单事件 */
 document.addEventListener('DOMContentLoaded', ()=>{
   initLangUI();
