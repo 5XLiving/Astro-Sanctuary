@@ -88,7 +88,6 @@
       position:fixed;right:18px;bottom:88px;z-index:50;width:min(460px,92vw);display:none;
       background:#0e1520;border:1px solid #243244;border-radius:14px;box-shadow:var(--shadow)
     }
-    .ss-chat-fab, .ss-chat-panel { display: none !important; }
     .ss-chat-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #243244}
     .ss-chat-title{font-weight:700}
     .ss-close{cursor:pointer;opacity:.8}
@@ -2530,6 +2529,238 @@ $('resetBtn')?.addEventListener('click', async ()=>{
 })();
 </script>
 <script>
+/* ================== PATCH A：解除浮窗隐藏 + 注入浮窗UI（只聊天，不渲染管家） ================== */
+(function initFloatingGPT(){
+  /* 1) 解除你之前对 .ss-chat-fab/.ss-chat-panel 的隐藏（加更后置的 !important 覆盖） */
+  const unhide = document.createElement('style');
+  unhide.textContent = `.ss-chat-fab,.ss-chat-panel{display:initial !important}`;
+  document.head.appendChild(unhide);
+
+  /* 2) 若页面没有浮窗节点，则创建（只做聊天，不绑定管家 askAi） */
+  if(!document.getElementById('ssChatFab')){
+    const fab = document.createElement('button');
+    fab.id='ssChatFab';
+    fab.className='ss-chat-fab';
+    fab.type='button';
+    fab.textContent = (typeof t==='function'? t('chat_fab') : '问');
+    document.body.appendChild(fab);
+
+    const panel = document.createElement('div');
+    panel.className='ss-chat-panel';
+    panel.id='ssChatPanel';
+    panel.innerHTML = `
+      <div class="ss-chat-head">
+        <div class="ss-chat-title">5X · GPT</div>
+        <div class="ss-close" id="ssChatClose" aria-label="Close">✕</div>
+      </div>
+      <div class="ss-chat-body" id="ssChatBody" role="log" aria-live="polite"></div>
+      <div class="ss-chat-input">
+        <input id="ssChatInput" placeholder="${(typeof t==='function'? t('chat_placeholder'):'请问您想了解什么？')}" />
+        <button class="btn btn-mini" id="ssChatSend" type="button">${(typeof t==='function'? t('chat_send'):'发送')}</button>
+      </div>`;
+    document.body.appendChild(panel);
+  }
+
+  const $fab   = document.getElementById('ssChatFab');
+  const $panel = document.getElementById('ssChatPanel');
+  const $close = document.getElementById('ssChatClose');
+  const $body  = document.getElementById('ssChatBody');
+  const $inp   = document.getElementById('ssChatInput');
+  const $send  = document.getElementById('ssChatSend');
+
+  const ln  = (typeof getLang==='function' ? getLang() : 'zh-CN');
+  function buildChatSystemPrompt(lang){
+    const map = (typeof BUTLER_LANG_NAME==='object'? BUTLER_LANG_NAME : {'zh-CN':'Simplified Chinese','en':'English'});
+    const L = map[lang] || map['zh-CN'];
+    return [
+      `You are a warm, practical, friend-like assistant for the 5XLiving Bazi site.`,
+      `Reply in ${L}. Keep a human tone. Be concrete and actionable.`,
+      `Avoid fatalism; treat Bazi as tendencies + choices.`,
+      `VERY IMPORTANT: This is a floating chat. Do NOT render or repeat the on-page "Butler" card.`,
+      `Use short paragraphs and bullets when helpful.`
+    ].join('\n');
+  }
+  function buildChatUserMsg(text){
+    const ctx = (window.__last_report__||{});
+    const {pillars={}, percents={}, st={}, adv={}, timeUnknown} = ctx;
+    const E = (typeof ELABEL==='function'? ELABEL(): {wood:'木',fire:'火',earth:'土',metal:'金',water:'水'});
+    const elem = [
+      `${E.wood} ${Math.round(percents.wood||0)}%`,
+      `${E.fire} ${Math.round(percents.fire||0)}%`,
+      `${E.earth} ${Math.round(percents.earth||0)}%`,
+      `${E.metal} ${Math.round(percents.metal||0)}%`,
+      `${E.water} ${Math.round(percents.water||0)}%`,
+    ].join(' · ');
+
+    const hourTxt = timeUnknown ? (typeof t==='function'? t('rpt_time_unknown'):'时间不详') :
+      `${pillars?.hour?.stem||''}${pillars?.hour?.branch||''}`;
+
+    const preface = pillars.day
+      ? [
+          `Context (user's current chart):`,
+          `Year ${pillars.year?.stem||''}${pillars.year?.branch||''} · Month ${pillars.month?.stem||''}${pillars.month?.branch||''} · Day ${pillars.day?.stem||''}${pillars.day?.branch||''} · Hour ${hourTxt}`,
+          `Day Master: ${pillars.day?.stem||''} (${pillars.day?.element||''}); Season: ${st?.season||''}; Strength: ${st?.mark||''}`,
+          `Elements: ${elem}`,
+          `Favorable: ${(adv?.useful||[]).join('/')||'-'}; Avoid: ${(adv?.avoid||[]).join('/')||'-'}`,
+          timeUnknown ? `Caution: hour pillar excluded.` : ``
+        ].filter(Boolean).join('\n')
+      : ``;
+
+    return [
+      preface,
+      `---`,
+      `User says: ${text}`
+    ].filter(Boolean).join('\n');
+  }
+  function md(s){ return (s||'').replace(/\n{2,}/g,'\n\n').replace(/\n/g,'<br>'); }
+  function addMsg(text, me=false){
+    const b=document.createElement('div');
+    b.className = 'ss-msg' + (me?' me':'');
+    b.innerHTML = md(text);
+    $body.appendChild(b);
+    $body.scrollTop = $body.scrollHeight;
+  }
+
+  async function sendChat(){
+    const v = ($inp.value||'').trim(); if(!v) return;
+    addMsg(v, true); $inp.value='';
+    $send.disabled = true;
+
+    try{
+      const sys = buildChatSystemPrompt(ln);
+      const usr = buildChatUserMsg(v);
+      const { ok, data } = await (typeof aiRequest==='function'
+        ? aiRequest([{role:'system',content:sys},{role:'user',content:usr}], {timeout:18000,retries:2})
+        : (async()=>{
+            const r = await fetch(`${(typeof API_BASE==='string'?API_BASE:'')}/api/chat`,{
+              method:'POST',headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({messages:[{role:'system',content:sys},{role:'user',content:usr}]})
+            });
+            const raw = await r.text(); try{ return {ok:r.ok,data:JSON.parse(raw)} }catch{ return {ok:false,data:{raw}} }
+          })()
+      );
+      let text = (typeof extractAIText==='function' ? extractAIText(data) : '');
+      if(!text) text = (ln.startsWith('zh') ? '我这边想了很久，但暂时没拿到有效回复，你可以重试或换种问法～' : 'Hmm, I could not get a valid reply. Please try again.');
+      addMsg(text,false);
+    }catch(e){
+      addMsg(ln.startsWith('zh') ? '网络有点卡，等下再试试～' : 'Network hiccup. Try again in a moment.');
+    }finally{
+      $send.disabled = false; $inp.focus();
+    }
+  }
+
+  $fab?.addEventListener('click', ()=>{ $panel.style.display = ($panel.style.display==='block'?'none':'block'); $inp?.focus(); });
+  $close?.addEventListener('click', ()=>{ $panel.style.display='none'; });
+  $send?.addEventListener('click', sendChat);
+  $inp?.addEventListener('keydown', e=>{ if(e.key==='Enter') sendChat(); });
+
+  // i18n（沿用你已有 applyChatI18n）
+  if(typeof applyChatI18n==='function') applyChatI18n();
+})();
+
+/* ================== PATCH B：升级“心怜管家”提示词（更人性化、尤其感情） ================== */
+/* 说明：下面三个函数与原来同名；放在脚本最后会覆盖旧实现；不影响你现有 UI。 */
+function buildButlerSystemPrompt(lang){
+  const L = (typeof BUTLER_LANG_NAME==='object' && BUTLER_LANG_NAME[lang]) ? BUTLER_LANG_NAME[lang] : 'Simplified Chinese';
+  return [
+    `You are a seasoned Bazi coach and close friend. Reply in ${L}.`,
+    `Tone: empathetic, grounded, human. Don’t lecture—coach softly.`,
+    `Style: short paragraphs + crisp bullets, concrete actions, micro-habits.`,
+    `Safety: no determinism; frame as tendencies + levers the user can pull.`,
+    `If hour pillar is missing, add a one-line caution near the top.`,
+  ].join('\n');
+}
+
+function buildUserPrompt(topic, ctx, topicType){
+  const {pillars, percents, st, adv, timeUnknown} = ctx || {};
+  const ln = (typeof getLang==='function'? BUTLER_LANG_NAME[getLang()] : 'Simplified Chinese') || 'Simplified Chinese';
+  const E = (typeof ELABEL==='function'? ELABEL(): {wood:'木',fire:'火',earth:'土',metal:'金',water:'水'});
+  const elem = ['wood','fire','earth','metal','water'].map(k=>`${E[k]} ${Math.round((percents||{})[k]||0)}%`).join(' · ');
+  const fav   = (adv?.useful||[]).join('/');
+  const avoid = (adv?.avoid ||[]).join('/');
+  const hour  = timeUnknown ? (typeof t==='function'? t('rpt_time_unknown'):'时间不详')
+                            : `${pillars?.hour?.stem||''}${pillars?.hour?.branch||''}`;
+
+  const header = [
+    `Bazi summary:`,
+    `Year ${pillars?.year?.stem||''}${pillars?.year?.branch||''} · Month ${pillars?.month?.stem||''}${pillars?.month?.branch||''} · Day ${pillars?.day?.stem||''}${pillars?.day?.branch||''} · Hour ${hour}`,
+    `Day Master: ${pillars?.day?.stem||''} (${pillars?.day?.element||''}); Season: ${st?.season||''}; Strength: ${st?.mark||''}`,
+    `Elements: ${elem}`,
+    `Favorable: ${fav||'-'}; Avoid: ${avoid||'-'}`,
+    timeUnknown ? `Caution: hour pillar excluded.` : ``
+  ].filter(Boolean).join('\n');
+
+  // —— 专门强化「感情」版本 —— //
+  if ((topicType||'').toLowerCase() === 'love'){
+    return [
+      header, ``,
+      `TaskType: LOVE. Act like a close friend who knows Bazi.`,
+      `Write a deep, human-friendly guide with these sections (use bullets + short paras):`,
+      `1) Core temperament & "love profile"（性格在关系里的表现、给爱/收爱方式）`,
+      `2) Ideal partner profile（五行/气质/边界感/价值观匹配）`,
+      `3) 动态与磨合（节奏、空间与黏度、如何互相成就）`,
+      `4) 沟通脚本（句式示例：先感受→需求→可执行请求；冲突降温流程）`,
+      `5) 约会/日常场景点子（任选3–6条，具体、可落地）`,
+      `6) 稳定关系的杠杆（时间表、金钱/家务规则、共同目标/账本）`,
+      `7) 顺风窗口（偏利的月份/元素气候，以及如何把握；仅作倾向提示）`,
+      `8) 红旗与修正（容易出的问题→马上可做的修正动作）`,
+      `9) 微仪式与环境小调整（用“喜用/最弱五行”做色彩/物件/作息微改）`,
+      `10) 一句话总结（温柔而有力）`,
+      `Language: ${ln}. Reply ONLY in ${ln}.`,
+    ].join('\n');
+  }
+
+  // 其它主题延续你原有风格
+  return [
+    header,
+    `TaskType: ${topicType || 'generic'}`,
+    `Task: ${topic}`,
+    `Language: ${ln}. Reply ONLY in ${ln}.`
+  ].join('\n');
+}
+
+/* 更丰满的 fallback：当模型没回时，感情也给完整可用的内容 */
+function localFallbackButler(topicType, ctx){
+  const { percents = {}, timeUnknown } = ctx || {};
+  const tcn = (typeof t==='function') ? t : (k=>k);
+  const E = (typeof ELABEL==='function'? ELABEL(): {wood:'木',fire:'火',earth:'土',metal:'金',water:'水'});
+  const kv = [[E.wood,Math.round(percents.wood||0)], [E.fire,Math.round(percents.fire||0)], [E.earth,Math.round(percents.earth||0)], [E.metal,Math.round(percents.metal||0)], [E.water,Math.round(percents.water||0)]];
+  const strongest = kv.reduce((a,b)=> a[1]>=b[1]?a:b)[0];
+  const weakest   = kv.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
+  const caution   = timeUnknown ? (tcn('rpt_time_hint') || '出生时间不详，未纳入时柱，仅供参考。') : '';
+
+  if ((topicType||'')==='love'){
+    return [
+      `**${tcn('butler_title')||'心怜管家 · 解读'}**`,
+      `- ${tcn('rpt_wuxing_label')||'五行'}：` + kv.map(([k,v])=>`${k} ${v}%`).join(' · '),
+      `- ${tcn('rpt_balance_focus_label')||'调衡要点'}：${strongest}强、${weakest}弱。`,
+      caution, '',
+      `**感情 · 深入建议**`,
+      `• 恋爱体质：热能来自“${strongest}”，安全感来自“${weakest}”。先肯定强项，再用规则守弱项。`,
+      `• 理想伴侣：偏“金/土”者更稳；重承诺、有边界感、会做计划。`,
+      `• 沟通脚本：先感受→说需求→给请求；争执先复述对方要点，再给两套可选方案。`,
+      `• 约会清单：每周固定无手机约会；月末一次“预算+计划”小会议；共同清单看板。`,
+      `• 稳定杠杆：家用账户+共同储蓄目标；48小时冷静期的大额开支；重要决定先通知后执行。`,
+      `• 顺风窗口：金/土旺月更利定计划与承诺；逢冲月提前谈规则、定节奏。`,
+      `• 红旗修正：上头承诺滞后→用时间表；话锋直→先复述后建议；朋友/副业分走注意力→设“伴侣优先时段”。`,
+      `• 微仪式：卧室减红增温土/金属质感；随身小物带${weakest}色系；每天晚间3分钟“今天值得感谢TA的1件事”。`,
+      `**一句话**：把热度交给“${strongest}”，把长期交给“${weakest}”——当规则、账本与时间表到位，亲密就更稳更安心。`
+    ].join('\n');
+  }
+
+  // 非感情：用你原来的紧凑版
+  return [
+    `**${tcn('butler_title')||'心怜管家 · 解读'}**`,
+    `- ${tcn('rpt_wuxing_label')||'五行'}：` + kv.map(([k,v])=>`${k} ${v}%`).join(' · '),
+    `- ${tcn('rpt_balance_focus_label')||'调衡要点'}：${strongest}强、${weakest}弱。`,
+    caution, '',
+    `${tcn('rpt_strategy_label')||'策略'}`,
+    `- ${tcn('rpt_strategy_support')||'生扶/补助'}：围绕“${weakest}”做环境与作息补强。`,
+    `- ${tcn('rpt_strategy_drain')||'泄秀/制化'}：适度分配“${strongest}”相关活动，避免过犹不及。`
+  ].join('\n');
+}
+</script>  
+<script>
 /* ================== GPT 问浮窗：纯聊天，不渲染管家 ================== */
 /* 0) 样式 */
 (function injectChatStyle(){
@@ -2628,29 +2859,22 @@ function buildChatUserMsg(text){
     body.scrollTop = body.scrollHeight;
   }
 
-  async function sendChat(){
-    const inp=document.getElementById('ssChatInput');
-    const btn=document.getElementById('ssChatSend');
-    const v=(inp.value||'').trim(); if(!v) return;
-    addMsg(v,true); inp.value=''; btn.disabled=true;
+async function sendChat(){
+  const v = ($inp.value||'').trim(); if(!v) return;
+  addMsg(v, true); $inp.value=''; $send.disabled = true;
 
-    try{
-      const ln  = (typeof getLang==='function' ? getLang() : 'zh-CN');
-      const sys = buildChatSystemPrompt(ln);
-      const usr = buildChatUserMsg(v);
-      const { ok, data } = await aiRequest(
-        [{role:'system',content:sys},{role:'user',content:usr}],
-        {timeout:18000, retries:2}
-      );
-      let text = ok ? extractAIText(data) : '';
-      if(!text) text = ln.startsWith('zh') ? '这会儿没拿到有效回复，你可以再问一次～' : 'Hmm, I didn’t get a valid reply. Please try again.';
-      addMsg(text,false);
-    }catch(e){
-      addMsg((typeof getLang==='function' && getLang().startsWith('zh')) ? '网络有点卡，等下再试试～' : 'Network hiccup. Try again in a moment.');
-    }finally{
-      btn.disabled=false; inp.focus();
-    }
+  try{
+    const ln = curLn(); // ← 每次发送前取最新语言
+    const sys = buildChatSystemPrompt(ln);
+    const usr = buildChatUserMsg(v);
+    // ...
+  } catch(e){
+    const ln = curLn();
+    addMsg(ln.startsWith('zh') ? '网络有点卡，等下再试试～' : 'Network hiccup. Try again in a moment.');
+  } finally {
+    $send.disabled = false; $inp.focus();
   }
+}
 
   function wire(){
     const fab   = document.getElementById('ssChatFab');
