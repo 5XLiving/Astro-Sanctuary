@@ -1387,1531 +1387,484 @@ function ELABEL(){
   };
 }
 
+<script>
 /* ================== Butler AI 卡片（芯片/锁定/多语言） ================== */
-/* 1) 样式注入 */
-(function injectAiStyle(){
-  const old=document.getElementById('ai-style'); if(old) old.remove();
-  const style=document.createElement('style'); style.id='ai-style';
-  style.textContent=`
-    .sec h3{margin:0 0 8px;color:var(--brand)}
-    .ai-content{white-space:pre-wrap;line-height:1.7}
-    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-    .chip{padding:6px 10px;border-radius:999px;border:1px solid #2a3546;background:#0e1520;color:#e8edf3;cursor:pointer}
-    .chip:hover{border-color:#f2d27a;box-shadow:0 0 0 2px rgba(242,210,122,.15) inset}
-    .skeleton{display:grid;gap:8px}
-    .skeleton div{height:12px;border-radius:6px;background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);animation:sh 1.2s infinite}
-    @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
-    .ai-lock-overlay{position:static;inset:auto;background:none;backdrop-filter:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);text-align:center}
-    .ai-lock-overlay .tip{color:#ffd88a;font-weight:700;margin-bottom:4px}
-    .ai-lock-overlay .sub{color:var(--muted)}
-  `;
-  document.head.appendChild(style);
-})();
+/* ——— 说明 ———
+   - 该段自包含：不依赖你旧的 Butler 代码；可直接替换到文件末尾
+   - 只使用你前文已存在的工具：t() / getLang() / setLang() / applyI18n() / ELABEL() / API_BASE
+   - 若 window.__last_report__ 暂无数据，会优雅降级显示占位
+   - 支持 VIP 预览锁：localStorage.vipStatus==='active' 或存在 vipEmail 视为已解锁
+   - 语言切换：自动刷新芯片文案，并以“上一次主题”重渲染（主≠依赖网络）
+*/
 
-/* 2) 工具函数 */
-function mdToHtml(md){
-  return (md||'')
-    .replace(/^###?\s+(.*)$/gm,'<h3 style="margin:12px 0 6px;color:#f2d27a">$1</h3>')
-    .replace(/^\s*[-*]\s+(.*)$/gm,'• $1')
-    .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
-    .replace(/\n{2,}/g,'\n\n')
-    .replace(/\n/g,'<br/>');
-}
-function isVIP(){
-  return localStorage.getItem('vipStatus')==='active' || !!localStorage.getItem('vipEmail');
-}
+(() => {
+  'use strict';
 
-/* 3) 卡片挂载 & 芯片 */
-function ensureAiCard(){
-  const target =
-    document.getElementById('butler-host') ||
-    document.getElementById('rich-report') ||
-    document.getElementById('result');
-  if (!target) return;
-
-  let card = document.getElementById('aiCard');
-  if (card) {
-    // 若已存在但位置不对，搬到 target，确保排在报告之后
-    if (card.parentElement !== target) target.appendChild(card);
-    return;
-  }
-
-  // 首次创建
-  const sec = document.createElement('div');
-  sec.className = 'sec';
-  sec.id = 'aiCard';
-  sec.innerHTML = `
-    <h3 id="butlerTitle" data-i18n="butler_title">${t('butler_title')||'心怜管家 · 解读'}</h3>
-    <div id="aiContent" class="ai-content">
-      <div class="skeleton">
-        <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
-        <div style="width:70%"></div><div style="width:50%"></div>
-      </div>
-    </div>
-    <div class="chips" id="aiChips"></div>
-  `;
-  target.appendChild(sec);
-  renderChips();
-}
-  
-// 放在原位置：替换整个 renderChips()
-function mainLabel(){
-  const L = (getLang && getLang()) || 'zh-CN';
-  if (L.startsWith('zh')) return '主（当前渲染资料）';
-  if (L === 'en') return 'Main (Current Data)';
-  if (L === 'ja') return '主（現在のデータ）';
-  if (L === 'th') return 'หลัก (ข้อมูลปัจจุบัน)';
-  if (L === 'ms') return 'Utama (Data Semasa)';
-  return 'Main';
-}
-
-function renderChips(){
-  const wrap = document.getElementById('aiChips'); if(!wrap) return;
-  wrap.innerHTML = '';
-
-  const items = [
-    { label: mainLabel(),           topic: 'current' },          // ← 新增的“主”
-    { k:'chip_career', q:'q_career', topic:'career' },
-    { k:'chip_love',   q:'q_love',   topic:'love'   },
-    { k:'chip_money',  q:'q_money',  topic:'money'  },
-    { k:'chip_list',   q:'q_list',   topic:'list'   },
-    { k:'chip_30d',    q:'q_30d',    topic:'30d'    },
-  ];
-
-  items.forEach(it=>{
-    const btn = document.createElement('button');
-    btn.className = 'chip';
-    btn.textContent = it.label || t(it.k);
-    if (it.q) btn.setAttribute('data-q', t(it.q));
-    btn.setAttribute('data-topic', it.topic);
-    wrap.appendChild(btn);
-  });
-}
-
-/* 4) Prompt 生成（多语言） */
-// [PATCH] 增补 zh-TW，和你现有翻译保持一致
-const BUTLER_LANG_NAME = {
-  'zh-CN':'Simplified Chinese',
-  'zh-TW':'Traditional Chinese',
-  'en':'English',
-  'ja':'Japanese',
-  'th':'Thai',
-  'ms':'Malay'
-};
-function buildButlerSystemPrompt(lang){
-  const ln = BUTLER_LANG_NAME[lang] || BUTLER_LANG_NAME['zh-CN'];
-  return [
-    `You are a concise Bazi assistant. Reply in ${ln}.`,
-    `Constraints:`,
-    `- Use short paragraphs and bullet points; be concrete and actionable.`,
-    `- If hour pillar is missing, include a brief caution.`,
-    `- Avoid deterministic predictions; frame as tendencies and practical tips.`,
-    `- Mirror the user's language tone (polite, warm).`
-  ].join('\n');
-}
-function buildUserPrompt(topic, ctx, topicType){
-  const {pillars, percents, st, adv, timeUnknown} = ctx || {};
-  const ln = BUTLER_LANG_NAME[(getLang && getLang()) || 'zh-CN'] || 'Simplified Chinese';
-
-  const E = { wood:t('el_wood'), fire:t('el_fire'), earth:t('el_earth'), metal:t('el_metal'), water:t('el_water') };
-  const elemLine = ['wood','fire','earth','metal','water']
-    .map(k=>`${E[k]} ${Math.round((percents||{})[k]||0)}%`).join(' · ');
-  const fav   = (adv?.useful||[]).join('/');
-  const avoid = (adv?.avoid ||[]).join('/');
-  const hourTxt = timeUnknown ? t('rpt_time_unknown') : ((pillars?.hour?.stem||'') + (pillars?.hour?.branch||''));
-
-  return [
-    `Bazi summary:`,
-    `Year ${pillars?.year?.stem||''}${pillars?.year?.branch||''} · Month ${pillars?.month?.stem||''}${pillars?.month?.branch||''} · Day ${pillars?.day?.stem||''}${pillars?.day?.branch||''} · Hour ${hourTxt||''}`,
-    `Day Master: ${pillars?.day?.stem||''} (${pillars?.day?.element||''})`,
-    `Season: ${st?.season||''}; Strength: ${st?.mark||''}; Strategy: ${st?.focus||''}`,
-    `Elements: ${elemLine}`,
-    `Favorable: ${fav||'-'}; Avoid: ${avoid||'-'}`,
-    timeUnknown ? `Caution: hour pillar excluded.` : ``,
-    ``,
-    `TaskType: ${topicType || 'generic'}`,
-    `Task: ${topic}`,
-    `Language: ${ln}. Reply ONLY in ${ln}.`,
-    `Do not translate previously shown content; generate fresh guidance in ${ln}.`
-  ].filter(Boolean).join('\n');
-}
-
-// === Butler helpers: put these ABOVE "/* 5) 请求与渲染 */" ===
-let aiReqCtrl = null;
-
-function extractAIText(data){
-  if (!data) return "";
-  if (typeof data === "string") return data.trim();
-  if (data.reply) return String(data.reply).trim();
-  if (data.text) return String(data.text).trim();
-  if (data.output) return String(data.output).trim();
-  if (data.content) return String(data.content).trim();
-
-  if (Array.isArray(data.choices) && data.choices[0]) {
-    const c = data.choices[0];
-    if (c.message?.content) return String(c.message.content).trim();
-    if (c.delta?.content)   return String(c.delta.content).trim();
-  }
-  if (Array.isArray(data.candidates) && data.candidates[0]) {
-    const parts = data.candidates[0].content?.parts || data.candidates[0].content || [];
-    const txt = (Array.isArray(parts) ? parts.map(p=>p.text||"").join("\n") : "");
-    if (txt.trim()) return txt.trim();
-  }
-  if (data.raw && typeof data.raw === "string" && data.raw.includes("data:")) {
-    const lines = data.raw.split("\n").filter(l => l.trim().startsWith("data:"));
-    for (let i=lines.length-1;i>=0;i--){
-      const js = lines[i].replace(/^data:\s*/,"").trim();
-      try{
-        const obj = JSON.parse(js);
-        const got = extractAIText(obj);
-        if (got) return got;
-      }catch{}
-    }
-  }
-  return "";
-}
-
-/* -------------------- [PATCH] 新增：直接渲染“主（当前渲染资料）” -------------------- */
-function renderCurrentData(ctx){
-  ensureAiCard();
-  const out = document.getElementById('aiContent');
-  const { pillars={}, percents={}, st={}, adv={}, timeUnknown } = ctx || {};
-  const E = ELABEL();
-
-  const elemLine = [
-    `${E.wood} ${Math.round(percents.wood||0)}%`,
-    `${E.fire} ${Math.round(percents.fire||0)}%`,
-    `${E.earth} ${Math.round(percents.earth||0)}%`,
-    `${E.metal} ${Math.round(percents.metal||0)}%`,
-    `${E.water} ${Math.round(percents.water||0)}%`,
-  ].join(' · ');
-
-  const hourTxt = timeUnknown ? (t('rpt_time_unknown') || '时间不详')
-    : `${pillars?.hour?.stem||''}${pillars?.hour?.branch||''}`;
-
-  const md = [
-    `### ${getLang().startsWith('zh') ? '当前渲染资料' : 'Current Context'}`,
-    `- 年柱：${(pillars?.year?.stem||'')}${(pillars?.year?.branch||'')}`,
-    `- 月柱：${(pillars?.month?.stem||'')}${(pillars?.month?.branch||'')}`,
-    `- 日柱：${(pillars?.day?.stem||'')}${(pillars?.day?.branch||'')}`,
-    `- 时柱：${hourTxt}`,
-    `- 季节/强弱：${st?.season||''} / ${st?.mark||''}`,
-    `- 策略：${st?.focus||''}`,
-    `- 五行：${elemLine}`,
-    (adv?.useful?.length || adv?.avoid?.length)
-      ? `- 喜用/忌：${(adv.useful||[]).join('/') || '-'} / ${(adv.avoid||[]).join('/') || '-'}` : ''
-  ].filter(Boolean).join('\n');
-
-  if (out) out.innerHTML = mdToHtml(md);
-
-  const aiCard = document.getElementById('aiCard');
-  if (aiCard){ aiCard.dataset.lastQ='__current__'; aiCard.dataset.lastTopicType='current'; }
-}
-
-// “主（当前渲染资料）”：用本地总览，和你截图一致
-function renderMainOverview(ctx){
-  ensureAiCard();
-  const out = document.getElementById('aiContent');
-  if (!out) return;
-  out.innerHTML = mdToHtml(localFallbackButler('current', ctx || window.__last_report__ || {}));
-
-  const aiCard = document.getElementById('aiCard');
-  if (aiCard){ 
-    aiCard.dataset.lastQ = '__current__';
-    aiCard.dataset.lastTopicType = 'current';
-  }
-}
-  
-/* -------------------- [PATCH] 改造 fallback：按主题分支 -------------------- */
-function localFallbackButler(topicType, ctx){
-  const { percents = {}, timeUnknown } = ctx || {};
-  const kv = [
-    [t('el_wood') || '木', Math.round(percents.wood||0)],
-    [t('el_fire') || '火', Math.round(percents.fire||0)],
-    [t('el_earth')|| '土', Math.round(percents.earth||0)],
-    [t('el_metal')|| '金', Math.round(percents.metal||0)],
-    [t('el_water')|| '水', Math.round(percents.water||0)],
-  ];
-  const strongest = kv.reduce((a,b)=> a[1]>=b[1]?a:b)[0];
-  const weakest   = kv.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
-  const caution   = timeUnknown ? (t('rpt_time_hint') || '出生时间不详，未纳入时柱，仅供参考。') : '';
-
-  const head = `**${t('butler_title')||'心怜管家 · 解读'}**`;
-  const five = `- ${t('rpt_wuxing_label')||'五行分布'}：` + kv.map(([k,v])=>`${k} ${v}%`).join(' · ');
-  const bal  = `- ${t('rpt_balance_focus_label')||'调衡要点'}：${strongest} ${t('rpt_strongest_word')||'偏旺'}；${weakest} ${t('rpt_weakest_word')||'偏弱'}`;
-
-  // 共用“策略”小段
-  const strategy = [
-    '', `${t('rpt_strategy_label')||'策略'}`,
-    `- ${t('rpt_strategy_support')||'生扶/补助'}：围绕“${weakest}”做环境与作息补强（色彩、方位、起居）。`,
-    `- ${t('rpt_strategy_drain')||'泄秀/制化'}：适度分配“${strongest}”相关活动，避免过犹不及。`,
-  ].join('\n');
-
-  if (topicType === 'career') {
-    return [
-      head, five, bal, caution, '',
-      '**事业 · 快速建议**',
-      `- 方向：围绕“喜用”展开；少碰“忌”。`,
-      `- 角色：${strongest}强→偏执行/开拓；${weakest}弱→用流程与复盘补位。`,
-      `- 突破：选一个“2周可交付”的小项目，用${strongest}切入，沉淀SOP守${weakest}。`,
-      `- 节奏：每周一次复盘；给学习/精炼预留30%时间。`,
-      strategy
-    ].join('\n');
-  }
-
-  if (topicType === 'love') {
-    return [
-      head, five, bal, caution, '',
-      '**感情 · 快速建议**',
-      `- 相处节奏：先肯定${strongest}的表达；沟通时照顾${weakest}的需求。`,
-      `- 边界：列出3件“必需/可谈/拒绝”，减少过度消耗（多见于${strongest}偏旺）。`,
-      `- 约会：选择有利“喜用”的场景，降低“忌”的触发。`,
-      strategy
-    ].join('\n');
-  }
-
-  if (topicType === 'money') {
-    return [
-      head, five, bal, caution, '',
-      '**财运 · 快速建议**',
-      `- 现金流：保留3–6个月安全垫；单一投入≤总资金70%。`,
-      `- 收入侧：在“${strongest}”相关赛道做强项变现；用SOP守“${weakest}”风险。`,
-      `- 配比：进取${strongest} : 稳健${weakest} ≈ 7:3（按自身调整）。`,
-      strategy
-    ].join('\n');
-  }
-
-  if (topicType === 'list') {
-    return [
-      head, five, bal, caution, '',
-      '**今日待办 · 3–5条**',
-      `1) 用“${strongest}”完成一个30分钟的小成果（可交付）。`,
-      `2) 针对“${weakest}”做10分钟补强（学习/复盘/收纳其相关事项）。`,
-      `3) 处理一个遗留小坑（≤15分钟）。`,
-      `4) 晚间复盘：记录今天1条可复用SOP。`,
-      strategy
-    ].join('\n');
-  }
-
-  if (topicType === '30d') {
-    return [
-      head, five, bal, caution, '',
-      '**30天建议 · 纲要**',
-      `- 第1周：围绕“${weakest}”做5~10分钟日练（睡眠/饮食/运动三选一）。`,
-      `- 第2周：把“${strongest}”用于产出，每天一个可展示的小成果。`,
-      `- 第3周：建立SOP守“${weakest}”（本周沉淀2条流程）。`,
-      `- 第4周：复盘优化 + 小结展示。`,
-      strategy
-    ].join('\n');
-  }
-
-  if (topicType === 'health') {
-    return [
-      head, five, bal, caution, '',
-      '**健康 · 作息**',
-      `- 睡眠：固定入睡时窗；睡前30分钟低刺激（护“${weakest}”）。`,
-      `- 饮食：减少过度刺激“${strongest}”的食物；补充有利“${weakest}”的颜色/口味。`,
-      `- 运动：每周3次20分钟中低强度；配合拉伸与呼吸。`,
-      `- 节律：早晚各5分钟安静时段，做情绪/呼吸校准。`,
-      strategy
-    ].join('\n');
-  }
-
-  // —— 主（总览）或默认 ——（与你截图一致）
-  return [
-    head, five, bal, caution, '',
-    `${t('rpt_strategy_label')||'策略'}`,
-    `- ${t('rpt_strategy_support')||'生扶/补助'}：围绕“${weakest}”做环境与作息补强（色彩、方位、起居）。`,
-    `- ${t('rpt_strategy_drain')||'泄秀/制化'}：适度分配“${strongest}”相关活动，避免过犹不及。`,
-    '',
-    `${t('dev_strategy')||'发展策略'}：`,
-    `- ${t('chip_career')||'事业'}：用“${strongest}”发力，但用流程去守“${weakest}”。`,
-    `- ${t('chip_money')||'财运'}：把控现金流；保留30%机动。`,
-    `- ${t('chip_love')||'感情'}：先肯定强项，再谈节奏与边界。`,
-  ].join('\n');
-}
-async function aiRequest(messages, {timeout=15000, retries=2}={}){
-  if (aiReqCtrl) aiReqCtrl.abort();            // cancel previous
-  aiReqCtrl = new AbortController();
-
-  const url = `${API_BASE}/api/chat?_ts=${Date.now()}`;
-  const body = {
-    messages,
-    nonce: (crypto?.getRandomValues
-      ? Array.from(crypto.getRandomValues(new Uint32Array(2))).join('-')
-      : String(Math.random()))
+  /* ---------------- 基础工具 ---------------- */
+  const BUTLER_LANG_NAME = {
+    'zh-CN': 'Simplified Chinese',
+    'zh-TW': 'Traditional Chinese',
+    'en':    'English',
+    'ja':    'Japanese',
+    'th':    'Thai',
+    'ms':    'Malay'
   };
 
-  for (let attempt=0; attempt<=retries; attempt++){
-    try{
-      const r = await fetch(url, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', 'Cache-Control':'no-cache' },
-        mode:'cors',
-        cache:'no-store',
-        body: JSON.stringify(body),
-        signal: aiReqCtrl.signal
-      });
-      const raw = await r.text();
-      let data; try{ data = raw ? JSON.parse(raw) : {}; }catch{ data = { ok:false, raw }; }
-      if (!r.ok) {
-        if (r.status>=500 || r.status===429) throw new Error(`http_${r.status}`);
-        return { ok:false, data };
-      }
-      return { ok:true, data };
-    }catch(e){
-      if (e.name === 'AbortError') throw e;
-      if (attempt < retries) {
-        const wait = 400 + Math.floor(Math.random()*400) * (attempt+1);
-        await new Promise(res=>setTimeout(res, wait));
-        continue;
-      }
-      return { ok:false, data:{ msg: e.message||'network_error' } };
-    }
-  }
-}
+  const $ = (sel) => document.querySelector(sel);
+  const isVIP = () => (localStorage.getItem('vipStatus') === 'active') || !!localStorage.getItem('vipEmail');
+  const nowLang = () => (typeof getLang === 'function' ? getLang() : (document.documentElement.lang || 'zh-CN'));
+  const LNAME   = () => BUTLER_LANG_NAME[nowLang()] || BUTLER_LANG_NAME['zh-CN'];
 
-/* -------------------- [PATCH] askAi 支持 topicType -------------------- */
-async function askAi(userTask, topicType){
-  ensureAiCard();
-  const card = document.getElementById('aiCard');
-  const out  = document.getElementById('aiContent');
-  const chipsWrap = document.getElementById('aiChips');
-  const lang = (getLang && getLang()) || 'zh-CN';
-
-  if (card){ card.dataset.lastQ = userTask; card.dataset.lang = lang; card.dataset.lastTopicType = topicType || 'generic'; }
-
-  if (out){
-    out.innerHTML = `
-      <div class="skeleton">
-        <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
-        <div style="width:70%"></div><div style="width:50%"></div>
-      </div>`;
+  function mdToHtml(md=''){
+    return String(md)
+      .replace(/^###?\s+(.*)$/gm,'<h3 style="margin:12px 0 6px;color:#f2d27a">$1</h3>')
+      .replace(/^\s*[-*]\s+(.*)$/gm,'• $1')
+      .replace(/\*\*(.+?)\*\*/g,'<b>$1</b>')
+      .replace(/\n{2,}/g,'\n\n')
+      .replace(/\n/g,'<br/>');
   }
 
-  const disableChips = (v)=> {
-    if (!chipsWrap) return;
-    chipsWrap.querySelectorAll('.chip').forEach(c=>{
-      c.disabled = v; c.style.opacity = v ? .6 : 1; c.style.pointerEvents = v ? 'none' : 'auto';
-    });
-  };
-  disableChips(true);
-
-  try{
-    const ctx  = window.__last_report__ || {};
-    const sys  = buildButlerSystemPrompt(lang);
-    const user = buildUserPrompt(userTask, ctx, topicType);
-
-    const { ok, data } = await aiRequest(
-      [{ role:'system', content: sys }, { role:'user', content: user }],
-      { timeout: 15000, retries: 2 }
-    );
-
-    let text = ok ? extractAIText(data) : "";
-    if (!text) text = localFallbackButler(topicType || 'generic', ctx);
-
-    // “主”不锁；专题按你原逻辑预览锁
-    if (!isVIP() && topicType !== 'current'){
-      const teaser = text.split('\n').slice(0,6).join('\n');
-      out.innerHTML = mdToHtml(teaser) + `
-        <div class="ai-lock-overlay">
-          <div class="tip">💎 ${t('vip_title') || 'VIP Segment'}</div>
-          <div class="sub">${lang.startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'}</div>
-        </div>`;
-    }else{
-      out.innerHTML = mdToHtml(text);
-    }
-  }catch(e){
-    if (e?.name !== 'AbortError' && out){
-      const ctx = window.__last_report__ || {};
-      out.innerHTML = mdToHtml(localFallbackButler(topicType || 'generic', ctx));
-    }
-  }finally{
-    disableChips(false);
-  }
-}
-
-/* 6) 与页面交互：芯片点击 & 语言切换 & 排盘完成后挂载 */
-// [PATCH] 点击时分发 data-topic；“主”直接渲染
-document.addEventListener('click', (e)=>{
-  const el = e.target;
-  if(el && el.classList.contains('chip')){
-    const topicType = el.getAttribute('data-topic') || 'current';
-    const q = el.getAttribute('data-q') || '';
-
-    if (topicType === 'current'){
-      renderMainOverview(window.__last_report__ || {});
-      return;
-    }
-    askAi(q, topicType);
-  }
-});
-
-function mountExtensionsIntoResult({pillars, percents, st, adv, timeUnknown}){
-  const resultEl = document.getElementById('result');
-  if (!resultEl) return;
-
-  // 免费报告
-  let freeNode = document.getElementById('xl-free-report');
-  if (!freeNode) {
-    freeNode = document.createElement('div');
-    freeNode.id = 'xl-free-report';
-    resultEl.appendChild(freeNode);
-  }
-  freeNode.innerHTML = buildFreeReportHTML({pillars, percents, st, adv, timeUnknown});
-} // ←←← 必须有这一行，结束函数
-
-function mountButlerCard(){
-  ensureAiCard();
-  const aiCard = document.getElementById('aiCard');
-  if (aiCard && !aiCard.dataset.autorun) {
-    aiCard.dataset.autorun = '1';
-    renderMainOverview(window.__last_report__ || {});  // ← 首屏就是“主”
-  }
-}
-
-// 语言切换时，仅刷新标题与芯片文案（不自动翻译/重生管家内容）
-// [PATCH] 保留 lastTopicType
-(function patchRerenderForAi(){
-  const _orig = (typeof rerenderReportsIfAny==='function') ? rerenderReportsIfAny : null;
-
-  window.rerenderReportsIfAny = function(){
-    if(_orig) _orig();
-
-    // refresh title & chips text
-    const titleEl = document.getElementById('butlerTitle');
-    if (titleEl) titleEl.textContent = t('butler_title');
-    renderChips();
-
-    // if language changed, regenerate Butler with the last topic
-const aiCard = document.getElementById('aiCard');
-const newLang = (getLang && getLang()) || 'zh-CN';
-const lastQ   = (aiCard && aiCard.dataset.lastQ) || t('q_overview');
-const lastTopicType = (aiCard && aiCard.dataset.lastTopicType) || 'current';
-
-if (!aiCard) return;
-
-if (aiCard.dataset.lang !== newLang) {
-  aiCard.dataset.lang = newLang;
-  if (lastTopicType === 'current'){
-    renderMainOverview(window.__last_report__ || {});
-  }else{
-    askAi(lastQ, lastTopicType);
-  }
-  return;
-}
-
-    // If content hasn't been generated yet (still skeleton), generate once
-    const out = document.getElementById('aiContent');
-    if (out && out.querySelector('.skeleton')) {
-      if (lastTopicType === 'current'){
-        renderCurrentData(window.__last_report__ || {});
-      }else{
-        askAi(lastQ, lastTopicType);
-      }
-    }
-  };
-})();
-
-
-/* ================== 报告函数最小实现（兜底） ================== */
-(function ensureReportFallbacks(){
-  if (typeof window.buildFreeReportHTML !== 'function') {
-    window.buildFreeReportHTML = function({ pillars, percents, st, adv, timeUnknown } = {}) {
-      const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-      const E = ELABEL();
-      const p = percents || {};
-      const ym = `${esc(pillars?.year?.stem||'')}${esc(pillars?.year?.branch||'')}`;
-      const mm = `${esc(pillars?.month?.stem||'')}${esc(pillars?.month?.branch||'')}`;
-      const dm = `${esc(pillars?.day?.stem||'')}${esc(pillars?.day?.branch||'')}`;
-      const hm = timeUnknown ? t('rpt_time_unknown') : `${esc(pillars?.hour?.stem||'')}${esc(pillars?.hour?.branch||'')}`;
-      const fav = (adv?.useful||[]).join('/'), avoid = (adv?.avoid||[]).join('/');
-
-      return `
-        <div class="card">
-          <div class="h2">${esc(t('rpt_free_title'))}</div>
-          <div>${esc(t('rpt_pillars_label'))}：${ym}｜${mm}｜${dm}｜${hm}</div>
-          <div>${esc(t('rpt_daymaster_label'))}：${esc(pillars?.day?.stem||'')}（${esc(pillars?.day?.element||'')}）</div>
-          <div>${esc(t('rpt_season_label'))}：${esc(st?.season||'-')} ｜ ${esc(t('rpt_chart_label'))}：${esc(st?.mark||'-')}</div>
-          <div style="margin-top:8px">${esc(t('rpt_wuxing_label'))}：${E.wood} ${Math.round(p.wood||0)}% · ${E.fire} ${Math.round(p.fire||0)}% · ${E.earth} ${Math.round(p.earth||0)}% · ${E.metal} ${Math.round(p.metal||0)}% · ${E.water} ${Math.round(p.water||0)}%</div>
-          ${timeUnknown ? `<div class="muted" style="margin-top:6px">${esc(t('rpt_time_hint'))}</div>` : ''}
-          <div style="margin-top:8px">${esc(t('rpt_fav_avoid_template').replace('{fav}', fav||'-').replace('{avoid}', avoid||'-'))}</div>
-        </div>
-      `;
-    };
+  function safeCtx(){
+    const ctx = (window.__last_report__ && typeof window.__last_report__ === 'object') ? window.__last_report__ : {};
+    const def = { pillars:{}, percents:{}, st:{}, adv:{}, timeUnknown:false };
+    return Object.assign(def, ctx);
   }
 
-  // ✅ 关键：给出“1–9 段”的完整 fallback
-  if (typeof window.buildRichReportHTML !== 'function') {
-    window.buildRichReportHTML = function({ pillars, percents, st, adv, timeUnknown } = {}) {
-      const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-      const E = ELABEL(); const p = percents || {};
-      const kv = [[E.wood,p.wood||0],[E.fire,p.fire||0],[E.earth,p.earth||0],[E.metal,p.metal||0],[E.water,p.water||0]];
-      const strongest = kv.reduce((a,b)=> a[1]>=b[1]?a:b)[0];
-      const weakest   = kv.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
-      const absent    = kv.filter(([,v])=>Math.round(v)===0).map(([k])=>k);
-
-      const ym = `${esc(pillars?.year?.stem||'')}${esc(pillars?.year?.branch||'')}`;
-      const mm = `${esc(pillars?.month?.stem||'')}${esc(pillars?.month?.branch||'')}`;
-      const dm = `${esc(pillars?.day?.stem||'')}${esc(pillars?.day?.branch||'')}`;
-      const hm = timeUnknown ? t('rpt_time_unknown') : `${esc(pillars?.hour?.stem||'')}${esc(pillars?.hour?.branch||'')}`;
-      const fav=(adv?.useful||[]).join('/'), avoid=(adv?.avoid||[]).join('/');
-
-      const sec=(title,body)=>`<div class="sec"><h3>${esc(title)}</h3><div class="ai-content">${body}</div></div>`;
-      const bullet = arr => (arr||[]).map(x=>`• ${esc(x)}`).join('<br>');
-
-      return [
-        // 1) 总览
-        sec(t('rpt_sec_overview_title'),
-          `${esc(t('rpt_pillars_label'))}：${ym}｜${mm}｜${dm}｜${hm}<br>`+
-          `${esc(t('rpt_daymaster_label'))}：${esc(pillars?.day?.stem||'')}（${esc(pillars?.day?.element||'')}）<br>`+
-          `${esc(t('rpt_season_label'))}：${esc(st?.season||'-')} ｜ ${esc(t('rpt_chart_label'))}：${esc(st?.mark||'-')}`+
-          (timeUnknown?`<br><span class="muted">${esc(t('rpt_time_hint'))}</span>`:'')
-        ),
-
-        // 2) 五行能量
-        sec(t('rpt_sec_elements_title'),
-          `${E.wood} ${Math.round(p.wood||0)}% · ${E.fire} ${Math.round(p.fire||0)}% · ${E.earth} ${Math.round(p.earth||0)}% · ${E.metal} ${Math.round(p.metal||0)}% · ${E.water} ${Math.round(p.water||0)}%<br>`+
-          `${esc(t('rpt_balance_focus_label'))}：${esc(strongest)} ${esc(t('rpt_strongest_word'))}，${esc(weakest)} ${esc(t('rpt_weakest_word'))}`+
-          (absent.length?`，${esc(t('rpt_absent_prefix'))}${esc(absent.join('/'))}`:'')
-        ),
-
-        // 3) 性格与天赋（占位）
-        sec(t('rpt_sec_traits_title'),
-          bullet([t('rpt_traits_intro'), t('rpt_traits_adv'), t('rpt_traits_chal')])
-        ),
-
-        // 4) 格局与喜忌
-        sec(t('rpt_sec_structure_title'),
-          `${esc(t('rpt_structure_line_template').replace('{fav}', fav||'-').replace('{avoid}', avoid||'-'))}<br>`+
-          `${esc(t('rpt_strategy_label'))} ${esc(st?.focus||'-')}`
-        ),
-
-        // 5) 事业与发展（试读）
-        sec(t('rpt_sec_career_title'),
-          `${esc(t('rpt_career_fields_placeholder'))}<br>`+
-          `${esc(t('rpt_dev_strategy_prefix'))}${esc(st?.focus||'-')}`
-        ),
-
-        // 6) 感情（试读）
-        sec(t('rpt_sec_love_title'), esc(t('rpt_love_placeholder'))),
-
-        // 7) 财富（试读）
-        sec(t('rpt_sec_wealth_title'), esc(t('rpt_wealth_suggestion_template').replace('{fav}', fav||'-'))),
-
-        // 8) 健康
-        sec(t('rpt_sec_health_title'), esc(t('rpt_health_placeholder_template').replace('{weak}', weakest))),
-
-        // 9) 环境与色彩
-        sec(t('rpt_sec_env_title'), esc(t('rpt_env_placeholder')))
-      ].join('');
-    };
-  }
-})();
-
-
-/* ================== 八字计算器（简化） ================== */
-class BaziCalculator{
-  constructor(){
-    this.HEAVENLY_STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
-    this.EARTHLY_BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-    this.ZODIAC=['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
-    this.NAYIN=['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','屋上土','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];
-  }
-  calculateYearPillar(year){ const s=(year-4)%10,b=(year-4)%12; return{stem:this.HEAVENLY_STEMS[(s+10)%10],branch:this.EARTHLY_BRANCHES[(b+12)%12],zodiac:this.ZODIAC[(b+12)%12]}; }
-  solarMonthIndex(y,m,d){ const mmdd=m*100+d; const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]]; let idx=11; for(const [thr,val] of gates) if(mmdd>=thr) idx=val; const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'}; return{index:idx,branch:branchBy[idx]}; }
-  calculateMonthPillar(year,month,day){ const {index,branch}=this.solarMonthIndex(year,month,day); const yStemIdx=this.HEAVENLY_STEMS.indexOf(this.calculateYearPillar(year).stem); const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0}; const stemIdx=(startMap[yStemIdx]+(index-1))%10; return{stem:this.HEAVENLY_STEMS[stemIdx],branch}; }
-  calculateDayPillar(year,month,day){ const baseUTC=Date.UTC(1900,0,31); const targetUTC=Date.UTC(year,month-1,day); const dayDiff=Math.floor((targetUTC-baseUTC)/86400000); const stemIdx=(0+dayDiff)%10; const branchIdx=(4+dayDiff)%12; return{stem:this.HEAVENLY_STEMS[(stemIdx+10)%10],branch:this.EARTHLY_BRANCHES[(branchIdx+12)%12]}; }
-  calculateHourPillar(dayStem,hour){ const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'}; const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8}; const dayIdx=this.HEAVENLY_STEMS.indexOf(dayStem); const hourIndex=Math.floor((hour+1)/2)%12; const stemIdx=(startMap[dayIdx]+hourIndex)%10; return{stem:this.HEAVENLY_STEMS[stemIdx],branch:branchMap[hour]}; }
-  getElement(stem,branch){ const s={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'}; const b={子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'}; return `${s[stem]}${b[branch]}`; }
-  getNayin(stem,branch){ const si=this.HEAVENLY_STEMS.indexOf(stem), bi=this.EARTHLY_BRANCHES.indexOf(branch); return this.NAYIN[(si*2+bi)%this.NAYIN.length]; }
-  getStemElement(stem){ return ({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[stem]; }
-  getBranchElement(branch){ return ({子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'})[branch]; }
-  calculateBazi(year,month,day,hour=12,timeUnknown=false){
-    const yearP=this.calculateYearPillar(year), monthP=this.calculateMonthPillar(year,month,day), dayP=this.calculateDayPillar(year,month,day);
-    const hourP=timeUnknown?{stem:'？',branch:'？'}:this.calculateHourPillar(dayP.stem,hour);
-    const dayElement=this.getStemElement(dayP.stem);
-    const pillars={year:yearP,month:monthP,day:{...dayP,element:dayElement},hour:hourP};
-    const cnt={木:0,火:0,土:0,金:0,水:0};
-    (timeUnknown?[yearP,monthP,dayP]:[yearP,monthP,dayP,hourP]).forEach(p=>{ if(p.stem&&p.stem!=='？')cnt[this.getStemElement(p.stem)]+=1; if(p.branch&&p.branch!=='？')cnt[this.getBranchElement(p.branch)]+=1; });
-    const total=Object.values(cnt).reduce((a,b)=>a+b,0)||1;
-    const pct={wood:cnt['木']/total*100,fire:cnt['火']/total*100,earth:cnt['土']/total*100,metal:cnt['金']/total*100,water:cnt['水']/total*100};
-    return {pillars,counts:cnt,percents:pct,timeUnknown};
-  }
-}
-const baziCalculator = new BaziCalculator();
-
-/* ================== 规则/渲染 ================== */
-function renderPillars(root,p,timeUnknown=false){
-  if(!root) return; root.innerHTML='';
-  [['年柱',p.year],['月柱',p.month],['日柱',p.day],['时柱',p.hour]].forEach(([tit,v])=>{
-    const u=(tit==='时柱'&&timeUnknown); const stem=u?'？':v.stem,branch=u?'？':v.branch;
-    const div=document.createElement('div'); div.className='pillar'; div.innerHTML=`<div class="tit">${tit}</div><div class="gz">${stem}${branch}</div>`; root.appendChild(div);
-  });
-}
-function displayClassicArea(p,timeUnknown){
-  const ge=(s,b)=>baziCalculator.getElement(s,b), ny=(s,b)=>baziCalculator.getNayin(s,b);
-  setText('year-stem',p.year.stem); setText('year-branch',p.year.branch);
-  setText('month-stem',p.month.stem); setText('month-branch',p.month.branch);
-  setText('day-stem',p.day.stem); setText('day-branch',p.day.branch);
-  setText('hour-stem',timeUnknown?'？':p.hour.stem); setText('hour-branch',timeUnknown?'？':p.hour.branch);
-  const setIf=(id,val)=>{const el=$(id); if(el) el.textContent=val; };
-  setIf('year-element',ge(p.year.stem,p.year.branch)); setIf('month-element',ge(p.month.stem,p.month.branch));
-  setIf('day-element',ge(p.day.stem,p.day.branch)); setIf('hour-element',timeUnknown?'未知':ge(p.hour.stem,p.hour.branch));
-  setIf('year-nayin',ny(p.year.stem,p.year.branch)); setIf('month-nayin',ny(p.month.stem,p.month.branch));
-  setIf('day-nayin',ny(p.day.stem,p.day.branch)); setIf('hour-nayin',timeUnknown?'未知':ny(p.hour.stem,p.hour.branch));
-}
-function judgeStrength(dayGan,monthZhi,cnt){
-  const STEM_ELEM={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
-  const SEASON_BY_MONTH_BRANCH={寅:'春',卯:'春',辰:'春',巳:'夏',午:'夏',未:'夏',申:'秋',酉:'秋',戌:'秋',亥:'冬',子:'冬',丑:'冬'};
-  const dmEl=STEM_ELEM[dayGan], season=SEASON_BY_MONTH_BRANCH[monthZhi]||'-';
-  let score=0;
-  if((season==='春'&&'木火'.includes(dmEl))||(season==='夏'&&'火土'.includes(dmEl))||(season==='秋'&&dmEl==='金')||(season==='冬'&&dmEl==='水')) score+=2;
-  score+=(cnt[dmEl]||0)*1.2;
-  const mark=score>=3?'偏强':(score<=1?'偏弱':'平衡');
-  const focus=mark==='偏强'?'泄秀/制化':(mark==='偏弱'?'补助/顺势':'守中/调和'); return{season,mark,focus};
-}
-function chooseUseful(strength,dmElem){
-  if(strength==='偏强') return {strategy:'泄秀/制化', useful:({木:['火','土','金'],火:['土','金','水'],土:['金','水','木'],金:['水','木','火'],水:['木','火','土']})[dmElem], avoid:[dmElem]};
-  if(strength==='偏弱') return {strategy:'生扶/补助', useful:({木:['木','水'],火:['火','木'],土:['土','火'],金:['金','土'],水:['水','金']})[dmElem], avoid:[]};
-  return {strategy:'调和', useful:['木','火','土','金','水'], avoid:[]};
-}
-
-/* ——（可选）旧管家面板定位：若无 #assistant-panel 则不动作 —— */
-function relocateButlerPanel(){
-  const panel  = document.getElementById('assistant-panel');
-  const anchor = document.getElementById('butler-anchor');
-  if (panel && anchor && anchor.parentNode){
-    anchor.parentNode.insertBefore(panel, anchor.nextSibling);
-  }
-}
-
-/* ================== 生成命盘 ================== */
-async function genChart(){
-  const birth = ($('birthdate')?.value || '').trim();
-  const timeUnknown = $('timeUnknown')?.checked || false;
-  if (!birth){ showErr('请填写出生日期。'); return; }
-
-  const btn=$('genBtn'), tx=$('genBtnText'), ld=$('genBtnLoading');
-  if(btn) btn.disabled = true;
-  if(tx) tx.style.display = 'none';
-  if(ld) ld.style.display = 'inline-block';
-
-  try{
-    const [Y,M,D] = birth.split('-').map(Number);
-    let hour = 12;
-    if (!timeUnknown){
-      const t = ($('birthtime')?.value || '').trim();
-      if (t){
-        const h = parseInt(t.split(':')[0], 10);
-        if (!Number.isNaN(h)) hour = h;
-      }
-    }
-
-    const { pillars, counts, percents, timeUnknown: tu } =
-      baziCalculator.calculateBazi(Y, M, D, hour, timeUnknown);
-
-    $('result')?.style.setProperty('display','block');
-    const timeText = tu ? '时间不详' : (hour + '时');
-    setText('bazi-date', `出生日期: ${Y}年${M}月${D}日 ${timeText}`);
-    if (tu){ const el=$('bazi-date'); if(el) el.innerHTML += ' <span class="badge-warn">未纳入时柱</span>'; }
-
-    renderPillars($('bazi-pillars'), pillars, tu);
-    displayClassicArea(pillars, tu);
-
-    setBar($('bar-木'), percents.wood);  setText('pct-木',  Math.round(percents.wood)  + '%');
-    setBar($('bar-火'), percents.fire);  setText('pct-火',  Math.round(percents.fire)  + '%');
-    setBar($('bar-土'), percents.earth); setText('pct-土',  Math.round(percents.earth) + '%');
-    setBar($('bar-金'), percents.metal); setText('pct-金',  Math.round(percents.metal) + '%');
-    setBar($('bar-水'), percents.water); setText('pct-水',  Math.round(percents.water) + '%');
-
-    const st  = judgeStrength(pillars.day.stem, pillars.month.branch, counts);
-    const adv = chooseUseful(st.mark, pillars.day.element);
-
-    // 本地化“最强/最弱”提示
-    {
-      const keys = Object.keys(counts);
-      const maxK = keys.reduce((a,b)=> counts[a] > counts[b] ? a : b);
-      const minK = keys.reduce((a,b)=> counts[a] < counts[b] ? a : b);
-      const E = ELABEL();
-      const char2Locale = { 木: E.wood, 火: E.fire, 土: E.earth, 金: E.metal, 水: E.water };
-      setText(
-        'bazi-elements-balance',
-        t('elements_balance_tpl')
-          .replace('{max}', char2Locale[maxK])
-          .replace('{min}', char2Locale[minK])
-      );
-    }
-
-    // 存入上下文（修正字段名：timeUnknown）
-    window.__last_report__ = { pillars, percents, st, adv, timeUnknown: tu };
-
-    // 顺序很重要：免费/富报告 → 管家
-    mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown: tu });
-    mountRichReport({ pillars, percents, st, adv, timeUnknown: tu });
-    mountButlerCard(); // <- 确保管家在最下方
-
-    console.log(
-      '实际 →',
-      pillars.year.stem+pillars.year.branch,
-      pillars.month.stem+pillars.month.branch,
-      pillars.day.stem+pillars.day.branch,
-      tu ? '？' : (pillars.hour.stem+pillars.hour.branch)
-    );
-  } catch (err){
-    console.error(err);
-    showErr('计算八字时出现错误，请重试');
-  } finally {
-    if(btn) btn.disabled = false;
-    if(tx)  tx.style.display = 'inline';
-    if(ld)  ld.style.display = 'none';
-  }
-}
-
-function mountRichReport({ pillars, percents, st, adv, timeUnknown }) {
-  let host = document.getElementById('rich-report');
-  if (!host) {
-    host = document.createElement('div');
-    host.id = 'rich-report';
-    const result = document.getElementById('result');
-    if (result) result.appendChild(host);
-  }
-  host.innerHTML = buildRichReportHTML({ pillars, percents, st, adv, timeUnknown });
-
-  // 👉 确保“管家”容器在报告之后
-  let bhost = document.getElementById('butler-host');
-  if (!bhost && host.parentNode) {
-    bhost = document.createElement('div');
-    bhost.id = 'butler-host';
-    host.parentNode.insertBefore(bhost, host.nextSibling);
+  function strongWeak(percents={}){
+    const entries = [
+      ['wood',  percents.wood  ?? 0],
+      ['fire',  percents.fire  ?? 0],
+      ['earth', percents.earth ?? 0],
+      ['metal', percents.metal ?? 0],
+      ['water', percents.water ?? 0],
+    ];
+    const strongest = entries.reduce((a,b)=> a[1]>=b[1]?a:b)[0];
+    const weakest   = entries.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
+    return { strongest, weakest };
   }
 
-  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
-}
-
-/* ================== 语言：初始化 + 切换后重渲染 ================== */
-function applyChatI18n(){
-  const fab=$('ssChatFab'), inp=$('ssChatInput'), btn=$('ssChatSend');
-  if (fab) fab.textContent = t('chat_fab');
-  if (inp) inp.placeholder = t('chat_placeholder');
-  if (btn) btn.textContent = t('chat_send');
-}
-function initLangUI(){
-  const sel = document.getElementById('langSelect');
-  if(!sel) return;
-  const current = getLang();
-  sel.value = current;
-  document.documentElement.lang = current;
-  applyI18n();
-  applyChatI18n();
-
-  sel.addEventListener('change', ()=>{
-    setLang(sel.value);
-    applyI18n();
-    applyChatI18n();
-    rerenderReportsIfAny();
-  });
-}
-function rerenderReportsIfAny(){
-  const ctx = window.__last_report__;
-  if (!ctx) return;
-
-  const { pillars, percents, st, adv, timeUnknown } = ctx;
-
-  // 1) 重新渲染报告（免费+富报告）
-  mountExtensionsIntoResult({ pillars, percents, st, adv, timeUnknown });
-  mountRichReport({ pillars, percents, st, adv, timeUnknown });
-  if (typeof relocateButlerPanel === 'function') relocateButlerPanel();
-
-  // 2) 切语言后同步刷新“最强/最弱”提示
-  const E = ELABEL();
-  const key2Locale = { wood: E.wood, fire: E.fire, earth: E.earth, metal: E.metal, water: E.water };
-  const entries = Object.entries(percents || {});
-  const strongestK = entries.reduce((a,b)=> a[1] > b[1] ? a : b, ['wood',0])[0];
-  const weakestK   = entries.reduce((a,b)=> a[1] < b[1] ? a : b, ['wood',0])[0];
-  setText(
-    'bazi-elements-balance',
-    t('elements_balance_tpl')
-      .replace('{max}', key2Locale[strongestK])
-      .replace('{min}', key2Locale[weakestK])
-  );
-
-  // 3) 刷新 AI 卡片标题与芯片文案
-  const titleEl = document.getElementById('butlerTitle');
-  if (titleEl) titleEl.textContent = t('butler_title');
-  renderChips();
-}
-
-/* ================== 估时间向导（仅勾选不详时触发） ================== */
-(function initBirthtimeWizard(){
-  const tChk=$('timeUnknown'), tInput=$('birthtime'), btn=$('guessTimeBtn');
-  const twMask=$('twMask'), twGrid=$('twGrid'), twApply=$('twApply'), twCancel=$('twCancel');
-  if(!tInput||!tChk||!twMask||!twGrid||!twApply||!twCancel) return;
-
-  const DZ=[
-    ['子','23:00–01:00','00:00'],['丑','01:00–03:00','02:00'],['寅','03:00–05:00','04:00'],['卯','05:00–07:00','06:00'],
-    ['辰','07:00–09:00','08:00'],['巳','09:00–11:00','10:00'],['午','11:00–13:00','12:00'],['未','13:00–15:00','14:00'],
-    ['申','15:00–17:00','16:00'],['酉','17:00–19:00','18:00'],['戌','19:00–21:00','20:00'],['亥','21:00–23:00','22:00']
-  ];
-  let selected=null;
-
-  function openWizard(){
-    twMask.style.display='flex'; selected=null; twApply.disabled=true;
-    if(!twGrid.dataset.built){
-      DZ.forEach(([z,range])=>{
-        const b=document.createElement('button'); b.type='button'; b.className='tw-btn'; b.textContent=`${z}（${range}）`;
-        b.addEventListener('click',()=>{ [...twGrid.children].forEach(x=>x.classList.remove('active')); b.classList.add('active'); selected=z; twApply.disabled=false;});
-        twGrid.appendChild(b);
-      }); twGrid.dataset.built='1';
-    }else{ [...twGrid.children].forEach(x=>x.classList.remove('active')); }
-  }
-  function closeWizard(){ twMask.style.display='none'; }
-
-  tChk.addEventListener('change', ()=>{ tInput.disabled=tChk.checked; if(tChk.checked) openWizard(); else closeWizard(); });
-  btn && btn.addEventListener('click', openWizard);
-  twCancel.addEventListener('click', closeWizard);
-  twApply.addEventListener('click', ()=>{
-    if(!selected) return;
-    const mid=Object.fromEntries(DZ.map(([z,_,m])=>[z,m]))[selected];
-    tInput.value=mid; tInput.disabled=false; tChk.checked=false; closeWizard();
-  });
-  tInput.disabled=tChk.checked;
-})();
-
-/* ================== 登录流程（统一使用 fetchJSON） ================== */
-async function loginFlow(email,password){
-  const res = await fetchJSON('/api/login', { email, password });
-  const msg=(res.msg||"").toString().toLowerCase();
-  let expired=false;
-  if(res.expired===true) expired=true;
-  else if(msg==='expired') expired=true;
-  else if(res.expiresAt){
-    const ts=Date.parse(res.expiresAt);
-    if(!Number.isNaN(ts)&&ts<Date.now()) expired=true;
-  }
-
-  if(expired){
-    const go=confirm(t('err_expired')+'。是否前往续费？');
-    if(go){
-      const a=document.createElement('a');
-      a.href='https://yourshopifyshop.com/products/monthly-vip';
-      a.target='_blank'; a.rel='noopener noreferrer';
-      document.body.appendChild(a); a.click(); a.remove();
-    }
-    return;
-  }
-
-  if(res.ok===true){
-    localStorage.setItem('vipEmail',res.email||email);
-    location.href='https://astro.5xliving.com/vip_soul_sanctuary.html';
-    return;
-  }
-
-  if(msg==='no_account') return showAuthErr(t('err_no_account'));
-  if(msg==='wrong_pwd') return showAuthErr(t('err_wrong_pwd'));
-  const extra = res.msg ? ` ${(typeof res.msg==='string')?res.msg:JSON.stringify(res.msg)}` : '';
-  return showAuthErr(t('err_login_fail')+extra);
-}
-
-/* —— 表单事件绑定（合并为一次 DOMContentLoaded） —— */
-document.addEventListener('DOMContentLoaded', ()=>{
-  initLangUI();
-
-  // —— 最小防自动填充（不预设邮箱/密码）——
-  (() => {
-    const form = document.getElementById('loginForm');
-    if (form) form.setAttribute('autocomplete','off');
-    const email = document.getElementById('email');
-    const pwd   = document.getElementById('password');
-    if (email) email.setAttribute('autocomplete','off');
-    if (pwd)   pwd.setAttribute('autocomplete','new-password');
+  /* ---------------- 样式注入 ---------------- */
+  (function injectAiStyle(){
+    const old = document.getElementById('ai-style');
+    if (old) old.remove();
+    const style = document.createElement('style'); style.id = 'ai-style';
+    style.textContent = `
+      .ai-card .ai-content{white-space:pre-wrap;line-height:1.7}
+      .ai-card .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+      .ai-card .chip{padding:6px 10px;border-radius:999px;border:1px solid #2a3546;background:#0e1520;color:#e8edf3;cursor:pointer}
+      .ai-card .chip:hover{border-color:#f2d27a;box-shadow:0 0 0 2px rgba(242,210,122,.15) inset}
+      .ai-card .skeleton{display:grid;gap:8px}
+      .ai-card .skeleton div{height:12px;border-radius:6px;background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);animation:sh 1.2s infinite}
+      @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
+      .ai-lock-overlay{position:static;margin-top:10px;padding-top:10px;border-top:1px solid var(--line);text-align:center}
+      .ai-lock-overlay .tip{color:#ffd88a;font-weight:700;margin-bottom:4px}
+      .ai-lock-overlay .sub{color:var(--muted)}
+    `;
+    document.head.appendChild(style);
   })();
 
-  // Default date today (若为空)
-  var bd=document.querySelector('#birthdate');
-  if(bd && !bd.value){ bd.value = new Date().toISOString().split('T')[0]; }
-});
-  
-// 生成命盘按钮和输入回车
-const genBtn = $('genBtn');
-if (genBtn && typeof genChart === 'function') {
-  genBtn.addEventListener('click', genChart);
-}
+  /* ---------------- 卡片渲染 ---------------- */
+  function ensureAiCard(){
+    const host = document.getElementById('result') || document.body;
+    let card = document.getElementById('aiCard');
+    if (card && card.parentElement !== host) host.appendChild(card);
+    if (card) return card;
 
-['birthdate','birthtime'].forEach(id=>{
-  const el=$(id);
-  if(el) el.addEventListener('keydown', e=>{
-    if(e.key==='Enter' && typeof genChart === 'function') genChart();
-  });
-});
-
-// 注册
-$('registerForm')?.addEventListener('submit', async (e)=>{
-  e.preventDefault(); hideAuthErr();
-  const email=$('email')?.value.trim(); const password=$('password')?.value.trim();
-  if(!email||!password) return showAuthErr(t('err_need_ep'));
-  if(!strongPwd(password)) return showAuthErr(t('err_pwd_rule'));
-  lock($('registerBtn'),true);
-  try{
-    const res=await fetchJSON('/api/register',{email,password});
-    if(res.ok===true){ localStorage.setItem('vipEmail',email); location.href='vip_trial.html'; return; }
-    if((res.msg||"").toString().toLowerCase()==='exists'){ await loginFlow(email,password); return; }
-    return showAuthErr((res.msg&&(res.msg+''))||t('err_register_fail'));
-  }catch(err){ showAuthErr(t('err_register_fail')+(err?.message||'')); }
-  finally{ lock($('registerBtn'),false); }
-});
-
-// 登录
-$('loginForm')?.addEventListener('submit', async (e)=>{
-  e.preventDefault(); hideAuthErr();
-  const email=$('email')?.value.trim(); const password=$('password')?.value.trim();
-  if(!email||!password) return showAuthErr(t('err_need_ep'));
-  lock($('loginBtn'),true);
-  try{ await loginFlow(email,password); }
-  catch(err){ showAuthErr(t('err_login_fail')+(err?.message||'')); }
-  finally{ lock($('loginBtn'),false); }
-});
-
-// 重置密码
-$('resetBtn')?.addEventListener('click', async ()=>{
-  hideAuthErr();
-  let email=prompt(t('prompt_email')); if(email===null) return; email=email.trim(); if(!email) return showAuthErr(t('err_email_empty'));
-  let newPassword=prompt(t('prompt_newpwd')); if(newPassword===null) return; newPassword=newPassword.trim(); if(!newPassword) return showAuthErr(t('err_pwd_empty'));
-  if(!strongPwd(newPassword)) return showAuthErr(t('err_pwd_rule'));
-  lock($('resetBtn'),true);
-  try{
-    const res=await fetchJSON('/api/reset',{email,newPassword});
-    if(!res.ok){ const extra=res.msg?` ${(typeof res.msg==='string')?res.msg:JSON.stringify(res.msg)}`:''; return showAuthErr(extra||t('err_reset_fail')); }
-    alert(t('msg_reset_ok'));
-  }catch(err){ showAuthErr(t('err_reset_fail')+(err?.message||'')); }
-  finally{ lock($('resetBtn'),false); }
-});
-  
-// === Box 样式（新） ===
-(function injectBoxStyle(){
-  const id='box-style'; const old=document.getElementById(id); if (old) old.remove();
-  const style=document.createElement('style'); style.id=id;
-  style.textContent = `
-    :root{
-      --box-bg:#0b111a;
-      --box-line:#1f2a36;
-      --box-text:#e8edf3;
-      --box-title:#ffd88a;
-      --muted:#9db0c3;
-    }
-    .box{background:var(--box-bg); border:1px solid var(--box-line); border-radius:12px; padding:14px 16px; margin:14px 0;}
-    .box-h{color:var(--box-title); font-weight:700; margin-bottom:8px;}
-    .box-c{color:var(--box-text); line-height:1.7;}
-    .box .muted{color:var(--muted);}
-    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-    .chip{padding:6px 10px;border-radius:999px;border:1px solid #2a3546;background:#0e1520;color:#e8edf3;cursor:pointer}
-    .skeleton{display:grid;gap:8px}
-    .skeleton div{height:12px;border-radius:6px;background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);animation:sh 1.2s infinite}
-    @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
-    .ai-lock-overlay{position:static;inset:auto;background:none;backdrop-filter:none;margin-top:10px;padding-top:10px;border-top:1px solid var(--box-line);text-align:center}
-    .ai-lock-overlay .tip{color:#ffd88a;font-weight:700;margin-bottom:4px}
-    .ai-lock-overlay .sub{color:var(--muted)}
-  `;
-  document.head.appendChild(style);
-})();
-
-/* === BAZI：把每一段包进 .box（非侵入式）=== */
-/* === BAZI：把每一段包进 .box（保留 #aiCard / #butlerTitle）=== */
-(function boxifyBazi(){
-  function wrapSec(sec){
-    if (!sec || sec.closest('.box')) return;
-
-    const isAiCard = sec.id === 'aiCard';             // 关键：是否管家卡
-    const titleEl  = sec.querySelector('h3');
-    const titleTxt = titleEl ? titleEl.textContent.trim() : '';
-    const titleId  = titleEl ? titleEl.id : '';
-
-    const frag = document.createDocumentFragment();
-    if (titleEl) titleEl.remove();
-    while (sec.firstChild) frag.appendChild(sec.firstChild);
-
-    const box = document.createElement('div');
-    box.className = 'box';
-
-    // ✅ 保留 id 和 dataset，避免后续 runAI 找不到 #aiCard
-    if (isAiCard){
-      box.id = 'aiCard';
-      for (const k in sec.dataset) box.dataset[k] = sec.dataset[k];
-    }
-
-    const h = document.createElement('div');
-    h.className = 'box-h';
-    h.textContent = titleTxt || '';
-
-    // ✅ 如果原本标题是 #butlerTitle，也把 id 迁移过来，便于多语言刷新
-    if (titleId === 'butlerTitle') h.id = 'butlerTitle';
-
-    const c = document.createElement('div');
-    c.className = 'box-c';
-    c.appendChild(frag);
-
-    box.appendChild(h);
-    box.appendChild(c);
-    sec.replaceWith(box);
-  }
-
-  function wrapCard(card){
-    if (!card || card.classList.contains('box')) return;
-    const titleEl = card.querySelector('.h2');
-    const title   = titleEl ? titleEl.textContent.trim() : '';
-    if (titleEl) titleEl.remove();
-
-    const box = document.createElement('div'); box.className = 'box';
-    const h   = document.createElement('div'); h.className   = 'box-h'; h.textContent = title || '';
-    const c   = document.createElement('div'); c.className   = 'box-c';
-    while (card.firstChild) c.appendChild(card.firstChild);
-    box.appendChild(h); box.appendChild(c);
-    card.replaceWith(box);
-  }
-
-  function applyAll(root){
-    if (!root) return;
-    // 富报告
-    root.querySelectorAll('#rich-report .sec').forEach(wrapSec);
-    // ✅ 管家卡片（不管有没有 .sec，都包）
-    const ai = root.querySelector('#aiCard'); if (ai) wrapSec(ai);
-    // 免费简报
-    root.querySelectorAll('#xl-free-report .card').forEach(wrapCard);
-  }
-
-  // 1) 先跑一次
-  applyAll(document.getElementById('result') || document);
-
-  // 2) 挂钩你现有的渲染函数（保持你原逻辑不变）
-  const _mountRich = window.mountRichReport;
-  if (typeof _mountRich === 'function'){
-    window.mountRichReport = function(...args){
-      _mountRich.apply(this, args);
-      applyAll(document.getElementById('result') || document);
-    };
-  }
-  const _mountExt = window.mountExtensionsIntoResult;
-  if (typeof _mountExt === 'function'){
-    window.mountExtensionsIntoResult = function(...args){
-      _mountExt.apply(this, args);
-      applyAll(document.getElementById('result') || document);
-    };
-  }
-  const _rerender = window.rerenderReportsIfAny;
-  if (typeof _rerender === 'function'){
-    window.rerenderReportsIfAny = function(...args){
-      _rerender.apply(this, args);
-      applyAll(document.getElementById('result') || document);
-    };
-  }
-
-  // 3) 兜底：监听 #aiCard 动态插入（先插入后 wrap 的场景）
-  const root = document.getElementById('result') || document.body;
-  if (root) {
-    const mo = new MutationObserver((mutList)=>{
-      for (const m of mutList){
-        for (const n of m.addedNodes){
-          if (!(n instanceof HTMLElement)) continue;
-          const ai = (n.id === 'aiCard') ? n : n.querySelector?.('#aiCard');
-          if (ai && !ai.closest('.box')) wrapSec(ai);
-        }
-      }
-    });
-    mo.observe(root, { childList:true, subtree:true });
-  }
-})();
-  
-/* ================== 自测：1978-02-21 12:00 → 戊午 甲寅 甲寅 庚午 ================== */
-(function(){
-  const c=new BaziCalculator(); const Y=c.calculateYearPillar(1978); const M=c.calculateMonthPillar(1978,2,21); const D=c.calculateDayPillar(1978,2,21); const H=c.calculateHourPillar(D.stem,12);
-  console.log('应为 → 年 戊午｜月 甲寅｜日 甲寅｜时 庚午');
-  console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+H.branch);
-})();
-</script>
-<script>
-/* ================== PATCH A：解除浮窗隐藏 + 注入浮窗UI（只聊天，不渲染管家） ================== */
-(function initFloatingGPT(){
-  /* 1) 解除你之前对 .ss-chat-fab/.ss-chat-panel 的隐藏（加更后置的 !important 覆盖） */
-  const unhide = document.createElement('style');
-  unhide.textContent = `.ss-chat-fab,.ss-chat-panel{display:initial !important}`;
-  document.head.appendChild(unhide);
-
-  /* 2) 若页面没有浮窗节点，则创建（只做聊天，不绑定管家 askAi） */
-  if(!document.getElementById('ssChatFab')){
-    const fab = document.createElement('button');
-    fab.id='ssChatFab';
-    fab.className='ss-chat-fab';
-    fab.type='button';
-    fab.textContent = (typeof t==='function'? t('chat_fab') : '问');
-    document.body.appendChild(fab);
-
-    const panel = document.createElement('div');
-    panel.className='ss-chat-panel';
-    panel.id='ssChatPanel';
-    panel.innerHTML = `
-      <div class="ss-chat-head">
-        <div class="ss-chat-title">5X · GPT</div>
-        <div class="ss-close" id="ssChatClose" aria-label="Close">✕</div>
+    card = document.createElement('div');
+    card.className = 'sec ai-card';
+    card.id = 'aiCard';
+    card.innerHTML = `
+      <h3 id="butlerTitle">${t('butler_title') || '心怜管家 · 解读'}</h3>
+      <div id="aiContent" class="ai-content">
+        <div class="skeleton">
+          <div style="width:60%"></div><div style="width:80%"></div>
+          <div style="width:90%"></div><div style="width:70%"></div>
+        </div>
       </div>
-      <div class="ss-chat-body" id="ssChatBody" role="log" aria-live="polite"></div>
-      <div class="ss-chat-input">
-        <input id="ssChatInput" placeholder="${(typeof t==='function'? t('chat_placeholder'):'请问您想了解什么？')}" />
-        <button class="btn btn-mini" id="ssChatSend" type="button">${(typeof t==='function'? t('chat_send'):'发送')}</button>
-      </div>`;
-    document.body.appendChild(panel);
+      <div class="chips" id="aiChips"></div>
+    `;
+    host.appendChild(card);
+    renderChips();
+    return card;
   }
 
-  const $fab   = document.getElementById('ssChatFab');
-  const $panel = document.getElementById('ssChatPanel');
-  const $close = document.getElementById('ssChatClose');
-  const $body  = document.getElementById('ssChatBody');
-  const $inp   = document.getElementById('ssChatInput');
-  const $send  = document.getElementById('ssChatSend');
+  function mainLabel(){
+    const L = nowLang();
+    if (L.startsWith('zh')) return '主（当前渲染资料）';
+    if (L === 'en') return 'Main (Current Data)';
+    if (L === 'ja') return '主（現在のデータ）';
+    if (L === 'th') return 'หลัก (ข้อมูลปัจจุบัน)';
+    if (L === 'ms') return 'Utama (Data Semasa)';
+    return 'Main';
+  }
 
-  const ln  = (typeof getLang==='function' ? getLang() : 'zh-CN');
-  function buildChatSystemPrompt(lang){
-    const map = (typeof BUTLER_LANG_NAME==='object'? BUTLER_LANG_NAME : {'zh-CN':'Simplified Chinese','en':'English'});
-    const L = map[lang] || map['zh-CN'];
+  function renderChips(){
+    const wrap = document.getElementById('aiChips'); if(!wrap) return;
+    wrap.innerHTML = '';
+    const items = [
+      { label: mainLabel(), topic: 'current' },
+      { label: t('chip_career'), topic:'career', q: t('q_career') },
+      { label: t('chip_love'),   topic:'love',   q: t('q_love')   },
+      { label: t('chip_money'),  topic:'money',  q: t('q_money')  },
+      { label: t('chip_list'),   topic:'list',   q: t('q_list')   },
+      { label: t('chip_30d'),    topic:'30d',    q: t('q_30d')    },
+    ];
+    items.forEach(it=>{
+      const btn = document.createElement('button');
+      btn.className = 'chip';
+      btn.textContent = it.label || '';
+      if (it.q) btn.dataset.q = it.q;
+      btn.dataset.topic = it.topic;
+      wrap.appendChild(btn);
+    });
+  }
+
+  /* ---------------- 提示/请求构建 ---------------- */
+  function buildSystemPrompt(){
     return [
-      `You are a warm, practical, friend-like assistant for the 5XLiving Bazi site.`,
-      `Reply in ${L}. Keep a human tone. Be concrete and actionable.`,
-      `Avoid fatalism; treat Bazi as tendencies + choices.`,
-      `VERY IMPORTANT: This is a floating chat. Do NOT render or repeat the on-page "Butler" card.`,
-      `Use short paragraphs and bullets when helpful.`
+      `You are a concise Bazi assistant. Reply in ${LNAME()}.`,
+      `Constraints:`,
+      `- Use short paragraphs/bullets; be concrete & actionable.`,
+      `- If hour pillar is missing, include a brief caution.`,
+      `- Avoid deterministic predictions; frame as tendencies + tips.`,
+      `- Mirror the user's language tone.`
     ].join('\n');
   }
-  function buildChatUserMsg(text){
-    const ctx = (window.__last_report__||{});
-    const {pillars={}, percents={}, st={}, adv={}, timeUnknown} = ctx;
-    const E = (typeof ELABEL==='function'? ELABEL(): {wood:'木',fire:'火',earth:'土',metal:'金',water:'水'});
-    const elem = [
+
+  function buildUserPrompt(taskText, topicType, ctx){
+    const { pillars={}, percents={}, st={}, adv={}, timeUnknown } = ctx;
+    const E = ELABEL ? ELABEL() : {wood:'Wood',fire:'Fire',earth:'Earth',metal:'Metal',water:'Water'};
+    const elemLine = [
       `${E.wood} ${Math.round(percents.wood||0)}%`,
       `${E.fire} ${Math.round(percents.fire||0)}%`,
       `${E.earth} ${Math.round(percents.earth||0)}%`,
       `${E.metal} ${Math.round(percents.metal||0)}%`,
       `${E.water} ${Math.round(percents.water||0)}%`,
     ].join(' · ');
-
-    const hourTxt = timeUnknown ? (typeof t==='function'? t('rpt_time_unknown'):'时间不详') :
+    const fav   = (adv?.useful||[]).join('/');
+    const avoid = (adv?.avoid ||[]).join('/');
+    const hourTxt = timeUnknown ? (t('rpt_time_unknown') || '时间不详') :
       `${pillars?.hour?.stem||''}${pillars?.hour?.branch||''}`;
 
-    const preface = pillars.day
-      ? [
-          `Context (user's current chart):`,
-          `Year ${pillars.year?.stem||''}${pillars.year?.branch||''} · Month ${pillars.month?.stem||''}${pillars.month?.branch||''} · Day ${pillars.day?.stem||''}${pillars.day?.branch||''} · Hour ${hourTxt}`,
-          `Day Master: ${pillars.day?.stem||''} (${pillars.day?.element||''}); Season: ${st?.season||''}; Strength: ${st?.mark||''}`,
-          `Elements: ${elem}`,
-          `Favorable: ${(adv?.useful||[]).join('/')||'-'}; Avoid: ${(adv?.avoid||[]).join('/')||'-'}`,
-          timeUnknown ? `Caution: hour pillar excluded.` : ``
-        ].filter(Boolean).join('\n')
-      : ``;
-
     return [
-      preface,
-      `---`,
-      `User says: ${text}`
+      `Bazi summary:`,
+      `Year ${pillars?.year?.stem||''}${pillars?.year?.branch||''} · Month ${pillars?.month?.stem||''}${pillars?.month?.branch||''} · Day ${pillars?.day?.stem||''}${pillars?.day?.branch||''} · Hour ${hourTxt||''}`,
+      `Day Master: ${pillars?.day?.stem||''} (${pillars?.day?.element||''})`,
+      `Season: ${st?.season||''}; Strength: ${st?.mark||''}; Strategy: ${st?.focus||''}`,
+      `Elements: ${elemLine}`,
+      `Favorable: ${fav||'-'}; Avoid: ${avoid||'-'}`,
+      timeUnknown ? `Caution: hour pillar excluded.` : ``,
+      ``,
+      `TaskType: ${topicType||'generic'}`,
+      `Task: ${taskText||topicType||'overview'}`,
+      `Language: ${LNAME()}. Reply ONLY in ${LNAME()}.`
     ].filter(Boolean).join('\n');
   }
-  function md(s){ return (s||'').replace(/\n{2,}/g,'\n\n').replace(/\n/g,'<br>'); }
-  function addMsg(text, me=false){
-    const b=document.createElement('div');
-    b.className = 'ss-msg' + (me?' me':'');
-    b.innerHTML = md(text);
-    $body.appendChild(b);
-    $body.scrollTop = $body.scrollHeight;
-  }
 
-  async function sendChat(){
-    const v = ($inp.value||'').trim(); if(!v) return;
-    addMsg(v, true); $inp.value='';
-    $send.disabled = true;
+  /* ---------------- AI 请求（简化稳健版） ---------------- */
+  let aiAbort = null;
+  async function aiChat(messages, { timeout=15000 } = {}){
+    if (aiAbort) aiAbort.abort();
+    aiAbort = new AbortController();
+    const url = `${(typeof API_BASE!=='undefined'?API_BASE:'')}/api/chat`;
 
+    const to = setTimeout(()=>aiAbort.abort(), timeout);
     try{
-      const sys = buildChatSystemPrompt(ln);
-      const usr = buildChatUserMsg(v);
-      const { ok, data } = await (typeof aiRequest==='function'
-        ? aiRequest([{role:'system',content:sys},{role:'user',content:usr}], {timeout:18000,retries:2})
-        : (async()=>{
-            const r = await fetch(`${(typeof API_BASE==='string'?API_BASE:'')}/api/chat`,{
-              method:'POST',headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({messages:[{role:'system',content:sys},{role:'user',content:usr}]})
-            });
-            const raw = await r.text(); try{ return {ok:r.ok,data:JSON.parse(raw)} }catch{ return {ok:false,data:{raw}} }
-          })()
-      );
-      let text = (typeof extractAIText==='function' ? extractAIText(data) : '');
-      if(!text) text = (ln.startsWith('zh') ? '我这边想了很久，但暂时没拿到有效回复，你可以重试或换种问法～' : 'Hmm, I could not get a valid reply. Please try again.');
-      addMsg(text,false);
+      const resp = await fetch(url, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        mode:'cors',
+        body: JSON.stringify({ messages })
+      });
+      const raw = await resp.text();
+      clearTimeout(to);
+      let data; try{ data = raw ? JSON.parse(raw) : {}; }catch{ data = { ok:false, raw }; }
+      return { ok: resp.ok, data };
     }catch(e){
-      addMsg(ln.startsWith('zh') ? '网络有点卡，等下再试试～' : 'Network hiccup. Try again in a moment.');
-    }finally{
-      $send.disabled = false; $inp.focus();
+      clearTimeout(to);
+      return { ok:false, data:{ msg: e?.name==='AbortError' ? 'timeout' : (e?.message || 'network_error') } };
     }
   }
 
-  $fab?.addEventListener('click', ()=>{ $panel.style.display = ($panel.style.display==='block'?'none':'block'); $inp?.focus(); });
-  $close?.addEventListener('click', ()=>{ $panel.style.display='none'; });
-  $send?.addEventListener('click', sendChat);
-  $inp?.addEventListener('keydown', e=>{ if(e.key==='Enter') sendChat(); });
-
-  // i18n（沿用你已有 applyChatI18n）
-  if(typeof applyChatI18n==='function') applyChatI18n();
-})();
-
-if (typeof applyChatI18n!=='function'){
-  function applyChatI18n(){
-    const fab=document.getElementById('ssChatFab');
-    const inp=document.getElementById('ssChatInput');
-    const btn=document.getElementById('ssChatSend');
-    if (fab) fab.textContent = t('chat_fab');
-    if (inp) inp.placeholder = t('chat_placeholder');
-    if (btn) btn.textContent = t('chat_send');
+  function extractAIText(data){
+    if (!data) return '';
+    if (typeof data === 'string') return data.trim();
+    if (data.reply) return String(data.reply).trim();
+    if (data.text)  return String(data.text).trim();
+    if (data.output) return String(data.output).trim();
+    if (Array.isArray(data.choices) && data.choices[0]){
+      const c = data.choices[0];
+      if (c.message?.content) return String(c.message.content).trim();
+      if (c.delta?.content)   return String(c.delta.content).trim();
+    }
+    if (Array.isArray(data.candidates) && data.candidates[0]){
+      const parts = data.candidates[0].content?.parts || data.candidates[0].content || [];
+      const txt = (Array.isArray(parts) ? parts.map(p=>p.text||'').join('\n') : '');
+      if (txt.trim()) return txt.trim();
+    }
+    return '';
   }
-}  
 
-/* ================== PATCH B：升级“心怜管家”提示词（更人性化、尤其感情） ================== */
-/* 说明：下面三个函数与原来同名；放在脚本最后会覆盖旧实现；不影响你现有 UI。 */
-function buildButlerSystemPrompt(lang){
-  const L = (typeof BUTLER_LANG_NAME==='object' && BUTLER_LANG_NAME[lang]) ? BUTLER_LANG_NAME[lang] : 'Simplified Chinese';
-  return [
-    `You are a seasoned Bazi coach and close friend. Reply in ${L}.`,
-    `Tone: empathetic, grounded, human. Don’t lecture—coach softly.`,
-    `Style: short paragraphs + crisp bullets, concrete actions, micro-habits.`,
-    `Safety: no determinism; frame as tendencies + levers the user can pull.`,
-    `If hour pillar is missing, add a one-line caution near the top.`,
-  ].join('\n');
-}
+  /* ---------------- 本地兜底 ---------------- */
+  function localFallback(topicType, ctx){
+    const { percents={}, timeUnknown } = ctx;
+    const label = ELABEL ? ELABEL() : {wood:'木',fire:'火',earth:'土',metal:'金',water:'水'};
+    const { strongest, weakest } = strongWeak(percents);
+    const kv = [
+      [label.wood,  Math.round(percents.wood  || 0)],
+      [label.fire,  Math.round(percents.fire  || 0)],
+      [label.earth, Math.round(percents.earth || 0)],
+      [label.metal, Math.round(percents.metal || 0)],
+      [label.water, Math.round(percents.water || 0)],
+    ];
+    const caution = timeUnknown ? (t('rpt_time_hint') || '提示：出生时间不详，未纳入时柱，仅供参考。') : '';
 
-function buildUserPrompt(topic, ctx, topicType){
-  const {pillars, percents, st, adv, timeUnknown} = ctx || {};
-  const ln = (typeof getLang==='function'? BUTLER_LANG_NAME[getLang()] : 'Simplified Chinese') || 'Simplified Chinese';
-  const E = (typeof ELABEL==='function'? ELABEL(): {wood:'木',fire:'火',earth:'土',metal:'金',water:'水'});
-  const elem = ['wood','fire','earth','metal','water'].map(k=>`${E[k]} ${Math.round((percents||{})[k]||0)}%`).join(' · ');
-  const fav   = (adv?.useful||[]).join('/');
-  const avoid = (adv?.avoid ||[]).join('/');
-  const hour  = timeUnknown ? (typeof t==='function'? t('rpt_time_unknown'):'时间不详')
-                            : `${pillars?.hour?.stem||''}${pillars?.hour?.branch||''}`;
+    const head = `**${t('butler_title') || '心怜管家 · 解读'}**`;
+    const five = `- ${t('rpt_wuxing_label')||'五行分布'}：` + kv.map(([k,v])=>`${k} ${v}%`).join(' · ');
+    const bal  = `- ${t('rpt_balance_focus_label')||'调衡要点'}：${kv.find(([k])=>k===label[strongest])?label[strongest]:label[strongest]} ${t('rpt_strongest_word')||'偏旺'}；${label[weakest]} ${t('rpt_weakest_word')||'偏弱'}`;
 
-  const header = [
-    `Bazi summary:`,
-    `Year ${pillars?.year?.stem||''}${pillars?.year?.branch||''} · Month ${pillars?.month?.stem||''}${pillars?.month?.branch||''} · Day ${pillars?.day?.stem||''}${pillars?.day?.branch||''} · Hour ${hour}`,
-    `Day Master: ${pillars?.day?.stem||''} (${pillars?.day?.element||''}); Season: ${st?.season||''}; Strength: ${st?.mark||''}`,
-    `Elements: ${elem}`,
-    `Favorable: ${fav||'-'}; Avoid: ${avoid||'-'}`,
-    timeUnknown ? `Caution: hour pillar excluded.` : ``
-  ].filter(Boolean).join('\n');
+    const strategy = [
+      '',
+      `${t('rpt_strategy_label')||'策略'}`,
+      `- ${t('rpt_strategy_support')||'生扶/补助'}：围绕“${label[weakest]||weakest}”做环境与作息补强。`,
+      `- ${t('rpt_strategy_drain')||'泄秀/制化'}：适度分配“${label[strongest]||strongest}”相关活动，避免过犹不及。`,
+    ].join('\n');
 
-  // —— 专门强化「感情」版本 —— //
-  if ((topicType||'').toLowerCase() === 'love'){
-    return [
-      header, ``,
-      `TaskType: LOVE. Act like a close friend who knows Bazi.`,
-      `Write a deep, human-friendly guide with these sections (use bullets + short paras):`,
-      `1) Core temperament & "love profile"（性格在关系里的表现、给爱/收爱方式）`,
-      `2) Ideal partner profile（五行/气质/边界感/价值观匹配）`,
-      `3) 动态与磨合（节奏、空间与黏度、如何互相成就）`,
-      `4) 沟通脚本（句式示例：先感受→需求→可执行请求；冲突降温流程）`,
-      `5) 约会/日常场景点子（任选3–6条，具体、可落地）`,
-      `6) 稳定关系的杠杆（时间表、金钱/家务规则、共同目标/账本）`,
-      `7) 顺风窗口（偏利的月份/元素气候，以及如何把握；仅作倾向提示）`,
-      `8) 红旗与修正（容易出的问题→马上可做的修正动作）`,
-      `9) 微仪式与环境小调整（用“喜用/最弱五行”做色彩/物件/作息微改）`,
-      `10) 一句话总结（温柔而有力）`,
-      `Language: ${ln}. Reply ONLY in ${ln}.`,
+    if (topicType === 'career') {
+      return [head,five,bal,caution,'',
+        '**事业 · 快速建议**',
+        `- 方向：围绕喜用展开，避开忌。`,
+        `- 角色：强项用于开拓/交付；弱项以流程/SOP 守护。`,
+        `- 突破：2周内可交付的小项目，用强项切入，沉淀2条 SOP。`,
+        strategy
+      ].join('\n');
+    }
+    if (topicType === 'love') {
+      return [head,five,bal,caution,'',
+        '**感情 · 快速建议**',
+        `- 节奏：沟通前先肯定强项；谈边界时照顾弱项需求。`,
+        `- 场景：约会选择有利“喜用”的环境，减少“忌”的触发。`,
+        strategy
+      ].join('\n');
+    }
+    if (topicType === 'money') {
+      return [head,five,bal,caution,'',
+        '**财运 · 快速建议**',
+        `- 安全垫：3–6个月现金流。`,
+        `- 配比：进取 : 稳健 ≈ 7:3（按自身调整）。`,
+        `- 变现：在强项赛道做优势变现；弱项用规则控风控。`,
+        strategy
+      ].join('\n');
+    }
+    if (topicType === 'list') {
+      return [head,five,bal,caution,'',
+        '**今日待办 · 3–5条**',
+        `1) 用强项完成一个30分钟可交付成果。`,
+        `2) 针对弱项做10分钟补强（学习/整理/复盘）。`,
+        `3) 清理一个遗留小坑（≤15分钟）。`,
+        `4) 晚间复盘：记录1条可复用 SOP。`,
+        strategy
+      ].join('\n');
+    }
+    if (topicType === '30d') {
+      return [head,five,bal,caution,'',
+        '**30天建议 · 纲要**',
+        `- 第1周：围绕弱项做5–10分钟日练。`,
+        `- 第2周：强项产出，每天一个小成果。`,
+        `- 第3周：建立2条守弱项的 SOP。`,
+        `- 第4周：复盘优化 + 小结展示。`,
+        strategy
+      ].join('\n');
+    }
+    // default（主/概览）
+    return [head,five,bal,caution,'',
+      `${t('dev_strategy')||'发展策略'}：`,
+      `- ${t('chip_career')||'事业'}：强项发力，流程守弱项。`,
+      `- ${t('chip_money')||'财运'}：把控现金流；预留机动。`,
+      `- ${t('chip_love')||'感情'}：先肯定强项，再谈节奏与边界。`,
     ].join('\n');
   }
 
-  // 其它主题延续你原有风格
-  return [
-    header,
-    `TaskType: ${topicType || 'generic'}`,
-    `Task: ${topic}`,
-    `Language: ${ln}. Reply ONLY in ${ln}.`
-  ].join('\n');
-}
+  /* ---------------- 渲染：主（当前资料） ---------------- */
+  function renderCurrent(){
+    ensureAiCard();
+    const out = document.getElementById('aiContent'); if(!out) return;
+    const ctx = safeCtx();
+    const { pillars={}, percents={}, st={}, adv={}, timeUnknown } = ctx;
+    const E  = ELABEL ? ELABEL() : {wood:'木',fire:'火',earth:'土',metal:'金',water:'水'};
+    const elemLine = [
+      `${E.wood} ${Math.round(percents.wood||0)}%`,
+      `${E.fire} ${Math.round(percents.fire||0)}%`,
+      `${E.earth} ${Math.round(percents.earth||0)}%`,
+      `${E.metal} ${Math.round(percents.metal||0)}%`,
+      `${E.water} ${Math.round(percents.water||0)}%`,
+    ].join(' · ');
+    const hourTxt = timeUnknown ? (t('rpt_time_unknown') || '时间不详') : `${pillars?.hour?.stem||''}${pillars?.hour?.branch||''}`;
 
-/* 更丰满的 fallback：当模型没回时，感情也给完整可用的内容 */
-function localFallbackButler(topicType, ctx){
-  const { percents = {}, timeUnknown } = ctx || {};
-  const tcn = (typeof t==='function') ? t : (k=>k);
-  const E = (typeof ELABEL==='function'? ELABEL(): {wood:'木',fire:'火',earth:'土',metal:'金',water:'水'});
-  const kv = [[E.wood,Math.round(percents.wood||0)], [E.fire,Math.round(percents.fire||0)], [E.earth,Math.round(percents.earth||0)], [E.metal,Math.round(percents.metal||0)], [E.water,Math.round(percents.water||0)]];
-  const strongest = kv.reduce((a,b)=> a[1]>=b[1]?a:b)[0];
-  const weakest   = kv.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
-  const caution   = timeUnknown ? (tcn('rpt_time_hint') || '出生时间不详，未纳入时柱，仅供参考。') : '';
+    const md = [
+      `### ${nowLang().startsWith('zh') ? '当前渲染资料' : 'Current Context'}`,
+      `- 年柱：${(pillars?.year?.stem||'')}${(pillars?.year?.branch||'')}`,
+      `- 月柱：${(pillars?.month?.stem||'')}${(pillars?.month?.branch||'')}`,
+      `- 日柱：${(pillars?.day?.stem||'')}${(pillars?.day?.branch||'')}`,
+      `- 时柱：${hourTxt}`,
+      `- 季节/强弱：${st?.season||''} / ${st?.mark||''}`,
+      `- 策略：${st?.focus||''}`,
+      `- 五行：${elemLine}`,
+      (adv?.useful?.length || adv?.avoid?.length) ? `- 喜用/忌：${(adv.useful||[]).join('/') || '-'} / ${(adv.avoid||[]).join('/') || '-'}` : ''
+    ].filter(Boolean).join('\n');
 
-  if ((topicType||'')==='love'){
-    return [
-      `**${tcn('butler_title')||'心怜管家 · 解读'}**`,
-      `- ${tcn('rpt_wuxing_label')||'五行'}：` + kv.map(([k,v])=>`${k} ${v}%`).join(' · '),
-      `- ${tcn('rpt_balance_focus_label')||'调衡要点'}：${strongest}强、${weakest}弱。`,
-      caution, '',
-      `**感情 · 深入建议**`,
-      `• 恋爱体质：热能来自“${strongest}”，安全感来自“${weakest}”。先肯定强项，再用规则守弱项。`,
-      `• 理想伴侣：偏“金/土”者更稳；重承诺、有边界感、会做计划。`,
-      `• 沟通脚本：先感受→说需求→给请求；争执先复述对方要点，再给两套可选方案。`,
-      `• 约会清单：每周固定无手机约会；月末一次“预算+计划”小会议；共同清单看板。`,
-      `• 稳定杠杆：家用账户+共同储蓄目标；48小时冷静期的大额开支；重要决定先通知后执行。`,
-      `• 顺风窗口：金/土旺月更利定计划与承诺；逢冲月提前谈规则、定节奏。`,
-      `• 红旗修正：上头承诺滞后→用时间表；话锋直→先复述后建议；朋友/副业分走注意力→设“伴侣优先时段”。`,
-      `• 微仪式：卧室减红增温土/金属质感；随身小物带${weakest}色系；每天晚间3分钟“今天值得感谢TA的1件事”。`,
-      `**一句话**：把热度交给“${strongest}”，把长期交给“${weakest}”——当规则、账本与时间表到位，亲密就更稳更安心。`
-    ].join('\n');
+    out.innerHTML = mdToHtml(md);
+
+    const aiCard = document.getElementById('aiCard');
+    aiCard.dataset.lastTopic = 'current';
+    aiCard.dataset.lastQ = '__current__';
+    aiCard.dataset.lang = nowLang();
   }
 
-  // 非感情：用你原来的紧凑版
-  return [
-    `**${tcn('butler_title')||'心怜管家 · 解读'}**`,
-    `- ${tcn('rpt_wuxing_label')||'五行'}：` + kv.map(([k,v])=>`${k} ${v}%`).join(' · '),
-    `- ${tcn('rpt_balance_focus_label')||'调衡要点'}：${strongest}强、${weakest}弱。`,
-    caution, '',
-    `${tcn('rpt_strategy_label')||'策略'}`,
-    `- ${tcn('rpt_strategy_support')||'生扶/补助'}：围绕“${weakest}”做环境与作息补强。`,
-    `- ${tcn('rpt_strategy_drain')||'泄秀/制化'}：适度分配“${strongest}”相关活动，避免过犹不及。`
-  ].join('\n');
-}
-</script>  
-<script>
-/* ================== GPT 问浮窗：纯聊天，不渲染管家 ================== */
-/* 0) 样式 */
-(function injectChatStyle(){
-  const id='chat-style'; const old=document.getElementById(id); if(old) old.remove();
-  const css=document.createElement('style'); css.id=id;
-  css.textContent=`
-    .ss-chat-fab{position:fixed;right:18px;bottom:18px;z-index:9999;border:1px solid #2a3546;background:#0e1520;color:#e8edf3;border-radius:999px;padding:10px 14px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)}
-    .ss-chat-fab:hover{border-color:#f2d27a;box-shadow:0 0 0 2px rgba(242,210,122,.15) inset}
-    .ss-chat-panel{position:fixed;right:18px;bottom:70px;width:320px;max-height:60vh;display:none;background:#0b111a;border:1px solid #1f2a36;border-radius:12px;z-index:10000;box-shadow:0 8px 30px rgba(0,0,0,.45);overflow:hidden}
-    .ss-chat-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #1f2a36;color:#ffd88a;font-weight:700}
-    .ss-close{cursor:pointer;opacity:.8}
-    .ss-chat-body{padding:10px 12px;height:300px;overflow:auto;color:#e8edf3;line-height:1.6}
-    .ss-chat-input{display:flex;gap:8px;padding:10px;border-top:1px solid #1f2a36;background:#0e1520}
-    .ss-chat-input input{flex:1;min-width:0;background:#0b111a;border:1px solid #1f2a36;border-radius:8px;padding:8px;color:#e8edf3}
-    .ss-chat-input .btn{border:1px solid #2a3546;background:#0b111a;color:#e8edf3;border-radius:8px;padding:8px 10px;cursor:pointer}
-    .ss-chat-input .btn:disabled{opacity:.6;cursor:not-allowed}
-    .ss-msg{background:#0f1824;border:1px solid #1f2a36;border-radius:10px;padding:8px 10px;margin:6px 0;max-width:92%}
-    .ss-msg.me{margin-left:auto;background:#132033;border-color:#263244}
-  `;
-  document.head.appendChild(css);
-})();
+  /* ---------------- 渲染：AI 专题 ---------------- */
+  async function renderTopic(topicType, qText){
+    ensureAiCard();
+    const out   = document.getElementById('aiContent'); if(!out) return;
+    const chips = document.getElementById('aiChips');
 
-/* 1) 系统/用户消息构造（浮窗专用） */
-function buildChatSystemPrompt(lang){
-  const map = (typeof BUTLER_LANG_NAME==='object'? BUTLER_LANG_NAME : {'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese','en':'English'});
-  const L = map[lang] || map['zh-CN'];
-  return [
-    `You are a warm, practical assistant for the 5XLiving Bazi site.`,
-    `Reply in ${L}. Keep it conversational and concrete.`,
-    `This is a floating chat. Do NOT render or mention the in-page Butler card.`,
-    `Avoid fatalism; frame insights as tendencies + choices.`,
-    `Use short paragraphs and bullets when helpful.`
-  ].join('\n');
-}
-function buildChatUserMsg(text){
-  const ctx = (window.__last_report__||{});
-  const {pillars={}, percents={}, st={}, adv={}, timeUnknown} = ctx;
-  const E = (typeof ELABEL==='function'? ELABEL(): {wood:'木',fire:'火',earth:'土',metal:'金',water:'水'});
-  const elem = [
-    `${E.wood} ${Math.round(percents.wood||0)}%`,
-    `${E.fire} ${Math.round(percents.fire||0)}%`,
-    `${E.earth} ${Math.round(percents.earth||0)}%`,
-    `${E.metal} ${Math.round(percents.metal||0)}%`,
-    `${E.water} ${Math.round(percents.water||0)}%`,
-  ].join(' · ');
-  const hourTxt = timeUnknown ? (typeof t==='function'? t('rpt_time_unknown'):'时间不详') :
-    `${pillars?.hour?.stem||''}${pillars?.hour?.branch||''}`;
-
-  const preface = pillars.day
-    ? [
-        `Context (current chart):`,
-        `Year ${pillars.year?.stem||''}${pillars.year?.branch||''} · Month ${pillars.month?.stem||''}${pillars.month?.branch||''} · Day ${pillars.day?.stem||''}${pillars.day?.branch||''} · Hour ${hourTxt}`,
-        `Day Master: ${pillars.day?.stem||''} (${pillars.day?.element||''}); Season: ${st?.season||''}; Strength: ${st?.mark||''}`,
-        `Elements: ${elem}`,
-        `Favorable: ${(adv?.useful||[]).join('/')||'-'}; Avoid: ${(adv?.avoid||[]).join('/')||'-'}`,
-        timeUnknown ? `Caution: hour pillar excluded.` : ``
-      ].filter(Boolean).join('\n')
-    : ``;
-
-  return [preface, `---`, `User says: ${text}`].filter(Boolean).join('\n');
-}
-
-/* 2) 浮窗注入 + 事件绑定（仅聊天） */
-(function initFloatingGPT(){
-  function md(s){ return (s||'').replace(/\n{2,}/g,'\n\n').replace(/\n/g,'<br>'); }
-
-  function ensureNodes(){
-    if(document.getElementById('ssChatFab') && document.getElementById('ssChatPanel')) return;
-
-    const fab = document.createElement('button');
-    fab.id='ssChatFab'; fab.className='ss-chat-fab'; fab.type='button';
-    fab.textContent = (typeof t==='function' ? t('chat_fab') : '问');
-    document.body.appendChild(fab);
-
-    const panel = document.createElement('div');
-    panel.className='ss-chat-panel'; panel.id='ssChatPanel';
-    panel.innerHTML = `
-      <div class="ss-chat-head">
-        <div class="ss-chat-title">5X · GPT</div>
-        <div class="ss-close" id="ssChatClose" aria-label="Close">✕</div>
-      </div>
-      <div class="ss-chat-body" id="ssChatBody" role="log" aria-live="polite"></div>
-      <div class="ss-chat-input">
-        <input id="ssChatInput" placeholder="${(typeof t==='function'? t('chat_placeholder'):'请问您想了解什么？')}" />
-        <button class="btn" id="ssChatSend" type="button">${(typeof t==='function'? t('chat_send'):'发送')}</button>
+    // skeleton
+    out.innerHTML = `
+      <div class="skeleton">
+        <div style="width:60%"></div><div style="width:80%"></div>
+        <div style="width:90%"></div><div style="width:70%"></div>
       </div>`;
-    document.body.appendChild(panel);
+    chips?.querySelectorAll('.chip').forEach(c=>{ c.disabled=true; c.style.opacity=.6; });
+
+    const ctx  = safeCtx();
+    const sys  = buildSystemPrompt();
+    const user = buildUserPrompt(qText || topicType, topicType, ctx);
+
+    try{
+      const { ok, data } = await aiChat(
+        [{role:'system',content:sys},{role:'user',content:user}],
+        { timeout: 15000 }
+      );
+      let text = ok ? extractAIText(data) : '';
+      if (!text) text = localFallback(topicType, ctx);
+
+      if (!isVIP() && topicType !== 'current'){
+        const teaser = text.split('\n').slice(0,6).join('\n');
+        out.innerHTML = mdToHtml(teaser) + `
+          <div class="ai-lock-overlay">
+            <div class="tip">💎 ${t('vip_title') || 'VIP Segment'}</div>
+            <div class="sub">${nowLang().startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'}</div>
+          </div>`;
+      }else{
+        out.innerHTML = mdToHtml(text);
+      }
+    }catch{
+      out.innerHTML = mdToHtml(localFallback(topicType, ctx));
+    }finally{
+      chips?.querySelectorAll('.chip').forEach(c=>{ c.disabled=false; c.style.opacity=1; });
+      const aiCard = document.getElementById('aiCard');
+      aiCard.dataset.lastTopic = topicType || 'generic';
+      aiCard.dataset.lastQ = qText || '';
+      aiCard.dataset.lang = nowLang();
+    }
   }
 
-  function addMsg(text, me=false){
-    const b=document.createElement('div');
-    b.className = 'ss-msg' + (me?' me':'');
-    b.innerHTML = md(text);
-    document.getElementById('ssChatBody').appendChild(b);
-    const body = document.getElementById('ssChatBody');
-    body.scrollTop = body.scrollHeight;
+  /* ---------------- 自由报告（免费区块） ---------------- */
+  function buildFreeReportHTML(ctx){
+    const label = ELABEL ? ELABEL() : {wood:'木',fire:'火',earth:'土',metal:'金',water:'水'};
+    const { percents={}, timeUnknown } = ctx || {};
+    const { weakest } = strongWeak(percents);
+    const hint = timeUnknown ? (t('rpt_time_hint') || '提示：出生时间不详，未纳入时柱，仅供参考。') : '';
+    return `
+      <div class="report">
+        <div class="sec">
+          <h3>${t('rpt_free_title') || '免费简报'}</h3>
+          ${hint ? `<p class="muted">${hint}</p>` : ``}
+          <p>${(t('rpt_health_placeholder_template')||'围绕最弱五行（{weak}）做作息与环境优化')
+              .replace('{weak}', label[weakest] || weakest || '-')}</p>
+        </div>
+      </div>`;
   }
 
-async function sendChat(){
-  const v = ($inp.value||'').trim(); if(!v) return;
-  addMsg(v, true); $inp.value=''; $send.disabled = true;
+  // 暴露给外部：当排盘完成时可调用以挂载免费报告
+  window.mountExtensionsIntoResult = function(ctx){
+    const r = document.getElementById('result'); if(!r) return;
+    let free = document.getElementById('xl-free-report');
+    if (!free){ free = document.createElement('div'); free.id='xl-free-report'; r.appendChild(free); }
+    free.innerHTML = buildFreeReportHTML(ctx || safeCtx());
+  };
 
-  try{
-    const ln = curLn(); // ← 每次发送前取最新语言
-    const sys = buildChatSystemPrompt(ln);
-    const usr = buildChatUserMsg(v);
-    // ...
-  } catch(e){
-    const ln = curLn();
-    addMsg(ln.startsWith('zh') ? '网络有点卡，等下再试试～' : 'Network hiccup. Try again in a moment.');
-  } finally {
-    $send.disabled = false; $inp.focus();
-  }
-}
+  /* ---------------- 首屏挂载 ---------------- */
+  window.mountButlerCard = function(){
+    ensureAiCard();
+    renderCurrent(); // 首屏显示“主”
+  };
 
-  function wire(){
-    const fab   = document.getElementById('ssChatFab');
-    const panel = document.getElementById('ssChatPanel');
-    const close = document.getElementById('ssChatClose');
-    const send  = document.getElementById('ssChatSend');
-    const inp   = document.getElementById('ssChatInput');
+  /* ---------------- 事件绑定 ---------------- */
+  // 芯片点击
+  document.addEventListener('click', (e)=>{
+    const btn = e.target.closest('.chip');
+    if (!btn) return;
+    const topic = btn.dataset.topic || 'current';
+    if (topic === 'current') { renderCurrent(); return; }
+    const q = btn.dataset.q || topic;
+    renderTopic(topic, q);
+  });
 
-    fab?.addEventListener('click', ()=>{ panel.style.display = (panel.style.display==='block'?'none':'block'); inp?.focus(); });
-    close?.addEventListener('click', ()=>{ panel.style.display='none'; });
-    send?.addEventListener('click', sendChat);
-    inp?.addEventListener('keydown', e=>{ if(e.key==='Enter') sendChat(); });
-  }
+  // 语言选择器（如页面已存在）
+  document.addEventListener('DOMContentLoaded', () => {
+    const sel = document.getElementById('langSelect');
+    if (sel){
+      try { sel.value = nowLang(); } catch{}
+      sel.addEventListener('change', (e)=>{
+        if (typeof setLang === 'function') setLang(e.target.value);
+        if (typeof applyI18n === 'function') applyI18n();
+        if (typeof window.rerenderReportsIfAny === 'function') {
+          // 下方会覆盖为新的实现，这里只是保险
+          window.rerenderReportsIfAny();
+        }
+      });
+    }
+    // 初始应用 i18n & Butler
+    try { if (typeof applyI18n === 'function') applyI18n(); } catch{}
+    try { window.mountButlerCard(); } catch{}
+  });
 
-  function init(){
-    ensureNodes();
-    if (typeof applyChatI18n==='function') applyChatI18n(); // 按当前语言写文案
-    wire();
-  }
+  /* ---------------- 语言切换重渲染（覆盖旧实现） ---------------- */
+  window.rerenderReportsIfAny = function(){
+    // 刷新标题与芯片文案
+    const titleEl = document.getElementById('butlerTitle');
+    if (titleEl) titleEl.textContent = t('butler_title') || '心怜管家 · 解读';
+    renderChips();
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init, { once:true });
-  } else {
-    init();
-  }
+    // 按上次主题重渲染
+    const aiCard = document.getElementById('aiCard');
+    if (!aiCard) return;
+    const lastTopic = aiCard.dataset.lastTopic || 'current';
+    const lastQ     = aiCard.dataset.lastQ || '';
+    const prevLang  = aiCard.dataset.lang || '';
+    const curLang   = nowLang();
+
+    if (prevLang !== curLang){
+      aiCard.dataset.lang = curLang;
+      if (lastTopic === 'current' || !lastQ){
+        renderCurrent();
+      }else{
+        renderTopic(lastTopic, lastQ);
+      }
+    }
+  };
+
+  // 便于其他脚本主动调用
+  window.Butler = {
+    ensure: ensureAiCard,
+    renderCurrent,
+    renderTopic,
+    mount: () => window.mountButlerCard(),
+    mountExtensionsIntoResult
+  };
 })();
+
+/* ================== 末尾：无其余旧代码依赖，安全闭合 ================== */
 </script>  
 </body>
 </html>
