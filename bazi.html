@@ -2529,5 +2529,154 @@ $('resetBtn')?.addEventListener('click', async ()=>{
   console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+H.branch);
 })();
 </script>
+<script>
+/* ================== GPT 问浮窗：纯聊天，不渲染管家 ================== */
+/* 0) 样式 */
+(function injectChatStyle(){
+  const id='chat-style'; const old=document.getElementById(id); if(old) old.remove();
+  const css=document.createElement('style'); css.id=id;
+  css.textContent=`
+    .ss-chat-fab{position:fixed;right:18px;bottom:18px;z-index:9999;border:1px solid #2a3546;background:#0e1520;color:#e8edf3;border-radius:999px;padding:10px 14px;cursor:pointer;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+    .ss-chat-fab:hover{border-color:#f2d27a;box-shadow:0 0 0 2px rgba(242,210,122,.15) inset}
+    .ss-chat-panel{position:fixed;right:18px;bottom:70px;width:320px;max-height:60vh;display:none;background:#0b111a;border:1px solid #1f2a36;border-radius:12px;z-index:10000;box-shadow:0 8px 30px rgba(0,0,0,.45);overflow:hidden}
+    .ss-chat-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #1f2a36;color:#ffd88a;font-weight:700}
+    .ss-close{cursor:pointer;opacity:.8}
+    .ss-chat-body{padding:10px 12px;height:300px;overflow:auto;color:#e8edf3;line-height:1.6}
+    .ss-chat-input{display:flex;gap:8px;padding:10px;border-top:1px solid #1f2a36;background:#0e1520}
+    .ss-chat-input input{flex:1;min-width:0;background:#0b111a;border:1px solid #1f2a36;border-radius:8px;padding:8px;color:#e8edf3}
+    .ss-chat-input .btn{border:1px solid #2a3546;background:#0b111a;color:#e8edf3;border-radius:8px;padding:8px 10px;cursor:pointer}
+    .ss-chat-input .btn:disabled{opacity:.6;cursor:not-allowed}
+    .ss-msg{background:#0f1824;border:1px solid #1f2a36;border-radius:10px;padding:8px 10px;margin:6px 0;max-width:92%}
+    .ss-msg.me{margin-left:auto;background:#132033;border-color:#263244}
+  `;
+  document.head.appendChild(css);
+})();
+
+/* 1) 系统/用户消息构造（浮窗专用） */
+function buildChatSystemPrompt(lang){
+  const map = (typeof BUTLER_LANG_NAME==='object'? BUTLER_LANG_NAME : {'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese','en':'English'});
+  const L = map[lang] || map['zh-CN'];
+  return [
+    `You are a warm, practical assistant for the 5XLiving Bazi site.`,
+    `Reply in ${L}. Keep it conversational and concrete.`,
+    `This is a floating chat. Do NOT render or mention the in-page Butler card.`,
+    `Avoid fatalism; frame insights as tendencies + choices.`,
+    `Use short paragraphs and bullets when helpful.`
+  ].join('\n');
+}
+function buildChatUserMsg(text){
+  const ctx = (window.__last_report__||{});
+  const {pillars={}, percents={}, st={}, adv={}, timeUnknown} = ctx;
+  const E = (typeof ELABEL==='function'? ELABEL(): {wood:'木',fire:'火',earth:'土',metal:'金',water:'水'});
+  const elem = [
+    `${E.wood} ${Math.round(percents.wood||0)}%`,
+    `${E.fire} ${Math.round(percents.fire||0)}%`,
+    `${E.earth} ${Math.round(percents.earth||0)}%`,
+    `${E.metal} ${Math.round(percents.metal||0)}%`,
+    `${E.water} ${Math.round(percents.water||0)}%`,
+  ].join(' · ');
+  const hourTxt = timeUnknown ? (typeof t==='function'? t('rpt_time_unknown'):'时间不详') :
+    `${pillars?.hour?.stem||''}${pillars?.hour?.branch||''}`;
+
+  const preface = pillars.day
+    ? [
+        `Context (current chart):`,
+        `Year ${pillars.year?.stem||''}${pillars.year?.branch||''} · Month ${pillars.month?.stem||''}${pillars.month?.branch||''} · Day ${pillars.day?.stem||''}${pillars.day?.branch||''} · Hour ${hourTxt}`,
+        `Day Master: ${pillars.day?.stem||''} (${pillars.day?.element||''}); Season: ${st?.season||''}; Strength: ${st?.mark||''}`,
+        `Elements: ${elem}`,
+        `Favorable: ${(adv?.useful||[]).join('/')||'-'}; Avoid: ${(adv?.avoid||[]).join('/')||'-'}`,
+        timeUnknown ? `Caution: hour pillar excluded.` : ``
+      ].filter(Boolean).join('\n')
+    : ``;
+
+  return [preface, `---`, `User says: ${text}`].filter(Boolean).join('\n');
+}
+
+/* 2) 浮窗注入 + 事件绑定（仅聊天） */
+(function initFloatingGPT(){
+  function md(s){ return (s||'').replace(/\n{2,}/g,'\n\n').replace(/\n/g,'<br>'); }
+
+  function ensureNodes(){
+    if(document.getElementById('ssChatFab') && document.getElementById('ssChatPanel')) return;
+
+    const fab = document.createElement('button');
+    fab.id='ssChatFab'; fab.className='ss-chat-fab'; fab.type='button';
+    fab.textContent = (typeof t==='function' ? t('chat_fab') : '问');
+    document.body.appendChild(fab);
+
+    const panel = document.createElement('div');
+    panel.className='ss-chat-panel'; panel.id='ssChatPanel';
+    panel.innerHTML = `
+      <div class="ss-chat-head">
+        <div class="ss-chat-title">5X · GPT</div>
+        <div class="ss-close" id="ssChatClose" aria-label="Close">✕</div>
+      </div>
+      <div class="ss-chat-body" id="ssChatBody" role="log" aria-live="polite"></div>
+      <div class="ss-chat-input">
+        <input id="ssChatInput" placeholder="${(typeof t==='function'? t('chat_placeholder'):'请问您想了解什么？')}" />
+        <button class="btn" id="ssChatSend" type="button">${(typeof t==='function'? t('chat_send'):'发送')}</button>
+      </div>`;
+    document.body.appendChild(panel);
+  }
+
+  function addMsg(text, me=false){
+    const b=document.createElement('div');
+    b.className = 'ss-msg' + (me?' me':'');
+    b.innerHTML = md(text);
+    document.getElementById('ssChatBody').appendChild(b);
+    const body = document.getElementById('ssChatBody');
+    body.scrollTop = body.scrollHeight;
+  }
+
+  async function sendChat(){
+    const inp=document.getElementById('ssChatInput');
+    const btn=document.getElementById('ssChatSend');
+    const v=(inp.value||'').trim(); if(!v) return;
+    addMsg(v,true); inp.value=''; btn.disabled=true;
+
+    try{
+      const ln  = (typeof getLang==='function' ? getLang() : 'zh-CN');
+      const sys = buildChatSystemPrompt(ln);
+      const usr = buildChatUserMsg(v);
+      const { ok, data } = await aiRequest(
+        [{role:'system',content:sys},{role:'user',content:usr}],
+        {timeout:18000, retries:2}
+      );
+      let text = ok ? extractAIText(data) : '';
+      if(!text) text = ln.startsWith('zh') ? '这会儿没拿到有效回复，你可以再问一次～' : 'Hmm, I didn’t get a valid reply. Please try again.';
+      addMsg(text,false);
+    }catch(e){
+      addMsg((typeof getLang==='function' && getLang().startsWith('zh')) ? '网络有点卡，等下再试试～' : 'Network hiccup. Try again in a moment.');
+    }finally{
+      btn.disabled=false; inp.focus();
+    }
+  }
+
+  function wire(){
+    const fab   = document.getElementById('ssChatFab');
+    const panel = document.getElementById('ssChatPanel');
+    const close = document.getElementById('ssChatClose');
+    const send  = document.getElementById('ssChatSend');
+    const inp   = document.getElementById('ssChatInput');
+
+    fab?.addEventListener('click', ()=>{ panel.style.display = (panel.style.display==='block'?'none':'block'); inp?.focus(); });
+    close?.addEventListener('click', ()=>{ panel.style.display='none'; });
+    send?.addEventListener('click', sendChat);
+    inp?.addEventListener('keydown', e=>{ if(e.key==='Enter') sendChat(); });
+  }
+
+  function init(){
+    ensureNodes();
+    if (typeof applyChatI18n==='function') applyChatI18n(); // 按当前语言写文案
+    wire();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once:true });
+  } else {
+    init();
+  }
+})();
+</script>  
 </body>
 </html>
