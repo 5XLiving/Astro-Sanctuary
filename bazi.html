@@ -2756,5 +2756,270 @@ document.addEventListener('DOMContentLoaded', ()=>{
   console.log('实际 →', Y.stem+Y.branch, M.stem+M.branch, D.stem+D.branch, H.stem+H.branch);
 })();
 </script>
+<script>
+/* ========= 5XLiving · quick wiring patch (safe, idempotent) ========= */
+(function () {
+  const $ = id => document.getElementById(id);
+  const L = ()=> (typeof getLang==='function' ? getLang() : (document.documentElement.lang || 'zh-CN'));
+
+  /* ——— 0) Boot once ——— */
+  if (!window.__bazi_bootstrapped__) {
+    window.__bazi_bootstrapped__ = true;
+    document.addEventListener('DOMContentLoaded', () => {
+      try { typeof initLangUI === 'function' && initLangUI(); } catch(_) {}
+      wireBasics();
+      wireGuessTimeModal();
+      ensureAiCard && ensureAiCard();
+      typeof applyI18n === 'function' && applyI18n();
+    }, { once:true });
+  }
+
+  /* ——— 1) Generate button / form basics ——— */
+  function wireBasics() {
+    const genBtn = $('genBtn');
+    const timeUnknown = $('timeUnknown');
+    const timeInput = $('birthtime');
+
+    genBtn && genBtn.addEventListener('click', handleGenerate, { once:false });
+
+    // “时间不详” → 弹出估时间，并暂时禁用 time 输入
+    timeUnknown && timeUnknown.addEventListener('change', (e) => {
+      const checked = e.target.checked;
+      if (timeInput) timeInput.disabled = checked;
+      if (checked) {
+        // 打开估时间弹窗
+        openGuessTimeModal();
+      }
+    });
+
+    // 点击芯片 → 触发 Butler
+    document.addEventListener('click', (ev) => {
+      const chip = ev.target.closest('.chip');
+      if (!chip) return;
+      const topic = chip.dataset.topic || 'current';
+      const q = chip.dataset.q || '';
+      (window.askAi || localAskAi)(q, topic);
+    });
+  }
+
+  /* ——— 2) Guess-time modal (十二地支 2h 段) ——— */
+  function wireGuessTimeModal() {
+    if (window.__tw_wired__) return; window.__tw_wired__ = true;
+
+    const mask = $('twMask');
+    const grid = $('twGrid');
+    const btnApply = $('twApply');
+    const btnCancel = $('twCancel');
+
+    if (!mask || !grid || !btnApply || !btnCancel) return;
+
+    const slots = [
+      { z:'子', start:'23:00', mid:'00:00', end:'01:00' },
+      { z:'丑', start:'01:00', mid:'02:00', end:'03:00' },
+      { z:'寅', start:'03:00', mid:'04:00', end:'05:00' },
+      { z:'卯', start:'05:00', mid:'06:00', end:'07:00' },
+      { z:'辰', start:'07:00', mid:'08:00', end:'09:00' },
+      { z:'巳', start:'09:00', mid:'10:00', end:'11:00' },
+      { z:'午', start:'11:00', mid:'12:00', end:'13:00' },
+      { z:'未', start:'13:00', mid:'14:00', end:'15:00' },
+      { z:'申', start:'15:00', mid:'16:00', end:'17:00' },
+      { z:'酉', start:'17:00', mid:'18:00', end:'19:00' },
+      { z:'戌', start:'19:00', mid:'20:00', end:'21:00' },
+      { z:'亥', start:'21:00', mid:'22:00', end:'23:00' },
+    ];
+
+    grid.innerHTML = '';
+    slots.forEach((s, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tw-btn';
+      b.dataset.idx = i;
+      b.title = `${s.start}–${s.end}`;
+      b.textContent = `${s.z} (${s.start}–${s.end})`;
+      grid.appendChild(b);
+    });
+
+    let picked = null;
+    grid.addEventListener('click', (e) => {
+      const btn = e.target.closest('.tw-btn'); if (!btn) return;
+      grid.querySelectorAll('.tw-btn').forEach(x => x.classList.remove('active'));
+      btn.classList.add('active');
+      picked = slots[Number(btn.dataset.idx)];
+      btnApply.disabled = !picked;
+    });
+
+    btnApply.addEventListener('click', () => {
+      if (!picked) return;
+      const t = $('birthtime');
+      const unk = $('timeUnknown');
+      if (t) t.value = picked.mid;
+      if (unk) unk.checked = false;
+      if (t) t.disabled = false;
+      closeGuessTimeModal();
+    });
+
+    btnCancel.addEventListener('click', closeGuessTimeModal);
+
+    // expose helpers
+    window.openGuessTimeModal = openGuessTimeModal;
+    function openGuessTimeModal()  { mask.style.display = 'flex'; mask.setAttribute('aria-hidden','false'); }
+    function closeGuessTimeModal() { mask.style.display = 'none';  mask.setAttribute('aria-hidden','true'); }
+  }
+
+  /* ——— 3) Generate Bazi chart ——— */
+  async function handleGenerate() {
+    const btn = $('genBtn'), txt = $('genBtnText'), loading = $('genBtnLoading');
+    const birthdate = $('birthdate')?.value || '';
+    const birthtime = $('birthtime')?.value || '12:00';
+    const calendar  = $('calendar')?.value || 'gregorian';
+    const gender    = $('gender')?.value || '';
+    const timeUnknown = !!$('timeUnknown')?.checked;
+
+    if (!birthdate) { showErr && showErr(L().startsWith('zh') ? '请输入出生日期' : 'Please enter birth date'); return; }
+
+    try {
+      lock && lock(btn, true);
+      if (txt && loading) { txt.style.display='none'; loading.style.display='inline'; }
+
+      // request payload
+      const payload = { birthdate, birthtime, calendar, gender, timeUnknown, lang: L() };
+      // endpoint (CF Worker you set in API_BASE)
+      const res = await fetchJSON('/api/bazi', payload);
+      if (!res || res.ok === false) { throw new Error(res?.msg || 'bad_response'); }
+
+      // Shape-flexible adapter
+      const data = res.data || res.result || res;
+      renderBazi(data, { timeUnknown });
+
+      // Mount AI/Butler context for chips & chat
+      const ctx = buildCtxForButler(data, { timeUnknown });
+      window.mountExtensionsIntoResult && window.mountExtensionsIntoResult(ctx);
+      renderCurrentData && renderCurrentData(ctx);
+    } catch (e) {
+      showErr && showErr((L().startsWith('zh') ? '计算失败：' : 'Failed: ') + (e.message || 'error'));
+    } finally {
+      lock && lock(btn, false);
+      if (txt && loading) { txt.style.display='inline'; loading.style.display='none'; }
+    }
+  }
+
+  function renderBazi(data, { timeUnknown }) {
+    $('result') && ( $('result').style.display = 'block' );
+
+    const pillars = data.pillars || data.gz || {};
+    const year  = pillars.year  || pillars.y || {};
+    const month = pillars.month || pillars.m || {};
+    const day   = pillars.day   || pillars.d || {};
+    const hour  = timeUnknown ? {} : (pillars.hour || pillars.h || {});
+
+    // Top “pillars” chips
+    const host = $('bazi-pillars');
+    if (host) {
+      host.innerHTML = '';
+      [
+        { tit: L().startsWith('zh') ? '年柱' : 'Year',  p:year  },
+        { tit: L().startsWith('zh') ? '月柱' : 'Month', p:month },
+        { tit: L().startsWith('zh') ? '日柱' : 'Day',   p:day   },
+        { tit: L().startsWith('zh') ? '时柱' : 'Hour',  p:hour  },
+      ].forEach(({tit,p})=>{
+        const div = document.createElement('div');
+        div.className='pillar';
+        div.innerHTML = `<div class="tit">${tit}</div><div class="gz">${(p.stem||'')}${(p.branch||'')|| (timeUnknown ? (L().startsWith('zh')?'时间不详':'—') : '')}</div>`;
+        host.appendChild(div);
+      });
+    }
+
+    // Table cells
+    setText('year-stem',  year.stem  || '-'); setText('month-stem', month.stem || '-'); setText('day-stem',  day.stem  || '-'); setText('hour-stem',  hour.stem  || (timeUnknown?'-':'-'));
+    setText('year-branch',year.branch|| '-'); setText('month-branch',month.branch||'-'); setText('day-branch',day.branch||'-'); setText('hour-branch',hour.branch|| (timeUnknown?'-':'-'));
+    setText('year-element',year.element||'-');setText('month-element',month.element||'-');setText('day-element',day.element||'-');setText('hour-element',hour.element|| (timeUnknown?'-':'-'));
+    setText('year-nayin', year.nayin || '-'); setText('month-nayin', month.nayin || '-'); setText('day-nayin', day.nayin || '-'); setText('hour-nayin', hour.nayin || (timeUnknown?'-':'-'));
+
+    // Date text
+    if ($('bazi-date')) $('bazi-date').textContent = data.dateText || data.lunarText || data.gregorianText || '';
+
+    // Elements bar (expects % 0–100)
+    const pcts = normalizePercents(data.percents || data.elements || {});
+    const labels = {木:'wood',火:'fire',土:'earth',金:'metal',水:'water'};
+    Object.entries(labels).forEach(([cn, key])=>{
+      const pct = Math.round((pcts[key] || 0));
+      const bar = $('bar-'+cn), num = $('pct-'+cn);
+      bar && setBar(bar, pct);
+      num && (num.textContent = pct + '%');
+    });
+
+    // Balance line
+    const kv = [
+      ['wood', pcts.wood||0], ['fire', pcts.fire||0],
+      ['earth',pcts.earth||0],['metal',pcts.metal||0],['water',pcts.water||0],
+    ];
+    const strongest = kv.reduce((a,b)=> a[1]>=b[1]?a:b)[0];
+    const weakest   = kv.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
+    const nameMap = (typeof ELABEL==='function') ? ELABEL() : {wood:'木',fire:'火',earth:'土',metal:'金',water:'水'};
+    const tpl = (typeof t==='function') ? t('elements_balance_tpl') : 'Strongest: {max} · Weakest: {min}';
+    const msg = tpl.replace('{max}', nameMap[strongest] || strongest).replace('{min}', nameMap[weakest] || weakest);
+    $('bazi-elements-balance') && ($('bazi-elements-balance').textContent = msg);
+  }
+
+  function normalizePercents(obj){
+    // Accepts either 0–1 or 0–100 or counts; returns 0–100
+    const keys = ['wood','fire','earth','metal','water'];
+    let sum = 0, raw = {};
+    keys.forEach(k => { const v = Number(obj[k] ?? obj[k[0]] ?? 0); raw[k] = isFinite(v) ? v : 0; sum += raw[k]; });
+    // If all zeros — return zeros
+    if (sum <= 0) return { wood:0, fire:0, earth:0, metal:0, water:0 };
+    // If values look like percentages already (max>1 and <=100-ish), treat as %
+    const maxv = Math.max(...Object.values(raw));
+    const looksPct = maxv > 1.01 && maxv <= 100.001;
+    if (looksPct) return raw;
+    // Otherwise normalize to %
+    const out = {}; keys.forEach(k => out[k] = raw[k] / sum * 100); return out;
+  }
+
+  function buildCtxForButler(data, { timeUnknown }){
+    const pillars = data.pillars || data.gz || {};
+    const percents = normalizePercents(data.percents || data.elements || {});
+    const st = data.st || data.summary || {};
+    const adv = data.adv || data.favor || {};
+    return { pillars, percents, st, adv, timeUnknown: !!timeUnknown };
+  }
+
+  /* ——— 4) Butler: askAi (if not provided) ——— */
+  function localAskAi(topic, topicType) {
+    try { ensureAiCard && ensureAiCard(); } catch(_) {}
+    const out = $('aiContent');
+    if (out) {
+      out.innerHTML = '<div class="skeleton"><div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div><div style="width:70%"></div></div>';
+    }
+
+    const lang = L();
+    const sys = (typeof buildButlerSystemPrompt === 'function') ? buildButlerSystemPrompt(lang)
+                 : `You are a concise Bazi assistant. Reply in ${lang}.`;
+
+    const ctx = window.__last_report__ || {};
+    const prompt = (typeof buildUserPrompt==='function')
+        ? buildUserPrompt(topic, ctx, topicType)
+        : `Context:\n${JSON.stringify(ctx)}\n\nTask:${topic}`;
+
+    return aiRequest([{ role:'system', content:sys }, { role:'user', content:prompt }])
+      .then(({ ok, data })=>{
+        const text = ok ? (extractAIText && extractAIText(data)) : '';
+        const html = (typeof mdToHtml==='function') ? mdToHtml(text || (localFallbackButler && localFallbackButler(topicType, ctx) || '')) : (text || '');
+        if (out) { out.innerHTML = html; }
+        try {
+          (window.__rafMirrorUpdate || window.updateChatButlerFromHtml) && (window.__rafMirrorUpdate || window.updateChatButlerFromHtml)(html);
+          window.syncChipsToChat && window.syncChipsToChat();
+          window.ensureChatVisibleNow && window.ensureChatVisibleNow();
+        } catch(_) {}
+      })
+      .catch(()=>{
+        if (out) out.innerHTML = mdToHtml ? mdToHtml(localFallbackButler && localFallbackButler(topicType, ctx) || '') : '...';
+      });
+  }
+  if (typeof window.askAi !== 'function') window.askAi = localAskAi;
+
+/* ========= end patch ========= */
+})();
+</script>  
 </body>
 </html>
