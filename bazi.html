@@ -1981,127 +1981,221 @@ if (typeof window.mountChat !== 'function'){
     }
 
     $send  && $send.addEventListener('click', dispatchUserInput);
-    $input && $input.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') dispatchUserInput(); });
-  };
-}
-
-/* 9) askAi：统一出口（VIP 预览 + 浮窗同步） */
-async function askAi(userTask, topicType){
-  ensureAiCard();
-  const card = document.getElementById('aiCard');
-  const out  = document.getElementById('aiContent');
-  const chipsWrap = document.getElementById('aiChips');
-  const lang = (getLang && getLang()) || 'zh-CN';
-
-  if (card){ card.dataset.lastQ = userTask; card.dataset.lang = lang; card.dataset.lastTopicType = topicType || 'generic'; }
-
-  if (out){
-    out.innerHTML = `
-      <div class="skeleton">
-        <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
-        <div style="width:70%"></div><div style="width:50%"></div>
-      </div>`;
-  }
-
-  const disableChips = (v)=> {
-    if (!chipsWrap) return;
-    chipsWrap.querySelectorAll('.chip').forEach(c=>{
-      c.disabled = v; c.style.opacity = v ? .6 : 1; c.style.pointerEvents = v ? 'none' : 'auto';
+    $input && $input.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter') dispatchUserInput();
     });
-  };
-  disableChips(true);
+  } // ← mountChat 内部函数结束
+} // ← mountChat 定义结束（if 条件外壳）
 
-  try{
-    const ctx  = window.__last_report__ || {};
-    const sys  = buildButlerSystemPrompt(lang);
-    const user = buildUserPrompt(userTask, ctx, topicType);
+/* 9) askAi：优先走后端，大失败时用本地兜底 */
+if (typeof window.askAi !== 'function'){
+  window.askAi = async function(userQ, topicType='generic'){
+    ensureAiCard();
+    const out = document.getElementById('aiContent');
+    const lang = (getLang && getLang()) || 'zh-CN';
 
-    const { ok, data } = await aiRequest(
-      [{ role:'system', content: sys }, { role:'user', content: user }],
-      { timeout: 15000, retries: 2 }
-    );
+    // 把“当前数据”写入一条系统提示 + 用户任务
+    const sys = buildButlerSystemPrompt(lang);
+    const usr = buildUserPrompt(userQ, window.__last_report__ || {}, topicType);
 
-    let text = ok ? extractAIText(data) : "";
-    if (!text) text = localFallbackButler(topicType || 'generic', ctx);
-
-    // “主”不锁；专题按你原逻辑预览锁
-    if (!isVIP() && topicType !== 'current'){
-      const teaser = text.split('\n').slice(0,6).join('\n');
-      out.innerHTML = mdToHtml(teaser) + `
-        <div class="ai-lock-overlay">
-          <div class="tip">💎 ${t('vip_title') || 'VIP Segment'}</div>
-          <div class="sub">${lang.startsWith('zh') ? '登录/升级后解锁完整解读' : 'Log in / upgrade to unlock the full guidance.'}</div>
-        </div>`;
-    }else{
-      out.innerHTML = mdToHtml(text);
-    }
-  }catch(e){
-    if (e?.name !== 'AbortError' && out){
-      const ctx = window.__last_report__ || {};
-      out.innerHTML = mdToHtml(localFallbackButler(topicType || 'generic', ctx));
-    }
-  }finally{
-    // 镜像 & 显示
+    // 小骨架
     if (out){
+      out.innerHTML = `
+        <div class="skeleton"><div style="width:60%"></div>
+        <div style="width:80%"></div><div style="width:90%"></div>
+        <div style="width:70%"></div><div style="width:50%"></div></div>`;
       (__rafMirrorUpdate || updateChatButlerFromHtml)(out.innerHTML);
-      syncChipsToChat();
-      ensureChatVisibleNow();
     }
-    disableChips(false);
-  }
+    ensureChatVisibleNow();
+
+    // 走后端
+    let reply = '';
+    try{
+      const { ok, data } = await aiRequest(
+        [{role:'system',content:sys},{role:'user',content:usr}],
+        { timeout:20000, retries:2 }
+      );
+      if (ok) reply = extractAIText(data);
+    }catch(_){}
+
+    // 后端没回就用本地兜底
+    if (!reply) reply = localFallbackButler(topicType, window.__last_report__ || {});
+    if (out) out.innerHTML = mdToHtml(reply);
+
+    // 镜像到聊天浮窗
+    (__rafMirrorUpdate || updateChatButlerFromHtml)(out?.innerHTML || mdToHtml(reply));
+    syncChipsToChat();
+    ensureChatVisibleNow();
+  };
 }
 
-/* 10) 芯片点击 & 语言切换 */
-document.addEventListener('click', (e)=>{
-  const el = e.target;
-  if(el && el.classList.contains('chip')){
-    const topicType = el.getAttribute('data-topic') || 'current';
-    const q = el.getAttribute('data-q') || '';
-    if (topicType === 'current'){
-      renderMainOverview(window.__last_report__ || {});
-      return;
-    }
-    askAi(q, topicType);
-  }
+/* 10) 芯片点击：页面与浮窗都走委托（避免重复绑事件） */
+document.addEventListener('click', (ev)=>{
+  const chip = ev.target.closest?.('.chip');
+  if (!chip) return;
+  const q = chip.getAttribute('data-q') || chip.textContent || '';
+  const topic = chip.getAttribute('data-topic') || 'generic';
+  try{ askAi(q, topic); }catch(e){ console.warn('[askAi]', e); }
 });
 
-// 切语言时刷新标题与芯片，并用上一次主题重生
-(function patchRerenderForAi(){
-  const _orig = (typeof rerenderReportsIfAny==='function') ? rerenderReportsIfAny : null;
-  window.rerenderReportsIfAny = function(){
-    if(_orig) _orig();
+/* 11) 估时间弹窗（勾选“不详”时弹出，选择地支段 → 回填中位时间） */
+(function initTimeWindow(){
+  const mask = document.getElementById('twMask');
+  const grid = document.getElementById('twGrid');
+  const btnApply = document.getElementById('twApply');
+  const btnCancel = document.getElementById('twCancel');
+  const inputTime = document.getElementById('birthtime');
+  const cbUnknown = document.getElementById('timeUnknown');
 
-    const titleEl = document.getElementById('butlerTitle');
-    if (titleEl) titleEl.textContent = t('butler_title');
-    renderChips();
+  if (!mask || !grid || !btnApply || !btnCancel || !inputTime || !cbUnknown) return;
 
-    const aiCard = document.getElementById('aiCard');
-    const newLang = (getLang && getLang()) || 'zh-CN';
-    const lastQ   = (aiCard && aiCard.dataset.lastQ) || 'current';
-    const lastTopicType = (aiCard && aiCard.dataset.lastTopicType) || 'current';
-    if (!aiCard) return;
+  const slots = [
+    ['子(23-01)','00:00'],['丑(01-03)','02:00'],['寅(03-05)','04:00'],['卯(05-07)','06:00'],
+    ['辰(07-09)','08:00'],['巳(09-11)','10:00'],['午(11-13)','12:00'],['未(13-15)','14:00'],
+    ['申(15-17)','16:00'],['酉(17-19)','18:00'],['戌(19-21)','20:00'],['亥(21-23)','22:00']
+  ];
+  let picked = null;
 
-    if (aiCard.dataset.lang !== newLang) {
-      aiCard.dataset.lang = newLang;
-      if (lastTopicType === 'current'){
-        renderMainOverview(window.__last_report__ || {});
-      }else{
-        askAi(lastQ, lastTopicType);
-      }
+  function open(){ mask.style.display='flex'; picked=null; btnApply.disabled=true; }
+  function close(){ mask.style.display='none'; }
+
+  function render(){
+    grid.innerHTML = '';
+    slots.forEach(([label, mid])=>{
+      const b=document.createElement('button');
+      b.className='tw-btn'; b.type='button'; b.textContent=label; b.dataset.mid=mid;
+      b.addEventListener('click', ()=>{
+        grid.querySelectorAll('.tw-btn').forEach(x=>x.classList.remove('active'));
+        b.classList.add('active'); picked=mid; btnApply.disabled=false;
+      });
+      grid.appendChild(b);
+    });
+  }
+  render();
+
+  cbUnknown.addEventListener('change', ()=>{
+    if (cbUnknown.checked){ open(); }
+  });
+  btnCancel.addEventListener('click', ()=>{
+    close();
+    // 仍保持“不详”勾着，不改时间
+  });
+  btnApply.addEventListener('click', ()=>{
+    if (picked){
+      inputTime.value = picked;
+      cbUnknown.checked = false; // 自动取消“不详”
+      close();
+    }
+  });
+})();
+
+/* 12) 生成八字：绑定按钮；成功后调用 mountExtensionsIntoResult(ctx) */
+(function bindGen(){
+  const btn = document.getElementById('genBtn');
+  if (!btn) return;
+
+  btn.addEventListener('click', async ()=>{
+    const name = document.getElementById('name')?.value?.trim() || '';
+    const gender = document.getElementById('gender')?.value || '';
+    const calendar = document.getElementById('calendar')?.value || 'gregorian';
+    const date = document.getElementById('birthdate')?.value || '';
+    const time = document.getElementById('birthtime')?.value || '12:00';
+    const timeUnknown = !!document.getElementById('timeUnknown')?.checked;
+
+    if (!date){
+      showErr(getLang().startsWith('zh') ? '请先选择出生日期' : 'Please pick a birth date');
       return;
     }
 
-    const out = document.getElementById('aiContent');
-    if (out && out.querySelector('.skeleton')) {
-      if (lastTopicType === 'current'){
-        renderCurrentData(window.__last_report__ || {});
-      }else{
-        askAi(lastQ, lastTopicType);
+    lock(btn, true);
+    document.getElementById('genBtnText')?.style.setProperty('display','none');
+    document.getElementById('genBtnLoading')?.style.setProperty('display','inline');
+
+    // 调后端：你可用自己的 /api/bazi；失败时走本地演示
+    let ctx = null;
+    try{
+      const { ok, ...rest } = await fetchJSON('/api/bazi', {
+        name, gender, calendar, date, time, timeUnknown, lang: (getLang && getLang()) || 'zh-CN'
+      }, { timeout: 20000 });
+      if (ok){
+        // 兼容多种字段命名
+        ctx = rest.ctx || rest.result || rest.data || rest;
       }
+    }catch(_){}
+
+    if (!ctx){
+      // —— 本地临时演示：避免用户“点了没反应”
+      ctx = {
+        timeUnknown,
+        pillars:{
+          year:{stem:'戊',branch:'午'}, month:{stem:'庚',branch:'寅'},
+          day:{stem:'甲',branch:'申'}, hour: timeUnknown ? {} : {stem:'丙',branch:'午'},
+          day: {stem:'甲', branch:'子', element:'木'}
+        },
+        percents:{ wood:28, fire:24, earth:18, metal:16, water:14 },
+        st:{ season:'春', mark:'偏强', focus:'生扶弱项，泄强项' },
+        adv:{ useful:['木','火'], avoid:['金'] }
+      };
     }
-  };
+
+    // —— 写入表格 & 进度条
+    try{
+      const p = ctx.pillars || {};
+      setText('year-stem',   p.year?.stem  || '-');
+      setText('month-stem',  p.month?.stem || '-');
+      setText('day-stem',    p.day?.stem   || '-');
+      setText('hour-stem',   p.hour?.stem  || (timeUnknown ? t('rpt_time_unknown') : '-'));
+
+      setText('year-branch',  p.year?.branch  || '-');
+      setText('month-branch', p.month?.branch || '-');
+      setText('day-branch',   p.day?.branch   || '-');
+      setText('hour-branch',  p.hour?.branch  || (timeUnknown ? '—' : '-'));
+
+      // 五行进度
+      const pct = ctx.percents || {};
+      setBar(document.getElementById('bar-木'),    Math.round(pct.wood  || 0));
+      setBar(document.getElementById('bar-火'),    Math.round(pct.fire  || 0));
+      setBar(document.getElementById('bar-土'),    Math.round(pct.earth || 0));
+      setBar(document.getElementById('bar-金'),    Math.round(pct.metal || 0));
+      setBar(document.getElementById('bar-水'),    Math.round(pct.water || 0));
+      document.getElementById('pct-木').textContent = Math.round(pct.wood  || 0) + '%';
+      document.getElementById('pct-火').textContent = Math.round(pct.fire  || 0) + '%';
+      document.getElementById('pct-土').textContent = Math.round(pct.earth || 0) + '%';
+      document.getElementById('pct-金').textContent = Math.round(pct.metal || 0) + '%';
+      document.getElementById('pct-水').textContent = Math.round(pct.water || 0) + '%';
+
+      // 平衡提示
+      const E = ELABEL();
+      const kv = [
+        [E.wood, Math.round(pct.wood||0)],
+        [E.fire, Math.round(pct.fire||0)],
+        [E.earth,Math.round(pct.earth||0)],
+        [E.metal,Math.round(pct.metal||0)],
+        [E.water,Math.round(pct.water||0)]
+      ];
+      const strongest = kv.reduce((a,b)=> a[1]>=b[1]?a:b)[0];
+      const weakest   = kv.reduce((a,b)=> a[1]<=b[1]?a:b)[0];
+      const tpl = t('elements_balance_tpl') || 'Strongest: {max} · Weakest: {min}';
+      document.getElementById('bazi-elements-balance').textContent =
+        tpl.replace('{max}', strongest).replace('{min}', weakest);
+
+      document.getElementById('result').style.display = 'block';
+    }catch(e){ console.warn('[fill UI]', e); }
+
+    // —— 渲染 AI / 浮窗可见
+    try{ mountExtensionsIntoResult(ctx); }catch(e){ console.warn('[mountExtensionsIntoResult]', e); }
+
+    lock(btn, false);
+    document.getElementById('genBtnText')?.style.setProperty('display','inline');
+    document.getElementById('genBtnLoading')?.style.setProperty('display','none');
+  });
 })();
 
+/* 13) 多语言初始化 + 首次挂载浮窗（即便还没生成也让用户看到入口） */
+document.addEventListener('DOMContentLoaded', ()=>{
+  try{ initLangUI(); }catch(_){}
+  try{ mountChat(); ensureChatVisibleNow(); applyChatI18n && applyChatI18n(); }catch(_){}
+});
 /* 14) 估时间向导 */
 (function initBirthtimeWizard(){
   const tChk=$('timeUnknown'), tInput=$('birthtime'), btn=$('guessTimeBtn');
@@ -2639,6 +2733,22 @@ $('resetBtn')?.addEventListener('click', async ()=>{
   finally{ lock($('resetBtn'),false); }
 });
 
+// 芯片点击：把卡片里的“事业/感情/财运/ToDo/30天”等按钮接起来
+document.addEventListener('click', (ev)=>{
+  const chip = ev.target.closest?.('.chip');
+  if (!chip) return;
+  const q = chip.getAttribute('data-q');
+  const topic = chip.getAttribute('data-topic') || 'generic';
+  if (q && typeof askAi==='function') {
+    try{ askAi(q, topic); }catch(e){ console.warn('[askAi]', e); }
+  }
+});
+
+// DOM Ready：兜底调用（如果你已有同名监听也没关系）
+document.addEventListener('DOMContentLoaded', ()=>{
+  try{ if (typeof initLangUI==='function') initLangUI(); }catch(_){}
+});  
+  
 /* 22) 自测：1978-02-21 12:00 → 戊午 甲寅 甲寅 庚午 */
 (function(){
   const c=new BaziCalculator(); const Y=c.calculateYearPillar(1978); const M=c.calculateMonthPillar(1978,2,21); const D=c.calculateDayPillar(1978,2,21); const H=c.calculateHourPillar(D.stem,12);
