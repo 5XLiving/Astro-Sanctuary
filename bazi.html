@@ -1386,6 +1386,52 @@ function ELABEL(){
   };
 }
 
+// === Polyfills / Glue: initLangUI + mountExtensionsIntoResult + 芯片点击委托 ===
+
+// 语言初始化：同步下拉、落地到 localStorage，并立即应用到页面和浮窗
+window.initLangUI ??= function initLangUI(){
+  try{
+    const sel = document.getElementById('langSelect');
+    const lang = (typeof getLang==='function' ? getLang() : (document.documentElement.lang || 'zh-CN'));
+    if (sel){
+      sel.value = lang;
+      sel.addEventListener('change', (e)=>{
+        if (typeof setLang==='function') setLang(e.target.value);
+        if (typeof applyI18n==='function') applyI18n();
+        if (typeof applyChatI18n==='function') applyChatI18n();
+      });
+    }
+    if (typeof applyI18n==='function') applyI18n();
+    // 先挂载一次浮窗，顺便把多语言也刷一下
+    try{ if (typeof mountChat==='function') mountChat(); }catch(_){}
+    if (typeof applyChatI18n==='function') applyChatI18n();
+  }catch(e){ console.warn('[initLangUI] fallback:', e); }
+};
+
+// 结果挂载：保存上下文 → 确保结果区可见 → 渲染 AI 预览 → 强制显示浮窗
+window.mountExtensionsIntoResult ??= function mountExtensionsIntoResult(ctx){
+  try{
+    // 保存这次运算的上下文，供 AI 按钮/追问复用
+    window.__last_report__ = ctx || window.__last_report__ || {};
+
+    // 确保结果区显示
+    const res = document.getElementById('result');
+    if (res) res.style.display = 'block';
+
+    // 挂载/刷新 Butler 卡片（页面侧）
+    if (typeof ensureAiCard==='function') ensureAiCard();
+    if (typeof renderMainOverview==='function') renderMainOverview(window.__last_report__);
+
+    // 强制把卡片镜像到右下角浮窗，并显示出来
+    try{
+      if (typeof ensureChatVisibleNow==='function') ensureChatVisibleNow();
+      if (typeof applyChatI18n==='function') applyChatI18n();
+    }catch(_){}
+  }catch(e){
+    console.warn('[mountExtensionsIntoResult] fallback failed:', e);
+  }
+};
+  
 /* ================== Butler AI 卡片（芯片/锁定/多语言） ================== */
 /* 0) Chat Mirror：浮窗 = 管家预览 + 芯片克隆（幂等） */
 (function butlerChatBridge(){
