@@ -757,37 +757,12 @@ function generateDetailedAnalysis(pillars, counts, percents, strengthAnalysis, t
   generateLuckAnalysis(pillars, gender);
 }
 
-// 生成大运流年分析
-function generateLuckAnalysis(pillars, gender) {
+// 生成大运流年分析 - 动态版本
+function generateLuckAnalysis(pillars, gender, counts, percents) {
   const luckGrid = $('luck-analysis');
   luckGrid.innerHTML = '';
   
-  const luckCycles = [
-    { 
-      age: '5-14岁', 
-      desc: '童年运势平稳，学业基础阶段。心怜管家建议：这个阶段要注重培养良好的学习习惯和品德修养，多阅读经典书籍，建立正确的价值观。每天坚持30分钟阅读，培养专注力。' 
-    },
-    { 
-      age: '15-24岁', 
-      desc: '青少年时期，性格形成关键期。心怜管家建议：这个阶段要勇于尝试新事物，找到自己的兴趣所在。多参加社团活动，培养社交能力。每天记录成长心得，反思进步。' 
-    },
-    { 
-      age: '25-34岁', 
-      desc: '事业起步阶段，积累经验时期。心怜管家建议：专注专业技能的提升，建立职场人脉。每周制定工作计划，定期复盘。寻找良师益友，获得职业指导。' 
-    },
-    { 
-      age: '35-44岁', 
-      desc: '中年发展期，事业上升阶段。心怜管家建议：这个阶段要平衡工作与家庭，注重健康管理。每月做一次全面规划，设定明确目标。培养团队领导能力。' 
-    },
-    { 
-      age: '45-54岁', 
-      desc: '人生黄金期，收获成果之时。心怜管家建议：善用积累的经验智慧，培养接班人。关注身心健康，适当调整工作节奏。分享经验，回馈社会。' 
-    },
-    { 
-      age: '55-64岁', 
-      desc: '稳定发展期，规划晚年生活。心怜管家建议：逐步过渡到半退休状态，培养兴趣爱好。注重养生保健，规划财务安排。享受人生成果，传承智慧。' 
-    }
-  ];
+  const luckCycles = generateDynamicLuckCycles(pillars, gender, counts, percents);
   
   luckCycles.forEach(cycle => {
     const div = document.createElement('div');
@@ -800,43 +775,652 @@ function generateLuckAnalysis(pillars, gender) {
   });
 }
 
-function generateAIInsight(pillars, percents, timeUnknown, strengthAnalysis) {
-  const aiContent = $('aiContent');
-  const aiChips = $('aiChips');
+// 动态生成大运周期
+function generateDynamicLuckCycles(pillars, gender, counts, percents) {
+  const dayElement = pillars.day.element;
+  const strength = analyzeDayMasterStrength(pillars, counts).strength;
+  const strongestElement = getStrongestElement(counts);
   
-  // 模拟AI分析加载
-  setTimeout(() => {
-    const insight = generateDynamicAIInsight(pillars, percents, strengthAnalysis);
-    aiContent.innerHTML = insight;
-    
-    // 生成交互芯片
-    const chips = [
-      { text: '详细事业分析', type: 'career' },
-      { text: '财运投资建议', type: 'wealth' },
-      { text: '婚姻感情解读', type: 'marriage' },
-      { text: '健康养生指导', type: 'health' },
-      { text: '流年运势预测', type: 'luck' }
-    ];
-
-    aiChips.innerHTML = '';
-    chips.forEach(chipData => {
-      const chip = document.createElement('button');
-      chip.className = 'chip';
-      chip.textContent = chipData.text;
-      chip.dataset.type = chipData.type;
-      aiChips.appendChild(chip);
-    });
-
-    // 保存当前八字数据供详细分析使用
-    window.currentBaziData = {
-      pillars: pillars,
-      strengthAnalysis: strengthAnalysis,
-      percents: percents
-    };
-  }, 1500);
+  const cycles = [
+    { age: '5-14岁', stage: 'childhood' },
+    { age: '15-24岁', stage: 'youth' },
+    { age: '25-34岁', stage: 'earlyCareer' },
+    { age: '35-44岁', stage: 'midCareer' },
+    { age: '45-54岁', stage: 'peak' },
+    { age: '55-64岁', stage: 'retirement' }
+  ];
+  
+  return cycles.map(cycle => ({
+    age: cycle.age,
+    desc: generateLuckDescription(cycle.stage, dayElement, strength, strongestElement, gender)
+  }));
 }
+
+function generateLuckDescription(stage, dayElement, strength, strongestElement, gender) {
+  const stageDescriptions = {
+    childhood: {
+      '木': '童年时期思维活跃，学习能力强，适合培养阅读和艺术兴趣',
+      '火': '童年热情开朗，社交能力强，适合参与团体活动和运动',
+      '土': '童年稳重踏实，专注力强，适合培养耐心和细致习惯',
+      '金': '童年自律性强，目标明确，适合培养技能和才艺',
+      '水': '童年想象力丰富，好奇心强，适合探索多样兴趣'
+    },
+    youth: {
+      '木': '青少年时期领导力初显，适合担任学生干部，培养责任感',
+      '火': '青少年创造力爆发，适合参与创新项目和竞赛活动',
+      '土': '青少年学习扎实，适合深入专业领域，建立知识体系',
+      '金': '青少年执行力强，适合参与实践项目，积累经验',
+      '水': '青少年适应力强，适合多元发展，探索人生方向'
+    },
+    earlyCareer: {
+      '木': '事业起步阶段，发挥领导才能，建立专业形象',
+      '火': '职场热情投入，适合挑战性工作，快速成长',
+      '土': '稳步发展时期，专注专业技能，积累行业经验',
+      '金': '追求卓越阶段，适合技术岗位，建立专业权威',
+      '水': '灵活适应时期，适合多变环境，寻找最佳定位'
+    },
+    midCareer: {
+      '木': '事业上升期，承担更大责任，培养团队管理能力',
+      '火': '创造力高峰期，适合创新项目，发挥影响力',
+      '土': '稳定发展期，深耕专业领域，建立个人品牌',
+      '金': '技术成熟期，适合专家角色，传授经验知识',
+      '水': '转型关键期，适合跨界发展，开拓新领域'
+    },
+    peak: {
+      '木': '人生黄金期，经验智慧丰富，适合战略决策角色',
+      '火': '影响力高峰期，适合领导创新，推动变革',
+      '土': '收获稳定期，享受成果，培养接班人',
+      '金': '专业权威期，适合顾问指导，传承技艺',
+      '水': '智慧成熟期，适合整合资源，创造新价值'
+    },
+    retirement: {
+      '木': '晚年充实期，继续发挥余热，参与公益教育',
+      '火': '晚年活跃期，保持社交，分享人生经验',
+      '土': '晚年稳定期，享受家庭生活，注重健康养生',
+      '金': '晚年精致期，追求生活品质，培养高雅爱好',
+      '水': '晚年智慧期，反思人生，传承精神财富'
+    }
+  };
   
-// 修改显示详细分析页面的函数 - 这也是您提到的关键函数
+  const baseDesc = stageDescriptions[stage]?.[dayElement] || '此阶段运势平稳，适合稳步发展';
+  const strengthAdvice = strength === '偏旺' || strength === '极旺' ? 
+    '充分发挥自身优势，积极进取' : '注重积累，稳扎稳打';
+  const elementAdvice = strongestElement !== dayElement ? 
+    `同时加强${strongestElement}元素相关能力的培养` : '';
+  
+  return `${baseDesc}。${strengthAdvice}${elementAdvice}。心怜管家建议：${generateButlerAdvice(stage, dayElement, gender)}`;
+}
+
+function generateButlerAdvice(stage, dayElement, gender) {
+  const adviceMap = {
+    childhood: '培养良好习惯，建立正确价值观，每天坚持学习30分钟',
+    youth: '勇于尝试，找到兴趣方向，每周记录成长心得',
+    earlyCareer: '专注技能提升，建立人脉网络，每月参加专业培训',
+    midCareer: '平衡工作生活，注重健康管理，每季度设定明确目标',
+    peak: '分享经验智慧，培养接班人，关注身心健康',
+    retirement: '培养兴趣爱好，规划财务，享受人生成果'
+  };
+  
+  return adviceMap[stage] || '根据实际情况灵活调整发展策略';
+}
+
+// 详细事业分析 - 动态版本
+function getCareerDetail(pillars, strengthAnalysis, counts, percents) {
+  const dayElement = pillars.day.element;
+  const careerFields = calculateCareerFields(dayElement, counts);
+  const careerStrategy = generateCareerStrategy(dayElement, strengthAnalysis.strength, counts);
+  const dailyAdvice = generateCareerDailyAdvice(dayElement, percents);
+  
+  return `
+    <div class="detail-section">
+      <h4>🎯 职业发展方向</h4>
+      <p>基于您的${pillars.day.stem}${dayElement}日主和${strengthAnalysis.strength}格局，为您量身定制职业规划：</p>
+      
+      <p><strong>核心优势行业：</strong></p>
+      <ul class="action-list">
+        ${careerFields.map(field => `<li><strong>${field.category}：</strong>${field.description}</li>`).join('')}
+      </ul>
+    </div>
+
+    <div class="detail-section">
+      <h4>📊 职业发展策略</h4>
+      <p><strong>${careerStrategy.period}：</strong></p>
+      <ul class="action-list">
+        ${careerStrategy.strategies.map(strategy => `<li>${strategy}</li>`).join('')}
+      </ul>
+    </div>
+
+    <div class="detail-section">
+      <h4>💫 个性化职业建议</h4>
+      <ul class="action-list">
+        ${dailyAdvice}
+      </ul>
+    </div>
+  `;
+}
+
+function generateCareerStrategy(dayElement, strength, counts) {
+  const elementCount = Object.values(counts).filter(c => c > 0).length;
+  const isDiverse = elementCount >= 4;
+  
+  const strategies = {
+    '木': {
+      short: ['建立专业权威形象', '发展领导管理能力', '构建行业人脉网络'],
+      long: ['向战略管理岗位发展', '培养团队领导力', '建立个人品牌影响力']
+    },
+    '火': {
+      short: ['发挥创意创新能力', '参与前沿项目', '建立个人作品集'],
+      long: ['向创意总监发展', '打造个人IP', '拓展跨界合作']
+    },
+    '土': {
+      short: ['深耕专业技术', '建立系统知识', '获得专业认证'],
+      long: ['成为领域专家', '建立培训体系', '开发专业产品']
+    },
+    '金': {
+      short: ['提升技术专长', '参与重大项目', '建立质量标杆'],
+      long: ['成为技术权威', '制定行业标准', '培养技术团队']
+    },
+    '水': {
+      short: ['发展多元技能', '适应不同环境', '建立资源网络'],
+      long: ['向综合管理发展', '整合多方资源', '开拓新业务领域']
+    }
+  };
+  
+  const strategySet = strategies[dayElement] || strategies['木'];
+  const period = strength === '偏弱' ? '长期规划（5-8年）' : '中期规划（3-5年）';
+  const baseStrategies = strength === '偏弱' ? strategySet.long : strategySet.short;
+  
+  const additional = isDiverse ? ['考虑跨界发展机会'] : ['专注核心优势领域'];
+  
+  return {
+    period: period,
+    strategies: [...baseStrategies, ...additional]
+  };
+}
+
+function generateCareerDailyAdvice(dayElement, percents) {
+  const adviceMap = {
+    '木': [
+      '每天早上规划重点工作优先级',
+      '每周与行业专家交流学习',
+      '每月阅读专业书籍提升认知',
+      '每季度参加行业会议拓展视野'
+    ],
+    '火': [
+      '每天保持创意记录习惯',
+      '每周尝试新方法解决问题',
+      '每月参与创新项目讨论',
+      '每季度学习前沿技术趋势'
+    ],
+    '土': [
+      '每天完善工作流程细节',
+      '每周总结专业技能提升',
+      '每月进行专业知识更新',
+      '每季度评估职业发展进度'
+    ],
+    '金': [
+      '每天专注核心技术钻研',
+      '每周解决技术难题挑战',
+      '每月学习新技术工具',
+      '每季度进行技术成果展示'
+    ],
+    '水': [
+      '每天关注行业动态变化',
+      '每周拓展新的人脉关系',
+      '每月学习跨领域知识',
+      '每季度评估职业转型机会'
+    ]
+  };
+  
+  const adviceList = adviceMap[dayElement] || adviceMap['木'];
+  return adviceList.map(advice => `<li>${advice}</li>`).join('');
+}
+
+// 详细财运分析 - 动态版本
+function getWealthDetail(pillars, strengthAnalysis, counts, percents) {
+  const dayElement = pillars.day.element;
+  const wealthPattern = analyzeWealthPattern(dayElement, counts, percents);
+  const investmentStrategy = generateDetailedInvestmentStrategy(dayElement, counts, percents);
+  const wealthActionPlan = generateWealthActionPlan(strengthAnalysis.strength, percents);
+  
+  return `
+    <div class="detail-section">
+      <h4>💰 财富格局深度分析</h4>
+      <p>您的${strengthAnalysis.strength}${pillars.day.stem}${dayElement}命局在财富方面呈现以下特征：</p>
+      
+      <p><strong>财运特质分析：</strong></p>
+      <ul class="action-list">
+        <li><strong>财富来源：</strong>${wealthPattern.sources}</li>
+        <li><strong>积累模式：</strong>${wealthPattern.accumulation}</li>
+        <li><strong>风险特征：</strong>${wealthPattern.risks}</li>
+        <li><strong>增长时机：</strong>${wealthPattern.timing}</li>
+      </ul>
+    </div>
+
+    <div class="detail-section">
+      <h4>📈 个性化投资策略</h4>
+      <p><strong>基于您的五行配置：</strong></p>
+      <ul class="action-list">
+        ${investmentStrategy.map(item => `<li><strong>${item.type}：</strong>${item.description}</li>`).join('')}
+      </ul>
+    </div>
+
+    <div class="detail-section">
+      <h4>💫 财富增长执行计划</h4>
+      <ul class="action-list">
+        ${wealthActionPlan}
+      </ul>
+    </div>
+  `;
+}
+
+function generateDetailedInvestmentStrategy(dayElement, counts, percents) {
+  const weakestElement = getWeakestElement(counts);
+  
+  const strategies = {
+    '木': [
+      { type: '核心投资', description: '教育文化、环保健康、新兴科技领域' },
+      { type: '辅助配置', description: '房地产信托、基础设施基金' },
+      { type: '风险控制', description: '避免过度杠杆，注重长期价值' }
+    ],
+    '火': [
+      { type: '核心投资', description: '科技创新、能源转型、数字媒体' },
+      { type: '辅助配置', description: '贵金属、大宗商品' },
+      { type: '风险控制', description: '控制投机比例，设置止损点' }
+    ],
+    '土': [
+      { type: '核心投资', description: '房地产、建筑工程、农业食品' },
+      { type: '辅助配置', description: '债券、稳定收益产品' },
+      { type: '风险控制', description: '注重现金流，避免流动性风险' }
+    ],
+    '金': [
+      { type: '核心投资', description: '金融科技、高端制造、精密技术' },
+      { type: '辅助配置', description: '外汇、数字货币' },
+      { type: '风险控制', description: '分散投资，避免技术风险' }
+    ],
+    '水': [
+      { type: '核心投资', description: '物流贸易、旅游服务、咨询服务' },
+      { type: '辅助配置', description: '海外资产、跨国企业' },
+      { type: '风险控制', description: '关注汇率风险，保持灵活性' }
+    ]
+  };
+  
+  const baseStrategy = strategies[dayElement] || strategies['木'];
+  
+  // 根据最弱元素添加补充建议
+  if (weakestElement && weakestElement !== dayElement) {
+    const supplement = {
+      '木': '适当配置成长型资产',
+      '火': '增加一些进取型投资',
+      '土': '加强稳定收益配置',
+      '金': '注重价值投资机会',
+      '水': '保持投资组合流动性'
+    };
+    baseStrategy.push({ type: '平衡建议', description: supplement[weakestElement] });
+  }
+  
+  return baseStrategy;
+}
+
+function generateWealthActionPlan(strength, percents) {
+  const elementCount = Object.values(percents).filter(p => p > 10).length;
+  const isBalanced = elementCount >= 3;
+  
+  const basePlan = [
+    '建立月度收支预算体系',
+    '设定明确的财务目标',
+    '定期进行投资组合评估'
+  ];
+  
+  const strengthPlan = strength === '偏旺' || strength === '极旺' ? [
+    '积极寻找投资机会',
+    '适当承担计算过的风险',
+    '建立多元收入来源'
+  ] : [
+    '注重储蓄积累',
+    '选择稳健投资产品',
+    '建立应急储备金'
+  ];
+  
+  const balancePlan = isBalanced ? [
+    '均衡配置各类资产',
+    '关注整体投资回报'
+  ] : [
+    '重点加强优势领域投资',
+    '适当补充弱势元素相关配置'
+  ];
+  
+  return [...basePlan, ...strengthPlan, ...balancePlan]
+    .map(item => `<li>${item}</li>`)
+    .join('');
+}
+
+// 详细婚姻分析 - 动态版本
+function getMarriageDetail(pillars, strengthAnalysis, counts, percents) {
+  const dayElement = pillars.day.element;
+  const gender = $('gender').value;
+  const relationshipAnalysis = analyzeRelationshipDynamics(dayElement, gender, counts);
+  const partnerCompatibility = generatePartnerCompatibility(dayElement, counts);
+  const relationshipAdvice = generateRelationshipAdvice(dayElement, strengthAnalysis.strength, gender);
+  
+  return `
+    <div class="detail-section">
+      <h4>❤️ 感情婚姻深度解析</h4>
+      <p>您的${pillars.day.stem}${dayElement}日主在感情方面呈现以下能量特征：</p>
+      
+      <p><strong>感情模式分析：</strong></p>
+      <ul class="action-list">
+        <li><strong>情感表达：</strong>${relationshipAnalysis.expression}</li>
+        <li><strong>关系需求：</strong>${relationshipAnalysis.needs}</li>
+        <li><strong>相处模式：</strong>${relationshipAnalysis.pattern}</li>
+        <li><strong>发展时机：</strong>${relationshipAnalysis.timing}</li>
+      </ul>
+    </div>
+
+    <div class="detail-section">
+      <h4>💑 理想伴侣匹配指南</h4>
+      <p><strong>基于您的命局特质：</strong></p>
+      <ul class="action-list">
+        ${partnerCompatibility.map(item => `<li><strong>${item.aspect}：</strong>${item.description}</li>`).join('')}
+      </ul>
+    </div>
+
+    <div class="detail-section">
+      <h4>💫 感情幸福修行方案</h4>
+      <ul class="action-list">
+        ${relationshipAdvice}
+      </ul>
+    </div>
+  `;
+}
+
+function analyzeRelationshipDynamics(dayElement, gender, counts) {
+  const stemRelationship = {
+    '甲': { expression: '直接坦率，重视承诺', needs: '需要尊重和认可', pattern: '主动引导型' },
+    '乙': { expression: '温和细腻，注重细节', needs: '需要安全感和关怀', pattern: '协调配合型' },
+    '丙': { expression: '热情主动，追求浪漫', needs: '需要激情和新鲜感', pattern: '激情投入型' },
+    '丁': { expression: '专一执着，心思缜密', needs: '需要深度理解和信任', pattern: '专注守护型' },
+    '戊': { expression: '稳重可靠，责任心强', needs: '需要稳定和归属感', pattern: '务实建设型' },
+    '己': { expression: '包容体贴，善解人意', needs: '需要和谐和温暖', pattern: '服务支持型' },
+    '庚': { expression: '坚毅果断，要求明确', needs: '需要空间和独立性', pattern: '理性主导型' },
+    '辛': { expression: '追求完美，注重品质', needs: '需要精致和精神共鸣', pattern: '精致追求型' },
+    '壬': { expression: '灵活多变，适应性强', needs: '需要自由和变化', pattern: '流动适应型' },
+    '癸': { expression: '温和内敛，心思细腻', needs: '需要理解和耐心', pattern: '细腻感知型' }
+  };
+  
+  const baseAnalysis = stemRelationship[dayElement] || stemRelationship['甲'];
+  const genderAdjustment = gender === '男' ? '倾向于主动追求' : gender === '女' ? '倾向于谨慎选择' : '根据实际情况发展';
+  
+  return {
+    expression: `${baseAnalysis.expression}，${genderAdjustment}`,
+    needs: baseAnalysis.needs,
+    pattern: baseAnalysis.pattern,
+    timing: calculateRelationshipTiming(counts)
+  };
+}
+
+function calculateRelationshipTiming(counts) {
+  const elementCount = Object.values(counts).filter(c => c > 0).length;
+  if (elementCount <= 2) return '建议28岁后考虑婚姻，先完善自我';
+  if (elementCount >= 4) return '25-30岁是理想婚恋时期';
+  return '26-32岁感情发展较为顺利';
+}
+
+function generatePartnerCompatibility(dayElement, counts) {
+  const weakestElement = getWeakestElement(counts);
+  
+  const compatibilityMap = {
+    '木': [
+      { aspect: '性格互补', description: '适合与稳重踏实的伴侣相处' },
+      { aspect: '能力匹配', description: '需要执行力强的合作伙伴' },
+      { aspect: '情感支持', description: '寻求温柔体贴的情感关怀' }
+    ],
+    '火': [
+      { aspect: '性格互补', description: '适合与理性冷静的伴侣相处' },
+      { aspect: '能力匹配', description: '需要细致周到的生活伙伴' },
+      { aspect: '情感支持', description: '寻求稳定可靠的情感依托' }
+    ],
+    '土': [
+      { aspect: '性格互补', description: '适合与灵活变通的伴侣相处' },
+      { aspect: '能力匹配', description: '需要创意丰富的思维伙伴' },
+      { aspect: '情感支持', description: '寻求激情浪漫的情感体验' }
+    ],
+    '金': [
+      { aspect: '性格互补', description: '适合与温和包容的伴侣相处' },
+      { aspect: '能力匹配', description: '需要感性直觉的情感伙伴' },
+      { aspect: '情感支持', description: '寻求温暖体贴的情感关怀' }
+    ],
+    '水': [
+      { aspect: '性格互补', description: '适合与坚定果断的伴侣相处' },
+      { aspect: '能力匹配', description: '需要目标明确的行动伙伴' },
+      { aspect: '情感支持', description: '寻求安全稳定的情感基础' }
+    ]
+  };
+  
+  const baseCompatibility = compatibilityMap[dayElement] || compatibilityMap['木'];
+  
+  // 根据最弱元素添加补充建议
+  if (weakestElement && weakestElement !== dayElement) {
+    const elementAdvice = {
+      '木': '伴侣最好具备决断力和行动力',
+      '火': '伴侣最好具备耐心和稳定性',
+      '土': '伴侣最好具备灵活性和创意',
+      '金': '伴侣最好具备包容心和温暖',
+      '水': '伴侣最好具备目标感和坚定性'
+    };
+    baseCompatibility.push({ aspect: '五行平衡', description: elementAdvice[weakestElement] });
+  }
+  
+  return baseCompatibility;
+}
+
+function generateRelationshipAdvice(dayElement, strength, gender) {
+  const adviceMap = {
+    '木': [
+      '学习倾听伴侣的想法和感受',
+      '在关系中保持适当的灵活性',
+      '定期进行深度情感交流',
+      '共同制定人生发展规划'
+    ],
+    '火': [
+      '培养关系中的耐心和稳定性',
+      '学习理性处理感情问题',
+      '保持适度的个人空间',
+      '建立共同的生活仪式感'
+    ],
+    '土': [
+      '在关系中增加一些浪漫元素',
+      '学习表达内心真实情感',
+      '尝试新的相处方式',
+      '培养共同的兴趣爱好'
+    ],
+    '金': [
+      '学习表达温柔和关怀',
+      '在关系中保持开放的心态',
+      '注重情感细节的表达',
+      '培养共同的精神追求'
+    ],
+    '水': [
+      '在关系中保持适当的稳定性',
+      '学习做出明确的承诺',
+      '建立可靠的情感基础',
+      '培养共同的生活目标'
+    ]
+  };
+  
+  const baseAdvice = adviceMap[dayElement] || adviceMap['木'];
+  const strengthAdvice = strength === '偏旺' ? [
+    '注意控制主导欲望，尊重伴侣选择',
+    '学习平等协商，避免独断专行'
+  ] : [
+    '增强自信，主动表达需求',
+    '建立明确的个人边界'
+  ];
+  
+  return [...baseAdvice, ...strengthAdvice]
+    .map(item => `<li>${item}</li>`)
+    .join('');
+}
+
+// 详细流年分析 - 动态版本
+function getLuckDetail(pillars, strengthAnalysis, counts, percents) {
+  const dayElement = pillars.day.element;
+  const luckForecast = generateLuckForecast(dayElement, counts, percents);
+  const criticalTiming = identifyCriticalTiming(dayElement, strengthAnalysis.strength);
+  const luckEnhancement = generateLuckEnhancementPlan(dayElement, counts);
+  
+  return `
+    <div class="detail-section">
+      <h4>📈 流年运势深度预测</h4>
+      <p>基于您的${pillars.day.stem}${dayElement}命局能量配置，未来运势走向分析：</p>
+      
+      <p><strong>近期运势趋势（1-3年）：</strong></p>
+      <ul class="action-list">
+        ${luckForecast.map(item => `<li><strong>${item.area}：</strong>${item.trend}</li>`).join('')}
+      </ul>
+    </div>
+
+    <div class="detail-section">
+      <h4>🎯 关键时机把握指南</h4>
+      <p><strong>重要时间节点：</strong></p>
+      <ul class="action-list">
+        ${criticalTiming.map(item => `<li><strong>${item.period}：</strong>${item.opportunity}</li>`).join('')}
+      </ul>
+    </div>
+
+    <div class="detail-section">
+      <h4>💫 运势能量提升方案</h4>
+      <ul class="action-list">
+        ${luckEnhancement}
+      </ul>
+    </div>
+  `;
+}
+
+function generateLuckForecast(dayElement, counts, percents) {
+  const weakestElement = getWeakestElement(counts);
+  
+  const forecastMap = {
+    '木': [
+      { area: '事业发展', trend: '有新的领导机会出现，需要主动把握' },
+      { area: '财富增长', trend: '正财稳定上升，偏财需要谨慎选择' },
+      { area: '人际关系', trend: '贵人运增强，合作机会增多' },
+      { area: '健康状态', trend: '需要注意工作生活平衡' }
+    ],
+    '火': [
+      { area: '事业发展', trend: '创意项目机会增多，适合创新突破' },
+      { area: '财富增长', trend: '投资机会出现，但需控制风险' },
+      { area: '人际关系', trend: '社交活跃，影响力提升' },
+      { area: '健康状态', trend: '注意情绪管理和心血管保健' }
+    ],
+    '土': [
+      { area: '事业发展', trend: '稳定中有进步，适合深耕专业' },
+      { area: '财富增长', trend: '积累效应显现，适合长期投资' },
+      { area: '人际关系', trend: '建立可靠合作关系' },
+      { area: '健康状态', trend: '注重消化系统保养' }
+    ],
+    '金': [
+      { area: '事业发展', trend: '技术能力获得认可，专业地位提升' },
+      { area: '财富增长', trend: '通过专业技能获得额外收入' },
+      { area: '人际关系', trend: '建立专业人脉网络' },
+      { area: '健康状态', trend: '注意呼吸系统和皮肤保养' }
+    ],
+    '水': [
+      { area: '事业发展', trend: '转型机会出现，适合多元发展' },
+      { area: '财富增长', trend: '流动求财机会增多' },
+      { area: '人际关系', trend: '拓展新的人脉圈层' },
+      { area: '健康状态', trend: '注意肾脏和泌尿系统' }
+    ]
+  };
+  
+  const baseForecast = forecastMap[dayElement] || forecastMap['木'];
+  
+  // 根据最弱元素调整预测
+  if (weakestElement) {
+    const adjustment = {
+      '木': '需要加强决策力和行动力',
+      '火': '需要保持热情和积极性',
+      '土': '需要注重稳定和积累',
+      '金': '需要提升专业和技术',
+      '水': '需要增强适应和变通'
+    };
+    baseForecast.push({ area: '成长重点', trend: adjustment[weakestElement] });
+  }
+  
+  return baseForecast;
+}
+
+function identifyCriticalTiming(dayElement, strength) {
+  const baseTiming = [
+    { period: '明年春季', opportunity: '事业上有重要发展机遇' },
+    { period: '后年夏季', opportunity: '财运达到阶段性高峰' },
+    { period: '三年后', opportunity: '人生进入新的发展阶段' }
+  ];
+  
+  const elementTiming = {
+    '木': { period: '每年3-5月', opportunity: '最适合启动新项目' },
+    '火': { period: '每年6-8月', opportunity: '创意能量最旺盛' },
+    '土': { period: '季节交替时期', opportunity: '适合调整和规划' },
+    '金': { period: '每年9-11月', opportunity: '专业技能发挥最佳' },
+    '水': { period: '冬季期间', opportunity: '适合反思和转型' }
+  };
+  
+  const elementSpecific = elementTiming[dayElement];
+  if (elementSpecific) {
+    baseTiming.push(elementSpecific);
+  }
+  
+  return baseTiming;
+}
+
+function generateLuckEnhancementPlan(dayElement, counts) {
+  const weakestElement = getWeakestElement(counts);
+  
+  const enhancementMap = {
+    '木': [
+      '早晨面向东方进行能量冥想',
+      '多接触自然环境和植物',
+      '穿着绿色系衣物增强木能量',
+      '培养决断力和领导能力'
+    ],
+    '火': [
+      '中午面向南方吸收阳光能量',
+      '参与社交和团体活动',
+      '穿着红色系衣物增强火能量',
+      '保持积极热情的心态'
+    ],
+    '土': [
+      '在居中位置进行稳定冥想',
+      '进行园艺和土地相关活动',
+      '穿着黄色系衣物增强土能量',
+      '培养耐心和责任感'
+    ],
+    '金': [
+      '傍晚面向西方进行呼吸练习',
+      '接触金属制品和精致物品',
+      '穿着白色系衣物增强金能量',
+      '提升专业技能和品质标准'
+    ],
+    '水': [
+      '晚上面向北方进行静心冥想',
+      '接触水源和水相关活动',
+      '穿着黑色系衣物增强水能量',
+      '培养灵活性和适应能力'
+    ]
+  };
+  
+  const basePlan = enhancementMap[dayElement] || enhancementMap['木'];
+  
+  // 根据最弱元素添加补充建议
+  if (weakestElement && weakestElement !== dayElement) {
+    const supplement = enhancementMap[weakestElement]?.slice(0, 2) || [];
+    return [...basePlan, ...supplement].map(item => `<li>${item}</li>`).join('');
+  }
+  
+  return basePlan.map(item => `<li>${item}</li>`).join('');
+}
+
+// 更新 showDetailAnalysis 函数调用
 function showDetailAnalysis(type, pillars, strengthAnalysis) {
   // 隐藏主分析页面，但保留VIP区域
   const mainCards = document.querySelectorAll('.card:not(.detail-view):not(.vip-section)');
@@ -849,235 +1433,50 @@ function showDetailAnalysis(type, pillars, strengthAnalysis) {
   const detailTitle = $('detailTitle');
   const detailContent = $('detailContent');
   
+  // 获取当前八字数据
+  const currentData = window.currentBaziData || { counts: {}, percents: {} };
+  
   switch(type) {
     case 'career':
       detailTitle.textContent = '💼 详细事业分析';
-      detailContent.innerHTML = getCareerDetail(pillars, strengthAnalysis);
+      detailContent.innerHTML = getCareerDetail(pillars, strengthAnalysis, currentData.counts, currentData.percents);
       break;
     case 'wealth':
       detailTitle.textContent = '💰 财运投资建议';
-      detailContent.innerHTML = getWealthDetail(pillars, strengthAnalysis);
+      detailContent.innerHTML = getWealthDetail(pillars, strengthAnalysis, currentData.counts, currentData.percents);
       break;
     case 'marriage':
       detailTitle.textContent = '❤️ 婚姻感情解读';
-      detailContent.innerHTML = getMarriageDetail(pillars, strengthAnalysis);
+      detailContent.innerHTML = getMarriageDetail(pillars, strengthAnalysis, currentData.counts, currentData.percents);
       break;
     case 'health':
       detailTitle.textContent = '🌿 健康养生指导';
-      detailContent.innerHTML = getHealthDetail(pillars, strengthAnalysis);
+      detailContent.innerHTML = getHealthDetail(pillars, strengthAnalysis, currentData.counts, currentData.percents);
       break;
     case 'luck':
       detailTitle.textContent = '📈 流年运势预测';
-      detailContent.innerHTML = getLuckDetail(pillars, strengthAnalysis);
+      detailContent.innerHTML = getLuckDetail(pillars, strengthAnalysis, currentData.counts, currentData.percents);
       break;
   }
 }
 
-function backToMainAnalysis() {
-  // 显示所有卡片，包括VIP区域
-  const allCards = document.querySelectorAll('.card');
-  allCards.forEach(card => card.style.display = 'block');
+// 更新 generateLuckAnalysis 调用
+function generateLuckAnalysis(pillars, gender) {
+  const currentData = window.currentBaziData || { counts: {}, percents: {} };
+  const luckGrid = $('luck-analysis');
+  luckGrid.innerHTML = '';
   
-  const detailView = $('detailView');
-  detailView.style.display = 'none';
-}
-
-// 详细事业分析
-function getCareerDetail(pillars, strengthAnalysis) {
-  return `
-    <div class="detail-section">
-      <h4>🎯 职业发展方向</h4>
-      <p>基于您的${pillars.day.stem}${pillars.day.element}日主和${strengthAnalysis.strength}格局，我建议您重点关注以下领域：</p>
-      
-      <p><strong>核心优势行业：</strong></p>
-      <ul class="action-list">
-        <li><strong>教育文化领域：</strong>您的命局显示您有教导他人的天赋，适合从事教师、培训师、文化传播等工作</li>
-        <li><strong>创意艺术行业：</strong>${pillars.day.stem}${pillars.day.element}日主往往具有独特的艺术感知力</li>
-        <li><strong>管理领导岗位：</strong>${strengthAnalysis.strength}格局赋予您领导才能，适合团队管理</li>
-      </ul>
-    </div>
-
-    <div class="detail-section">
-      <h4>📊 职业发展策略</h4>
-      <p><strong>短期目标（1-3年）：</strong></p>
-      <ul class="action-list">
-        <li>深耕专业技能，建立个人品牌</li>
-        <li>寻找良师指导，加速成长</li>
-        <li>建立行业人脉网络</li>
-      </ul>
-      
-      <p><strong>中期规划（3-5年）：</strong></p>
-      <ul class="action-list">
-        <li>争取管理岗位，培养团队领导力</li>
-        <li>考虑跨界发展，拓展能力边界</li>
-        <li>建立个人影响力</li>
-      </ul>
-    </div>
-
-    <div class="detail-section">
-      <h4>💫 心怜管家每日建议</h4>
-      <ul class="action-list">
-        <li>每天早上花10分钟规划当日重点工作</li>
-        <li>每周与一位行业前辈交流学习</li>
-        <li>每月参加一次专业培训或研讨会</li>
-        <li>每季度复盘职业发展进度</li>
-      </ul>
-    </div>
-  `;
-}
-
-// 详细财运分析
-function getWealthDetail(pillars, strengthAnalysis) {
-  return `
-    <div class="detail-section">
-      <h4>💰 财富格局分析</h4>
-      <p>您的${strengthAnalysis.strength}${pillars.day.stem}${pillars.day.element}命局在财富方面具有以下特点：</p>
-      
-      <p><strong>财运特征：</strong></p>
-      <ul class="action-list">
-        <li><strong>正财运势：</strong>稳定收入来源较好，适合通过专业技能获得财富</li>
-        <li><strong>偏财机会：</strong>${strengthAnalysis.strength === '偏旺' ? '有不错的投资眼光，但需谨慎决策' : '建议以稳健理财为主'}</li>
-        <li><strong>财富积累：</strong>${strengthAnalysis.strength === '偏旺' ? '中年后财富积累加速' : '需要耐心积累，稳扎稳打'}</li>
-      </ul>
-    </div>
-
-    <div class="detail-section">
-      <h4>📈 投资建议</h4>
-      <p><strong>适合的投资方向：</strong></p>
-      <ul class="action-list">
-        <li><strong>稳健型：</strong>基金定投、债券、保险理财</li>
-        <li><strong>成长型：</strong>与${getCareerAdvice(pillars.day.element, {})}相关的行业投资</li>
-        <li><strong>长期价值：</strong>教育投资、健康投资、技能提升</li>
-      </ul>
-    </div>
-
-    <div class="detail-section">
-      <h4>💫 财富增长行动计划</h4>
-      <ul class="action-list">
-        <li>建立月度预算，控制不必要的开支</li>
-        <li>将收入的20%用于投资理财</li>
-        <li>每季度学习一项新的理财知识</li>
-        <li>寻找被动收入机会，建立多元收入来源</li>
-      </ul>
-    </div>
-  `;
-}
-
-// 详细婚姻分析
-function getMarriageDetail(pillars, strengthAnalysis) {
-  const gender = $('gender').value;
-  return `
-    <div class="detail-section">
-      <h4>❤️ 感情婚姻深度解读</h4>
-      <p>您的${pillars.day.stem}${pillars.day.element}日主在感情方面具有独特的能量模式：</p>
-      
-      <p><strong>感情特质：</strong></p>
-      <ul class="action-list">
-        <li><strong>情感表达：</strong>${pillars.day.stem === '甲' || pillars.day.stem === '乙' ? '直接坦率，重视承诺' : '细腻敏感，需要安全感'}</li>
-        <li><strong>伴侣选择：</strong>适合与五行相补的伴侣结合，能够相互成就</li>
-        <li><strong>婚姻时机：</strong>${strengthAnalysis.strength === '偏旺' ? '适合晚婚，先立业后成家' : '遇到合适的人要主动把握'}</li>
-      </ul>
-    </div>
-
-    <div class="detail-section">
-      <h4>💑 理想伴侣特质</h4>
-      <p>根据您的命局，理想的伴侣应该具备以下特质：</p>
-      <ul class="action-list">
-        <li>性格互补，能够理解和支持您的梦想</li>
-        <li>有共同的人生价值观和目标</li>
-        <li>具备一定的包容心和耐心</li>
-        <li>在关键时刻能够给予建设性建议</li>
-      </ul>
-    </div>
-
-    <div class="detail-section">
-      <h4>💫 感情修行建议</h4>
-      <ul class="action-list">
-        <li>每天花时间与伴侣深度交流</li>
-        <li>学习有效沟通技巧，避免误解</li>
-        <li>定期安排二人世界，增进感情</li>
-        <li>共同制定人生规划，携手成长</li>
-      </ul>
-    </div>
-  `;
-}
-
-// 详细健康分析
-function getHealthDetail(pillars, strengthAnalysis) {
-  return `
-    <div class="detail-section">
-      <h4>🌿 健康养生全面指导</h4>
-      <p>您的${pillars.day.stem}${pillars.day.element}日主在健康方面需要特别关注：</p>
-      
-      <p><strong>体质特点：</strong></p>
-      <ul class="action-list">
-        <li><strong>优势：</strong>${strengthAnalysis.strength === '偏旺' ? '身体素质较好，抵抗力强' : '需要注重养生保健'}</li>
-        <li><strong>需要注意：</strong>${getHealthAttention(pillars.day.element)}</li>
-        <li><strong>养生重点：</strong>${getHealthFocus(pillars.day.element)}</li>
-      </ul>
-    </div>
-
-    <div class="detail-section">
-      <h4>🥗 饮食调理建议</h4>
-      <p><strong>适合的食物：</strong></p>
-      <ul class="action-list">
-        <li>${getDietAdvice(pillars.day.element)}</li>
-        <li>多吃当季新鲜蔬果</li>
-        <li>适量摄入优质蛋白质</li>
-        <li>保持饮食多样化</li>
-      </ul>
-    </div>
-
-    <div class="detail-section">
-      <h4>💫 每日健康修行</h4>
-      <ul class="action-list">
-        <li>清晨起床后喝一杯温水</li>
-        <li>每天坚持30分钟有氧运动</li>
-        <li>晚上11点前入睡，保证充足睡眠</li>
-        <li>每周进行一次排毒养生</li>
-        <li>定期进行身体检查</li>
-      </ul>
-    </div>
-  `;
-}
-
-// 详细流年分析
-function getLuckDetail(pillars, strengthAnalysis) {
-  return `
-    <div class="detail-section">
-      <h4>📈 流年运势深度预测</h4>
-      <p>基于您的${pillars.day.stem}${pillars.day.element}命局，未来几年的运势走向如下：</p>
-      
-      <p><strong>近期运势（1-3年）：</strong></p>
-      <ul class="action-list">
-        <li><strong>事业：</strong>有新的发展机会出现，需要主动把握</li>
-        <li><strong>财运：</strong>稳步上升，适合进行长期投资规划</li>
-        <li><strong>感情：</strong>人际关系更加和谐，有机会遇到贵人</li>
-        <li><strong>健康：</strong>需要注意工作生活平衡</li>
-      </ul>
-    </div>
-
-    <div class="detail-section">
-      <h4>🎯 关键时间节点</h4>
-      <p><strong>重要转折点：</strong></p>
-      <ul class="action-list">
-        <li><strong>明年春季：</strong>事业上有重要机遇，需要提前准备</li>
-        <li><strong>后年夏季：</strong>财运达到一个小高峰</li>
-        <li><strong>三年后：</strong>人生进入新的发展阶段</li>
-      </ul>
-    </div>
-
-    <div class="detail-section">
-      <h4>💫 运势提升行动计划</h4>
-      <ul class="action-list">
-        <li>每月初一制定当月运势提升计划</li>
-        <li>根据五行缺失进行相应的能量补充</li>
-        <li>定期清理负能量，保持积极心态</li>
-        <li>与正能量的人多交流互动</li>
-        <li>坚持做善事，积累福报</li>
-      </ul>
-    </div>
-  `;
+  const luckCycles = generateDynamicLuckCycles(pillars, gender, currentData.counts, currentData.percents);
+  
+  luckCycles.forEach(cycle => {
+    const div = document.createElement('div');
+    div.className = 'luck-item';
+    div.innerHTML = `
+      <div class="luck-year">${cycle.age}</div>
+      <div class="luck-desc">${cycle.desc}</div>
+    `;
+    luckGrid.appendChild(div);
+  });
 }
 
 // 初始化聊天功能
