@@ -999,6 +999,11 @@
     </div>
   </section>
 
+  <!-- 专业报告挂载容器（i18n 文案走 JS 注入） -->
+<section class="card" id="proReportCard">
+  <div id="chartReport" aria-live="polite"></div>
+</section>
+
   <!-- 会员专区 -->
   <section class="card section">
     <h2 class="group-title" data-i18n="vip_title">🌙 会员区域 VIP Segment</h2>
@@ -1584,6 +1589,62 @@ document.addEventListener('DOMContentLoaded', function() {
   applyI18n();
 });
 
+/* ⬇️ 就貼在這裡（在上面這段 applyI18n() 初始化的「下面」） */
+// 语言切换（只负责切换文案 + 可能的重渲染）
+document.addEventListener('DOMContentLoaded', () => {
+  const sel = document.getElementById('langSelect');
+  if (!sel) return;
+
+  // 让下拉框显示本地存储语言
+  try { sel.value = getLang(); } catch {}
+
+  sel.addEventListener('change', (e) => {
+    setLang(e.target.value);
+    applyI18n();
+
+// 八字生成功能（独立于语言切换；不要放进上面的 change 回调）
+document.addEventListener('DOMContentLoaded', () => {
+  const genBtn = document.getElementById('genBtn');
+  if (!genBtn) return;
+
+  genBtn.addEventListener('click', function () {
+    const name = document.getElementById('name').value;
+    const birthdate = document.getElementById('birthdate').value;
+    const birthtime = document.getElementById('birthtime').value;
+    const timeUnknown = document.getElementById('timeUnknown').checked;
+
+    if (!birthdate) {
+      showErr('请选择出生日期');
+      return;
+    }
+
+    generateBazi(name, birthdate, birthtime, timeUnknown);
+    document.getElementById('result')?.scrollIntoView({ behavior: 'smooth' });
+  });
+});    
+
+    // 若已有一次命盤，重渲染專業報告以套用新語言
+    const ctx = window.__last_report__;
+    if (ctx?.pillars?.day?.stem && window.BaziUltra) {
+      const ps = [
+        [ctx.pillars.year.stem,  ctx.pillars.year.branch],
+        [ctx.pillars.month.stem, ctx.pillars.month.branch],
+        [ctx.pillars.day.stem,   ctx.pillars.day.branch],
+        ctx.timeUnknown ? ['-','-'] : [ctx.pillars.hour.stem, ctx.pillars.hour.branch]
+      ];
+      window.BaziUltra.render({
+        mountId:'chartReport',
+        name: document.getElementById('name')?.value || '',
+        gender: document.getElementById('gender')?.selectedOptions?.[0]?.text || '',
+        birth: document.getElementById('birthtime')?.value
+          ? `${document.getElementById('birthdate').value} ${document.getElementById('birthtime').value}`
+          : `${document.getElementById('birthdate').value}${ctx.timeUnknown ? `（${t('rpt_time_unknown')||'时间不详'}）` : ''}`,
+        location:'',
+        dayStem: ctx.pillars.day.stem,
+        pillars: ps
+      });
+    }
+
 // 八字生成功能
 document.getElementById('genBtn').addEventListener('click', function() {
   const name = document.getElementById('name').value;
@@ -1602,10 +1663,10 @@ document.getElementById('genBtn').addEventListener('click', function() {
 });
 
 function generateBazi(name, date, time, timeUnknown) {
-  // 显示结果区
+  // 顯示結果區
   document.getElementById('result').style.display = 'block';
 
-  // —— 模拟四柱数据（可接你的真实计算结果）——
+  // —— 模擬四柱數據（替換為你的真實計算結果即可）——
   const y = { stem:'甲', branch:'子', element:'木', nayin:'海中金' };
   const m = { stem:'乙', branch:'丑', element:'木', nayin:'海中金' };
   const d = { stem:'丙', branch:'寅', element:'火', nayin:'炉中火' };
@@ -1613,12 +1674,12 @@ function generateBazi(name, date, time, timeUnknown) {
     ? { stem:'-', branch:'-', element:'-', nayin:'-' }
     : { stem:'丁', branch:'卯', element:'火', nayin:'炉中火' };
 
-  // —— 顶部四个卡片 —— 
+  // —— 頂部四卡 —— 
   const pillars = [
     { title:'年柱', ganZhi:`${y.stem}${y.branch}`, element:y.element },
     { title:'月柱', ganZhi:`${m.stem}${m.branch}`, element:m.element },
     { title:'日柱', ganZhi:`${d.stem}${d.branch}`, element:d.element },
-    { title:'时柱', ganZhi: timeUnknown ? '未知' : `${h.stem}${h.branch}`, element: h.element }
+    { title:'时柱', ganZhi: timeUnknown ? (t('rpt_time_unknown') || '時間不詳') : `${h.stem}${h.branch}`, element: h.element }
   ];
   const pillarsContainer = document.getElementById('bazi-pillars');
   if (pillarsContainer) {
@@ -1631,18 +1692,18 @@ function generateBazi(name, date, time, timeUnknown) {
     `).join('');
   }
 
-  // —— 表格逐格填值（对应你现有的 <td id="...">）——
+  // —— 表格填值 —— 
   const setCell = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
   setCell('year-stem',   y.stem);   setCell('year-branch',  y.branch);  setCell('year-element', y.element); setCell('year-nayin', y.nayin);
   setCell('month-stem',  m.stem);   setCell('month-branch', m.branch);  setCell('month-element',m.element); setCell('month-nayin',m.nayin);
   setCell('day-stem',    d.stem);   setCell('day-branch',   d.branch);  setCell('day-element',  d.element); setCell('day-nayin',  d.nayin);
   setCell('hour-stem',   h.stem);   setCell('hour-branch',  h.branch);  setCell('hour-element', h.element); setCell('hour-nayin', h.nayin);
 
-  // —— 日期提示（可选）——
+  // —— 日期提示 —— 
   const dd = document.getElementById('bazi-date');
-  if (dd) dd.textContent = timeUnknown ? `${date}（时间不详）` : `${date} ${time}`;
+  if (dd) dd.textContent = timeUnknown ? `${date}（${t('rpt_time_unknown') || '時間不詳'}）` : `${date} ${time}`;
 
-  // —— 五行百分比 ——（示例）
+  // —— 五行百分比（示例數據）——
   const elements = { '木':30, '火':25, '土':20, '金':15, '水':10 };
   Object.keys(elements).forEach(k => {
     const pct = elements[k];
@@ -1652,9 +1713,13 @@ function generateBazi(name, date, time, timeUnknown) {
     if (label) label.textContent = `${pct}%`;
   });
   const balance = document.getElementById('bazi-elements-balance');
-  if (balance) balance.textContent = '五行中木元素最强，水元素最弱。';
+  if (balance) {
+    const maxEl = '木', minEl = '水'; // 示例
+    balance.textContent = (t('elements_balance_tpl') || '五行中{max}元素最強，{min}元素最弱。')
+      .replace('{max}', maxEl).replace('{min}', minEl);
+  }
 
-  // —— 把数据喂给 AI 卡片（若你需要用）——
+  // —— 存上下文給 AI 卡片 —— 
   window.__last_report__ = {
     pillars: {
       year:{ stem:y.stem, branch:y.branch, element:y.element },
@@ -1668,10 +1733,40 @@ function generateBazi(name, date, time, timeUnknown) {
     timeUnknown: !!timeUnknown
   };
 
-  // —— 启动/刷新 AI 卡片 —— 
-  if (typeof mountButlerCard === 'function') { mountButlerCard(); }
+  // —— 渲染 Ultra 專業報告（放在 y/m/d/h 之後；不要 <script> 包裹）——
+  try {
+    if (window.BaziUltra) {
+      const genderVal = (document.getElementById('gender')?.value) || '';
+      const genderTxt = genderVal==='male'
+        ? (t('opt_gender_male') || '男性')
+        : (genderVal==='female' ? (t('opt_gender_female') || '女性') : (t('opt_gender_confidential') || '—'));
+      const pillarsData = [
+        [y.stem, y.branch],
+        [m.stem, m.branch],
+        [d.stem, d.branch],
+        timeUnknown ? ['-','-'] : [h.stem, h.branch]
+      ];
+      window.BaziUltra.render({
+        mountId:'chartReport',
+        name: (name||''),
+        gender: genderTxt,
+        birth: timeUnknown ? `${date}（${t('rpt_time_unknown') || '時間不詳'}）` : `${date} ${time}`,
+        location: '',
+        dayStem: d.stem,
+        pillars: pillarsData
+        // peekYear / luckPillars 之後接你的後端再傳入
+      });
+    }
+  } catch (e) {
+    console.error('BaziUltra 渲染失敗：', e);
+  }
 
-  // 滚动到结果区域
+  // —— 啟動/刷新 AI 卡片 —— 
+  if (typeof mountButlerCard === 'function') { mountButlerCard(); }
+  });
+});
+  
+  // 滾動到結果
   document.getElementById('result')?.scrollIntoView({ behavior: 'smooth' });
 }
 
@@ -1867,6 +1962,331 @@ function generateBazi(name, date, time, timeUnknown) {
     mdToHtml
   };
 })();
-</script>
+
+/* =========================================================
+  Bazi Ultra Renderer · v4 (i18n-ready, 离线·零依赖)
+  - 四柱明干/藏干 + 十神（任意日主）
+  - 五行统计（权重可调）
+  - 合/会/冲/刑/害（提示）
+  - 用神/平衡建议（基于失衡导向）
+  - 年度提示（干支十神 + 支五行侧重点）
+  - 月份能量带（节气序）
+  - 大运时间线（可选）
+  - 导出：打印PDF / 复制摘要 / 导出JSON
+========================================================= */
+(function(){
+'use strict';
+
+const MOUNT_ID='chartReport';
+
+/* ---------- i18n helpers ---------- */
+function hasI18n(){ return typeof window.t === 'function'; }
+function tr(key, fallback){
+  try{
+    if(!hasI18n()) return fallback;
+    const v = window.t(key);
+    return (v && v !== key) ? v : fallback;
+  }catch{ return fallback; }
+}
+function trf(key, fallback, params){
+  let s = tr(key, fallback);
+  if(params) Object.keys(params).forEach(k=>{
+    s = s.replace(new RegExp('\\{'+k+'\\}','g'), params[k]);
+  });
+  return s;
+}
+
+/* ---------- 基础字典 ---------- */
+const stems = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+const stemInfo={
+  甲:{el:'木',yang:true}, 乙:{el:'木',yang:false},
+  丙:{el:'火',yang:true}, 丁:{el:'火',yang:false},
+  戊:{el:'土',yang:true}, 己:{el:'土',yang:false},
+  庚:{el:'金',yang:true}, 辛:{el:'金',yang:false},
+  壬:{el:'水',yang:true}, 癸:{el:'水',yang:false}
+};
+const branchOrder=['寅','卯','辰','巳','午','未','申','酉','戌','亥','子','丑']; // 节气月序
+const branchInfo={
+  子:{el:'水',yang:true,  hidden:['癸']},
+  丑:{el:'土',yang:false, hidden:['己','癸','辛']},
+  寅:{el:'木',yang:true,  hidden:['甲','丙','戊']},
+  卯:{el:'木',yang:false, hidden:['乙']},
+  辰:{el:'土',yang:true,  hidden:['戊','乙','癸']},
+  巳:{el:'火',yang:false, hidden:['丙','戊','庚']},
+  午:{el:'火',yang:true,  hidden:['丁','己']},
+  未:{el:'土',yang:false, hidden:['己','丁','乙']},
+  申:{el:'金',yang:true,  hidden:['庚','壬','戊']},
+  酉:{el:'金',yang:false, hidden:['辛']},
+  戌:{el:'土',yang:true,  hidden:['戊','辛','丁']},
+  亥:{el:'水',yang:false, hidden:['壬','甲']}
+};
+/* 六合/三合/冲/刑/害（简） */
+const liuHe = {子:'丑', 丑:'子', 寅:'亥', 亥:'寅', 卯:'戌', 戌:'卯', 辰:'酉', 酉:'辰', 巳:'申', 申:'巳', 午:'未', 未:'午'};
+const sanHe = [['申','子','辰','水'], ['寅','午','戌','火'], ['亥','卯','未','木'], ['巳','酉','丑','金']];
+const chongPairs = [['子','午'],['丑','未'],['寅','申'],['卯','酉'],['辰','戌'],['巳','亥']];
+const xingHints = [['子','卯'],['寅','巳'],['巳','申'],['申','寅'],['丑','戌','未'],['辰','午','酉','亥']];
+const haiPairs = [['子','未'],['丑','午'],['寅','巳'],['卯','辰'],['申','亥'],['酉','戌']];
+
+/* ---------- DOM helpers ---------- */
+const $=id=>document.getElementById(id);
+function el(tag,cls,txt){const e=document.createElement(tag); if(cls) e.className=cls; if(txt!=null) e.textContent=txt; return e;}
+function injectStyle(){
+  if($('#bazi-ultra-style')) return;
+  const css=`
+  .sec{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;margin:16px 0;box-shadow:var(--shadow)}
+  .h{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .h h3{margin:0;color:var(--brand)}
+  .muted{color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .chip{padding:6px 10px;border:1px solid var(--line);border-radius:999px}
+  .tbl{width:100%;border-collapse:collapse;margin-top:8px}
+  .tbl th,.tbl td{border:1px solid var(--line);padding:8px 10px;text-align:center}
+  .kv{display:grid;grid-template-columns:160px 1fr;gap:8px 12px;align-items:center}
+  .bar{height:10px;border-radius:6px;background:linear-gradient(90deg, rgba(212,175,55,.95), rgba(212,175,55,.2))}
+  .tips{margin:8px 0 0 0;padding-left:18px;line-height:1.85}
+  .cta{display:flex;gap:12px;flex-wrap:wrap;margin-top:10px}
+  .btn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;text-decoration:none;color:var(--text);cursor:pointer;background:transparent}
+  .badge{display:inline-block;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:2px 8px;margin-left:6px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+  `;
+  const s=document.createElement('style'); s.id='bazi-ultra-style'; s.textContent=css; document.head.appendChild(s);
+}
+function table(headers, rows){
+  const t=el('table','tbl'), thead=el('thead'), trr=el('tr');
+  headers.forEach(h=>trr.appendChild(el('th',null,h))); thead.appendChild(trr); t.appendChild(thead);
+  const tb=el('tbody'); rows.forEach(r=>{ const tr=el('tr'); r.forEach(c=>tr.appendChild(el('td',null,c))); tb.appendChild(tr); }); t.appendChild(tb);
+  return t;
+}
+function section(title, nodes){ const s=el('section','sec'); const h=el('div','h'); h.appendChild(el('h3',null,title)); s.appendChild(h); nodes.forEach(n=>s.appendChild(n)); return s; }
+
+/* ---------- 十神（任意日主） ---------- */
+const cycle = ['木','火','土','金','水']; // 生：木→火→土→金→水→木
+function elIndex(E){return cycle.indexOf(E);}
+function relOf(a,b){ // a(日主) 相对 b(他者)
+  const ia=elIndex(a), ib=elIndex(b);
+  if(ia===ib) return 'same';         // 比/劫
+  if((ia+1)%5===ib) return 'output'; // 我生他：食/伤
+  if((ia+2)%5===ib) return 'drain';  // 我克他：财
+  if((ia+3)%5===ib) return 'control';// 他克我：官杀
+  if((ia+4)%5===ib) return 'input';  // 他生我：印
+  return '';
+}
+function tenGodGeneric(dayStem, otherStem){
+  const d = stemInfo[dayStem], o = stemInfo[otherStem]; if(!d||!o) return '';
+  const rel = relOf(d.el, o.el);
+  const sameYang = (d.yang===o.yang);
+  switch(rel){
+    case 'same':   return sameYang? tr('tg.bijian','比肩') : tr('tg.jiecai','劫财');
+    case 'output': return sameYang? tr('tg.shishen','食神') : tr('tg.shangguan','伤官');
+    case 'drain':  return sameYang? tr('tg.piancai','偏财') : tr('tg.zhengcai','正财');
+    case 'control':return sameYang? tr('tg.qisha','七杀')  : tr('tg.zhengguan','正官');
+    case 'input':  return sameYang? tr('tg.pianyin','偏印') : tr('tg.zhengyin','正印');
+    default: return '';
+  }
+}
+
+/* ---------- 统计与结构 ---------- */
+function hiddenStems(z){return (branchInfo[z]?.hidden)||[];}
+function fiveOfStem(g){return stemInfo[g]?.el||'';}
+function fiveOfBranch(z){return branchInfo[z]?.el||'';}
+function countFive(pillars, wMain=1, wHidden=.5){
+  const acc={木:0,火:0,土:0,金:0,水:0};
+  pillars.forEach(([g,z])=>{ const eg=fiveOfStem(g); if(eg) acc[eg]+=wMain;
+                              hiddenStems(z).forEach(h=>{ const eh=fiveOfStem(h); if(eh) acc[eh]+=wHidden; }); });
+  return acc;
+}
+function relationTips(branches){
+  const set=new Set(branches);
+  const tips=[];
+  // 六合
+  branches.forEach(b=>{
+    const p=liuHe[b];
+    if(p && set.has(p)) tips.push(trf('rel.liuhe','{a}合{b}（六合）：彼此牵引、易成事',{a:b,b:p}));
+  });
+  // 三合
+  sanHe.forEach(([a,b,c,elem])=>{
+    const cnt = [a,b,c].filter(x=>set.has(x)).length;
+    if(cnt===2) tips.push(trf('rel.sanhe.half','{a}{b}{c}半会{el}：该元素势增强',{a,b,c,el:elem}));
+    if(cnt===3) tips.push(trf('rel.sanhe.full','{a}{b}{c}三会{el}：该元素主导明显',{a,b,c,el:elem}));
+  });
+  // 冲
+  chongPairs.forEach(([a,b])=>{
+    if(set.has(a)&&set.has(b)) tips.push(trf('rel.chong','{a}冲{b}：结构拉扯、节律易变',{a,b}));
+  });
+  // 刑
+  xingHints.forEach(group=>{
+    const cnt = group.filter(x=>set.has(x)).length;
+    if(cnt>=2) tips.push(trf('rel.xing', '{g}相刑：需以规则化解内耗',{g:group.join('、')}));
+  });
+  // 害
+  haiPairs.forEach(([a,b])=>{
+    if(set.has(a)&&set.has(b)) tips.push(trf('rel.hai','{a}害{b}：小人/误解/暗耗，重边界',{a,b}));
+  });
+  // 自刑：午午
+  if(branches.filter(b=>b==='午').length>=2) tips.push(tr('rel.self.wu','午午自刑：心火偏急，运动与作息稳态'));
+  return Array.from(new Set(tips));
+}
+function balanceAdvice(five){
+  const arr=Object.entries(five).sort((a,b)=>b[1]-a[1]);
+  const max = arr[0], min = arr[arr.length-1];
+  const msg = [];
+  msg.push(trf('bal.core','五行偏 {max}，相对不足为 {min}。策略：补{min}、泄{max}、生所需。',{max:max[0], min:min[0]}));
+  if((five.木+five.火)>(five.金+five.水+five.土))
+    msg.push(tr('bal.muhuosheng','木火偏盛：以制度/数据/复盘（属金水）为“刹车”，以预算/流程（属土）为“地基”。'));
+  if(five.金 < Math.min(five.木,five.火)) msg.push(tr('bal.jinweak','金弱：要有规则、复盘、文档、审计与清单。'));
+  if(five.水 < Math.min(five.木,five.火)) msg.push(tr('bal.shuiweak','水弱：作息/饮水/伸展/复盘冥想，给大脑冷静区。'));
+  return {maxEl:max[0], minEl:min[0], text:msg};
+}
+
+/* ---------- 年度提示 & 月份能量带 ---------- */
+function yearBrief(dayStem, yearStem, yearBranch){
+  const tg = tenGodGeneric(dayStem, yearStem);
+  const be = fiveOfBranch(yearBranch);
+  const pts=[];
+  pts.push(trf('year.tg','天干 {stem}（相对日主：{tg}）→ 资源分配/权责/合作边界主题显著。',{stem:yearStem,tg}));
+  if(be){
+    const tail = be==='火' ? tr('year.br.fire','行动高峰，要稳节律')
+               : be==='金' ? tr('year.br.metal','制度/审计节点多')
+               : be==='水' ? tr('year.br.water','情绪/出行/学习主题多')
+               : be==='木' ? tr('year.br.wood','拓展/人脉增长')
+               :              tr('year.br.earth','资产/地产/预算为重');
+    pts.push(trf('year.br','地支 {branch}（{el}）→ 当年{tip}。',{branch:yearBranch, el:be, tip:tail}));
+  }
+  if(yearBranch==='巳') pts.push(tr('year.si','巳藏庚戊丙（杀/财/火）：执行力强，注意支出与情绪管理。'));
+  return pts;
+}
+const monthBand = branchOrder.map(z=>{
+  const el=fiveOfBranch(z);
+  const hint = el==='木' ? tr('month.wood','拓展、人脉、学习')
+             : el==='火' ? tr('month.fire','发布、行动、曝光')
+             : el==='土' ? tr('month.earth','收纳、整理、预算')
+             : el==='金' ? tr('month.metal','复盘、制度、合规')
+             :             tr('month.water','修复、学习、冷静');
+  return {branch:z, el, hint};
+});
+
+/* ---------- 主渲染 ---------- */
+function render(data){
+  injectStyle();
+  const host=$(data.mountId||MOUNT_ID) || document.body; host.innerHTML='';
+  const root = document.createElement('div'); host.appendChild(root);
+
+  const pillars = data.pillars; // [['干','支'],...]
+  const dayStem = data.dayStem;
+  const dayBranch = pillars?.[2]?.[1] || '';
+
+  /* 头卡片 */
+  const head = section(tr('ultra.sec.basic','基本信息'), [
+    el('div',null,`${(data.name||tr('ultra.name','命主'))} · ${(data.gender||'—')} · ${(data.birth||'')} · ${(data.location||'')}`),
+    el('div','muted', trf('ultra.pillars','四柱：{s}',{ s: (pillars||[]).map(p=>p.join('')).join('｜') })),
+    (()=>{ const ch=el('div','chips');
+      [tr('ultra.tag.offline','离线渲染'),
+       tr('ultra.tag.ten','十神/藏干/五行'),
+       tr('ultra.tag.struct','结构（合冲刑害）'),
+       tr('ultra.tag.year','年度与月份提示'),
+       tr('ultra.tag.luck','大运时间线'),
+       tr('ultra.tag.export','导出工具')].forEach(t=>ch.appendChild(el('span','chip',t)));
+      return ch;
+    })()
+  ]);
+  root.appendChild(head);
+
+  /* 十神 + 藏干表 */
+  const rows=[];
+  (pillars||[]).forEach((p,i)=>{
+    const [g,z]=p;
+    const hs = hiddenStems(z);
+    rows.push([[tr('col.year','年'),tr('col.month','月'),tr('col.day','日'),tr('col.hour','时')][i]||'',
+               g||'-', tenGodGeneric(dayStem,g)||'', z||'-', hs.join(' '), hs.map(h=>tenGodGeneric(dayStem,h)).join(' ')]);
+  });
+  root.appendChild(section(tr('ultra.sec.tengod','十神分解（明干/藏干）'), [
+    table([tr('th.pillar','柱'),tr('th.gan','天干'),tr('th.tgdm','十神(相对日主)'),
+           tr('th.zhi','地支'),tr('th.hidden','藏干'),tr('th.hiddentg','藏干十神')], rows)
+  ]));
+
+  /* 五行统计 + 用神倾向 */
+  const five = countFive(pillars||[], data.weightMain||1, data.weightHidden||0.5);
+  const total = Object.values(five).reduce((a,b)=>a+b,0)||1;
+  const kv = el('div','kv');
+  Object.entries(five).forEach(([k,v])=>{
+    const pct = Math.round(v/total*100);
+    const lab = el('div',null,`${k} ${v.toFixed(1)}（${pct}%）`);
+    const barWrap=el('div'); const bar=el('div','bar'); bar.style.width=pct+'%'; barWrap.appendChild(bar);
+    kv.append(lab,barWrap);
+  });
+  const bal = balanceAdvice(five);
+  const balList = el('ul','tips'); bal.text.forEach(t=>balList.appendChild(el('li',null,t)));
+  root.appendChild(section(tr('ultra.sec.balance','五行统计与平衡建议'), [kv, balList]));
+
+  /* 合会冲刑害 */
+  const bs = (pillars||[]).map(p=>p[1]).filter(Boolean);
+  const rel = relationTips(bs);
+  const relList = el('ul','tips'); (rel.length?rel:[tr('ultra.rel.none','（未见显著冲合；以节律与规划为主）')]).forEach(t=>relList.appendChild(el('li',null,t)));
+  root.appendChild(section(tr('ultra.sec.struct','结构提示 · 合/会/冲/刑/害'), [relList]));
+
+  /* 年度提示（可选） */
+  if(data.peekYear){
+    const y = data.peekYear;
+    const lst = el('ul','tips'); yearBrief(dayStem, y.stem, y.branch).forEach(t=>lst.appendChild(el('li',null,t)));
+    root.appendChild(section(trf('ultra.sec.year','年度提示 · {yb}',{yb: `${y.stem||''}${y.branch||''}` }), [lst]));
+  }
+
+  /* 12个月能量带 */
+  const mRows = monthBand.map(m=>[m.branch, m.el, m.hint]);
+  root.appendChild(section(tr('ultra.sec.month','月份能量带（节律建议）'), [table([tr('th.month.zhi','月支'), tr('th.month.el','元素'), tr('th.month.hint','倾向')], mRows)]));
+
+  /* 大运时间线（可选） */
+  if(Array.isArray(data.luckPillars)&&data.luckPillars.length){
+    const lpRows = data.luckPillars.map(x=>[`${x.start||''}–${x.end||''}`, `${(x.stem||'')}${(x.branch||'')}`, x.note||'']);
+    root.appendChild(section(tr('ultra.sec.luck','大运时间线'), [table([tr('th.luck.years','年份'), tr('th.luck.pillar','大运'), tr('th.luck.note','备注')], lpRows)]));
+  }
+
+  /* 健康/作息/空间（非医疗建议） */
+  const hl = el('ul','tips');
+  hl.appendChild(el('li',null,tr('ultra.health.firewood','木火偏盛：重视心肝轴；用“水（金）”冷却与复盘；每周≥2次中等强度运动。')));
+  hl.appendChild(el('li',null,tr('ultra.health.space','空间：卧室/客厅以温土+金属质感做收纳与秩序；减少强烈红光/杂物。')));
+  hl.appendChild(el('li',null,tr('ultra.health.routine','作息：固定睡窗与进食窗；高强度输出期配合冥想/拉伸。')));
+  root.appendChild(section(tr('ultra.sec.health','健康 · 作息 · 空间（五行轴提醒）'), [hl]));
+
+  /* 行动清单（当周/当月/12周） */
+  const g3=el('div','grid3');
+  const wList=el('ul','tips'); [tr('ultra.todo.week1','无手机双人时段×1'),tr('ultra.todo.week2','共同账本记账'),tr('ultra.todo.week3','本周1个可交付物')].forEach(t=>wList.appendChild(el('li',null,t)));
+  const mList=el('ul','tips'); [tr('ultra.todo.month1','预算复盘一次'),tr('ultra.todo.month2','规则/流程SOP更新'),tr('ultra.todo.month3','人脉拓展/复盘各一次')].forEach(t=>mList.appendChild(el('li',null,t)));
+  const qList=el('ul','tips'); [tr('ultra.todo.q1','12周冲刺：每周1产出'),tr('ultra.todo.q2','第4/8/12周做里程碑评审'),tr('ultra.todo.q3','形成可复用模板')].forEach(t=>qList.appendChild(el('li',null,t)));
+  g3.appendChild(section(tr('ultra.sec.week','当周'), [wList]));
+  g3.appendChild(section(tr('ultra.sec.monthtodo','当月'), [mList]));
+  g3.appendChild(section(tr('ultra.sec.quarter','12周冲刺'), [qList]));
+  root.appendChild(g3);
+
+  /* 导出 */
+  const tools = section(tr('ultra.sec.export','导出'), []);
+  const bar = el('div','cta');
+  const btnPrint = el('button','btn'); btnPrint.textContent=tr('btn.print','打印为 PDF'); btnPrint.onclick=()=>window.print();
+  const btnCopy = el('button','btn'); btnCopy.textContent=tr('btn.copy','复制关键信息');
+  btnCopy.onclick=()=>{
+    const summary = [
+      trf('copy.pillars','四柱：{s}',{ s:(pillars||[]).map(p=>p.join('')).join('｜') }),
+      trf('copy.five','五行：{s}',{ s:Object.entries(five).map(([k,v])=>`${k}${v.toFixed(1)}`).join(' ') }),
+      trf('copy.struct','结构：{s}',{ s:(rel||[]).join('；') || tr('copy.stable','平稳') }),
+      trf('copy.advice','用神倾向：补{min}、泄{max}',{ min:bal.minEl, max:bal.maxEl }),
+    ].join('\n');
+    navigator.clipboard.writeText(summary).catch(()=>{});
+  };
+  const btnJSON = el('button','btn'); btnJSON.textContent=tr('btn.json','导出JSON');
+  btnJSON.onclick=()=>{
+    const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`bazi_${Date.now()}.json`; a.click(); URL.revokeObjectURL(url);
+  };
+  bar.append(btnPrint, btnCopy, btnJSON); tools.appendChild(bar); root.appendChild(tools);
+}
+
+/* —— 对外 API —— */
+window.BaziUltra = { render };
+/* 兼容：BaziPro 指向 Ultra（v4 已覆盖 v3 功能；若日后需要独立 v3，可再替换） */
+window.BaziPro = { render };
+
+})();
+</script>  
 </body>
 </html>
