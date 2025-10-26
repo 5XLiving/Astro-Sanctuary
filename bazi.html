@@ -736,7 +736,7 @@ document.addEventListener('DOMContentLoaded', () => {
       applyI18n();
       // 若已有一次命盘，切换语言后重渲染
       const ctx = window.__last_report__;
-      if (ctx?.pillars?.day?.stem && window.BaziUltra) {
+      if (ctx?.pillars?.day?.stem) {
         const ps = [
           [ctx.pillars.year.stem,  ctx.pillars.year.branch],
           [ctx.pillars.month.stem, ctx.pillars.month.branch],
@@ -745,11 +745,22 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
         const name  = document.getElementById('name')?.value || '';
         const genderVal = document.getElementById('gender')?.value || '';
-        const genderTxt = genderVal==='male' ? (t('opt_gender_male') || '男性') : (genderVal==='female' ? (t('opt_gender_female') || '女性') : (t('opt_gender_confidential') || '—'));
+        const genderTxt = genderVal==='male' ? (t('opt_gender_male') || '男性')
+                         : genderVal==='female' ? (t('opt_gender_female') || '女性')
+                         : (t('opt_gender_confidential') || '—');
         const bd = document.getElementById('birthdate')?.value || '';
         const bt = document.getElementById('birthtime')?.value || '';
         const birthText = ctx.timeUnknown ? `${bd}（${t('rpt_time_unknown') || '时间不详'}）` : `${bd} ${bt}`;
-        window.BaziUltra.render({ mountId:'chartReport', name, gender: genderTxt, birth: birthText, location:'', dayStem: ctx.pillars.day.stem, pillars: ps });
+
+        safeRenderBaziUltra({
+          mountId:'chartReport',
+          name,
+          gender: genderTxt,
+          birth: birthText,
+          location:'',
+          dayStem: ctx.pillars.day.stem,
+          pillars: ps
+        });
       }
     });
   }
@@ -841,13 +852,29 @@ function generateBazi(name, date, time, timeUnknown) {
   };
 
   try {
-    if (window.BaziUltra) {
-      const genderVal = (document.getElementById('gender')?.value) || '';
-      const genderTxt = genderVal==='male' ? (t('opt_gender_male') || '男性') : (genderVal==='female' ? (t('opt_gender_female') || '女性') : (t('opt_gender_confidential') || '—'));
-      const pillarsData = [ [y.stem, y.branch], [m.stem, m.branch], [d.stem, d.branch], timeUnknown ? ['-','-'] : [h.stem, h.branch] ];
-      window.BaziUltra.render({ mountId:'chartReport', name: (name||''), gender: genderTxt, birth: timeUnknown ? `${date}（${t('rpt_time_unknown') || '时间不详'}）` : `${date} ${time}`, location: '', dayStem: d.stem, pillars: pillarsData });
-    }
-  } catch (e) { console.error('BaziUltra 渲染失败：', e); }
+    const genderVal = (document.getElementById('gender')?.value) || '';
+    const genderTxt = genderVal==='male' ? (t('opt_gender_male') || '男性')
+                     : genderVal==='female' ? (t('opt_gender_female') || '女性')
+                     : (t('opt_gender_confidential') || '—');
+    const pillarsData = [
+      [y.stem, y.branch],
+      [m.stem, m.branch],
+      [d.stem, d.branch],
+      timeUnknown ? ['-','-'] : [h.stem, h.branch]
+    ];
+
+    safeRenderBaziUltra({
+      mountId:'chartReport',
+      name: (name||''),
+      gender: genderTxt,
+      birth: timeUnknown ? `${date}（${t('rpt_time_unknown') || '时间不详'}）` : `${date} ${time}`,
+      location: '',
+      dayStem: d.stem,
+      pillars: pillarsData
+    });
+  } catch (e) {
+    console.error('BaziUltra 渲染失败：', e);
+  }
 
   if (typeof mountButlerCard === 'function') { mountButlerCard(); }
 }
@@ -936,6 +963,34 @@ function render(data){ injectStyle(); const host=document.getElementById(data.mo
 }
 window.BaziUltra = { render }; window.BaziPro = { render };
 })();
+</script>
+
+<script>
+// 放到全局脚本里
+function safeRenderBaziUltra(opts){
+  try{
+    const mountId = opts.mountId || 'chartReport';
+    const run = () => {
+      const host = document.getElementById(mountId);
+      if (window.BaziUltra && host) {
+        window.BaziUltra.render(opts);
+      } else {
+        // DOM 还没 ready 或 host 不在，下一帧再试一次
+        requestAnimationFrame(() => {
+          const host2 = document.getElementById(mountId);
+          if (window.BaziUltra && host2) window.BaziUltra.render(opts);
+        });
+      }
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', run, { once:true });
+    } else {
+      requestAnimationFrame(run);
+    }
+  }catch(e){
+    console.warn('[BaziUltra] render skipped:', e);
+  }
+}
 </script>
 </body>
 </html>
