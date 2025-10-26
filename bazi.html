@@ -243,7 +243,7 @@
       <div>
         <label class="muted">出生时间</label>
         <div class="time-row">
-          <input type="time" id="birthtime" value="12:00" />
+          <input type="time" id="birthtime" value="12:45" />
           <label class="muted time-unknown">
             <input type="checkbox" id="timeUnknown" />
             <span>出生时间不详</span>
@@ -833,6 +833,291 @@ async function generateBaziChart() {
   }
 }
 
+// 生成详细分析
+function generateDetailedAnalysis(pillars, elements, percents, strengthAnalysis, timeUnknown) {
+  const dayStem = pillars.day.stem;
+  const dayElement = pillars.day.element;
+  
+  // 基本信息
+  const name = $('name').value || '未知';
+  const gender = $('gender').value === 'male' ? '男' : ($('gender').value === 'female' ? '女' : '未透露');
+  
+  let basicInfo = `<p><strong>姓名：</strong>${name}</p>`;
+  basicInfo += `<p><strong>性别：</strong>${gender}</p>`;
+  basicInfo += `<p><strong>日主：</strong>${dayStem}${dayElement}（${strengthAnalysis.strength}）</p>`;
+  basicInfo += `<p><strong>格局：</strong>${strengthAnalysis.pattern}</p>`;
+  basicInfo += `<p><strong>季节：</strong>${strengthAnalysis.season}</p>`;
+  
+  $('basic-info').innerHTML = basicInfo;
+
+  // 总体命运解读
+  let overallDestiny = '';
+  if (strengthAnalysis.strength === '偏旺' || strengthAnalysis.strength === '极旺') {
+    overallDestiny = `<p>命主${dayStem}${dayElement}生于${strengthAnalysis.season}季，身旺有力，性格坚毅果断，有领导才能。</p>`;
+  } else if (strengthAnalysis.strength === '偏弱') {
+    overallDestiny = `<p>命主${dayStem}${dayElement}生于${strengthAnalysis.season}季，身弱需扶，性格温和内敛，善于合作。</p>`;
+  } else {
+    overallDestiny = `<p>命主${dayStem}${dayElement}生于${strengthAnalysis.season}季，中和平衡，性格稳重，适应力强。</p>`;
+  }
+  
+  $('overall-destiny').innerHTML = overallDestiny;
+
+  // 事业分析
+  const careerAnalysis = `<p>${dayStem}${dayElement}日主，适合从事与${getCareerAdvice(dayElement, elements)}相关的行业。${getCareerTrend(strengthAnalysis.strength)}</p>`;
+  $('career-analysis').innerHTML = careerAnalysis;
+
+  // 财富状况
+  const wealthAnalysis = `<p>${getWealthAnalysis(dayElement, elements, strengthAnalysis.strength)}</p>`;
+  $('wealth-analysis').innerHTML = wealthAnalysis;
+
+  // 婚姻感情
+  const marriageAnalysis = `<p>${getMarriageAnalysis(dayElement, gender, strengthAnalysis.strength)}</p>`;
+  $('marriage-analysis').innerHTML = marriageAnalysis;
+
+  // 大运流年
+  generateLuckAnalysis(pillars, gender);
+}
+
+// 职业建议
+function getCareerAdvice(dayElement, elements) {
+  const advice = {
+    '木': '教育、文化、艺术、医疗',
+    '火': '科技、能源、娱乐、餐饮',
+    '土': '房地产、建筑、金融、管理',
+    '金': '法律、机械、金融、技术',
+    '水': '贸易、物流、旅游、咨询'
+  };
+  return advice[dayElement] || '多元化领域';
+}
+
+// 职业趋势
+function getCareerTrend(strength) {
+  if (strength === '偏旺' || strength === '极旺') {
+    return '适合自主创业或担任领导职位，中年后事业有成。';
+  } else if (strength === '偏弱') {
+    return '适合在稳定环境中发展，依靠团队合作获得成功。';
+  } else {
+    return '事业发展平稳，适合在专业领域深耕。';
+  }
+}
+
+// 财富分析
+function getWealthAnalysis(dayElement, elements, strength) {
+  const wealthElements = {
+    '木': '木旺则财源广进，土为财星',
+    '火': '火旺则名利双收，金为财星', 
+    '土': '土旺则积蓄丰厚，水为财星',
+    '金': '金旺则财运稳定，木为财星',
+    '水': '水旺则流动生财，火为财星'
+  };
+  
+  let analysis = wealthElements[dayElement] || '';
+  
+  if (strength === '偏旺' || strength === '极旺') {
+    analysis += ' 身旺能担财，中年后财运亨通，但需注意理财规划。';
+  } else if (strength === '偏弱') {
+    analysis += ' 身弱财多，需借助他人力量求财，适合稳定收入。';
+  } else {
+    analysis += ' 财运平稳，通过勤奋努力可获得稳定财富。';
+  }
+  
+  return analysis;
+}
+
+// 婚姻分析
+function getMarriageAnalysis(dayElement, gender, strength) {
+  let analysis = '';
+  
+  if (gender === '男') {
+    analysis = '男命以财为妻，';
+    if (strength === '偏旺' || strength === '极旺') {
+      analysis += '身旺能担财，婚姻稳定，妻子能干。';
+    } else {
+      analysis += '身弱需扶，晚婚为宜，妻子多为贤内助。';
+    }
+  } else if (gender === '女') {
+    analysis = '女命以官为夫，';
+    if (strength === '偏旺' || strength === '极旺') {
+      analysis += '身旺官星有制，婚姻自主，丈夫有为。';
+    } else {
+      analysis += '身弱官星为忌，需寻包容之伴侣。';
+    }
+  } else {
+    analysis = '婚姻感情需结合具体命局分析，一般来说' + (strength === '偏旺' ? '身旺者婚姻自主' : '身弱者需寻扶持') + '。';
+  }
+  
+  return analysis;
+}
+
+// 生成大运流年分析
+function generateLuckAnalysis(pillars, gender) {
+  const luckGrid = $('luck-analysis');
+  luckGrid.innerHTML = '';
+  
+  const baseAge = 5; // 起运年龄
+  const luckCycles = [
+    { age: '5-14岁', desc: '童年运势平稳，学业基础阶段' },
+    { age: '15-24岁', desc: '青少年时期，性格形成关键期' },
+    { age: '25-34岁', desc: '事业起步阶段，积累经验时期' },
+    { age: '35-44岁', desc: '中年发展期，事业上升阶段' },
+    { age: '45-54岁', desc: '人生黄金期，收获成果之时' },
+    { age: '55-64岁', desc: '稳定发展期，规划晚年生活' }
+  ];
+  
+  luckCycles.forEach(cycle => {
+    const div = document.createElement('div');
+    div.className = 'luck-item';
+    div.innerHTML = `
+      <div class="luck-year">${cycle.age}</div>
+      <div class="luck-desc">${cycle.desc}</div>
+    `;
+    luckGrid.appendChild(div);
+  });
+}
+
+// 生成AI解读
+function generateAIInsight(pillars, percents, timeUnknown, strengthAnalysis) {
+  const aiContent = $('aiContent');
+  const aiChips = $('aiChips');
+  
+  // 模拟AI分析加载
+  setTimeout(() => {
+    const insight = `
+      <p>根据您的八字分析，${strengthAnalysis.strength}的${pillars.day.stem}${pillars.day.element}日主，命局特点鲜明：</p>
+      <p>• <strong>五行分布：</strong>木${Math.round(percents.wood)}%、火${Math.round(percents.fire)}%、土${Math.round(percents.earth)}%、金${Math.round(percents.metal)}%、水${Math.round(percents.water)}%</p>
+      <p>• <strong>格局特点：</strong>${strengthAnalysis.pattern}，${getPatternInsight(strengthAnalysis.pattern)}</p>
+      <p>• <strong>发展建议：</strong>${getDevelopmentAdvice(pillars.day.element, strengthAnalysis.strength)}</p>
+    `;
+    
+    aiContent.innerHTML = insight;
+    
+    // 生成交互芯片
+    const chips = [
+      '详细事业分析',
+      '财运投资建议', 
+      '婚姻感情解读',
+      '健康养生指导',
+      '流年运势预测'
+    ];
+    
+    aiChips.innerHTML = '';
+    chips.forEach(chipText => {
+      const chip = document.createElement('button');
+      chip.className = 'chip';
+      chip.textContent = chipText;
+      chip.addEventListener('click', () => {
+        showAuthErr('此功能需要VIP会员权限');
+      });
+      aiChips.appendChild(chip);
+    });
+    
+  }, 1500);
+}
+
+// 格局洞察
+function getPatternInsight(pattern) {
+  const insights = {
+    '建禄格': '自立自强，有开创精神',
+    '身旺格': '精力充沛，执行力强',
+    '身弱格': '心思细腻，善于合作', 
+    '中和格': '平衡稳定，适应力强'
+  };
+  return insights[pattern] || '需要具体分析';
+}
+
+// 发展建议
+function getDevelopmentAdvice(dayElement, strength) {
+  const baseAdvice = {
+    '木': '宜向东发展，从事文化教育行业',
+    '火': '宜向南发展，从事科技能源领域',
+    '土': '宜居中发展，从事房地产金融业', 
+    '金': '宜向西发展，从事法律技术行业',
+    '水': '宜向北发展，从事贸易物流领域'
+  };
+  
+  const strengthAdvice = strength === '偏旺' ? 
+    '注意控制脾气，多听取他人意见' : 
+    '增强自信，主动把握机会';
+    
+  return (baseAdvice[dayElement] || '根据实际情况选择发展方向') + '。' + strengthAdvice;
+}
+
+// 初始化聊天功能
+function initChat() {
+  const chatFab = $('ssChatFab');
+  const chatPanel = $('ssChatPanel');
+  const chatClose = $('ssChatClose');
+  const chatSend = $('ssChatSend');
+  const chatInput = $('ssChatInput');
+  const chatBody = $('ssChatBody');
+  
+  if (!chatFab || !chatPanel) return;
+  
+  chatFab.addEventListener('click', () => {
+    chatPanel.style.display = 'block';
+  });
+  
+  chatClose.addEventListener('click', () => {
+    chatPanel.style.display = 'none';
+  });
+  
+  function addMessage(text, isUser = false) {
+    const msgDiv = document.createElement('div');
+    msgDiv.className = `ss-msg ${isUser ? 'me' : ''}`;
+    msgDiv.textContent = text;
+    chatBody.appendChild(msgDiv);
+    chatBody.scrollTop = chatBody.scrollHeight;
+  }
+  
+  chatSend.addEventListener('click', () => {
+    const text = chatInput.value.trim();
+    if (!text) return;
+    
+    addMessage(text, true);
+    chatInput.value = '';
+    
+    // 模拟AI回复
+    setTimeout(() => {
+      const replies = [
+        '这是一个很好的问题，让我为您详细分析...',
+        '根据您的八字特点，我建议...',
+        '这个问题需要结合您的具体命局来看...',
+        '从五行角度来看，您的命局显示...'
+      ];
+      addMessage(replies[Math.floor(Math.random() * replies.length)]);
+    }, 1000);
+  });
+  
+  chatInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') {
+      chatSend.click();
+    }
+  });
+}
+
+// 初始化时间未知功能
+function initTimeUnknown() {
+  const timeUnknown = $('timeUnknown');
+  const birthtime = $('birthtime');
+  
+  if (timeUnknown && birthtime) {
+    timeUnknown.addEventListener('change', () => {
+      birthtime.disabled = timeUnknown.checked;
+    });
+  }
+}
+
+// 初始化语言支持
+function initLanguageSupport() {
+  const langSelect = $('langSelect');
+  if (langSelect) {
+    langSelect.addEventListener('change', () => {
+      // 这里可以添加多语言切换逻辑
+      console.log('切换语言:', langSelect.value);
+    });
+  }
+}
+
 // VIP登录系统
 const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
 
@@ -957,11 +1242,10 @@ $('resetBtn')?.addEventListener('click', async ()=>{
 
 // 初始化函数
 function init() {
-  // 设置默认日期为今天
-  const today = new Date().toISOString().split('T')[0];
+  // 设置默认日期为1978-02-21
   const birthdateInput = $('birthdate');
   if (birthdateInput && !birthdateInput.value) {
-    birthdateInput.value = today;
+    birthdateInput.value = '1978-02-21';
   }
 
   // 绑定事件
