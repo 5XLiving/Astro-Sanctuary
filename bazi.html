@@ -1,374 +1,209 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8" />
-  <title>八字命理 · 快速排盘</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <link rel="icon" href="data:,">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
-
-  <style>
-    /* 保持你的原有样式，并修复/补全少量细节 */
-    :root{
-      --bg:#0b0f14; --card:#11161dcc; --line:#1f2a36; --text:#e8edf3; --muted:#98a7b7;
-      --brand:#d4af37; --gold:#d4af37; --gold2:#f2d27a; --accent:#58b9ff;
-      --radius:14px; --shadow:0 8px 30px rgba(0,0,0,.35);
-    }
-    html,body{height:100%; margin:0; padding:0;}
-    body{
-      color:var(--text); background: radial-gradient(1200px 600px at 70% -10%, #16202b 10%, transparent 60%) no-repeat, linear-gradient(180deg,#0b0f14,#0b0f14);
-      font-family: Inter,system-ui,-apple-system,"Noto Sans SC","Segoe UI",Roboto,Arial,sans-serif;
-      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-    }
-    body::before{content:""; position:fixed; inset:0; z-index:-2; background:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" opacity="0.05"><rect width="100" height="100" fill="%23d4af37"/></svg>') center/cover no-repeat; filter:brightness(.45) saturate(.9) blur(2px)}
-
-    .container{max-width:1100px;margin:0 auto;padding:24px 16px 80px}
-
-    .site-header{position:sticky; top:0; z-index:10; background:#0b0f14cc; border-bottom:1px solid #0f1622; backdrop-filter:saturate(140%) blur(12px)}
-    .head-inner{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 16px}
-    .brand{display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--text)}
-    .brand-badge{display:inline-grid; place-items:center; width:34px; height:34px; border-radius:8px; background:linear-gradient(180deg,#0e1520,#0b1018); border:1px solid #2a3546; box-shadow:0 4px 14px rgba(0,0,0,.35); font-weight:800; color:#ffe084}
-    .title{font-family:"Noto Serif SC",serif; font-weight:700; letter-spacing:.02em; font-size:1.1rem}
-
-    .lang{display:flex; align-items:center; gap:8px}
-    .lang select{appearance:none; min-width:140px; border-radius:10px; border:1px solid #243244; background:#0e1520; color:var(--text); padding:10px 34px 10px 12px; font-size:.95rem; background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2398a7b7' stroke-width='2' fill='none'/%3E%3C/svg%3E"); background-repeat:no-repeat; background-position:calc(100% - 12px) 50%}
-
-    .section{margin-top:18px}
-    .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(10px);padding:18px;margin:16px 0}
-    .h2{font-size:1.2rem;margin:0 0 12px;font-weight:800;color:#ffe084;display:flex;gap:8px;align-items:center}
-    .h2::before{content:"";width:4px;height:18px;background:var(--brand);border-radius:2px}
-
-    .row{display:grid;gap:12px;grid-template-columns:1fr}
-    @media(min-width:760px){.row.cols-3{grid-template-columns:1fr 1fr 1fr}.row.cols-2{grid-template-columns:1fr 1fr}}
-
-    input,select{width:100%;box-sizing:border-box;border-radius:12px;border:1px solid #243244;background:#0e1520;color:var(--text); padding:12px 12px;font-size:15px;outline:none}
-    input::placeholder{color:#6f8092}
-
-    .btn{display:inline-grid;place-items:center;padding:12px 16px;border-radius:12px;border:1px solid #e6c76e;background:linear-gradient(180deg,#fff9e6,#e6c76e);color:#191919;font-weight:800;cursor:pointer;transition:all 0.2s ease}
-    .btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(230,199,110,.5)}
-    .btn[disabled]{opacity:.6;cursor:not-allowed}
-    .btn.ghost{background:transparent;color:var(--gold2);border:1px solid rgba(212,175,55,.45);box-shadow:none}
-    .btn.block{display:block;width:100%}
-
-    .pillars{display:grid;grid-template-columns:repeat(4,1fr);gap:10px; margin-bottom:20px}
-    .pillar{background:#0f1624;border:1px solid #253245;border-radius:12px;padding:14px 10px;text-align:center}
-    .pillar .tit{color:#9aa3b2;font-size:.85rem;margin-bottom:6px}
-    .pillar .gz{font-size:1.5rem;font-weight:800;color:var(--gold2)}
-
-    .bazi-table{width:100%;border-collapse:collapse;margin-top:12px;background:#0f1624;border-radius:8px;overflow:hidden}
-    .bazi-table th,.bazi-table td{padding:10px 12px;border:1px solid #253245;text-align:center}
-    .bazi-table th{background:rgba(212,175,55,.1);color:var(--gold2)}
-
-    .bar{height:10px;background:#0d1420;border:1px solid #233146;border-radius:999px;overflow:hidden;margin:6px 0}
-    .bar i{display:block;height:100%;background:linear-gradient(90deg,#ffe084,#f2d27a);width:0; transition:width 0.5s ease}
-    .bar-row{display:grid;grid-template-columns:60px 1fr 60px;gap:10px;align-items:center}
-
-    .error-message{background:rgba(255,90,95,.1);border:1px solid #ff5a5f;border-radius:8px;padding:10px;display:none; margin-top:10px}
-    .badge-warn{display:inline-block;padding:2px 8px;margin-left:6px;border:1px solid #ffb84d;border-radius:999px;color:#ffb84d;font-size:.82rem}
-    .muted{color:var(--muted)}
-
-    .time-row{display:flex;align-items:center;gap:10px}
-    .time-row .time-unknown{display:flex;align-items:center;gap:6px;white-space:nowrap}
-    .time-row input[type="time"]{width:auto !important; flex:0 0 160px; min-width:140px}
-
-    .gen-wrap{display:flex;align-items:flex-end;justify-content:flex-end}
-    #genBtn{width:auto !important}
-
-    .analysis-grid {display:grid; gap:16px; margin-top:20px}
-    .analysis-card {background:#0f1624; border:1px solid #253245; border-radius:12px; padding:16px}
-    .analysis-card h3 {color:var(--gold2); margin:0 0 12px 0; font-size:1.1rem}
-    .analysis-content {line-height:1.6}
-    .rating {display:flex; align-items:center; gap:8px; margin:8px 0}
-    .rating-stars {color:var(--gold2)}
-    .tag {display:inline-block; background:rgba(212,175,55,.1); color:var(--gold2); padding:4px 8px; border-radius:6px; font-size:.85rem; margin:2px}
-
-    .luck-grid {display:grid; gap:10px}
-    .luck-item {background:rgba(255,255,255,.05); border-radius:8px; padding:12px; border-left:3px solid var(--gold2)}
-    .luck-year {font-weight:bold; color:var(--gold2)}
-    .luck-desc {font-size:.9rem; margin-top:4px}
-
-    .columns{display:grid;gap:12px;grid-template-columns:1fr}
-    @media(min-width:900px){ .columns{grid-template-columns:1fr 1fr} }
-    .list-block{border:1px solid #263448;background:#0e1520;border-radius:12px;padding:16px}
-    .list-block ul{margin:.2rem 0 0;padding-left:1.1rem}
-    .group-title{font-size:1.05rem;color:#ffe084;margin:6px 0 14px}
-
-    .astro-auth{max-width:980px;margin:28px auto;padding:20px 18px;background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid rgba(212,175,55,.22);border-radius:14px;box-shadow:0 18px 50px rgba(0,0,0,.35)}
-    .auth-grid{display:grid;gap:18px;grid-template-columns:1.2fr .8fr}
-    @media(max-width:860px){ .auth-grid{grid-template-columns:1fr} }
-    .panel{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));border:1px solid rgba(212,175,55,.22);border-radius:14px;box-shadow:0 10px 30px rgba(0,0,0,.35)}
-    .panel .head{padding:16px 18px;border-bottom:1px solid rgba(212,175,55,.22);color:var(--gold);font-weight:700;letter-spacing:.3px}
-    .panel .body{padding:18px}
-    .spacer{height:12px}
-
-    .ai-box{background:#0b111a; border:1px solid #1f2a36; border-radius:12px; padding:14px 16px; margin:14px 0}
-    .ai-box-h{color:#ffd88a; font-weight:700; margin-bottom:8px}
-    .ai-box-c{color:#e8edf3; line-height:1.7}
-    .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-    .chip{padding:6px 10px;border-radius:999px;border:1px solid #2a3546;background:#0e1520;color:#e8edf3;cursor:pointer; transition:all 0.2s ease}
-    .chip:hover{border-color:#f2d27a;box-shadow:0 0 0 2px rgba(242,210,122,.15) inset}
-    .chip:disabled{opacity:.6; cursor:not-allowed}
-
-    .skeleton{display:grid;gap:8px}
-    .skeleton div{height:12px;border-radius:6px;background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);animation:sh 1.2s infinite}
-    @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
-
-    .ai-lock-overlay{margin-top:10px;padding-top:10px;border-top:1px solid #1f2a36;text-align:center}
-    .ai-lock-overlay .tip{color:#ffd88a;font-weight:700;margin-bottom:4px}
-    .ai-lock-overlay .sub{color:var(--muted)}
-
-    .detail-view {display:none}
-    .detail-header {display:flex; align-items:center; gap:12px; margin-bottom:20px}
-    .back-btn {background:rgba(212,175,55,.1); border:1px solid rgba(212,175,55,.3); color:var(--gold2); padding:8px 16px; border-radius:8px; cursor:pointer}
-    .detail-content {line-height:1.8}
-    .detail-section {margin-bottom:24px}
-    .detail-section h4 {color:var(--gold2); margin-bottom:12px; font-size:1.1rem}
-    .action-list {list-style:none; padding:0}
-    .action-list li {margin-bottom:8px; padding-left:20px; position:relative}
-    .action-list li:before {content:"•"; color:var(--gold2); position:absolute; left:0}
-
-    footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0; margin-top:40px}
-
-    @media (max-width:520px){
-      .title{font-size:1rem}
-      .lang select{min-width:120px}
-      .pillars{grid-template-columns:repeat(2,1fr)}
-      .analysis-grid {grid-template-columns: 1fr}
-    }
-
-    .sr-only{position:absolute !important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
-
-    .chips-container {display:flex;flex-wrap:wrap;gap:8px;margin:20px 0;justify-content:center}
-
-    .vip-section {display:block !important}
-
-    .butler-professional {display:none; margin-top:20px; background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px}
-    .butler-header {display:flex; align-items:center; gap:10px; margin-bottom:20px; color:var(--gold2); font-size:1.2rem; font-weight:bold}
-    .butler-content {line-height:1.8; max-height:600px; overflow-y:auto; padding:15px; background:#0f1624; border-radius:10px; border:1px solid #253245}
-    .butler-section {margin-bottom:25px; padding-bottom:15px; border-bottom:1px solid #253245}
-    .butler-section h4 {color:var(--gold2); margin-bottom:10px; font-size:1.1rem}
-    .butler-chat {margin-top:20px; border-top:1px solid var(--line); padding-top:15px}
-    .chat-messages {height:200px; overflow-y:auto; margin-bottom:15px; padding:10px; background:#0f1624; border-radius:8px; border:1px solid #253245}
-    .chat-input-area {display:flex; gap:10px}
-    .chat-input-area input {flex:1; padding:10px; border-radius:8px; border:1px solid #253245; background:#0e1520; color:var(--text)}
-    .chat-send-btn {padding:10px 20px; background:var(--gold); color:#191919; border:none; border-radius:8px; font-weight:bold; cursor:pointer}
-  </style>
-</head>
-<body>
-<header class="site-header">
-  <div class="head-inner container">
-    <a class="brand" href="#" target="_self">
-      <span class="brand-badge">5X</span>
-      <span class="title" data-i18n="brand.subtitle">5xLiving · 八字简评</span>
-    </a>
-    <div class="lang">
-      <label for="langSelect" class="muted" data-i18n="nav.langLabel">语言</label>
-      <select id="langSelect" aria-label="Language">
-        <option value="zh-CN" data-i18n="lang.zh-CN">简体中文</option>
-        <option value="zh-TW" data-i18n="lang.zh-TW">繁體中文</option>
-        <option value="en"    data-i18n="lang.en">English</option>
-        <option value="ja"    data-i18n="lang.ja">日本語</option>
-        <option value="th"    data-i18n="lang.th">ไทย</option>
-        <option value="ms"    data-i18n="lang.ms">Bahasa Melayu</option>
-      </select>
-    </div>
-  </div>
-</header>
-
-<main class="container">
-  <section class="card">
-    <div class="h2" data-i18n="app.title">八字命理 · 快速排盘</div>
-    <div class="row cols-3">
-      <div>
-        <label class="muted" data-i18n="form.nameLabel">姓名（可选）</label>
-        <input id="name" placeholder="你的称呼（用于个性化）" />
-      </div>
-      <div>
-        <label class="muted" data-i18n="form.genderLabel">性别</label>
-        <select id="gender">
-          <option value=""        data-i18n="form.gender.hidden">不透露</option>
-          <option value="male"    data-i18n="form.gender.male">男性</option>
-          <option value="female"  data-i18n="form.gender.female">女性</option>
-        </select>
-      </div>
-      <div>
-        <label class="muted" data-i18n="form.calendarLabel">历法</label>
-        <select id="calendar">
-          <option value="gregorian" data-i18n="form.calendar.gregorian">阳历</option>
-          <option value="lunar"     data-i18n="form.calendar.lunar">农历</option>
-        </select>
-      </div>
-    </div>
-    <div class="row cols-3" style="margin-top:10px">
-      <div>
-        <label class="muted" data-i18n="form.birthdateLabel">出生日期</label>
-        <input type="date" id="birthdate" />
-      </div>
-      <div>
-        <label class="muted" data-i18n="form.birthtimeLabel">出生时间</label>
-        <div class="time-row">
-          <input type="time" id="birthtime" />
-          <label class="muted time-unknown">
-            <input type="checkbox" id="timeUnknown" />
-            <span data-i18n="form.timeUnknown">出生时间不详</span>
-          </label>
-        </div>
-      </div>
-      <div class="gen-wrap">
-        <button class="btn" id="genBtn" type="button">
-          <span id="genBtnText" data-i18n="btn.generate">生成八字</span>
-          <span id="genBtnLoading" style="display:none" data-i18n="btn.loading">计算中...</span>
-        </button>
-      </div>
-    </div>
-    <div id="error" class="error-message"></div>
-  </section>
-
-  <section id="result" style="display:none;">
-    <div class="card">
-      <div class="h2" data-i18n="result.title">您的生辰八字命盘</div>
-      <div class="pillars" id="bazi-pillars"></div>
-      <div class="muted" id="bazi-date" style="margin-top:6px"></div>
-
-      <table class="bazi-table">
-        <thead>
-          <tr>
-            <th></th>
-            <th data-i18n="pillar.year">年柱</th>
-            <th data-i18n="pillar.month">月柱</th>
-            <th data-i18n="pillar.day">日柱</th>
-            <th data-i18n="pillar.hour">时柱</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td data-i18n="table.row.stem">天干</td>
-            <td id="year-stem">-</td><td id="month-stem">-</td><td id="day-stem">-</td><td id="hour-stem">-</td>
-          </tr>
-          <tr>
-            <td data-i18n="table.row.branch">地支</td>
-            <td id="year-branch">-</td><td id="month-branch">-</td><td id="day-branch">-</td><td id="hour-branch">-</td>
-          </tr>
-          <tr>
-            <td data-i18n="table.row.fiveElem">五行</td>
-            <td id="year-element">-</td><td id="month-element">-</td><td id="day-element">-</td><td id="hour-element">-</td>
-          </tr>
-          <tr>
-            <td data-i18n="table.row.nayin">纳音</td>
-            <td id="year-nayin">-</td><td id="month-nayin">-</td><td id="day-nayin">-</td><td id="hour-nayin">-</td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="card">
-      <div class="h2" data-i18n="energy.title">五行能量分析</div>
-      <div class="bar-row"><span data-i18n="elem.wood">木</span><div class="bar"><i id="bar-木"></i></div><span id="pct-木">0%</span></div>
-      <div class="bar-row"><span data-i18n="elem.fire">火</span><div class="bar"><i id="bar-火"></i></div><span id="pct-火">0%</span></div>
-      <div class="bar-row"><span data-i18n="elem.earth">土</span><div class="bar"><i id="bar-土"></i></div><span id="pct-土">0%</span></div>
-      <div class="bar-row"><span data-i18n="elem.metal">金</span><div class="bar"><i id="bar-金"></i></div><span id="pct-金">0%</span></div>
-      <div class="bar-row"><span data-i18n="elem.water">水</span><div class="bar"><i id="bar-水"></i></div><span id="pct-水">0%</span></div>
-      <div id="bazi-elements-balance" class="muted"></div>
-    </div>
-  </section>
-
-  <section id="butlerProfessional" class="butler-professional">
-    <div class="butler-header">
-      <span data-i18n="pro.title">🧙‍♂️ 心怜管家 · 专业命理分析</span>
-    </div>
-    <div class="butler-content" id="professionalReport"></div>
-    <div class="butler-chat">
-      <div class="chat-messages" id="chatMessages">
-        <div class="ss-msg" data-i18n="pro.welcome">您好！我是您的专业命理顾问，已为您生成详细分析报告。有什么具体问题可以随时问我。</div>
-      </div>
-      <div class="chat-input-area">
-        <input type="text" id="chatInput" placeholder="请输入您的问题...">
-        <button class="chat-send-btn" id="chatSend" data-i18n="chat.send">发送</button>
-      </div>
-    </div>
-  </section>
-
-  <section class="card section vip-section">
-    <h2 class="group-title" data-i18n="vip.title">🌙 会员区域 VIP Segment</h2>
-    <div class="columns">
-      <div class="list-block">
-        <div class="group-title" data-i18n="vip.group.astrology">🗝 命理空间专属内容</div>
-        <ul>
-          <li data-i18n="vip.astrology.match">姻缘方向：恋爱缘分、婚姻走势</li>
-          <li data-i18n="vip.astrology.career">事业方向：职场发展、创业潜力</li>
-          <li data-i18n="vip.astrology.wealth">财运方向：财位分析、理财时机</li>
-          <li data-i18n="vip.astrology.pet">宠物命理：伴侣动物的性格与缘分</li>
-        </ul>
-      </div>
-      <div class="list-block">
-        <div class="group-title" data-i18n="vip.group.spiritual">🌙 心怜空间专属内容</div>
-        <ul>
-          <li data-i18n="vip.spiritual.record">灵性记录：照片、梦境、声音、愿望祈祷</li>
-          <li data-i18n="vip.spiritual.courses">命理课程：八字 / 塔罗 / 占星 / 灵数</li>
-          <li data-i18n="vip.spiritual.family">家族纪念系统：亲人灵性纪念 & 延续</li>
-          <li data-i18n="vip.spiritual.practice">每周能量练习 / 神明仪式任务</li>
-        </ul>
-      </div>
-    </div>
-
-    <div class="group-title" style="margin-top:14px" data-i18n="vip.login.title">💎 登入 VIP 功能</div>
-    <section class="astro-auth">
-      <div class="auth-grid">
-        <div class="panel">
-          <div class="head" data-i18n="auth.header">账户登录 / 注册</div>
-          <div class="body">
-            <div class="row" id="authFields">
-              <input id="email" name="email" type="email" inputmode="email" autocomplete="username" placeholder="邮箱 Email">
-              <input id="password" name="password" type="password" autocomplete="current-password" placeholder="密码 Password（至少8位，含大小写数字符号）">
-            </div>
-            <div class="spacer"></div>
-            <form id="loginForm" class="row one">
-              <button class="btn block" id="loginBtn" type="submit" data-i18n="auth.login">登入账户</button>
-            </form>
-            <div class="spacer"></div>
-            <div class="row one">
-              <button class="btn ghost block" id="resetBtn" type="button" data-i18n="auth.reset">🔑 重设密码</button>
-            </div>
-            <div class="spacer"></div>
-            <form class="row one" id="registerForm">
-              <button class="btn block" id="registerBtn" type="submit" data-i18n="auth.register">注册账户</button>
-              <div class="muted" data-i18n="auth.freeTrialNote">注册账号赠送一次免费体验</div>
-              <div class="spacer"></div>
-              <div class="error-message" id="authError" style="display:none"></div>
-            </form>
-          </div>
-        </div>
-
-        <div class="panel">
-          <div class="head" data-i18n="vip.services.header">会员服务</div>
-          <div class="body">
-            <div class="row one">
-              <a class="btn block" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener noreferrer" data-i18n="vip.upgrade">💎 升级为 VIP（月费）</a>
-            </div>
-            <div class="row one">
-              <a class="btn ghost block" href="https://yourshopifyshop.myshopify.com" target="_blank" rel="noopener noreferrer" data-i18n="vip.back">← 返回命理商城</a>
-            </div>
-            <div class="muted" data-i18n="vip.priceNote">$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）</div>
-          </div>
-        </div>
-      </div>
-    </section>
-  </section>
-
-  <footer data-i18n="footer.copy">© 5XLiving • Astro Sanctuary</footer>
-</main>
-
-
 <script>
 'use strict';
 
-document.querySelectorAll('[data-i18n-placeholder]').forEach(el=>{
-  const key = el.getAttribute('data-i18n-placeholder');
-  const val = get(dict, key) || get(I18N['zh-CN'], key);
-  if (val) el.setAttribute('placeholder', val);
-});  
+/* ========= i18n 词典（静态 + 动态） ========= */
+const I18N = {
+  'zh-CN': {
+    brand: { subtitle: '5xLiving · 八字简评' },
+    nav: { langLabel: '语言' },
+    lang: { 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+
+    app: { title: '八字命理 · 快速排盘' },
+
+    form: {
+      nameLabel: '姓名（可选）',
+      namePlaceholder: '你的称呼（用于个性化）',
+      genderLabel: '性别',
+      gender: { hidden:'不透露', male:'男性', female:'女性' },
+      calendarLabel: '历法',
+      calendar: { gregorian:'阳历', lunar:'农历' },
+      birthdateLabel: '出生日期',
+      birthtimeLabel: '出生时间',
+      timeUnknown: '出生时间不详'
+    },
+
+    btn: { generate:'生成八字', loading:'计算中...' },
+
+    result: { title:'您的生辰八字命盘' },
+    pillar: { year:'年柱', month:'月柱', day:'日柱', hour:'时柱' },
+    table: { row: { stem:'天干', branch:'地支', fiveElem:'五行', nayin:'纳音' } },
+
+    energy: { title:'五行能量分析' },
+    elem: { wood:'木', fire:'火', earth:'土', metal:'金', water:'水' },
+
+    pro: { title:'🧙‍♂️ 心怜管家 · 专业命理分析', welcome:'您好！我是您的专业命理顾问，已为您生成详细分析报告。有什么具体问题可以随时问我。' },
+    chat: { send:'发送', placeholder:'请输入您的问题...' },
+
+    vip: {
+      title:'🌙 会员区域 VIP Segment',
+      group: { astrology:'🗝 命理空间专属内容', spiritual:'🌙 心怜空间专属内容' },
+      astrology: { match:'姻缘方向：恋爱缘分、婚姻走势', career:'事业方向：职场发展、创业潜力', wealth:'财运方向：财位分析、理财时机', pet:'宠物命理：伴侣动物的性格与缘分' },
+      spiritual: { record:'灵性记录：照片、梦境、声音、愿望祈祷', courses:'命理课程：八字 / 塔罗 / 占星 / 灵数', family:'家族纪念系统：亲人灵性纪念 & 延续', practice:'每周能量练习 / 神明仪式任务' },
+      login: { title:'💎 登入 VIP 功能' },
+      services: { header:'会员服务' },
+      upgrade:'💎 升级为 VIP（月费）',
+      back:'← 返回命理商城',
+      priceNote:'$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）'
+    },
+
+    auth: {
+      header:'账户登录 / 注册',
+      login:'登入账户',
+      reset:'🔑 重设密码',
+      register:'注册账户',
+      freeTrialNote:'注册账号赠送一次免费体验',
+      emailPlaceholder:'邮箱 Email',
+      passwordPlaceholder:'密码 Password（至少8位，含大小写数字符号）'
+    },
+
+    footer: { copy:'© 5XLiving • Astro Sanctuary' },
+
+    // 动态文案
+    err: {
+      fillBirthdate: '请填写出生日期',
+      invalidDate:   '无效的日期格式，请用 YYYY-MM-DD',
+      generateFail:  '生成失败，请稍后重试'
+    },
+    ui: {
+      unknown:      '未知',
+      timeUnknown:  '时间不详',
+      hourSuffix:   '{h}时',
+      birthSummary: '出生日期: {y}年{m}月{d}日 {timeText}',
+      balance:      '五行中{strongest}最强，{weakest}最弱。'
+    },
+    badge: { noHour: '未纳入时柱' },
+    chatDyn:  { autoReply: '收到：{q}。稍后可在专业报告相应章节找到要点。' },
+    elemNames: { 木:'木', 火:'火', 土:'土', 金:'金', 水:'水' },
+    report: { hourUnknownTip: '⚠️ 提示：因出生时间不详，部分分析仅供参考。' }
+  },
+
+  'en': {
+    brand: { subtitle: '5xLiving · Bazi Brief' },
+    nav: { langLabel: 'Language' },
+    lang: { 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+
+    app: { title: 'Bazi · Quick Chart' },
+
+    form: {
+      nameLabel: 'Name (optional)',
+      namePlaceholder: 'Your name (for personalization)',
+      genderLabel: 'Gender',
+      gender: { hidden:'Prefer not to say', male:'Male', female:'Female' },
+      calendarLabel: 'Calendar',
+      calendar: { gregorian:'Gregorian', lunar:'Lunar' },
+      birthdateLabel: 'Birth Date',
+      birthtimeLabel: 'Birth Time',
+      timeUnknown: 'Time unknown'
+    },
+
+    btn: { generate:'Generate', loading:'Calculating...' },
+
+    result: { title:'Your Bazi Chart' },
+    pillar: { year:'Year', month:'Month', day:'Day', hour:'Hour' },
+    table: { row: { stem:'Heavenly Stem', branch:'Earthly Branch', fiveElem:'Five Elements', nayin:'Nayin' } },
+
+    energy: { title:'Five-Element Energy Analysis' },
+    elem: { wood:'Wood', fire:'Fire', earth:'Earth', metal:'Metal', water:'Water' },
+
+    pro: { title:'🧙‍♂️ Butler · Professional Analysis', welcome:'Hi! I\'ve generated your detailed analysis. Ask me anything.' },
+    chat: { send:'Send', placeholder:'Type your question...' },
+
+    vip: {
+      title:'🌙 VIP Segment',
+      group: { astrology:'🗝 Exclusive Astrology Content', spiritual:'🌙 Spiritual Space Exclusives' },
+      astrology: { match:'Relationships: love & marriage', career:'Career: workplace & entrepreneurship', wealth:'Wealth: positions & timing', pet:'Pet astrology: personality & bond' },
+      spiritual: { record:'Spiritual records: photos, dreams, voice, prayers', courses:'Courses: Bazi / Tarot / Astrology / Numerology', family:'Family memorial system', practice:'Weekly practices / rituals' },
+      login: { title:'💎 Sign in for VIP' },
+      services: { header:'Membership' },
+      upgrade:'💎 Upgrade to VIP (Monthly)',
+      back:'← Back to Store',
+      priceNote:'$9.9 / month (Astro + Spiritual + Courses)'
+    },
+
+    auth: {
+      header:'Sign In / Register',
+      login:'Sign In',
+      reset:'🔑 Reset Password',
+      register:'Register',
+      freeTrialNote:'New accounts get one free trial',
+      emailPlaceholder:'Email',
+      passwordPlaceholder:'Password (min 8 chars, mixed case & symbols)'
+    },
+
+    footer: { copy:'© 5XLiving • Astro Sanctuary' },
+
+    // dynamic
+    err: {
+      fillBirthdate: 'Please enter your birth date',
+      invalidDate:   'Invalid date. Use YYYY-MM-DD.',
+      generateFail:  'Failed to generate. Please try again later.'
+    },
+    ui: {
+      unknown:      'Unknown',
+      timeUnknown:  'time unknown',
+      hourSuffix:   '{h}:00',
+      birthSummary: 'Birth date: {y}-{m}-{d} {timeText}',
+      balance:      'Among the Five Elements, {strongest} is strongest and {weakest} is weakest.'
+    },
+    badge: { noHour: 'Hour not included' },
+    chatDyn:  { autoReply: 'Got it: {q}. Find key points in the relevant sections.' },
+    elemNames: { 木:'Wood', 火:'Fire', 土:'Earth', 金:'Metal', 水:'Water' },
+    report: { hourUnknownTip: '⚠️ Note: Birth time unknown, some analysis is for reference only.' }
+  }
+};
+
+/* ========= i18n 工具 ========= */
+function getLang(){
+  const sel = document.getElementById('langSelect');
+  return (localStorage.getItem('lang') || (sel && sel.value) || 'zh-CN');
+}
+function setLang(lang){
+  try{ localStorage.setItem('lang', lang) }catch(e){}
+}
+function t(key, vars={}){
+  const dict = I18N[getLang()] || I18N['zh-CN'];
+  const base = key.split('.').reduce((o,k)=>o && o[k], dict);
+  const fallback = key.split('.').reduce((o,k)=>o && o[k], I18N['zh-CN']);
+  let s = (base || fallback || String(key));
+  return s.replace(/\{(\w+)\}/g, (_,k)=> (vars[k] ?? ''));
+}
+function elName(cn){ const dict = I18N[getLang()] || I18N['zh-CN']; return (dict.elemNames && dict.elemNames[cn]) || cn; }
+
+/* 将所有 [data-i18n] 文本 & 常用 placeholder 同步到当前语言 */
+function applyI18n(){
+  const lang = getLang();
+  document.documentElement.lang = lang;
+
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
+    el.textContent = t(key);
+  });
+
+  // 常用 placeholder（无需在 HTML 上加 data-i18n-placeholder）
+  const placeholders = [
+    ['name',      'form.namePlaceholder'],
+    ['chatInput', 'chat.placeholder'],
+    ['email',     'auth.emailPlaceholder'],
+    ['password',  'auth.passwordPlaceholder']
+  ];
+  placeholders.forEach(([id,key])=>{
+    const el = document.getElementById(id);
+    if(el) el.setAttribute('placeholder', t(key));
+  });
+}
+
+// 监听语言切换
+(function bindLangSelect(){
+  const sel = document.getElementById('langSelect');
+  if(!sel) return;
+  const saved = getLang();
+  sel.value = saved;
+  sel.addEventListener('change', ()=>{
+    setLang(sel.value);
+    applyI18n();
+    try{ rerenderDynamicTexts(); }catch(e){}
+  });
+})();
 
 /* ========= 工具 ========= */
 const $ = id => document.getElementById(id);
@@ -379,77 +214,7 @@ function lock(el,v){ if(el) el.disabled=v }
 function setText(id, text){ const el=$(id); if(el) el.textContent=text }
 function setBar(elementId, percentage){ const bar=$(elementId); if(bar){ requestAnimationFrame(()=>{ bar.style.width=Math.max(0,Math.min(100,percentage))+'%' }) } }
 
-/* ========= i18n ========= */
-const I18N = {
-  'zh-CN': {
-    err: {
-      fillBirthdate: '请填写出生日期',
-      invalidDate:   '无效的日期格式，请用 YYYY-MM-DD',
-      generateFail:  '生成失败，请稍后重试'
-    },
-    ui: {
-      timeUnknown:  '时间不详',
-      hourSuffix:   '{h}时',
-      birthSummary: '出生日期: {y}年{m}月{d}日 {timeText}',
-      balance:      '五行中{strongest}最强，{weakest}最弱。'
-    },
-    badge: { noHour: '未纳入时柱' },
-    chat:  { autoReply: '收到：{q}。稍后可在专业报告相应章节找到要点。' },
-    elemNames: { 木:'木', 火:'火', 土:'土', 金:'金', 水:'水' }
-  },
-  'en': {
-    err: {
-      fillBirthdate: 'Please enter your birth date',
-      invalidDate:   'Invalid date. Use YYYY-MM-DD.',
-      generateFail:  'Failed to generate. Please try again later.'
-    },
-    ui: {
-      timeUnknown:  'time unknown',
-      hourSuffix:   '{h}:00',
-      birthSummary: 'Birth date: {y}-{m}-{d} {timeText}',
-      balance:      'Among the Five Elements, {strongest} is strongest and {weakest} is weakest.'
-    },
-    badge: { noHour: 'Hour not included' },
-    chat:  { autoReply: 'Got it: {q}. You can find key points in the corresponding sections of the report.' },
-    elemNames: { 木:'Wood', 火:'Fire', 土:'Earth', 金:'Metal', 水:'Water' }
-  }
-};
-
-// 当前语言
-function getLang(){
-  const sel = document.getElementById('langSelect');
-  return (localStorage.getItem('lang') || (sel && sel.value) || 'zh-CN');
-}
-function setLang(lang){
-  try{ localStorage.setItem('lang', lang) }catch(e){}
-}
-
-// 取词并做变量替换 t('ui.birthSummary', {y:2020,m:1,d:2,timeText:'12时'})
-function t(key, vars={}){
-  const dict = I18N[getLang()] || I18N['zh-CN'];
-  const base = key.split('.').reduce((o,k)=>o && o[k], dict);
-  const fallback = key.split('.').reduce((o,k)=>o && o[k], I18N['zh-CN']);
-  let s = (base || fallback || String(key));
-  return s.replace(/\{(\w+)\}/g, (_,k)=> (vars[k] ?? ''));
-}
-// 元素名称（木火土金水）本地化显示
-function elName(cn){ const dict = I18N[getLang()] || I18N['zh-CN']; return (dict.elemNames && dict.elemNames[cn]) || cn; }
-
-// 监听语言下拉，保存在 localStorage，并触发一次动态区域重绘
-(function bindLangSelect(){
-  const sel = document.getElementById('langSelect');
-  if(!sel) return;
-  // 初始化值
-  const saved = getLang();
-  sel.value = saved;
-  sel.addEventListener('change', ()=>{
-    setLang(sel.value);
-    // 若已生成过命盘，重绘动态文案
-    try{ rerenderDynamicTexts(); }catch(e){}
-  });
-})();
-  
-/* ========= 八字计算核心（与你的版本一致，略作注释） ========= */
+/* ========= 八字计算 ========= */
 class BaziCalculator{
   constructor(){
     this.HEAVENLY_STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
@@ -486,16 +251,15 @@ function renderPillars(pillars, timeUnknown = false) {
   if (!container) return;
 
   container.innerHTML = '';
-
   const items = [
-    { t: '年柱', p: pillars.year },
-    { t: '月柱', p: pillars.month },
-    { t: '日柱', p: pillars.day },
-    { t: '时柱', p: pillars.hour }
+    { t: t('pillar.year'),  p: pillars.year  },
+    { t: t('pillar.month'), p: pillars.month },
+    { t: t('pillar.day'),   p: pillars.day   },
+    { t: t('pillar.hour'),  p: pillars.hour  }
   ];
 
   items.forEach(({ t, p }) => {
-    const u = (t === '时柱' && timeUnknown);
+    const u = timeUnknown && (t === t('pillar.hour'));
     const div = document.createElement('div');
     div.className = 'pillar';
     div.innerHTML = `
@@ -514,11 +278,11 @@ function displayDetailedInfo(pillars, timeUnknown=false){
   setText('year-element', baziCalculator.getElement(pillars.year.stem, pillars.year.branch));
   setText('month-element', baziCalculator.getElement(pillars.month.stem, pillars.month.branch));
   setText('day-element', baziCalculator.getElement(pillars.day.stem, pillars.day.branch));
-  setText('hour-element', timeUnknown?'未知':baziCalculator.getElement(pillars.hour.stem, pillars.hour.branch));
+  setText('hour-element', timeUnknown?t('ui.unknown'):baziCalculator.getElement(pillars.hour.stem, pillars.hour.branch));
   setText('year-nayin', baziCalculator.getNayin(pillars.year.stem, pillars.year.branch));
   setText('month-nayin', baziCalculator.getNayin(pillars.month.stem, pillars.month.branch));
   setText('day-nayin', baziCalculator.getNayin(pillars.day.stem, pillars.day.branch));
-  setText('hour-nayin', timeUnknown?'未知':baziCalculator.getNayin(pillars.hour.stem, pillars.hour.branch));
+  setText('hour-nayin', timeUnknown?t('ui.unknown'):baziCalculator.getNayin(pillars.hour.stem, pillars.hour.branch));
 }
 
 /* ========= 十神映射 ========= */
@@ -535,7 +299,7 @@ const TEN_GODS_MAP={
   '癸':{'甲':'伤官','乙':'食神','丙':'正财','丁':'偏财','戊':'正官','己':'七杀','庚':'正印','辛':'偏印','壬':'劫财','癸':'比肩'}
 };
 
-/* ========= 专业报告：完整可运行实现 ========= */
+/* ========= 报告生成（保持你原逻辑不变） ========= */
 function analyzeElementsDynamic(counts, dayElement){
   const elements=['木','火','土','金','水'];
   return elements.map(el=>{
@@ -543,7 +307,6 @@ function analyzeElementsDynamic(counts, dayElement){
     return `<p><strong>${el}元素：</strong>${c}个 - ${relation}</p>`
   }).join('')
 }
-
 function getElementRelation(dayEl,target){
   const r={
     '木':{'木':'同我','火':'我生','土':'我克','金':'克我','水':'生我'},
@@ -553,17 +316,14 @@ function getElementRelation(dayEl,target){
     '水':{'木':'我生','火':'我克','土':'克我','金':'生我','水':'同我'}
   }; return r[dayEl]?.[target]||'未知关系'
 }
-
 function analyzeTenGodsDynamic(pillars, dayStem){
   const pos=['年柱','月柱','日柱','时柱']; const keys=['year','month','day','hour'];
   return keys.map((k,i)=>{ const st=pillars[k].stem; if(!st||st==='？') return '';
     const tg=TEN_GODS_MAP[dayStem]?.[st]||'未知'; return `<p><strong>${pos[i]}：</strong>${tg}（${st}）</p>`
   }).join('')
 }
-
 function getSupportingElements(el){return ({'木':['水','木'],'火':['木','火'],'土':['火','土'],'金':['土','金'],'水':['金','水']})[el]||[]}
 function getControllingElements(el){return ({'木':['金','火','土'],'火':['水','土','金'],'土':['木','金','水'],'金':['火','水','木'],'水':['土','木','火']})[el]||[]}
-
 function getSeasonalAdvice(monthBranch){
   const m={ '寅':'春木旺，宜金制木', '卯':'春木旺，宜金制木', '辰':'春末土旺，宜木疏土',
             '巳':'夏火旺，宜水济火', '午':'夏火旺，宜水济火', '未':'夏末土旺，宜水润土',
@@ -571,18 +331,14 @@ function getSeasonalAdvice(monthBranch){
             '亥':'冬水旺，宜火暖局', '子':'冬水旺，宜火暖局', '丑':'冬末土旺，宜火暖土' };
   return m[monthBranch]||'四时调候，以衡平为先'
 }
-
 function getLuckyColors(useful){const map={'木':'绿色、青色','火':'红色、紫色','土':'黄色、棕色','金':'白色、金色','水':'黑色、蓝色'}; return useful.map(x=>map[x]).filter(Boolean).join('、')}
 function getLuckyDirections(useful){const map={'木':'东方','火':'南方','土':'中央','金':'西方','水':'北方'}; return useful.map(x=>map[x]).filter(Boolean).join('、')}
-
 function getCareerReason(dayStem){const r={'甲':'领导力强，擅开拓','乙':'适应协调佳','丙':'热情创意强','丁':'细致策划优','戊':'稳健管理强','己':'务实服务稳','庚':'果断执行强','辛':'审美与质感强','壬':'流动与整合强','癸':'洞察与研究强'}; return r[dayStem]||'综合能力均衡'}
-
 function getSuitableCareers(dayStem){
   const m={'甲':['管理','领导','开拓'],'乙':['艺术','教育','服务'],'丙':['创意','传媒','娱乐'],'丁':['技术','研究','策划'],'戊':['金融','地产','管理'],'己':['教育','医疗','服务'],'庚':['法律','军警','技术'],'辛':['金融','珠宝','艺术'],'壬':['贸易','物流','咨询'],'癸':['文化','艺术','心理学']};
   const arr=m[dayStem]||['综合发展'];
   return arr.map(field=>({field,reason:getCareerReason(dayStem)}))
 }
-
 function getSuitableIndustries(dayStem){
   const el=baziCalculator.getStemElement(dayStem);
   const map={
@@ -594,16 +350,12 @@ function getSuitableIndustries(dayStem){
   };
   return map[el]||'综合行业均可'
 }
-
 function getWorkplaceStrengths(dayStem){
   const m={'甲':'直率担当、执行力强','乙':'人和力强、润物细无声','丙':'感染力强、善点燃团队','丁':'策略细腻、稳扎稳打','戊':'可靠可信、能扛重责','己':'服务意识强、稳定协同','庚':'规则意识强、快速决断','辛':'品质感高、细节控','壬':'视野大、跨界整合','癸':'洞察深、学习快'};return m[dayStem]||'稳健务实'}
-
 function getCareerAdvice(pillars,counts){
-  const el=baziCalculator.getStemElement(pillars.day.stem);
   const weak = Object.entries(counts).sort((a,b)=>a[1]-b[1])[0][0];
   return `聚焦${getSuitableIndustries(pillars.day.stem)}方向，发挥${getWorkplaceStrengths(pillars.day.stem)}；适度补${weak}之不足，形成闭环优势。`
 }
-
 function countWealthGods(pillars, dayStem){
   const stems=[pillars.year.stem,pillars.month.stem,pillars.hour.stem].filter(s=>s&&s!=='？');
   return stems.reduce((n,s)=>{const g=TEN_GODS_MAP[dayStem]?.[s]; return n+((g==='正财'||g==='偏财')?1:0)},0)
@@ -612,7 +364,6 @@ function countOfficerGods(pillars, dayStem){
   const stems=[pillars.year.stem,pillars.month.stem,pillars.hour.stem].filter(s=>s&&s!=='？');
   return stems.reduce((n,s)=>{const g=TEN_GODS_MAP[dayStem]?.[s]; return n+((g==='正官'||g==='七杀')?1:0)},0)
 }
-
 function analyzeWealthPattern(pillars, dayStem){
   const w=countWealthGods(pillars,dayStem); const o=countOfficerGods(pillars,dayStem);
   let level='中等'; if(w>=2&&o>=1) level='较好'; if(w>=2&&o>=2) level='上等';
@@ -622,7 +373,6 @@ function analyzeWealthPattern(pillars, dayStem){
   const invest='宜：指数基金/现金流型标的；忌：短线重仓、情绪化追涨杀跌。';
   return {level, description:desc, directions:dirs, advice, investmentTips:invest}
 }
-
 function getLoveAnalysis(dayStem, counts){
   const el=baziCalculator.getStemElement(dayStem); const water=counts['水']||0; const fire=counts['火']||0;
   let pattern='重情理性并重'; if(fire>=3) pattern='热烈直接、先情后理'; if(water>=3) pattern='感受细腻、先理后情';
@@ -632,7 +382,6 @@ function getLoveAnalysis(dayStem, counts){
   const notes='避免情绪拉扯与长期不确定，保持“反馈—修正”两周一循环。';
   return {pattern, idealPartner:ideal, advice, timing, notes}
 }
-
 function getHealthAnalysis(dayElement, counts){
   const tips={'木':'肝胆/筋，宜拉伸与早睡','火':'心小肠/血压，宜有氧与冥想','土':'脾胃/代谢，宜清淡规律','金':'肺大肠/皮肤，宜呼吸练习','水':'肾膀胱/腰膝，宜补水与早寝'};
   const diet={'木':'多绿叶蔬果，少油炸','火':'多高纤低糖，少辛辣','土':'少甜少油，多粗粮','金':'多白色蔬果，戒烟尘','水':'多水与黑色食材，少熬夜'};
@@ -640,14 +389,11 @@ function getHealthAnalysis(dayElement, counts){
   const weak=Object.entries(counts).sort((a,b)=>a[1]-b[1])[0][0];
   return {constitution:tips[dayElement]||'平衡体质', vulnerabilities:[weak+'相关系统'], healthTips:'围绕作息、补短板元素做干预', dietAdvice:diet[dayElement]||'清淡均衡', exercise:exercise[dayElement]||'中等强度有氧'}
 }
-
 function getSpiritualAnalysis(dayStem){
   const trait={'甲':'使命驱动、适合“修身立业”并行','乙':'感知细腻、适合疗愈与艺术修行','丙':'光亮外放、适合带领社群','丁':'烛照细火、适合心性与经典研修','戊':'山岳定力、适合长期纪律修行','己':'厚德载物、适合服务型修行','庚':'斩断果决、适合戒律与武修','辛':'匠心纯粹、适合精微之学','壬':'包容流动、适合水法/禅修','癸':'深潜静定、适合观想内修'};
   return {traits:trait[dayStem]||'综合型', talents:['冥想','祈愿','记录'], practices:'晨静坐+晚复盘，周一固定“净心日”', advice:'以“日课10分钟”打底，月度做一次小闭关'}
 }
-
 function getYearlyLuck(year, pillars){
-  // 简洁版占位：真实系统应按大运流年推演
   const br=pillars.month.branch; const hint={'寅':'木风起，宜开新局','卯':'谋定后动','辰':'稳健推进','巳':'声量提升','午':'人气活跃','未':'收束沉淀','申':'结构调整','酉':'品牌打磨','戌':'资源整合','亥':'蓄势学习','子':'现金流优先','丑':'稳步积累'}[br]||'平衡为先';
   return `${year}：${hint}`
 }
@@ -742,7 +488,7 @@ function generateDynamicReport(baziData){
     <div class="butler-section"><h4>🌟 十一、人生发展策略</h4>
       ${(()=>{const s=getLifeStrategy(pillars.day.stem, '', counts); return `<p><strong>核心策略：</strong>${s.coreStrategy}</p><p><strong>关键决策：</strong>${s.keyDecisions}</p><p><strong>成长建议：</strong>${s.growthTips}</p><ul>${s.stages.map(x=>`<li><strong>${x.period}</strong> - ${x.focus}</li>`).join('')}</ul>`})()}
     </div>
-    ${timeUnknown?'<div class="butler-section"><p class="badge-warn">⚠️ 提示：因出生时间不详，部分分析仅供参考。</p></div>':''}
+    ${timeUnknown?`<div class="butler-section"><p class="badge-warn">${t('report.hourUnknownTip')}</p></div>`:''}
   `
 }
 
@@ -750,7 +496,7 @@ function generateDynamicReport(baziData){
 function initButlerChat(){
   const send=$('chatSend'), input=$('chatInput'), box=$('chatMessages'); if(!send||!input||!box) return;
   const post=(cls,txt)=>{ const d=document.createElement('div'); d.className=cls; d.textContent=txt; box.appendChild(d); box.scrollTop=box.scrollHeight };
-  const reply=(q)=>{ post('ss-msg', t('chat.autoReply', {q})) };
+  const reply=(q)=>{ post('ss-msg', t('chatDyn.autoReply', {q})) };
   function act(){ const msg=input.value.trim(); if(!msg) return; post('ss-msg me', msg); input.value=''; setTimeout(()=>reply(msg), 300) }
   send.addEventListener('click', act); input.addEventListener('keypress', e=>{ if(e.key==='Enter') act() })
 }
@@ -783,7 +529,7 @@ async function generateBaziChart(){
 
     const result=$('result'); if(result) result.style.display='block';
 
-    // 日期行（可多语言）
+    // 日期行（多语言）
     const timeText = tu ? t('ui.timeUnknown') : t('ui.hourSuffix',{h:hour});
     const dateLine = t('ui.birthSummary', { y:year, m:month, d:day, timeText });
     setText('bazi-date', dateLine);
@@ -797,7 +543,6 @@ async function generateBaziChart(){
       dateEl.dataset.hour=String(hour);
       dateEl.dataset.tu=String(!!tu);
     }
-
     if(tu && dateEl){ dateEl.innerHTML += ` <span class="badge-warn">${t('badge.noHour')}</span>` }
 
     renderPillars(pillars, tu); 
@@ -813,7 +558,6 @@ async function generateBaziChart(){
     const strongest=arr.reduce((a,b)=>a.v>b.v?a:b), weakest=arr.reduce((a,b)=>a.v<b.v?a:b);
     setText('bazi-elements-balance', t('ui.balance',{ strongest: elName(strongest.n), weakest: elName(weakest.n) }));
 
-    // 专业报告
     const wrap=$('butlerProfessional'); 
     if(wrap){ 
       wrap.style.display='block'; 
@@ -821,17 +565,17 @@ async function generateBaziChart(){
       if(target){ target.innerHTML = generateDynamicReport(data) } 
     }
 
-    // 让切换语言时可以重绘动态文本
     window.__baziData = data;
 
   }catch(err){ console.error(err); showError(err.message||t('err.generateFail')) }
   finally{ lock(btn,false); if(btnText) btnText.style.display='inline-block'; if(btnLoading) btnLoading.style.display='none' }
 }
 
+/* 语言切换时重绘动态文本 */
 function rerenderDynamicTexts(){
   const data = window.__baziData;
   const dateEl = $('bazi-date');
-  if(!data || !dateEl) return;
+  if(!data || !dateEl) { applyI18n(); return; }
 
   const y=Number(dateEl.dataset.y), m=Number(dateEl.dataset.m), d=Number(dateEl.dataset.d), h=Number(dateEl.dataset.hour);
   const tu = dateEl.dataset.tu === 'true';
@@ -844,17 +588,23 @@ function rerenderDynamicTexts(){
   const { percents } = data;
   const arr=[{n:'木',v:percents.wood},{n:'火',v:percents.fire},{n:'土',v:percents.earth},{n:'金',v:percents.metal},{n:'水',v:percents.water}];
   const strongest=arr.reduce((a,b)=>a.v>b.v?a:b), weakest=arr.reduce((a,b)=>a.v<b.v?a:b);
-  setText('bazi-elements-balance', t('ui.b  
-  
-function init(){
-  const d=$('birthdate'); if(d){ const t=new Date(); const y=t.getFullYear(), m=String(t.getMonth()+1).padStart(2,'0'), dd=String(t.getDate()).padStart(2,'0'); d.value=`${y}-${m}-${dd}` }
-  const tm=$('birthtime'); if(tm){ const n=new Date(); const hh=String(n.getHours()).padStart(2,'0'), mm=String(n.getMinutes()).padStart(2,'0'); tm.value=`${hh}:${mm}` }
-  const gen=$('genBtn'); if(gen) gen.addEventListener('click', generateBaziChart);
-  const chk=$('timeUnknown'), ti=$('birthtime'); if(chk && ti){ chk.addEventListener('change',()=>{ ti.disabled=chk.checked; if(chk.checked) ti.value='' }) }
-  initButlerChat();
+  setText('bazi-elements-balance', t('ui.balance',{ strongest: elName(strongest.n), weakest: elName(weakest.n) }));
+
+  // 同步全部静态 data-i18n
+  applyI18n();
 }
 
+/* ========= 初始化 ========= */
+function init(){
+  applyI18n();
+
+  const d=$('birthdate'); if(d){ const t0=new Date(); const y=t0.getFullYear(), m=String(t0.getMonth()+1).padStart(2,'0'), dd=String(t0.getDate()).padStart(2,'0'); d.value=`${y}-${m}-${dd}` }
+  const tm=$('birthtime'); if(tm){ const n=new Date(); const hh=String(n.getHours()).padStart(2,'0'), mm=String(n.getMinutes()).padStart(2,'0'); tm.value=`${hh}:${mm}` }
+
+  const gen=$('genBtn'); if(gen) gen.addEventListener('click', generateBaziChart);
+  const chk=$('timeUnknown'), ti=$('birthtime'); if(chk && ti){ chk.addEventListener('change',()=>{ ti.disabled=chk.checked; if(chk.checked) ti.value='' }) }
+
+  initButlerChat();
+}
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', init); else init();
 </script>
-</body>
-</html>
