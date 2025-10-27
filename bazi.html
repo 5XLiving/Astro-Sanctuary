@@ -967,13 +967,23 @@ function initButlerChat() {
 
 // 添加缺失的主函数
 async function generateBaziChart() {
-    const birthdate = $('birthdate')?.value;
+    let birthdate = $('birthdate')?.value;
     const birthtime = $('birthtime')?.value;
     const timeUnknown = $('timeUnknown')?.checked;
     
     if (!birthdate) {
         showError('请填写出生日期');
         return;
+    }
+
+    // 🔧 修复日期格式兼容性
+    if (birthdate.includes('/')) {
+        // 处理 21/02/1978 格式
+        const parts = birthdate.split('/');
+        if (parts.length === 3) {
+            const [day, month, year] = parts;
+            birthdate = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        }
     }
 
     // 显示加载状态
@@ -987,12 +997,24 @@ async function generateBaziChart() {
 
     try {
         const [year, month, day] = birthdate.split('-').map(Number);
+        
+        // 🔧 添加日期验证
+        if (!year || !month || !day || year < 1900 || year > 2100) {
+            throw new Error('无效的日期格式，请使用 YYYY-MM-DD 格式');
+        }
+        
         let hour = 12;
         
         if (!timeUnknown && birthtime) {
-            const [h] = birthtime.split(':').map(Number);
+            let h = parseInt(birthtime.split(':')[0], 10);
+            // 🔧 处理12小时制时间
+            const isPM = birthtime.toLowerCase().includes('pm') || birthtime.includes('下午');
+            if (isPM && h < 12) h += 12;
+            if (!isPM && h === 12) h = 0;
+            
             if (!isNaN(h)) hour = h;
         }
+
 
         // 计算八字
         const baziData = baziCalculator.calculateBazi(year, month, day, hour, timeUnknown);
@@ -1047,28 +1069,33 @@ async function generateBaziChart() {
             `五行中${strongest.name}元素最强，${weakest.name}元素最弱。`
         );
 
-        // 显示心怜管家专业窗口
-        const butlerSection = $('butlerProfessional');
-        if (butlerSection) {
-            butlerSection.style.display = 'block';
-            
-            // 生成基于实际数据的专业报告
-            const reportContent = generateDynamicReport(baziData);
-            
-            const reportEl = $('professionalReport');
-            if (reportEl) {
-                reportEl.innerHTML = reportContent;
-            }
+// 显示心怜管家专业窗口
+const butlerSection = $('butlerProfessional');
+if (butlerSection) {
+    butlerSection.style.display = 'block';
+    
+    try {
+        // 生成基于实际数据的专业报告
+        const reportContent = generateDynamicReport(baziData);
+        
+        const reportEl = $('professionalReport');
+        if (reportEl) {
+            reportEl.innerHTML = reportContent;
         }
-
-    } catch (error) {
-        console.error('生成八字错误:', error);
-        showError('计算八字时出现错误，请重试');
-    } finally {
-        // 恢复按钮状态
-        if (btn) btn.disabled = false;
-        if (btnText) btnText.style.display = 'inline';
-        if (btnLoading) btnLoading.style.display = 'none';
+    } catch (reportError) {
+        console.error('生成报告错误:', reportError);
+        const reportEl = $('professionalReport');
+        if (reportEl) {
+            reportEl.innerHTML = `
+                <div class="butler-section">
+                    <h4>⚠️ 报告生成遇到问题</h4>
+                    <p>八字计算成功，但报告生成遇到技术问题。以下是您的八字信息：</p>
+                    <p><strong>八字：</strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${pillars.hour.stem}${pillars.hour.branch}</p>
+                    <p><strong>日主：</strong>${pillars.day.stem}${pillars.day.element}</p>
+                    <p>请稍后重试或联系技术支持。</p>
+                </div>
+            `;
+        }
     }
 }
 
