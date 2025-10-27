@@ -365,7 +365,6 @@
 <script>
 'use strict';
 
-/* ========= i18n 词典（静态 + 动态） ========= */
 const I18N = {
   'zh-CN': {
     brand: { subtitle: '5xLiving · 八字简评' },
@@ -438,7 +437,17 @@ const I18N = {
     badge: { noHour: '未纳入时柱' },
     chatDyn:  { autoReply: '收到：{q}。稍后可在专业报告相应章节找到要点。' },
     elemNames: { 木:'木', 火:'火', 土:'土', 金:'金', 水:'水' },
-    report: { hourUnknownTip: '⚠️ 提示：因出生时间不详，部分分析仅供参考。' }
+    report: { hourUnknownTip: '⚠️ 提示：因出生时间不详，部分分析仅供参考。' },
+
+    // ✅ 放到语言对象内部
+    relations: {
+      same:       '同类（互助）',
+      i_output:   '输出（我→对方）',
+      benefit_me: '补益（对方→我）',
+      i_control:  '主控（我制衡）',
+      control_me: '受压（受制衡）'
+    },
+    units: { before:'', after:'个' }
   },
 
   'en': {
@@ -496,7 +505,6 @@ const I18N = {
 
     footer: { copy:'© 5XLiving • Astro Sanctuary' },
 
-    // dynamic
     err: {
       fillBirthdate: 'Please enter your birth date',
       invalidDate:   'Invalid date. Use YYYY-MM-DD.',
@@ -512,7 +520,17 @@ const I18N = {
     badge: { noHour: 'Hour not included' },
     chatDyn:  { autoReply: 'Got it: {q}. Find key points in the relevant sections.' },
     elemNames: { 木:'Wood', 火:'Fire', 土:'Earth', 金:'Metal', 水:'Water' },
-    report: { hourUnknownTip: '⚠️ Note: Birth time unknown, some analysis is for reference only.' }
+    report: { hourUnknownTip: '⚠️ Note: Birth time unknown, some analysis is for reference only.' },
+
+    // ✅ 英文对应
+    relations: {
+      same:       'Peer (mutual)',
+      i_output:   'Output (I → other)',
+      benefit_me: 'Support (other → me)',
+      i_control:  'Control (I restrain)',
+      control_me: 'Challenge (restrains me)'
+    },
+    units: { before:'', after:'×' } // 例：3×
   }
 };
 
@@ -674,23 +692,48 @@ const TEN_GODS_MAP={
 };
 
 /* ========= 报告生成（保持你原逻辑不变） ========= */
-function analyzeElementsDynamic(counts, dayElement){
-  const elements=['木','火','土','金','水'];
-  return elements.map(el=>{
-    const c=counts[el]||0; const relation=getElementRelation(dayElement,el);
-    return `<p><strong>${el}元素：</strong>${c}个 - ${relation}</p>`
-  }).join('')
+function getRelationKey(dayEl, target){
+  // 五行：木→火→土→金→水→木
+  const gen = { '木':'火', '火':'土', '土':'金', '金':'水', '水':'木' };       // 我生谁
+  const ctrl= { '木':'土', '火':'金', '土':'水', '金':'木', '水':'火' };       // 我克谁
+
+  if(dayEl === target) return 'same';
+  if(gen[dayEl]  === target) return 'i_output';       // 我生对方（输出/创造）
+  if(gen[target] === dayEl)   return 'benefit_me';     // 对方生我（补益/滋养）
+  if(ctrl[dayEl] === target)  return 'i_control';      // 我克对方（主控/制衡）
+  if(ctrl[target]=== dayEl)   return 'control_me';     // 对方克我（受压/挑战）
+  return 'same';
 }
-function getElementRelation(dayEl,target){
-  const table={
-    '木':{'木':'同我','火':'我生','土':'我克','金':'克我','水':'生我'},
-    '火':{'木':'生我','火':'同我','土':'我生','金':'我克','水':'克我'},
-    '土':{'木':'克我','火':'生我','土':'同我','金':'我生','水':'我克'},
-    '金':{'木':'我克','火':'克我','土':'生我','金':'同我','水':'我生'},
-    '水':{'木':'我生','火':'我克','土':'克我','金':'生我','水':'同我'}
+// 返回关系 key（用于多语言映射）
+function getElementRelationKey(dayEl, target){
+  const map = {
+    '木': { '木':'same','火':'i_output','土':'i_control','金':'control_me','水':'benefit_me' },
+    '火': { '木':'benefit_me','火':'same','土':'i_output','金':'i_control','水':'control_me' },
+    '土': { '木':'control_me','火':'i_output','土':'same','金':'i_control','水':'i_output' },
+    '金': { '木':'i_control','火':'control_me','土':'benefit_me','金':'same','水':'i_output' },
+    '水': { '木':'i_output','火':'i_control','土':'control_me','金':'benefit_me','水':'same' }
   };
-  return (table[dayEl] && table[dayEl][target]) || '未知关系';
+  return (map[dayEl] && map[dayEl][target]) || 'same';
 }
+
+// 返回已翻译的关系名
+function getElementRelationLabel(dayEl, target){
+  const key = getElementRelationKey(dayEl, target);
+  return t(`relations.${key}`);
+}  
+  
+function analyzeElementsDynamic(counts, dayElement){
+  const langObj = I18N[getLang()] || I18N['zh-CN'];
+  const units = langObj.units || I18N['zh-CN'].units;
+
+  return ['木','火','土','金','水'].map(el=>{
+    const c = counts[el] || 0;
+    const relationLabel = getElementRelationLabel(dayElement, el);
+    // 例：木：1个 · 主控（我制衡）
+    return `<p><strong>${el}：</strong>${units.before}${c}${units.after} · ${relationLabel}</p>`;
+  }).join('');
+}
+  
 function analyzeTenGodsDynamic(pillars, dayStem){
   const pos=['年柱','月柱','日柱','时柱']; const keys=['year','month','day','hour'];
   return keys.map((k,i)=>{ const st=pillars[k].stem; if(!st||st==='？') return '';
@@ -965,9 +1008,14 @@ function rerenderDynamicTexts(){
   const strongest=arr.reduce((a,b)=>a.v>b.v?a:b), weakest=arr.reduce((a,b)=>a.v<b.v?a:b);
   setText('bazi-elements-balance', t('ui.balance',{ strongest: elName(strongest.n), weakest: elName(weakest.n) }));
 
-  // 同步全部静态 data-i18n
+  // 同步全部静态 i18n
   applyI18n();
-  // 重新用新语言渲染柱标题
+  
+  // ★ 关键：用当前语言重生“专业报告”整块内容
+  const target = $('professionalReport');
+  if(target && data){ target.innerHTML = generateDynamicReport(data); }
+
+  // ★ 可选：重绘柱标题（年/月/日/时）
   renderPillars(data.pillars, data.timeUnknown);
 }
 
