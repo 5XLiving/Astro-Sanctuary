@@ -965,6 +965,242 @@ function initButlerChat() {
     }
 }
 
+// 添加缺失的主函数
+async function generateBaziChart() {
+    const birthdate = $('birthdate')?.value;
+    const birthtime = $('birthtime')?.value;
+    const timeUnknown = $('timeUnknown')?.checked;
+    
+    if (!birthdate) {
+        showError('请填写出生日期');
+        return;
+    }
+
+    // 显示加载状态
+    const btn = $('genBtn');
+    const btnText = $('genBtnText');
+    const btnLoading = $('genBtnLoading');
+    
+    if (btn) btn.disabled = true;
+    if (btnText) btnText.style.display = 'none';
+    if (btnLoading) btnLoading.style.display = 'inline-block';
+
+    try {
+        const [year, month, day] = birthdate.split('-').map(Number);
+        let hour = 12;
+        
+        if (!timeUnknown && birthtime) {
+            const [h] = birthtime.split(':').map(Number);
+            if (!isNaN(h)) hour = h;
+        }
+
+        // 计算八字
+        const baziData = baziCalculator.calculateBazi(year, month, day, hour, timeUnknown);
+        const { pillars, counts, percents, timeUnknown: tu } = baziData;
+
+        // 显示结果区域
+        const resultSection = $('result');
+        if (resultSection) {
+            resultSection.style.display = 'block';
+        }
+
+        // 更新日期显示
+        const timeText = tu ? '时间不详' : `${hour}时`;
+        setText('bazi-date', `出生日期: ${year}年${month}月${day}日 ${timeText}`);
+        
+        if (tu) {
+            const dateEl = $('bazi-date');
+            if (dateEl) {
+                dateEl.innerHTML += ' <span class="badge-warn">未纳入时柱</span>';
+            }
+        }
+
+        // 渲染四柱
+        renderPillars(pillars, tu);
+        displayDetailedInfo(pillars, tu);
+
+        // 更新五行能量条
+        setBar('bar-木', percents.wood);
+        setText('pct-木', Math.round(percents.wood) + '%');
+        setBar('bar-火', percents.fire);
+        setText('pct-火', Math.round(percents.fire) + '%');
+        setBar('bar-土', percents.earth);
+        setText('pct-土', Math.round(percents.earth) + '%');
+        setBar('bar-金', percents.metal);
+        setText('pct-金', Math.round(percents.metal) + '%');
+        setBar('bar-水', percents.water);
+        setText('pct-水', Math.round(percents.water) + '%');
+
+        // 五行平衡提示
+        const elements = [
+            { name: '木', value: percents.wood },
+            { name: '火', value: percents.fire },
+            { name: '土', value: percents.earth },
+            { name: '金', value: percents.metal },
+            { name: '水', value: percents.water }
+        ];
+        
+        const strongest = elements.reduce((a, b) => a.value > b.value ? a : b);
+        const weakest = elements.reduce((a, b) => a.value < b.value ? a : b);
+        
+        setText('bazi-elements-balance', 
+            `五行中${strongest.name}元素最强，${weakest.name}元素最弱。`
+        );
+
+        // 显示心怜管家专业窗口
+        const butlerSection = $('butlerProfessional');
+        if (butlerSection) {
+            butlerSection.style.display = 'block';
+            
+            // 生成基于实际数据的专业报告
+            const reportContent = generateDynamicReport(baziData);
+            
+            const reportEl = $('professionalReport');
+            if (reportEl) {
+                reportEl.innerHTML = reportContent;
+            }
+        }
+
+    } catch (error) {
+        console.error('生成八字错误:', error);
+        showError('计算八字时出现错误，请重试');
+    } finally {
+        // 恢复按钮状态
+        if (btn) btn.disabled = false;
+        if (btnText) btnText.style.display = 'inline';
+        if (btnLoading) btnLoading.style.display = 'none';
+    }
+}
+
+// 基于实际八字数据的动态报告生成
+function generateDynamicReport(baziData) {
+    const { pillars, counts, percents, timeUnknown } = baziData;
+    const dayStem = pillars.day.stem;
+    const dayElement = pillars.day.element;
+    
+    // 动态分析身强身弱
+    const totalElements = Object.values(counts).reduce((a, b) => a + b, 0);
+    const selfStrength = (counts[dayElement] / totalElements * 100).toFixed(1);
+    const bodyStrength = selfStrength >= 30 ? '身强' : '身弱';
+    
+    // 动态分析五行关系
+    const elementAnalysis = analyzeElementsDynamic(counts, dayElement);
+    
+    // 动态分析十神
+    const tenGodsAnalysis = analyzeTenGodsDynamic(pillars, dayStem);
+    
+    return `
+        <div class="butler-section">
+            <h4>🔮 命盘总览</h4>
+            <p><strong>八字：</strong>${pillars.year.stem}${pillars.year.branch} ${pillars.month.stem}${pillars.month.branch} ${pillars.day.stem}${pillars.day.branch} ${pillars.hour.stem}${pillars.hour.branch}</p>
+            <p><strong>日主：</strong>${dayStem}${dayElement} (${bodyStrength}, 占比${selfStrength}%)</p>
+            <p><strong>五行分布：</strong>木${Math.round(percents.wood)}% 火${Math.round(percents.fire)}% 土${Math.round(percents.earth)}% 金${Math.round(percents.metal)}% 水${Math.round(percents.water)}%</p>
+        </div>
+
+        <div class="butler-section">
+            <h4>📊 五行能量分析</h4>
+            ${elementAnalysis}
+        </div>
+
+        <div class="butler-section">
+            <h4>⚔️ 十神配置</h4>
+            ${tenGodsAnalysis}
+        </div>
+
+        <div class="butler-section">
+            <h4>💡 个性特质</h4>
+            <p>${analyzePersonalityDynamic(dayStem, counts)}</p>
+        </div>
+
+        ${timeUnknown ? '<div class="butler-section"><p class="badge-warn">⚠️ 提示：因出生时间不详，分析仅供参考</p></div>' : ''}
+    `;
+}
+
+// 动态五行分析
+function analyzeElementsDynamic(counts, dayElement) {
+    const elements = ['木', '火', '土', '金', '水'];
+    let analysis = '';
+    
+    elements.forEach(element => {
+        const count = counts[element] || 0;
+        const relation = getElementRelation(dayElement, element);
+        analysis += `<p><strong>${element}元素：</strong>${count}个 - ${relation}</p>`;
+    });
+    
+    return analysis;
+}
+
+// 五行关系分析
+function getElementRelation(dayElement, targetElement) {
+    const relations = {
+        '木': { '木': '同我', '火': '我生', '土': '我克', '金': '克我', '水': '生我' },
+        '火': { '木': '生我', '火': '同我', '土': '我生', '金': '我克', '水': '克我' },
+        '土': { '木': '克我', '火': '我生', '土': '同我', '金': '我克', '水': '我生' },
+        '金': { '木': '我克', '火': '克我', '土': '生我', '金': '同我', '水': '我生' },
+        '水': { '木': '我生', '火': '我克', '土': '克我', '金': '生我', '水': '同我' }
+    };
+    
+    return relations[dayElement]?.[targetElement] || '未知关系';
+}
+
+// 动态十神分析
+function analyzeTenGodsDynamic(pillars, dayStem) {
+    const tenGodsMap = {
+        '甲': { '甲':'比肩', '乙':'劫财', '丙':'食神', '丁':'伤官', '戊':'偏财', '己':'正财', '庚':'七杀', '辛':'正官', '壬':'偏印', '癸':'正印' },
+        '乙': { '甲':'劫财', '乙':'比肩', '丙':'伤官', '丁':'食神', '戊':'正财', '己':'偏财', '庚':'正官', '辛':'七杀', '壬':'正印', '癸':'偏印' },
+        '丙': { '甲':'偏印', '乙':'正印', '丙':'比肩', '丁':'劫财', '戊':'食神', '己':'伤官', '庚':'偏财', '辛':'正财', '壬':'七杀', '癸':'正官' },
+        '丁': { '甲':'正印', '乙':'偏印', '丙':'劫财', '丁':'比肩', '戊':'伤官', '己':'食神', '庚':'正财', '辛':'偏财', '壬':'正官', '癸':'七杀' },
+        '戊': { '甲':'七杀', '乙':'正官', '丙':'偏印', '丁':'正印', '戊':'比肩', '己':'劫财', '庚':'食神', '辛':'伤官', '壬':'偏财', '癸':'正财' },
+        '己': { '甲':'正官', '乙':'七杀', '丙':'正印', '丁':'偏印', '戊':'劫财', '己':'比肩', '庚':'伤官', '辛':'食神', '壬':'正财', '癸':'偏财' },
+        '庚': { '甲':'偏财', '乙':'正财', '丙':'七杀', '丁':'正官', '戊':'偏印', '己':'正印', '庚':'比肩', '辛':'劫财', '壬':'食神', '癸':'伤官' },
+        '辛': { '甲':'正财', '乙':'偏财', '丙':'正官', '丁':'七杀', '戊':'正印', '己':'偏印', '庚':'劫财', '辛':'比肩', '壬':'伤官', '癸':'食神' },
+        '壬': { '甲':'食神', '乙':'伤官', '丙':'偏财', '丁':'正财', '戊':'七杀', '己':'正官', '庚':'偏印', '辛':'正印', '壬':'比肩', '癸':'劫财' },
+        '癸': { '甲':'伤官', '乙':'食神', '丙':'正财', '丁':'偏财', '戊':'正官', '己':'七杀', '庚':'正印', '辛':'偏印', '壬':'劫财', '癸':'比肩' }
+    };
+    
+    let analysis = '';
+    const positions = ['年柱', '月柱', '日柱', '时柱'];
+    const pillarKeys = ['year', 'month', 'day', 'hour'];
+    
+    pillarKeys.forEach((key, index) => {
+        const stem = pillars[key].stem;
+        if (stem && stem !== '？') {
+            const tenGod = tenGodsMap[dayStem]?.[stem] || '未知';
+            analysis += `<p><strong>${positions[index]}：</strong>${tenGod} (${stem})</p>`;
+        }
+    });
+    
+    return analysis;
+}
+
+// 动态个性分析
+function analyzePersonalityDynamic(dayStem, counts) {
+    const stemTraits = {
+        '甲': '正直刚强，有领导才能，但可能较为固执',
+        '乙': '温和柔顺，适应力强，但可能缺乏主见',
+        '丙': '热情开朗，充满活力，但可能急躁冲动',
+        '丁': '细致周到，思维敏捷，但可能多疑计较',
+        '戊': '稳重诚信，责任心强，但可能缺乏变通',
+        '己': '包容细腻，务实肯干，但可能优柔寡断',
+        '庚': '果断刚毅，正义感强，但可能缺乏柔情',
+        '辛': '精致敏锐，追求完美，但可能过于计较',
+        '壬': '智慧包容，适应力强，但可能随波逐流',
+        '癸': '细腻敏感，洞察力强，但可能多虑犹豫'
+    };
+    
+    const baseTrait = stemTraits[dayStem] || '个性特征需要详细分析';
+    
+    // 根据五行分布补充分析
+    let additional = '';
+    if (counts['木'] > 2) additional += ' 木气旺盛，主仁爱但易怒。';
+    if (counts['火'] > 2) additional += ' 火气旺盛，主礼但急躁。';
+    if (counts['土'] > 2) additional += ' 土气旺盛，主信但固执。';
+    if (counts['金'] > 2) additional += ' 金气旺盛，主义但刚硬。';
+    if (counts['水'] > 2) additional += ' 水气旺盛，主智但多变。';
+    
+    return baseTrait + additional;
+}
+  
 // 页面加载初始化
 function init() {
     // 设置默认日期为今天
