@@ -384,9 +384,27 @@ class BaziCalculator{
 const baziCalculator=new BaziCalculator();
 
 /* ========= 显示渲染 ========= */
-function renderPillars(pillars, timeUnknown=false){
-  const container=$('bazi-pillars'); if(!container) return; container.innerHTML='';
-  const items=[{t:'年柱',p:pillars.year},{t:'月柱',p:pillars.month},{t:'日柱',p:pillars.day},{t:'时柱',p:pillars.hour}];
+function renderPillars(pillars, timeUnknown = false){
+  const container = $('bazi-pillars');
+  if (!container) return;
+  container.innerHTML = '';
+  const items = [
+    { t: '年柱', p: pillars.year },
+    { t: '月柱', p: pillars.month },
+    { t: '日柱', p: pillars.day },
+    { t: '时柱', p: pillars.hour }
+  ];
+  items.forEach(({ t, p }) => {
+    const u = (t === '时柱' && timeUnknown);
+    const div = document.createElement('div');
+    div.className = 'pillar';
+    div.innerHTML = `
+      <div class="tit">${t}</div>
+      <div class="gz">${u ? '？' : p.stem}${u ? '？' : p.branch}</div>
+    `;
+    container.appendChild(div);
+  });
+},{t:'月柱',p:pillars.month},{t:'日柱',p:pillars.day},{t:'时柱',p:pillars.hour}];
   items.forEach(({t,p})=>{ const u=(t==='时柱'&&timeUnknown); const div=document.createElement('div'); div.className='pillar'; div.innerHTML=`<div class="tit">${t}</div><div class="gz">${u?'？':'${p.stem}'}${u?'？':'${p.branch}'}</div>`; container.appendChild(div) })
 }
 
@@ -650,7 +668,15 @@ async function generateBaziChart(){
 
   try{
     const [year,month,day]=birthdate.split('-').map(Number); if(!year||!month||!day||year<1900||year>2100) throw new Error('无效的日期格式，请用 YYYY-MM-DD');
-    let hour=12; if(!timeUnknown && birthtime){ let h=parseInt(birthtime.split(':')[0],10); if(!isNaN(h)) hour=h }
+    let hour = 12;
+if (!timeUnknown && birthtime) {
+  let h = parseInt(birthtime.split(':')[0], 10);
+  const isPM = /pm/i.test(birthtime) || /下午|晚/i.test(birthtime);
+  const isAM = /am/i.test(birthtime) || /上午|早/i.test(birthtime);
+  if (isPM && h < 12) h += 12;
+  if (isAM && h === 12) h = 0;
+  if (!isNaN(h)) hour = h;
+}
 
     const data=baziCalculator.calculateBazi(year,month,day,hour,timeUnknown); const {pillars, percents, timeUnknown:tu}=data;
 
