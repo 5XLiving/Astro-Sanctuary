@@ -589,7 +589,17 @@ class BaziCalculator{
   calculateYearPillar(year){const s=(year-4)%10,b=(year-4)%12; return {stem:this.HEAVENLY_STEMS[(s+10)%10],branch:this.EARTHLY_BRANCHES[(b+12)%12],zodiac:this.ZODIAC[(b+12)%12]}}
   solarMonthIndex(y,m,d){const mmdd=m*100+d; const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]]; let idx=11; for(const [thr,val] of gates) if(mmdd>=thr) idx=val; const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'}; return {index:idx, branch:branchBy[idx]}}
   calculateMonthPillar(year,month,day){const {index,branch}=this.solarMonthIndex(year,month,day); const yStemIdx=this.HEAVENLY_STEMS.indexOf(this.calculateYearPillar(year).stem); const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0}; const stemIdx=(startMap[yStemIdx]+(index-1))%10; return {stem:this.HEAVENLY_STEMS[stemIdx], branch} }
-  calculateDayPillar(year,month,day){const baseUTC=Date.UTC(1900,0,31); const targetUTC=Date.UTC(year,month-1,day); const dayDiff=Math.floor((targetUTC-baseUTC)/86400000); const stemIdx=(0+dayDiff)%10; const branchIdx=(4+dayDiff)%12; return {stem:this.HEAVENLY_STEMS[(stemIdx+10)%10], branch:this.EARTHLY_BRANCHES[(branchIdx+12)%12]}}
+  calculateDayPillar(year,month,day){
+  const baseUTC   = Date.UTC(1900,0,31,12);  // ← 原来是 00:00
+  const targetUTC = Date.UTC(year,month-1,day,12);
+  const dayDiff = Math.floor((targetUTC-baseUTC)/86400000);
+  const stemIdx = (0+dayDiff)%10;
+  const branchIdx=(4+dayDiff)%12;
+  return {
+    stem: this.HEAVENLY_STEMS[(stemIdx+10)%10],
+    branch: this.EARTHLY_BRANCHES[(branchIdx+12)%12]
+  }
+}
   calculateHourPillar(dayStem,hour){const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'}; const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8}; const dayIdx=this.HEAVENLY_STEMS.indexOf(dayStem); const hourIndex=Math.floor((hour+1)/2)%12; const stemIdx=(startMap[dayIdx]+hourIndex)%10; return {stem:this.HEAVENLY_STEMS[stemIdx], branch:branchMap[hour]} }
   getElement(stem,branch){const s={甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'}; const b={子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'}; return `${s[stem]}${b[branch]}`}
   getNayin(stem,branch){const si=this.HEAVENLY_STEMS.indexOf(stem), bi=this.EARTHLY_BRANCHES.indexOf(branch); return this.NAYIN[(si*2+bi)%this.NAYIN.length]}
@@ -616,18 +626,18 @@ function renderPillars(pillars, timeUnknown = false) {
 
   container.innerHTML = '';
   const items = [
-    { t: t('pillar.year'),  p: pillars.year  },
-    { t: t('pillar.month'), p: pillars.month },
-    { t: t('pillar.day'),   p: pillars.day   },
-    { t: t('pillar.hour'),  p: pillars.hour  }
+    { label: t('pillar.year'),  p: pillars.year  },
+    { label: t('pillar.month'), p: pillars.month },
+    { label: t('pillar.day'),   p: pillars.day   },
+    { label: t('pillar.hour'),  p: pillars.hour  }
   ];
 
-  items.forEach(({ t, p }) => {
-    const u = timeUnknown && (t === t('pillar.hour'));
+  items.forEach(({ label, p }) => {
+    const u = timeUnknown && (label === t('pillar.hour'));
     const div = document.createElement('div');
     div.className = 'pillar';
     div.innerHTML = `
-      <div class="tit">${t}</div>
+      <div class="tit">${label}</div>
       <div class="gz">${u ? '？' : p.stem}${u ? '？' : p.branch}</div>
     `;
     container.appendChild(div);
@@ -672,13 +682,14 @@ function analyzeElementsDynamic(counts, dayElement){
   }).join('')
 }
 function getElementRelation(dayEl,target){
-  const r={
+  const table={
     '木':{'木':'同我','火':'我生','土':'我克','金':'克我','水':'生我'},
     '火':{'木':'生我','火':'同我','土':'我生','金':'我克','水':'克我'},
-    '土':{'木':'克我','火':'我生','土':'同我','金':'我克','水':'我生'},
+    '土':{'木':'克我','火':'生我','土':'同我','金':'我生','水':'我克'},
     '金':{'木':'我克','火':'克我','土':'生我','金':'同我','水':'我生'},
     '水':{'木':'我生','火':'我克','土':'克我','金':'生我','水':'同我'}
-  }; return r[dayEl]?.[target]||'未知关系'
+  };
+  return (table[dayEl] && table[dayEl][target]) || '未知关系';
 }
 function analyzeTenGodsDynamic(pillars, dayStem){
   const pos=['年柱','月柱','日柱','时柱']; const keys=['year','month','day','hour'];
@@ -956,6 +967,8 @@ function rerenderDynamicTexts(){
 
   // 同步全部静态 data-i18n
   applyI18n();
+  // 重新用新语言渲染柱标题
+  renderPillars(data.pillars, data.timeUnknown);
 }
 
 /* ========= 初始化 ========= */
