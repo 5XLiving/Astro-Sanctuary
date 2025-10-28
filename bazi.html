@@ -362,297 +362,653 @@
 </main>
 
 <script>
-'use strict';
+/*!
+ * 5XLiving · Bazi Quick Chart (single-file script)
+ * Paste this once at the END of your <body>. It includes:
+ * - I18N (zh-CN / en / ms)
+ * - Language switching
+ * - Generate button handler (demo data + API hook)
+ * - Pillars/table/5-element bars rendering
+ * - Professional report placeholder + simple chat
+ */
+(() => {
+  'use strict';
 
-const I18N = {
-  'zh-CN': {
-    brand: { subtitle: '5xLiving · 八字简评' },
-    nav: { langLabel: '语言' },
-    lang: { 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+  /* =========================
+   * CONFIG
+   * ========================= */
+  const CONFIG = {
+    // If you already define window.API_BASE elsewhere, this will use it.
+    API_BASE: (typeof window.API_BASE === 'string' ? window.API_BASE : ''), // e.g. 'https://your-api.example.com'
+    TIMEOUT_MS: 12000
+  };
 
-    app: { title: '八字命理 · 快速排盘' },
+  /* =========================
+   * I18N DICTIONARY
+   * ========================= */
+  const I18N = {
+    'zh-CN': {
+      brand: { subtitle: '5xLiving · 八字简评' },
+      nav: { langLabel: '语言' },
+      lang: { 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
 
-    form: {
-      nameLabel: '姓名（可选）',
-      namePlaceholder: '你的称呼（用于个性化）',
-      genderLabel: '性别',
-      gender: { hidden:'不透露', male:'男性', female:'女性' },
-      calendarLabel: '历法',
-      calendar: { gregorian:'阳历', lunar:'农历' },
-      birthdateLabel: '出生日期',
-      birthtimeLabel: '出生时间',
-      timeUnknown: '出生时间不详'
+      app: { title: '八字命理 · 快速排盘' },
+
+      form: {
+        nameLabel: '姓名（可选）',
+        namePlaceholder: '你的称呼（用于个性化）',
+        genderLabel: '性别',
+        gender: { hidden:'不透露', male:'男性', female:'女性' },
+        calendarLabel: '历法',
+        calendar: { gregorian:'阳历', lunar:'农历' },
+        birthdateLabel: '出生日期',
+        birthtimeLabel: '出生时间',
+        timeUnknown: '出生时间不详'
+      },
+
+      btn: { generate:'生成八字', loading:'计算中...' },
+
+      result: { title:'您的生辰八字命盘' },
+      pillar: { year:'年柱', month:'月柱', day:'日柱', hour:'时柱' },
+      table: { row: { stem:'天干', branch:'地支', fiveElem:'五行', nayin:'纳音' } },
+
+      energy: { title:'五行能量分析' },
+      elem: { wood:'木', fire:'火', earth:'土', metal:'金', water:'水' },
+
+      pro: { title:'🧙‍♂️ 心怜管家 · 专业命理分析', welcome:'您好！我是您的专业命理顾问，已为您生成详细分析报告。有什么具体问题可以随时问我。' },
+      chat: { send:'发送', placeholder:'请输入您的问题...' },
+
+      vip: {
+        title:'🌙 会员区域 VIP Segment',
+        group: { astrology:'🗝 命理空间专属内容', spiritual:'🌙 心怜空间专属内容' },
+        astrology: { match:'姻缘方向：恋爱缘分、婚姻走势', career:'事业方向：职场发展、创业潜力', wealth:'财运方向：财位分析、理财时机', pet:'宠物命理：伴侣动物的性格与缘分' },
+        spiritual: { record:'灵性记录：照片、梦境、声音、愿望祈祷', courses:'命理课程：八字 / 塔罗 / 占星 / 灵数', family:'家族纪念系统：亲人灵性纪念 & 延续', practice:'每周能量练习 / 神明仪式任务' },
+        login: { title:'💎 登入 VIP 功能' },
+        services: { header:'会员服务' },
+        upgrade:'💎 升级为 VIP（月费）',
+        back:'← 返回命理商城',
+        priceNote:'$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）'
+      },
+
+      auth: {
+        header:'账户登录 / 注册',
+        login:'登入账户',
+        reset:'🔑 重设密码',
+        register:'注册账户',
+        freeTrialNote:'注册账号赠送一次免费体验',
+        emailPlaceholder:'邮箱 Email',
+        passwordPlaceholder:'密码 Password（至少8位，含大小写数字符号）'
+      },
+
+      footer: { copy:'© 5XLiving • Astro Sanctuary' },
+
+      err: {
+        fillBirthdate: '请填写出生日期',
+        invalidDate:   '无效的日期格式，请用 YYYY-MM-DD',
+        generateFail:  '生成失败，请稍后重试'
+      },
+      ui: {
+        unknown:      '未知',
+        timeUnknown:  '时间不详',
+        hourSuffix:   '{h}时',
+        birthSummary: '出生日期: {y}年{m}月{d}日 {timeText}',
+        balance:      '五行中{strongest}最强，{weakest}最弱。'
+      },
+      badge: { noHour: '未纳入时柱' },
+      chatDyn:  { autoReply: '收到：{q}。稍后可在专业报告相应章节找到要点。' },
+      elemNames: { 木:'木', 火:'火', 土:'土', 金:'金', 水:'水' },
+      report: { hourUnknownTip: '⚠️ 提示：因出生时间不详，部分分析仅供参考。' },
+
+      relations: {
+        same:       '同类（互助）',
+        i_output:   '输出（我→对方）',
+        benefit_me: '补益（对方→我）',
+        i_control:  '主控（我制衡）',
+        control_me: '受压（受制衡）'
+      },
+      units: { before:'', after:'个' },
+
+      elemJoin: '',
+      tenGods: { 比肩:'比肩', 劫财:'劫财', 食神:'食神', 伤官:'伤官', 偏财:'偏财', 正财:'正财', 七杀:'七杀', 正官:'正官', 偏印:'偏印', 正印:'正印' },
+      dirMap: { 东:'东', 西:'西', 南:'南', 北:'北', 中:'中', 正东方:'正东方', 东南方:'东南方', 南方:'南方', 西方:'西方', 北方:'北方', 中央:'中央' },
+      colorMap: { 木:'绿色、青色', 火:'红色、紫色', 土:'黄色、棕色', 金:'白色、金色', 水:'黑色、蓝色' },
+      nayinMap: {}
     },
 
-    btn: { generate:'生成八字', loading:'计算中...' },
+    'en': {
+      brand: { subtitle: '5xLiving · Bazi Brief' },
+      nav: { langLabel: 'Language' },
+      lang: { 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
 
-    result: { title:'您的生辰八字命盘' },
-    pillar: { year:'年柱', month:'月柱', day:'日柱', hour:'时柱' },
-    table: { row: { stem:'天干', branch:'地支', fiveElem:'五行', nayin:'纳音' } },
+      app: { title: 'Bazi · Quick Chart' },
 
-    energy: { title:'五行能量分析' },
-    elem: { wood:'木', fire:'火', earth:'土', metal:'金', water:'水' },
+      form: {
+        nameLabel: 'Name (optional)',
+        namePlaceholder: 'Your name (for personalization)',
+        genderLabel: 'Gender',
+        gender: { hidden:'Prefer not to say', male:'Male', female:'Female' },
+        calendarLabel: 'Calendar',
+        calendar: { gregorian:'Gregorian', lunar:'Lunar' },
+        birthdateLabel: 'Birth Date',
+        birthtimeLabel: 'Birth Time',
+        timeUnknown: 'Time unknown'
+      },
 
-    pro: { title:'🧙‍♂️ 心怜管家 · 专业命理分析', welcome:'您好！我是您的专业命理顾问，已为您生成详细分析报告。有什么具体问题可以随时问我。' },
-    chat: { send:'发送', placeholder:'请输入您的问题...' },
+      btn: { generate:'Generate', loading:'Calculating...' },
 
-    vip: {
-      title:'🌙 会员区域 VIP Segment',
-      group: { astrology:'🗝 命理空间专属内容', spiritual:'🌙 心怜空间专属内容' },
-      astrology: { match:'姻缘方向：恋爱缘分、婚姻走势', career:'事业方向：职场发展、创业潜力', wealth:'财运方向：财位分析、理财时机', pet:'宠物命理：伴侣动物的性格与缘分' },
-      spiritual: { record:'灵性记录：照片、梦境、声音、愿望祈祷', courses:'命理课程：八字 / 塔罗 / 占星 / 灵数', family:'家族纪念系统：亲人灵性纪念 & 延续', practice:'每周能量练习 / 神明仪式任务' },
-      login: { title:'💎 登入 VIP 功能' },
-      services: { header:'会员服务' },
-      upgrade:'💎 升级为 VIP（月费）',
-      back:'← 返回命理商城',
-      priceNote:'$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）'
+      result: { title:'Your Bazi Chart' },
+      pillar: { year:'Year', month:'Month', day:'Day', hour:'Hour' },
+      table: { row: { stem:'Heavenly Stem', branch:'Earthly Branch', fiveElem:'Five Elements', nayin:'Nayin' } },
+
+      energy: { title:'Five-Element Energy Analysis' },
+      elem: { wood:'Wood', fire:'Fire', earth:'Earth', metal:'Metal', water:'Water' },
+
+      pro: { title:'🧙‍♂️ Butler · Professional Analysis', welcome:'Hi! I\'ve generated your detailed analysis. Ask me anything.' },
+      chat: { send:'Send', placeholder:'Type your question...' },
+
+      vip: {
+        title:'🌙 VIP Segment',
+        group: { astrology:'🗝 Exclusive Astrology Content', spiritual:'🌙 Spiritual Space Exclusives' },
+        astrology: { match:'Relationships: love & marriage', career:'Career: workplace & entrepreneurship', wealth:'Wealth: positions & timing', pet:'Pet astrology: personality & bond' },
+        spiritual: { record:'Spiritual records: photos, dreams, voice, prayers', courses:'Courses: Bazi / Tarot / Astrology / Numerology', family:'Family memorial system', practice:'Weekly practices / rituals' },
+        login: { title:'💎 Sign in for VIP' },
+        services: { header:'Membership' },
+        upgrade:'💎 Upgrade to VIP (Monthly)',
+        back:'← Back to Store',
+        priceNote:'$9.9 / month (Astro + Spiritual + Courses)'
+      },
+
+      auth: {
+        header:'Sign In / Register',
+        login:'Sign In',
+        reset:'🔑 Reset Password',
+        register:'Register',
+        freeTrialNote:'New accounts get one free trial',
+        emailPlaceholder:'Email',
+        passwordPlaceholder:'Password (min 8 chars, mixed case & symbols)'
+      },
+
+      footer: { copy:'© 5XLiving • Astro Sanctuary' },
+
+      err: {
+        fillBirthdate: 'Please enter your birth date',
+        invalidDate:   'Invalid date. Use YYYY-MM-DD.',
+        generateFail:  'Failed to generate. Please try again later.'
+      },
+      ui: {
+        unknown:      'Unknown',
+        timeUnknown:  'time unknown',
+        hourSuffix:   '{h}:00',
+        birthSummary: 'Birth date: {y}-{m}-{d} {timeText}',
+        balance:      'Among the Five Elements, {strongest} is strongest and {weakest} is weakest.'
+      },
+      badge: { noHour: 'Hour not included' },
+      chatDyn:  { autoReply: 'Got it: {q}. Find key points in the relevant sections.' },
+      elemNames: { 木:'Wood', 火:'Fire', 土:'Earth', 金:'Metal', 水:'Water' },
+      report: { hourUnknownTip: '⚠️ Note: Birth time unknown; parts of the analysis are for reference only.' },
+
+      relations: {
+        same:       'Peer (mutual)',
+        i_output:   'Output (I → other)',
+        benefit_me: 'Support (other → me)',
+        i_control:  'Control (I restrain)',
+        control_me: 'Challenge (restrains me)'
+      },
+      units: { before:'', after:'×' },
+
+      elemJoin: ' - ',
+      tenGods: {
+        比肩:'Friend', 劫财:'Rob Wealth',
+        食神:'Eating God', 伤官:'Hurting Officer',
+        偏财:'Indirect Wealth', 正财:'Direct Wealth',
+        七杀:'Seven Killings', 正官:'Direct Officer',
+        偏印:'Indirect Resource', 正印:'Direct Resource'
+      },
+      dirMap: { 东:'East', 西:'West', 南:'South', 北:'North', 中:'Center', 正东方:'Due East', 东南方:'Southeast', 中央:'Center' },
+      colorMap: { 木:'Green, teal', 火:'Red, purple', 土:'Yellow, brown', 金:'White, gold', 水:'Black, blue' },
+      nayinMap: {}
     },
 
-    auth: {
-      header:'账户登录 / 注册',
-      login:'登入账户',
-      reset:'🔑 重设密码',
-      register:'注册账户',
-      freeTrialNote:'注册账号赠送一次免费体验',
-      emailPlaceholder:'邮箱 Email',
-      passwordPlaceholder:'密码 Password（至少8位，含大小写数字符号）'
-    },
+    'ms': {
+      brand: { subtitle: '5xLiving · Ringkas Bazi' },
+      nav: { langLabel: 'Bahasa' },
+      lang: { 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
 
-    footer: { copy:'© 5XLiving • Astro Sanctuary' },
+      app: { title: 'Bazi · Carta Pantas' },
 
-    err: {
-      fillBirthdate: '请填写出生日期',
-      invalidDate:   '无效的日期格式，请用 YYYY-MM-DD',
-      generateFail:  '生成失败，请稍后重试'
-    },
-    ui: {
-      unknown:      '未知',
-      timeUnknown:  '时间不详',
-      hourSuffix:   '{h}时',
-      birthSummary: '出生日期: {y}年{m}月{d}日 {timeText}',
-      balance:      '五行中{strongest}最强，{weakest}最弱。'
-    },
-    badge: { noHour: '未纳入时柱' },
-    chatDyn:  { autoReply: '收到：{q}。稍后可在专业报告相应章节找到要点。' },
-    elemNames: { 木:'木', 火:'火', 土:'土', 金:'金', 水:'水' },
-    report: { hourUnknownTip: '⚠️ 提示：因出生时间不详，部分分析仅供参考。' },
+      form: {
+        nameLabel: 'Nama (pilihan)',
+        namePlaceholder: 'Nama anda (untuk peribadi)',
+        genderLabel: 'Jantina',
+        gender: { hidden:'Tidak mahu nyatakan', male:'Lelaki', female:'Perempuan' },
+        calendarLabel: 'Kalendar',
+        calendar: { gregorian:'Masihi', lunar:'Qamari' },
+        birthdateLabel: 'Tarikh Lahir',
+        birthtimeLabel: 'Masa Lahir',
+        timeUnknown: 'Masa tidak pasti'
+      },
 
-    relations: {
-      same:       '同类（互助）',
-      i_output:   '输出（我→对方）',
-      benefit_me: '补益（对方→我）',
-      i_control:  '主控（我制衡）',
-      control_me: '受压（受制衡）'
-    },
-    units: { before:'', after:'个' },
+      btn: { generate:'Jana', loading:'Mengira...' },
 
-    elemJoin: '',  // 中文直接连写“木火”
-    tenGods: { 比肩:'比肩', 劫财:'劫财', 食神:'食神', 伤官:'伤官', 偏财:'偏财', 正财:'正财', 七杀:'七杀', 正官:'正官', 偏印:'偏印', 正印:'正印' },
-    dirMap: { 东:'东', 西:'西', 南:'南', 北:'北', 中:'中', 正东方:'正东方', 东南方:'东南方', 南方:'南方', 西方:'西方', 北方:'北方', 中央:'中央' },
-    colorMap: { 木:'绿色、青色', 火:'红色、紫色', 土:'黄色、棕色', 金:'白色、金色', 水:'黑色、蓝色' },
-    nayinMap: {},  // 中文原样
-    reportText: {} // 未使用，保留
-  },
+      result: { title:'Carta Bazi Anda' },
+      pillar: { year:'Tahun', month:'Bulan', day:'Hari', hour:'Jam' },
+      table: { row: { stem:'Batang Langit', branch:'Cawangan Bumi', fiveElem:'Lima Unsur', nayin:'Nayin' } },
 
-  'en': {
-    brand: { subtitle: '5xLiving · Bazi Brief' },
-    nav: { langLabel: 'Language' },
-    lang: { 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+      energy: { title:'Analisis Tenaga Lima Unsur' },
+      elem: { wood:'Kayu', fire:'Api', earth:'Tanah', metal:'Logam', water:'Air' },
 
-    app: { title: 'Bazi · Quick Chart' },
+      pro: { title:'🧙‍♂️ Butler · Analisis Profesional', welcome:'Hai! Laporan terperinci telah dijana. Tanya apa sahaja.' },
+      chat: { send:'Hantar', placeholder:'Taip soalan anda...' },
 
-    form: {
-      nameLabel: 'Name (optional)',
-      namePlaceholder: 'Your name (for personalization)',
-      genderLabel: 'Gender',
-      gender: { hidden:'Prefer not to say', male:'Male', female:'Female' },
-      calendarLabel: 'Calendar',
-      calendar: { gregorian:'Gregorian', lunar:'Lunar' },
-      birthdateLabel: 'Birth Date',
-      birthtimeLabel: 'Birth Time',
-      timeUnknown: 'Time unknown'
-    },
+      vip: {
+        title:'🌙 Segmen VIP',
+        group: { astrology:'🗝 Kandungan Astrologi Eksklusif', spiritual:'🌙 Eksklusif Ruang Spiritual' },
+        astrology: { match:'Hubungan: cinta & perkahwinan', career:'Kerjaya: tempat kerja & niaga', wealth:'Rezeki: posisi & masa', pet:'Astrologi haiwan peliharaan' },
+        spiritual: { record:'Rekod rohani: foto, mimpi, suara, doa', courses:'Kursus: Bazi / Tarot / Astrologi / Numerologi', family:'Sistem memorial keluarga', practice:'Amalan mingguan / ritual' },
+        login: { title:'💎 Log masuk untuk VIP' },
+        services: { header:'Keahlian' },
+        upgrade:'💎 Naik taraf VIP (Bulanan)',
+        back:'← Kembali ke Kedai',
+        priceNote:'$9.9 / bulan (Astro + Spiritual + Kursus)'
+      },
 
-    btn: { generate:'Generate', loading:'Calculating...' },
+      auth: {
+        header:'Log Masuk / Daftar',
+        login:'Log Masuk',
+        reset:'🔑 Tetap Semula Kata Laluan',
+        register:'Daftar',
+        freeTrialNote:'Akaun baharu dapat satu percubaan percuma',
+        emailPlaceholder:'Emel',
+        passwordPlaceholder:'Kata laluan (min 8 aksara, huruf besar/kecil & simbol)'
+      },
 
-    result: { title:'Your Bazi Chart' },
-    pillar: { year:'Year', month:'Month', day:'Day', hour:'Hour' },
-    table: { row: { stem:'Heavenly Stem', branch:'Earthly Branch', fiveElem:'Five Elements', nayin:'Nayin' } },
+      footer: { copy:'© 5XLiving • Astro Sanctuary' },
 
-    energy: { title:'Five-Element Energy Analysis' },
-    elem: { wood:'Wood', fire:'Fire', earth:'Earth', metal:'Metal', water:'Water' },
+      err: {
+        fillBirthdate: 'Sila isi tarikh lahir',
+        invalidDate:   'Tarikh tidak sah. Guna YYYY-MM-DD.',
+        generateFail:  'Gagal menjana. Cuba lagi nanti.'
+      },
+      ui: {
+        unknown:      'Tidak diketahui',
+        timeUnknown:  'masa tidak pasti',
+        hourSuffix:   '{h}:00',
+        birthSummary: 'Tarikh lahir: {y}-{m}-{d} {timeText}',
+        balance:      'Antara Lima Unsur, {strongest} paling kuat dan {weakest} paling lemah.'
+      },
+      badge: { noHour: 'Jam tidak diambil kira' },
+      chatDyn:  { autoReply: 'Diterima: {q}. Poin penting ada di seksyen berkaitan.' },
+      elemNames: { 木:'Kayu', 火:'Api', 土:'Tanah', 金:'Logam', 水:'Air' },
+      report: { hourUnknownTip: '⚠️ Nota: Masa lahir tidak pasti; sebahagian analisis untuk rujukan.' },
 
-    pro: { title:'🧙‍♂️ Butler · Professional Analysis', welcome:'Hi! I\'ve generated your detailed analysis. Ask me anything.' },
-    chat: { send:'Send', placeholder:'Type your question...' },
+      relations: {
+        same:       'Sejenis (saling sokong)',
+        i_output:   'Keluaran (saya → pihak lain)',
+        benefit_me: 'Sokongan (pihak lain → saya)',
+        i_control:  'Mengawal (saya menahan)',
+        control_me: 'Dikawal (menahan saya)'
+      },
+      units: { before:'', after:'×' },
 
-    vip: {
-      title:'🌙 VIP Segment',
-      group: { astrology:'🗝 Exclusive Astrology Content', spiritual:'🌙 Spiritual Space Exclusives' },
-      astrology: { match:'Relationships: love & marriage', career:'Career: workplace & entrepreneurship', wealth:'Wealth: positions & timing', pet:'Pet astrology: personality & bond' },
-      spiritual: { record:'Spiritual records: photos, dreams, voice, prayers', courses:'Courses: Bazi / Tarot / Astrology / Numerology', family:'Family memorial system', practice:'Weekly practices / rituals' },
-      login: { title:'💎 Sign in for VIP' },
-      services: { header:'Membership' },
-      upgrade:'💎 Upgrade to VIP (Monthly)',
-      back:'← Back to Store',
-      priceNote:'$9.9 / month (Astro + Spiritual + Courses)'
-    },
+      elemJoin: ' - ',
+      tenGods: {
+        比肩:'Rakan', 劫财:'Rampas Rezeki',
+        食神:'Dewa Makan', 伤官:'Pegawai Terluka',
+        偏财:'Rezeki Tidak Langsung', 正财:'Rezeki Langsung',
+        七杀:'Tujuh Pembunuh', 正官:'Pegawai',
+        偏印:'Sumber Tidak Langsung', 正印:'Sumber Langsung'
+      },
+      dirMap: { 东:'Timur', 西:'Barat', 南:'Selatan', 北:'Utara', 中:'Tengah', 正东方:'Timur tepat', 东南方:'Tenggara', 中央:'Tengah' },
+      colorMap: { 木:'Hijau, teal', 火:'Merah, ungu', 土:'Kuning, coklat', 金:'Putih, emas', 水:'Hitam, biru' },
+      nayinMap: {}
+    }
+  };
 
-    auth: {
-      header:'Sign In / Register',
-      login:'Sign In',
-      reset:'🔑 Reset Password',
-      register:'Register',
-      freeTrialNote:'New accounts get one free trial',
-      emailPlaceholder:'Email',
-      passwordPlaceholder:'Password (min 8 chars, mixed case & symbols)'
-    },
+  /* =========================
+   * UTILS
+   * ========================= */
+  const $ = id => document.getElementById(id);
+  const KEYS = ['year','month','day','hour'];
 
-    footer: { copy:'© 5XLiving • Astro Sanctuary' },
+  const state = {
+    lang: localStorage.getItem('5x_lang') || 'zh-CN'
+  };
 
-    err: {
-      fillBirthdate: 'Please enter your birth date',
-      invalidDate:   'Invalid date. Use YYYY-MM-DD.',
-      generateFail:  'Failed to generate. Please try again later.'
-    },
-    ui: {
-      unknown:      'Unknown',
-      timeUnknown:  'time unknown',
-      hourSuffix:   '{h}:00',
-      birthSummary: 'Birth date: {y}-{m}-{d} {timeText}',
-      balance:      'Among the Five Elements, {strongest} is strongest and {weakest} is weakest.'
-    },
-    badge: { noHour: 'Hour not included' },
-    chatDyn:  { autoReply: 'Got it: {q}. Find key points in the relevant sections.' },
-    elemNames: { 木:'Wood', 火:'Fire', 土:'Earth', 金:'Metal', 水:'Water' },
-    report: { hourUnknownTip: '⚠️ Note: Birth time unknown, some analysis is for reference only.' },
-
-    relations: {
-      same:       'Peer (mutual)',
-      i_output:   'Output (I → other)',
-      benefit_me: 'Support (other → me)',
-      i_control:  'Control (I restrain)',
-      control_me: 'Challenge (restrains me)'
-    },
-    units: { before:'', after:'×' },
-
-    elemJoin: ' - ',
-    tenGods: {
-      比肩:'Friend', 劫财:'Rob Wealth',
-      食神:'Eating God', 伤官:'Hurting Officer',
-      偏财:'Indirect Wealth', 正财:'Direct Wealth',
-      七杀:'Seven Killings', 正官:'Direct Officer',
-      偏印:'Indirect Resource', 正印:'Direct Resource'
-    },
-    dirMap: { 东:'East', 西:'West', 南:'South', 北:'North', 中:'Center', 正东方:'Due East', 东南方:'Southeast', 中央:'Center' },
-    colorMap: { 木:'Green, teal', 火:'Red, purple', 土:'Yellow, brown', 金:'White, gold', 水:'Black, blue' },
-    nayinMap: {
-      '海中金':'Metal in the Sea','炉中火':'Furnace Fire','大林木':'Great Forest Wood','路旁土':'Roadside Earth',
-      '剑锋金':'Sword-Edge Metal','山头火':'Mountain-Top Fire','涧下水':'Stream Water','城头土':'City-Wall Earth',
-      '白蜡金':'White-Wax Metal','杨柳木':'Willow Wood','泉中水':'Spring Water','屋上土':'Roof-Top Earth',
-      '霹雳火':'Thunderbolt Fire','松柏木':'Pine-Cypress Wood','长流水':'Long-Flowing Water','砂石金':'Sand-Stone Metal',
-      '山下火':'Under-Mountain Fire','平地木':'Plain Wood','壁上土':'Wall Earth','金箔金':'Gold-Foil Metal',
-      '佛灯火':'Lamp Fire','天河水':'Milky Way Water','大驿土':'Post-Station Earth','钗钏金':'Ornament Gold',
-      '桑柘木':'Mulberry Wood','大溪水':'Great Brook Water','沙中土':'Sand-in-Earth','天上火':'Heavenly Fire',
-      '石榴木':'Pomegranate Wood','大海水':'Ocean Water'
-    },
-    reportText: {}
-  },
-
-  'ms': {
-    brand: { subtitle: '5xLiving · Ringkas Bazi' },
-    nav: { langLabel: 'Bahasa' },
-    lang: { 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
-
-    app: { title: 'Bazi · Carta Pantas' },
-
-    form: {
-      nameLabel: 'Nama (pilihan)',
-      namePlaceholder: 'Nama anda (untuk peribadi)',
-      genderLabel: 'Jantina',
-      gender: { hidden:'Tidak mahu nyatakan', male:'Lelaki', female:'Perempuan' },
-      calendarLabel: 'Kalendar',
-      calendar: { gregorian:'Masihi', lunar:'Qamari' },
-      birthdateLabel: 'Tarikh Lahir',
-      birthtimeLabel: 'Masa Lahir',
-      timeUnknown: 'Masa tidak pasti'
-    },
-
-    btn: { generate:'Jana', loading:'Mengira...' },
-
-    result: { title:'Carta Bazi Anda' },
-    pillar: { year:'Tahun', month:'Bulan', day:'Hari', hour:'Jam' },
-    table: { row: { stem:'Batang Langit', branch:'Cawangan Bumi', fiveElem:'Lima Unsur', nayin:'Nayin' } },
-
-    energy: { title:'Analisis Tenaga Lima Unsur' },
-    elem: { wood:'Kayu', fire:'Api', earth:'Tanah', metal:'Logam', water:'Air' },
-
-    pro: { title:'🧙‍♂️ Butler · Analisis Profesional', welcome:'Hai! Laporan terperinci telah dijana. Tanya apa sahaja.' },
-    chat: { send:'Hantar', placeholder:'Taip soalan anda...' },
-
-    vip: {
-      title:'🌙 Segmen VIP',
-      group: { astrology:'🗝 Kandungan Astrologi Eksklusif', spiritual:'🌙 Eksklusif Ruang Spiritual' },
-      astrology: { match:'Hubungan: cinta & perkahwinan', career:'Kerjaya: tempat kerja & niaga', wealth:'Rezeki: posisi & masa', pet:'Astrologi haiwan peliharaan' },
-      spiritual: { record:'Rekod rohani: foto, mimpi, suara, doa', courses:'Kursus: Bazi / Tarot / Astrologi / Numerologi', family:'Sistem memorial keluarga', practice:'Amalan mingguan / ritual' },
-      login: { title:'💎 Log masuk untuk VIP' },
-      services: { header:'Keahlian' },
-      upgrade:'💎 Naik taraf VIP (Bulanan)',
-      back:'← Kembali ke Kedai',
-      priceNote:'$9.9 / bulan (Astro + Spiritual + Kursus)'
-    },
-
-    auth: {
-      header:'Log Masuk / Daftar',
-      login:'Log Masuk',
-      reset:'🔑 Tetap Semula Kata Laluan',
-      register:'Daftar',
-      freeTrialNote:'Akaun baharu dapat satu percubaan percuma',
-      emailPlaceholder:'Emel',
-      passwordPlaceholder:'Kata laluan (min 8 aksara, huruf besar/kecil & simbol)'
-    },
-
-    footer: { copy:'© 5XLiving • Astro Sanctuary' },
-
-    err: {
-      fillBirthdate: 'Sila isi tarikh lahir',
-      invalidDate:   'Tarikh tidak sah. Guna YYYY-MM-DD.',
-      generateFail:  'Gagal menjana. Cuba lagi nanti.'
-    },
-    ui: {
-      unknown:      'Tidak diketahui',
-      timeUnknown:  'masa tidak pasti',
-      hourSuffix:   '{h}:00',
-      birthSummary: 'Tarikh lahir: {y}-{m}-{d} {timeText}',
-      balance:      'Antara Lima Unsur, {strongest} paling kuat dan {weakest} paling lemah.'
-    },
-    badge: { noHour: 'Jam tidak diambil kira' },
-    chatDyn:  { autoReply: 'Diterima: {q}. Poin penting ada di seksyen berkaitan.' },
-    elemNames: { 木:'Kayu', 火:'Api', 土:'Tanah', 金:'Logam', 水:'Air' },
-    report: { hourUnknownTip: '⚠️ Nota: Masa lahir tidak pasti; sebahagian analisis untuk rujukan.' },
-
-    relations: {
-      same:       'Sejenis (saling sokong)',
-      i_output:   'Keluaran (saya → pihak lain)',
-      benefit_me: 'Sokongan (pihak lain → saya)',
-      i_control:  'Mengawal (saya menahan)',
-      control_me: 'Dikawal (menahan saya)'
-    },
-    units: { before:'', after:'×' },
-
-    elemJoin: ' - ',
-    tenGods: {
-      比肩:'Rakan', 劫财:'Rampas Rezeki',
-      食神:'Dewa Makan', 伤官:'Pegawai Terluka',
-      偏财:'Rezeki Tidak Langsung', 正财:'Rezeki Langsung',
-      七杀:'Tujuh Pembunuh', 正官:'Pegawai',
-      偏印:'Sumber Tidak Langsung', 正印:'Sumber Langsung'
-    },
-    dirMap: { 东:'Timur', 西:'Barat', 南:'Selatan', 北:'Utara', 中:'Tengah', 正东方:'Timur tepat', 东南方:'Tenggara', 中央:'Tengah' },
-    colorMap: { 木:'Hijau, teal', 火:'Merah, ungu', 土:'Kuning, coklat', 金:'Putih, emas', 水:'Hitam, biru' },
-    nayinMap: {},  // fallback ke CN
-    reportText: {}
+  function get(obj, path){
+    return path.split('.').reduce((o,k)=> (o && o[k]!=null) ? o[k] : undefined, obj);
   }
-}; // ← IMPORTANT: end of I18N
+  function t(key){
+    const dict = I18N[state.lang] || I18N['zh-CN'];
+    const val = get(dict, key);
+    return (typeof val === 'string') ? val : '';
+  }
+
+  function applyI18n(){
+    // text nodes
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const key = el.getAttribute('data-i18n');
+      const val = t(key);
+      if (val) el.textContent = val;
+    });
+    // option labels
+    document.querySelectorAll('option[data-i18n]').forEach(opt=>{
+      const key = opt.getAttribute('data-i18n');
+      const val = t(key);
+      if (val) opt.textContent = val;
+    });
+    // placeholders
+    const dict = I18N[state.lang] || I18N['zh-CN'];
+    const ph = {
+      name: get(dict,'form.namePlaceholder'),
+      email: get(dict,'auth.emailPlaceholder'),
+      password: get(dict,'auth.passwordPlaceholder'),
+      chat: get(dict,'chat.placeholder')
+    };
+    if ($('name') && ph.name) $('name').placeholder = ph.name;
+    if ($('email') && ph.email) $('email').placeholder = ph.email;
+    if ($('password') && ph.password) $('password').placeholder = ph.password;
+    if ($('chatInput') && ph.chat) $('chatInput').placeholder = ph.chat;
+
+    const langSelect = $('langSelect');
+    if (langSelect) langSelect.value = state.lang;
+  }
+
+  function showErr(msg){
+    const box = $('error');
+    if (!box) return;
+    box.textContent = msg || t('err.generateFail') || 'Error';
+    box.style.display = 'block';
+    setTimeout(()=>{ box.style.display='none'; }, 4000);
+  }
+
+  function setGenLoading(v){
+    const btn = $('genBtn'), txt = $('genBtnText'), ld = $('genBtnLoading');
+    if (!btn) return;
+    btn.disabled = !!v;
+    if (txt) txt.style.display = v ? 'none' : 'inline';
+    if (ld)  ld.style.display  = v ? 'inline' : 'none';
+  }
+
+  /* =========================
+   * RENDERERS
+   * ========================= */
+  function renderPillars(labels){
+    const mapKey = ['pillar.year','pillar.month','pillar.day','pillar.hour'];
+    const html = mapKey.map((key,i)=>`
+      <div class="pillar">
+        <div class="tit">${t(key)}</div>
+        <div class="gz">${labels[i] || '-'}</div>
+      </div>
+    `).join('');
+    const box = $('bazi-pillars');
+    if (box) box.innerHTML = html;
+  }
+
+  function renderTable(data){
+    const keys = ['stem','branch','element','nayin'];
+    KEYS.forEach((k,i)=>{
+      keys.forEach(row=>{
+        const cell = document.getElementById(`${k}-${row}`);
+        if (cell) cell.textContent = (data[row] && data[row][i]) ? data[row][i] : '-';
+      });
+    });
+  }
+
+  function renderBars(pcts){
+    const elems = ['木','火','土','金','水'];
+    elems.forEach(e=>{
+      const pct = Math.max(0, Math.min(100, Math.round(pcts[e] || 0)));
+      const bar = $('bar-'+e);
+      const lab = $('pct-'+e);
+      if (bar) bar.style.width = pct + '%';
+      if (lab) lab.textContent = pct + '%';
+    });
+    const sorted = Object.entries(pcts).sort((a,b)=> b[1]-a[1]);
+    const strongest = sorted[0]?.[0];
+    const weakest   = sorted[sorted.length-1]?.[0];
+    const tip = $('bazi-elements-balance');
+    const dict = I18N[state.lang] || I18N['zh-CN'];
+    const names = get(dict,'elemNames') || {};
+    if (tip && strongest && weakest){
+      tip.textContent = (t('ui.balance') || '')
+        .replace('{strongest}', names[strongest] || strongest)
+        .replace('{weakest}',   names[weakest]   || weakest);
+    }
+  }
+
+  function buildProReportSections(){
+    // 10 sections, brief but solid placeholders
+    const sec = [
+      ['命盘总览 / Overview',
+       '日主气质、命局结构与强弱概览；看主客观资源与支撑位，确认当令五行与偏衡点。'],
+      ['五行能量分析 / Five-Element Balance',
+       '元素比例与冷热燥湿；优先调和的方向（补泄制），以及颜色/方位/作息的配合建议。'],
+      ['十神配置分析 / Ten Gods',
+       '用/忌神所在柱与互动；比劫、食伤、财官印的协同与冲突，判断发力路径。'],
+      ['用神喜忌 / Useful Spirit',
+       '本命用神优先级，忌神回避策略；现实操作：作息、环境、社交、项目选择。'],
+      ['事业发展 / Career',
+       '行业适配与岗位侧重：创意输出/系统管理/对客销售/技术钻研；上升节点与避坑点。'],
+      ['财运走势 / Wealth',
+       '偏正财路径与现金流节奏；投入产出比、合伙/单干选择、库存/广告预算策略。'],
+      ['感情婚姻 / Relationship',
+       '相处模式、沟通底层逻辑与雷区；推进节奏与关键窗口期。'],
+      ['健康养生 / Health',
+       '体质倾向与脏腑敏感点；作息饮食与运动形态建议（强度、频率、节律）。'],
+      ['玄学缘分 / Spiritual',
+       '灵性特质、护持体系与合适的修习入口（冥想/静观/祈愿/行持）。'],
+      ['近期运势 / Next 3–6 Months',
+       '阶段目标与行动清单：立项、收尾、疏通与布局；避免反复的触发因素。']
+    ];
+    return sec.map(([h, p])=>`
+      <div class="butler-section">
+        <h4>${h}</h4>
+        <div class="detail-content">${p}</div>
+      </div>
+    `).join('');
+  }
+
+  function showResultContainers(){
+    if ($('result')) $('result').style.display = 'block';
+    if ($('butlerProfessional')){
+      $('butlerProfessional').style.display = 'block';
+      $('professionalReport').innerHTML = buildProReportSections();
+    }
+  }
+
+  function initChat(){
+    const send = $('chatSend');
+    const input = $('chatInput');
+    const box = $('chatMessages');
+    if (!send || !input || !box) return;
+    send.onclick = ()=>{
+      const q = (input.value || '').trim();
+      if (!q) return;
+      const me = document.createElement('div');
+      me.className = 'ss-msg';
+      me.textContent = q;
+      box.appendChild(me);
+      input.value = '';
+      const auto = document.createElement('div');
+      auto.className = 'ss-msg';
+      auto.textContent = (get(I18N[state.lang],'chatDyn.autoReply') || 'OK: {q}')
+                          .replace('{q}', q);
+      box.appendChild(auto);
+      box.scrollTop = box.scrollHeight;
+    };
+  }
+
+  /* =========================
+   * DATA SHAPES & ADAPTERS
+   * =========================
+   * Expected API minimal shape (example):
+   * {
+   *   pillars: { labels: ['戊午','甲寅','甲寅','庚午'] },
+   *   stem: ['戊','甲','甲','庚'],
+   *   branch: ['午','寅','寅','午'],
+   *   element: ['土','木','木','土'],
+   *   nayin: ['天上火','大溪水','大溪水','天上火'],
+   *   elementsPct: { '木':40,'火':20,'土':25,'金':10,'水':5 }
+   * }
+   */
+  function hydrateFromAPI(rsp){
+    const pillars = rsp?.pillars?.labels || [
+      (rsp.stem?.[0]||'-') + (rsp.branch?.[0]||''),
+      (rsp.stem?.[1]||'-') + (rsp.branch?.[1]||''),
+      (rsp.stem?.[2]||'-') + (rsp.branch?.[2]||''),
+      (rsp.stem?.[3]||'-') + (rsp.branch?.[3]||'')
+    ];
+    renderPillars(pillars);
+    renderTable({
+      stem: rsp.stem || ['-','-','-','-'],
+      branch: rsp.branch || ['-','-','-','-'],
+      element: rsp.element || ['-','-','-','-'],
+      nayin: rsp.nayin || ['-','-','-','-']
+    });
+    renderBars(rsp.elementsPct || {'木':0,'火':0,'土':0,'金':0,'水':0});
+    showResultContainers();
+  }
+
+  // Demo generator for immediate rendering (replace with your API later)
+  function sampleDemo(birthdate, timeStr, timeUnknown){
+    // A simple stable demo payload
+    return {
+      pillars: { labels: ['戊午','甲寅','甲寅','庚午'] },
+      stem: ['戊','甲','甲','庚'],
+      branch: ['午','寅','寅','午'],
+      element: ['土','木','木','土'],
+      nayin: ['天上火','大溪水','大溪水','天上火'],
+      elementsPct: { '木': 40, '火': 20, '土': 25, '金': 10, '水': 5 }
+    };
+  }
+
+  /* =========================
+   * API CALL (optional)
+   * ========================= */
+  async function postJSON(url, data){
+    const ctrl = new AbortController();
+    const t = setTimeout(()=> ctrl.abort(), CONFIG.TIMEOUT_MS);
+    try{
+      const res = await fetch(url, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(data),
+        signal: ctrl.signal
+      });
+      if (!res.ok) throw new Error('HTTP '+res.status);
+      return await res.json();
+    } finally {
+      clearTimeout(t);
+    }
+  }
+
+  async function generateViaAPI(payload){
+    if (!CONFIG.API_BASE) return null;
+    // Try a couple of common endpoints; adapt to your backend.
+    const endpoints = [
+      '/bazi/quick',
+      '/bazi/brief',
+      '/bazi'
+    ];
+    for (const ep of endpoints){
+      try{
+        const rsp = await postJSON(CONFIG.API_BASE + ep, payload);
+        if (rsp) return rsp;
+      }catch(_e){ /* try next */ }
+    }
+    return null;
+  }
+
+  /* =========================
+   * GENERATE HANDLER
+   * ========================= */
+  async function onGenerate(){
+    const date = $('birthdate')?.value;
+    const unknown = $('timeUnknown')?.checked;
+    const timeVal = $('birthtime')?.value || '00:00';
+    const cal = $('calendar')?.value || 'gregorian';
+    const gender = $('gender')?.value || '';
+    const name = $('name')?.value || '';
+
+    if (!date){
+      showErr(t('err.fillBirthdate') || 'Please enter your birth date');
+      return;
+    }
+
+    setGenLoading(true);
+    try{
+      // summary line
+      const [yy,mm,dd] = date.split('-');
+      const timeText = unknown
+        ? (t('ui.timeUnknown') || '')
+        : (t('ui.hourSuffix') || '{h}:00').replace('{h}', (timeVal||'00:00').slice(0,2));
+      const summaryTpl = t('ui.birthSummary') || 'Birth date: {y}-{m}-{d} {timeText}';
+      const summary = summaryTpl.replace('{y}',yy).replace('{m}',mm).replace('{d}',dd).replace('{timeText}', timeText);
+      if ($('bazi-date')) $('bazi-date').textContent = summary;
+
+      // Prepare payload
+      const payload = {
+        name, gender, calendar: cal,
+        birthdate: date,
+        birthtime: unknown ? null : timeVal,
+        timeUnknown: !!unknown,
+        locale: state.lang
+      };
+
+      // Try API first (if provided), fallback to demo
+      let data = null;
+      try{
+        data = await generateViaAPI(payload);
+      }catch(_e){}
+      if (!data) data = sampleDemo(date, timeVal, unknown);
+
+      hydrateFromAPI(data);
+
+      // hour-unknown tip
+      if (unknown && $('professionalReport')){
+        const tip = document.createElement('div');
+        tip.className = 'ai-box';
+        tip.innerHTML = `<div class="ai-box-h">TIP</div><div class="ai-box-c">${t('report.hourUnknownTip') || ''}</div>`;
+        $('professionalReport').prepend(tip);
+      }
+    }catch(err){
+      console.error(err);
+      showErr(t('err.generateFail'));
+    }finally{
+      setGenLoading(false);
+    }
+  }
+
+  /* =========================
+   * INIT
+   * ========================= */
+  document.addEventListener('DOMContentLoaded', ()=>{
+    // language
+    const sel = $('langSelect');
+    if (sel){
+      sel.addEventListener('change', e=>{
+        state.lang = e.target.value || 'zh-CN';
+        localStorage.setItem('5x_lang', state.lang);
+        applyI18n();
+      });
+    }
+    // time unknown bind
+    const timeUnknown = $('timeUnknown');
+    if (timeUnknown){
+      timeUnknown.addEventListener('change', e=>{
+        const dis = !!e.target.checked;
+        if ($('birthtime')) $('birthtime').disabled = dis;
+      });
+    }
+    // generate
+    const gen = $('genBtn');
+    if (gen) gen.addEventListener('click', onGenerate);
+
+    initChat();
+    applyI18n();
+  });
+
+})();
 </script>
 </body>
 </html>
