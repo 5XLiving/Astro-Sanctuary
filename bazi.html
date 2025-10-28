@@ -281,6 +281,110 @@ a:focus{
 /* (optional) also remove tap highlight on mobile */
 *{ -webkit-tap-highlight-color: transparent; }    
 .chip:hover{ border-color:#2a3546; box-shadow:none; }
+
+/* 浮窗聊天样式 */
+.chat-float {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 350px;
+  height: 500px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  z-index: 1000;
+  display: none;
+  flex-direction: column;
+}
+
+.chat-float-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(212,175,55,.1);
+  color: var(--gold2);
+  font-weight: 700;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  cursor: move;
+}
+
+.chat-float-close {
+  background: none;
+  border: none;
+  color: var(--gold2);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.chat-float-close:hover {
+  background: rgba(212,175,55,.2);
+}
+
+.chat-float-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+.chat-float-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  background: var(--surface);
+}
+
+.chat-float-input-area {
+  padding: 12px;
+  border-top: 1px solid var(--line);
+  background: var(--bg-accent);
+}
+
+.chat-toggle-btn {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: linear-gradient(180deg,#fff9e6,#e6c76e);
+  border: 1px solid #e6c76e;
+  color: #191919;
+  font-size: 1.5rem;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(230,199,110,.3);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chat-toggle-btn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 6px 20px rgba(230,199,110,.5);
+}
+
+/* 响应式调整 */
+@media (max-width: 768px) {
+  .chat-float {
+    width: 300px;
+    height: 400px;
+    bottom: 10px;
+    right: 10px;
+  }
+  
+  .chat-toggle-btn {
+    width: 50px;
+    height: 50px;
+    bottom: 10px;
+    right: 10px;
+  }
+}    
 </style>
 </head>
 <body>
@@ -406,16 +510,29 @@ a:focus{
       <span data-i18n="pro.title">🧙‍♂️ 心怜管家 · 专业命理分析</span>
     </div>
     <div class="butler-content" id="professionalReport"></div>
-    <div class="butler-chat">
-      <div class="chat-messages" id="chatMessages">
-        <div class="ss-msg" data-i18n="pro.welcome">您好！我是您的专业命理顾问，已为您生成详细分析报告。有什么具体问题可以随时问我。</div>
-      </div>
-      <div class="chat-input-area">
-        <input type="text" id="chatInput" placeholder="请输入您的问题...">
-        <button class="chat-send-btn" id="chatSend" data-i18n="chat.send">发送</button>
+</section>
+    
+<!-- 浮窗聊天按钮 -->
+<button class="chat-toggle-btn" id="chatToggle">💬</button>
+
+<!-- 浮窗聊天窗口 -->
+<div class="chat-float" id="chatFloat">
+  <div class="chat-float-header">
+    <span>🧙‍♂️ 专业顾问</span>
+    <button class="chat-float-close" id="chatClose">×</button>
+  </div>
+  <div class="chat-float-body">
+    <div class="chat-float-messages" id="chatMessages">
+      <div class="ss-msg">您好！我是您的专业命理顾问，已为您生成详细分析报告。有什么具体问题可以随时问我。</div>
+    </div>
+    <div class="chat-float-input-area">
+      <div style="display: flex; gap: 8px;">
+        <input type="text" id="chatInput" placeholder="请输入您的问题..." style="flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #253245; background: #0e1520; color: #e8edf3;">
+        <button class="chat-send-btn" id="chatSend" style="padding: 10px 16px; background: var(--gold); color: #191919; border: none; border-radius: 8px; font-weight: 700; cursor: pointer;">发送</button>
       </div>
     </div>
-  </section>
+  </div>
+</div>  
 
   <section class="card section vip-section">
     <h2 class="group-title" data-i18n="vip.title">🌙 会员区域 VIP Segment</h2>
@@ -1372,27 +1489,99 @@ function renderTable(data){
     }
   }
 
-  function initChat(){
-    const send = $('chatSend');
-    const input = $('chatInput');
-    const box = $('chatMessages');
-    if (!send || !input || !box) return;
-    send.onclick = ()=>{
-      const q = (input.value || '').trim();
-      if (!q) return;
-      const me = document.createElement('div');
-      me.className = 'ss-msg';
-      me.textContent = q;
-      box.appendChild(me);
-      input.value = '';
-      const auto = document.createElement('div');
-      auto.className = 'ss-msg';
-      auto.textContent = (get(I18N[state.lang],'chatDyn.autoReply') || 'OK: {q}')
-                          .replace('{q}', q);
-      box.appendChild(auto);
-      box.scrollTop = box.scrollHeight;
-    };
+// 浮窗聊天功能
+function initFloatChat() {
+  const toggleBtn = $('#chatToggle');
+  const floatWindow = $('#chatFloat');
+  const closeBtn = $('#chatClose');
+  const sendBtn = $('#chatSend');
+  const input = $('#chatInput');
+  const messages = $('#chatMessages');
+  
+  if (!toggleBtn || !floatWindow) return;
+  
+  // 切换显示/隐藏
+  toggleBtn.addEventListener('click', () => {
+    floatWindow.style.display = floatWindow.style.display === 'flex' ? 'none' : 'flex';
+  });
+  
+  // 关闭按钮
+  closeBtn.addEventListener('click', () => {
+    floatWindow.style.display = 'none';
+  });
+  
+  // 发送消息
+  sendBtn.addEventListener('click', sendMessage);
+  input.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') sendMessage();
+  });
+  
+  function sendMessage() {
+    const q = input.value.trim();
+    if (!q) return;
+    
+    // 添加用户消息
+    const userMsg = document.createElement('div');
+    userMsg.className = 'ss-msg';
+    userMsg.textContent = q;
+    userMsg.style.background = 'rgba(212,175,55,0.1)';
+    userMsg.style.marginLeft = 'auto';
+    userMsg.style.marginRight = '0';
+    userMsg.style.maxWidth = '80%';
+    messages.appendChild(userMsg);
+    
+    input.value = '';
+    
+    // 添加自动回复
+    setTimeout(() => {
+      const autoMsg = document.createElement('div');
+      autoMsg.className = 'ss-msg';
+      autoMsg.textContent = `收到您的问题：${q}。我们会在分析报告中详细解答。`;
+      autoMsg.style.background = 'rgba(255,255,255,0.05)';
+      autoMsg.style.maxWidth = '80%';
+      messages.appendChild(autoMsg);
+      messages.scrollTop = messages.scrollHeight;
+    }, 1000);
+    
+    messages.scrollTop = messages.scrollHeight;
   }
+  
+  // 简单的拖拽功能
+  let isDragging = false;
+  let dragOffset = { x: 0, y: 0 };
+  const header = floatWindow.querySelector('.chat-float-header');
+  
+  header.addEventListener('mousedown', startDrag);
+  document.addEventListener('mousemove', drag);
+  document.addEventListener('mouseup', stopDrag);
+  
+  function startDrag(e) {
+    isDragging = true;
+    const rect = floatWindow.getBoundingClientRect();
+    dragOffset.x = e.clientX - rect.left;
+    dragOffset.y = e.clientY - rect.top;
+    floatWindow.style.cursor = 'grabbing';
+  }
+  
+  function drag(e) {
+    if (!isDragging) return;
+    floatWindow.style.left = (e.clientX - dragOffset.x) + 'px';
+    floatWindow.style.top = (e.clientY - dragOffset.y) + 'px';
+    floatWindow.style.right = 'auto';
+    floatWindow.style.bottom = 'auto';
+  }
+  
+  function stopDrag() {
+    isDragging = false;
+    floatWindow.style.cursor = 'default';
+  }
+}
+
+// 在DOM加载完成后初始化
+document.addEventListener('DOMContentLoaded', () => {
+  // ... 其他初始化代码
+  initFloatChat();
+});
 
   /* =========================
    * DATA SHAPES & ADAPTERS
