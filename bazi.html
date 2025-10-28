@@ -604,6 +604,15 @@ a:focus{
       nayinMap: {}
     },
 
+     stemMap: {
+       '甲':'Jia', '乙':'Yi', '丙':'Bing', '丁':'Ding', '戊':'Wu', 
+       '己':'Ji', '庚':'Geng', '辛':'Xin', '壬':'Ren', '癸':'Gui'
+     },
+     branchMap: {
+       '子':'Zi', '丑':'Chou', '寅':'Yin', '卯':'Mao', '辰':'Chen', '巳':'Si',
+       '午':'Wu', '未':'Wei', '申':'Shen', '酉':'You', '戌':'Xu', '亥':'Hai'
+     },
+
     'en': {
       brand: { subtitle: '5xLiving · Bazi Brief' },
       nav: { langLabel: 'Language' },
@@ -787,6 +796,13 @@ a:focus{
         七杀:'Tujuh Pembunuh', 正官:'Pegawai',
         偏印:'Sumber Tidak Langsung', 正印:'Sumber Langsung'
       },
+
+      stemMap: {
+       '甲':'Jia (Wood)', '乙':'Yi (Wood)', '丙':'Bing (Fire)', '丁':'Ding (Fire)',
+       '戊':'Wu (Earth)', '己':'Ji (Earth)', '庚':'Geng (Metal)', '辛':'Xin (Metal)',
+       '壬':'Ren (Water)', '癸':'Gui (Water)'
+      },
+      
       dirMap: { 东:'Timur', 西:'Barat', 南:'Selatan', 北:'Utara', 中:'Tengah', 正东方:'Timur tepat', 东南方:'Tenggara', 中央:'Tengah' },
       colorMap: { 木:'Hijau, teal', 火:'Merah, ungu', 土:'Kuning, coklat', 金:'Putih, emas', 水:'Hitam, biru' },
       nayinMap: {}
@@ -900,17 +916,23 @@ function applyI18n(){
   /* =========================
    * RENDERERS
    * ========================= */
-  function renderPillars(labels){
-    const mapKey = ['pillar.year','pillar.month','pillar.day','pillar.hour'];
-    const html = mapKey.map((key,i)=>`
-      <div class="pillar">
-        <div class="tit">${t(key)}</div>
-        <div class="gz">${labels[i] || '-'}</div>
-      </div>
-    `).join('');
-    const box = $('bazi-pillars');
-    if (box) box.innerHTML = html;
-  }
+function renderPillars(labels){
+  const dict = dictFor(state.lang);
+  const stemMap = get(dict, 'stemMap') || {};
+  const branchMap = get(dict, 'branchMap') || {};
+  
+  const translatedLabels = labels.map(label => {
+    if (label && label.length === 2) {
+      const stem = stemMap[label[0]] || label[0];
+      const branch = branchMap[label[1]] || label[1];
+      // 这里根据语言决定是否添加分隔符
+      const separator = state.lang.startsWith('zh') ? '' : ' ';
+      return stem + separator + branch;
+    }
+    return label || '-';
+  });
+
+  const mapKey = ['pillar.year','pillar.month','pillar.day
 
   function renderTable(data){
     const keys = ['stem','branch','element','nayin'];
@@ -1072,17 +1094,17 @@ function applyI18n(){
   }
 
   // Demo generator for immediate rendering (replace with your API later)
-  function sampleDemo(birthdate, timeStr, timeUnknown){
-    // A simple stable demo payload
-    return {
-      pillars: { labels: ['戊午','甲寅','甲寅','庚午'] },
-      stem: ['戊','甲','甲','庚'],
-      branch: ['午','寅','寅','午'],
-      element: ['土','木','木','土'],
-      nayin: ['天上火','大溪水','大溪水','天上火'],
-      elementsPct: { '木': 40, '火': 20, '土': 25, '金': 10, '水': 5 }
-    };
-  }
+function sampleDemo(birthdate, timeStr, timeUnknown){
+  // 保持返回原始中文数据，让渲染函数处理翻译
+  return {
+    pillars: { labels: ['戊午','甲寅','甲寅','庚午'] },
+    stem: ['戊','甲','甲','庚'],
+    branch: ['午','寅','寅','午'],
+    element: ['土','木','木','金'],
+    nayin: ['天上火','大溪水','大溪水','路旁土'],
+    elementsPct: { '木': 40, '火': 20, '土': 25, '金': 10, '水': 5 }
+  };
+}
 
   /* =========================
    * API CALL (optional)
