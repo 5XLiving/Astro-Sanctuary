@@ -607,12 +607,7 @@ a:focus{
 <script>
 /*!
  * 5XLiving · Bazi Quick Chart (single-file script)
- * Paste this once at the END of your <body>. It includes:
- * - I18N (zh-CN / en / ms)
- * - Language switching
- * - Generate button handler (demo data + API hook)
- * - Pillars/table/5-element bars rendering
- * - Professional report placeholder + simple chat
+ * Place this once at the END of your <body>.
  */
 (() => {
   'use strict';
@@ -621,7 +616,6 @@ a:focus{
    * CONFIG
    * ========================= */
   const CONFIG = {
-    // If you already define window.API_BASE elsewhere, this will use it.
     API_BASE: (typeof window.API_BASE === 'string' ? window.API_BASE : ''), // e.g. 'https://your-api.example.com'
     TIMEOUT_MS: 12000
   };
@@ -717,7 +711,6 @@ a:focus{
   colorMap: { 木:'绿色、青色', 火:'红色、紫色', 土:'黄色、棕色', 金:'白色、金色', 水:'黑色、蓝色' },
   nayinMap: {},
 
-  // 天干地支映射 - 移到对象内部
   stemMap: {
     '甲':'甲', '乙':'乙', '丙':'丙', '丁':'丁', '戊':'戊', 
     '己':'己', '庚':'庚', '辛':'辛', '壬':'壬', '癸':'癸'
@@ -1229,8 +1222,8 @@ a:focus{
     '子':'Zi', '丑':'Chou', '寅':'Yin', '卯':'Mao', '辰':'Chen', '巳':'Si',
     '午':'Wu', '未':'Wei', '申':'Shen', '酉':'You', '戌':'Xu', '亥':'Hai'
   }
-}  // ← 这里需要确保有闭合的括号和逗号
-};
+}
+}; // END I18N
 
   /* ===== i18n helpers & now defaults ===== */
 const LANG_ALIAS = {
@@ -1253,6 +1246,8 @@ function normLang(lang){
 }
 
 function pad(n){ return String(n).padStart(2,'0'); }
+const $ = id => document.getElementById(id);
+
 function setNowDefaults(){
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -1264,12 +1259,21 @@ function setNowDefaults(){
 
   if (d && !d.value) d.value = `${yyyy}-${mm}-${dd}`;
   if (t && !t.value) t.value = `${hh}:${mi}`;
+
+  // optional: show current time
+  function updateNowBox(){
+    const el = $('nowBox'); if (!el) return;
+    const loc = normLang(localStorage.getItem('5x_lang') || 'zh-CN');
+    try{ el.textContent = new Date().toLocaleString(loc); }
+    catch{ el.textContent = new Date().toLocaleString(); }
+  }
+  updateNowBox();
+  setInterval(updateNowBox, 60*1000);
 }
 
   /* =========================
    * UTILS
    * ========================= */
-  const $ = id => document.getElementById(id);
   const KEYS = ['year','month','day','hour'];
 
   const state = {
@@ -1279,46 +1283,45 @@ function setNowDefaults(){
   function get(obj, path){
     return path.split('.').reduce((o,k)=> (o && o[k]!=null) ? o[k] : undefined, obj);
   }
-function t(key){
-  const dict = dictFor(state.lang);
-  const val = get(dict, key);
-  return (typeof val === 'string') ? val : '';
-}
+  function t(key){
+    const dict = dictFor(state.lang);
+    const val = get(dict, key);
+    return (typeof val === 'string') ? val : '';
+  }
 
-function applyI18n(){
-  const dict = dictFor(state.lang);
-  const htmlLang = normLang(state.lang);
-  document.documentElement.lang = htmlLang;
+  function applyI18n(){
+    const dict = dictFor(state.lang);
+    const htmlLang = normLang(state.lang);
+    document.documentElement.lang = htmlLang;
 
     // data-i18n text
-  document.querySelectorAll('[data-i18n]').forEach(el=>{
-    const key = el.getAttribute('data-i18n');
-    const val = get(dict, key);
-    if (typeof val === 'string' && val) el.textContent = val;
-  });
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const key = el.getAttribute('data-i18n');
+      const val = get(dict, key);
+      if (typeof val === 'string' && val) el.textContent = val;
+    });
 
-  // options
-  document.querySelectorAll('option[data-i18n]').forEach(opt=>{
-    const key = opt.getAttribute('data-i18n');
-    const val = get(dict, key);
-    if (typeof val === 'string' && val) opt.textContent = val;
-  });
+    // options
+    document.querySelectorAll('option[data-i18n]').forEach(opt=>{
+      const key = opt.getAttribute('data-i18n');
+      const val = get(dict, key);
+      if (typeof val === 'string' && val) opt.textContent = val;
+    });
 
-  const ph = {
-    name:    get(dict,'form.namePlaceholder'),
-    email:   get(dict,'auth.emailPlaceholder'),
-    password:get(dict,'auth.passwordPlaceholder'),
-    chat:    get(dict,'chat.placeholder')
-  };
-  if ($('name')     && ph.name)     $('name').placeholder     = ph.name;
-  if ($('email')    && ph.email)    $('email').placeholder    = ph.email;
-  if ($('password') && ph.password) $('password').placeholder = ph.password;
-  if ($('chatInput')&& ph.chat)     $('chatInput').placeholder= ph.chat;
+    const ph = {
+      name:    get(dict,'form.namePlaceholder'),
+      email:   get(dict,'auth.emailPlaceholder'),
+      password:get(dict,'auth.passwordPlaceholder'),
+      chat:    get(dict,'chat.placeholder')
+    };
+    if ($('name')     && ph.name)     $('name').placeholder     = ph.name;
+    if ($('email')    && ph.email)    $('email').placeholder    = ph.email;
+    if ($('password') && ph.password) $('password').placeholder = ph.password;
+    if ($('chatInput')&& ph.chat)     $('chatInput').placeholder= ph.chat;
 
-  // keep UI in sync
-  const langSelect = $('langSelect');
-  if (langSelect) langSelect.value = state.lang;
-}
+    const langSelect = $('langSelect');
+    if (langSelect) langSelect.value = state.lang;
+  }
 
   function showErr(msg){
     const box = $('error');
@@ -1377,8 +1380,6 @@ function renderTable(data){
       const cell = document.getElementById(`${k}-${row}`);
       if (cell) {
         let value = (data[row] && data[row][i]) ? data[row][i] : '-';
-        
-        // 翻译天干地支和五行
         if (row === 'stem' && value !== '-') {
           value = stemMap[value] || value;
         } else if (row === 'branch' && value !== '-') {
@@ -1386,123 +1387,97 @@ function renderTable(data){
         } else if (row === 'element' && value !== '-') {
           value = elemNames[value] || value;
         }
-        
         cell.textContent = value;
       }
     });
   });
 }
 
-  function renderBars(pcts){
-    const elems = ['木','火','土','金','水'];
-    elems.forEach(e=>{
-      const pct = Math.max(0, Math.min(100, Math.round(pcts[e] || 0)));
-      const bar = $('bar-'+e);
-      const lab = $('pct-'+e);
-      if (bar) bar.style.width = pct + '%';
-      if (lab) lab.textContent = pct + '%';
-    });
-    const sorted = Object.entries(pcts).sort((a,b)=> b[1]-a[1]);
-    const strongest = sorted[0]?.[0];
-    const weakest   = sorted[sorted.length-1]?.[0];
-    const tip = $('bazi-elements-balance');
-    const dict = I18N[state.lang] || I18N['zh-CN'];
-    const names = get(dict,'elemNames') || {};
-    if (tip && strongest && weakest){
-      tip.textContent = (t('ui.balance') || '')
-        .replace('{strongest}', names[strongest] || strongest)
-        .replace('{weakest}',   names[weakest]   || weakest);
-    }
+function renderBars(pcts){
+  const elems = ['木','火','土','金','水'];
+  elems.forEach(e=>{
+    const pct = Math.max(0, Math.min(100, Math.round(pcts[e] || 0)));
+    const bar = $('bar-'+e);
+    const lab = $('pct-'+e);
+    if (bar) bar.style.width = pct + '%';
+    if (lab) lab.textContent = pct + '%';
+  });
+  const sorted = Object.entries(pcts).sort((a,b)=> b[1]-a[1]);
+  const strongest = sorted[0]?.[0];
+  const weakest   = sorted[sorted.length-1]?.[0];
+  const tip = $('bazi-elements-balance');
+  const dict = I18N[state.lang] || I18N['zh-CN'];
+  const names = get(dict,'elemNames') || {};
+  if (tip && strongest && weakest){
+    tip.textContent = (t('ui.balance') || '')
+      .replace('{strongest}', names[strongest] || strongest)
+      .replace('{weakest}',   names[weakest]   || weakest);
   }
+}
 
-  function buildProReportSections(){
-    // 根据当前语言生成报告内容
-    const dict = dictFor(state.lang);
-    const isChinese = state.lang.startsWith('zh');
-    
-    if (isChinese) {
-      const sec = [
-        ['命盘总览 / Overview',
-         '日主气质、命局结构与强弱概览；看主客观资源与支撑位，确认当令五行与偏衡点。'],
-        ['五行能量分析 / Five-Element Balance',
-         '元素比例与冷热燥湿；优先调和的方向（补泄制），以及颜色/方位/作息的配合建议。'],
-        ['十神配置分析 / Ten Gods',
-         '用/忌神所在柱与互动；比劫、食伤、财官印的协同与冲突，判断发力路径。'],
-        ['用神喜忌 / Useful Spirit',
-         '本命用神优先级，忌神回避策略；现实操作：作息、环境、社交、项目选择。'],
-        ['事业发展 / Career',
-         '行业适配与岗位侧重：创意输出/系统管理/对客销售/技术钻研；上升节点与避坑点。'],
-        ['财运走势 / Wealth',
-         '偏正财路径与现金流节奏；投入产出比、合伙/单干选择、库存/广告预算策略。'],
-        ['感情婚姻 / Relationship',
-         '相处模式、沟通底层逻辑与雷区；推进节奏与关键窗口期。'],
-        ['健康养生 / Health',
-         '体质倾向与脏腑敏感点；作息饮食与运动形态建议（强度、频率、节律）。'],
-        ['玄学缘分 / Spiritual',
-         '灵性特质、护持体系与合适的修习入口（冥想/静观/祈愿/行持）。'],
-        ['近期运势 / Next 3–6 Months',
-         '阶段目标与行动清单：立项、收尾、疏通与布局；避免反复的触发因素。']
-      ];
-      return sec.map(([h, p])=>`
-        <div class="butler-section">
-          <h4>${h}</h4>
-          <div class="detail-content">${p}</div>
-        </div>
-      `).join('');
-    } else {
-      const sec = [
-        ['Chart Overview',
-         'Day master characteristics, chart structure and strength overview; identify resources and support positions, confirm dominant elements and imbalances.'],
-        ['Five-Element Energy Analysis',
-         'Element proportions and temperature/moisture balance; priority adjustment directions, with color/direction/lifestyle recommendations.'],
-        ['Ten Gods Configuration',
-         'Useful/Harmful gods positions and interactions; synergy and conflicts among peers, output, wealth, authority, and resource stars.'],
-        ['Useful Spirit & Taboos',
-         'Priority of useful elements, avoidance strategies for harmful elements; practical applications in daily life, environment, and social interactions.'],
-        ['Career Development',
-         'Industry suitability and role focus: creative output/system management/client-facing sales/technical research; growth opportunities and pitfalls.'],
-        ['Wealth Trends',
-         'Direct and indirect wealth paths, cash flow rhythms; ROI considerations, partnership vs solo choices, inventory/ad budget strategies.'],
-        ['Relationships & Marriage',
-         'Interaction patterns, communication dynamics and sensitive areas; timing and key windows for relationship advancement.'],
-        ['Health & Wellness',
-         'Constitutional tendencies and organ sensitivities; recommendations for sleep, diet, and exercise routines (intensity, frequency, rhythm).'],
-        ['Spiritual Affinity',
-         'Spiritual traits, support systems and suitable practice entry points (meditation/contemplation/prayer/rituals).'],
-        ['Recent Fortune (Next 3-6 Months)',
-         'Phase goals and action plans: project initiation, completion, clearing obstacles and strategic positioning; avoiding repetitive triggers.']
-      ];
-      return sec.map(([h, p])=>`
-        <div class="butler-section">
-          <h4>${h}</h4>
-          <div class="detail-content">${p}</div>
-        </div>
-      `).join('');
-    }
+function buildProReportSections(){
+  const dict = dictFor(state.lang);
+  const isChinese = state.lang.startsWith('zh');
+  if (isChinese) {
+    const sec = [
+      ['命盘总览 / Overview','日主气质、命局结构与强弱概览；看主客观资源与支撑位，确认当令五行与偏衡点。'],
+      ['五行能量分析 / Five-Element Balance','元素比例与冷热燥湿；优先调和的方向（补泄制），以及颜色/方位/作息的配合建议。'],
+      ['十神配置分析 / Ten Gods','用/忌神所在柱与互动；比劫、食伤、财官印的协同与冲突，判断发力路径。'],
+      ['用神喜忌 / Useful Spirit','本命用神优先级，忌神回避策略；现实操作：作息、环境、社交、项目选择。'],
+      ['事业发展 / Career','行业适配与岗位侧重：创意输出/系统管理/对客销售/技术钻研；上升节点与避坑点。'],
+      ['财运走势 / Wealth','偏正财路径与现金流节奏；投入产出比、合伙/单干选择、库存/广告预算策略。'],
+      ['感情婚姻 / Relationship','相处模式、沟通底层逻辑与雷区；推进节奏与关键窗口期。'],
+      ['健康养生 / Health','体质倾向与脏腑敏感点；作息饮食与运动形态建议（强度、频率、节律）。'],
+      ['玄学缘分 / Spiritual','灵性特质、护持体系与合适的修习入口（冥想/静观/祈愿/行持）。'],
+      ['近期运势 / Next 3–6 Months','阶段目标与行动清单：立项、收尾、疏通与布局；避免反复的触发因素。']
+    ];
+    return sec.map(([h, p])=>`
+      <div class="butler-section">
+        <h4>${h}</h4>
+        <div class="detail-content">${p}</div>
+      </div>
+    `).join('');
+  } else {
+    const sec = [
+      ['Chart Overview','Day master characteristics, chart structure and strength overview; identify resources and support positions, confirm dominant elements and imbalances.'],
+      ['Five-Element Energy Analysis','Element proportions and temperature/moisture balance; priority adjustment directions, with color/direction/lifestyle recommendations.'],
+      ['Ten Gods Configuration','Useful/Harmful gods positions and interactions; synergy and conflicts among peers, output, wealth, authority, and resource stars.'],
+      ['Useful Spirit & Taboos','Priority of useful elements, avoidance strategies for harmful elements; practical applications in daily life, environment, and social interactions.'],
+      ['Career Development','Industry suitability and role focus: creative output/system management/client-facing sales/technical research; growth opportunities and pitfalls.'],
+      ['Wealth Trends','Direct and indirect wealth paths, cash flow rhythms; ROI considerations, partnership vs solo choices, inventory/ad budget strategies.'],
+      ['Relationships & Marriage','Interaction patterns, communication dynamics and sensitive areas; timing and key windows for relationship advancement.'],
+      ['Health & Wellness','Constitutional tendencies and organ sensitivities; recommendations for sleep, diet, and exercise routines (intensity, frequency, rhythm).'],
+      ['Spiritual Affinity','Spiritual traits, support systems and suitable practice entry points (meditation/contemplation/prayer/rituals).'],
+      ['Recent Fortune (Next 3-6 Months)','Phase goals and action plans: project initiation, completion, clearing obstacles and strategic positioning; avoiding repetitive triggers.']
+    ];
+    return sec.map(([h, p])=>`
+      <div class="butler-section">
+        <h4>${h}</h4>
+        <div class="detail-content">${p}</div>
+      </div>
+    `).join('');
   }
+}
 
-  function showResultContainers(){
-    if ($('result')) $('result').style.display = 'block';
-    if ($('butlerProfessional')){
-      $('butlerProfessional').style.display = 'block';
-      $('professionalReport').innerHTML = buildProReportSections();
-    }
+function showResultContainers(){
+  if ($('result')) $('result').style.display = 'block';
+  if ($('butlerProfessional')){
+    $('butlerProfessional').style.display = 'block';
+    $('professionalReport').innerHTML = buildProReportSections();
   }
+}
 
-// 浮窗聊天功能（修正版：无“...”且所有逻辑都在函数内部）
+/* ===== Float chat (single implementation) ===== */
 function initFloatChat() {
-  const $ = id => document.getElementById(id);
   const toggleBtn   = $('chatToggle');
   const floatWindow = $('chatFloat');
   const closeBtn    = $('chatClose');
   const sendBtn     = $('chatSend');
   const input       = $('chatInput');
   const messages    = $('chatMessages');
-
   if (!toggleBtn || !floatWindow) return;
 
   const show = v => { floatWindow.style.display = v ? 'flex' : 'none'; };
-
   toggleBtn.addEventListener('click', () => show(floatWindow.style.display !== 'flex'));
   if (closeBtn) closeBtn.addEventListener('click', () => show(false));
 
@@ -1519,7 +1494,6 @@ function initFloatChat() {
     messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
   }
-
   function sendMessage() {
     const q = (input?.value || '').trim();
     if (!q) return;
@@ -1528,86 +1502,43 @@ function initFloatChat() {
     setTimeout(() => {
       const auto = (t('chatDyn.autoReply') || '收到：{q}。').replace('{q}', q);
       appendMsg(auto, false);
-    }, 500);
+    }, 300);
   }
-
   if (sendBtn) sendBtn.addEventListener('click', sendMessage);
   if (input)   input.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
 
-  // 拖拽
-  let isDragging = false, dragOffset = {x:0,y:0};
-  const header = floatWindow.querySelector('.chat-float-header');
-  if (header){
-    header.addEventListener('mousedown', e => {
-      isDragging = true;
-      const rect = floatWindow.getBoundingClientRect();
-      dragOffset.x = e.clientX - rect.left;
-      dragOffset.y = e.clientY - rect.top;
-      floatWindow.style.cursor = 'grabbing';
-    });
-    document.addEventListener('mousemove', e => {
-      if (!isDragging) return;
-      floatWindow.style.left   = (e.clientX - dragOffset.x) + 'px';
-      floatWindow.style.top    = (e.clientY - dragOffset.y) + 'px';
-      floatWindow.style.right  = 'auto';
-      floatWindow.style.bottom = 'auto';
-    });
-    document.addEventListener('mouseup', () => {
-      isDragging = false;
-      floatWindow.style.cursor = 'default';
-    });
-  }
-  
-  // 简单的拖拽功能
+  // Drag
   let isDragging = false;
-  let dragOffset = { x: 0, y: 0 };
+  const dragOffset = { x: 0, y: 0 };
   const header = floatWindow.querySelector('.chat-float-header');
-  
-  header.addEventListener('mousedown', startDrag);
-  document.addEventListener('mousemove', drag);
-  document.addEventListener('mouseup', stopDrag);
-  
-  function startDrag(e) {
+  function startDrag(e){
     isDragging = true;
     const rect = floatWindow.getBoundingClientRect();
     dragOffset.x = e.clientX - rect.left;
     dragOffset.y = e.clientY - rect.top;
     floatWindow.style.cursor = 'grabbing';
   }
-  
-  function drag(e) {
+  function drag(e){
     if (!isDragging) return;
-    floatWindow.style.left = (e.clientX - dragOffset.x) + 'px';
-    floatWindow.style.top = (e.clientY - dragOffset.y) + 'px';
-    floatWindow.style.right = 'auto';
+    floatWindow.style.left   = (e.clientX - dragOffset.x) + 'px';
+    floatWindow.style.top    = (e.clientY - dragOffset.y) + 'px';
+    floatWindow.style.right  = 'auto';
     floatWindow.style.bottom = 'auto';
   }
-  
-  function stopDrag() {
+  function stopDrag(){
     isDragging = false;
     floatWindow.style.cursor = 'default';
   }
+  if (header){
+    header.addEventListener('mousedown', startDrag);
+    document.addEventListener('mousemove', drag);
+    document.addEventListener('mouseup',   stopDrag);
+  }
 }
-
-// 在DOM加载完成后初始化
-document.addEventListener('DOMContentLoaded', () => {
-  // ... 其他初始化代码
-  initFloatChat();
-});
 
   /* =========================
    * DATA SHAPES & ADAPTERS
-   * =========================
-   * Expected API minimal shape (example):
-   * {
-   *   pillars: { labels: ['戊午','甲寅','甲寅','庚午'] },
-   *   stem: ['戊','甲','甲','庚'],
-   *   branch: ['午','寅','寅','午'],
-   *   element: ['土','木','木','土'],
-   *   nayin: ['天上火','大溪水','大溪水','天上火'],
-   *   elementsPct: { '木':40,'火':20,'土':25,'金':10,'水':5 }
-   * }
-   */
+   * ========================= */
   function hydrateFromAPI(rsp){
     const pillars = rsp?.pillars?.labels || [
       (rsp.stem?.[0]||'-') + (rsp.branch?.[0]||''),
@@ -1636,11 +1567,7 @@ class BaziCalculator{
   }
   calculateYearPillar(year){
     const s=(year-4)%10, b=(year-4)%12;
-    return {
-      stem: this.HEAVENLY_STEMS[(s+10)%10],
-      branch: this.EARTHLY_BRANCHES[(b+12)%12],
-      zodiac: this.ZODIAC[(b+12)%12]
-    };
+    return { stem: this.HEAVENLY_STEMS[(s+10)%10], branch: this.EARTHLY_BRANCHES[(b+12)%12], zodiac: this.ZODIAC[(b+12)%12] };
   }
   solarMonthIndex(y,m,d){
     const mmdd=m*100+d;
@@ -1662,10 +1589,7 @@ class BaziCalculator{
     const dayDiff=Math.floor((targetUTC-baseUTC)/86400000);
     const stemIdx=(0+dayDiff)%10;
     const branchIdx=(4+dayDiff)%12;
-    return {
-      stem: this.HEAVENLY_STEMS[(stemIdx+10)%10],
-      branch: this.EARTHLY_BRANCHES[(branchIdx+12)%12]
-    };
+    return { stem: this.HEAVENLY_STEMS[(stemIdx+10)%10], branch: this.EARTHLY_BRANCHES[(branchIdx+12)%12] };
   }
   calculateHourPillar(dayStem,hour){
     const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
@@ -1683,8 +1607,7 @@ class BaziCalculator{
   }
 }
 
-/* ===== Adapter the UI expects =====
-   build: {pillars:{labels:[]}, stem:[], branch:[], element:[], nayin:[], elementsPct:{木..水}} */
+/* ===== Adapter the UI expects ===== */
 function calculateBaziFromInput(birthdate, timeStr, timeUnknown){
   const [Y,M,D] = (birthdate||'').split('-').map(n=>parseInt(n,10));
   let hour = 12;
@@ -1714,14 +1637,13 @@ function calculateBaziFromInput(birthdate, timeStr, timeUnknown){
     timeUnknown ? '-' : calc.getNayin(stems[3], branchs[3])
   ];
 
-  // five-element percentages (Chinese keys that your renderBars() expects)
   const counts = { '木':0,'火':0,'土':0,'金':0,'水':0 };
   const consider = timeUnknown
     ? [[stems[0],branchs[0]],[stems[1],branchs[1]],[stems[2],branchs[2]]]
     : [[stems[0],branchs[0]],[stems[1],branchs[1]],[stems[2],branchs[2]],[stems[3],branchs[3]]];
   consider.forEach(([s,b])=>{
-    counts[calc.getStemElement(s)]   += 1;
-    counts[calc.getBranchElement(b)] += 1;
+    counts[(calc.getStemElement(s))]   += 1;
+    counts[(calc.getBranchElement(b))] += 1;
   });
   const total = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
   const elementsPct = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, v/total*100]));
@@ -1742,63 +1664,44 @@ function calculateBaziFromInput(birthdate, timeStr, timeUnknown){
   };
 }
 
-/* ===== Replace demo to call the real calculator ===== */
-function sampleDemo(birthdate, timeStr, timeUnknown){
-  return calculateBaziFromInput(birthdate, timeStr, timeUnknown);
+/* ===== API CALL (optional) ===== */
+async function postJSON(url, data){
+  const ctrl = new AbortController();
+  const t = setTimeout(()=> ctrl.abort(), CONFIG.TIMEOUT_MS);
+  try{
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(data),
+      signal: ctrl.signal
+    });
+    if (!res.ok) throw new Error('HTTP '+res.status);
+    return await res.json();
+  } finally { clearTimeout(t); }
 }
-  
-  /* =========================
-   * API CALL (optional)
-   * ========================= */
-  async function postJSON(url, data){
-    const ctrl = new AbortController();
-    const t = setTimeout(()=> ctrl.abort(), CONFIG.TIMEOUT_MS);
-    try{
-      const res = await fetch(url, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify(data),
-        signal: ctrl.signal
-      });
-      if (!res.ok) throw new Error('HTTP '+res.status);
-      return await res.json();
-    } finally {
-      clearTimeout(t);
-    }
-  }
 
-  async function generateViaAPI(payload){
-    if (!CONFIG.API_BASE) return null;
-    // Try a couple of common endpoints; adapt to your backend.
-    const endpoints = [
-      '/bazi/quick',
-      '/bazi/brief',
-      '/bazi'
-    ];
-    for (const ep of endpoints){
-      try{
-        const rsp = await postJSON(CONFIG.API_BASE + ep, payload);
-        if (rsp) return rsp;
-      }catch(_e){ /* try next */ }
-    }
-    return null;
+async function generateViaAPI(payload){
+  if (!CONFIG.API_BASE) return null;
+  const endpoints = ['/bazi/quick','/bazi/brief','/bazi'];
+  for (const ep of endpoints){
+    try{
+      const rsp = await postJSON(CONFIG.API_BASE + ep, payload);
+      if (rsp) return rsp;
+    }catch(_e){ /* try next */ }
   }
+  return null;
+}
 
 /* === helper: add/remove/update the hour-unknown tip === */
 function upsertHourUnknownTip(isUnknown){
   const host = $('professionalReport'); if (!host) return;
 
-  // remove if not unknown
   const exist = document.getElementById('hourUnknownTip');
-  if (!isUnknown){
-    if (exist) exist.remove();
-    return;
-  }
+  if (!isUnknown){ if (exist) exist.remove(); return; }
 
   const title = t('report.tipTitle') || 'TIP';
   const body  = t('report.hourUnknownTip') || '';
 
-  // update if exists (e.g. after language switch)
   if (exist){
     const h = exist.querySelector('.ai-box-h');
     const c = exist.querySelector('.ai-box-c');
@@ -1807,7 +1710,6 @@ function upsertHourUnknownTip(isUnknown){
     return;
   }
 
-  // create new
   const tip = document.createElement('div');
   tip.id = 'hourUnknownTip';
   tip.className = 'ai-box';
@@ -1844,14 +1746,16 @@ async function onGenerate(){
       return;
     }
 
-    const [yy, mo, dd] = String(date).split('-');              // month = mo
-    const [hh, mi]     = String(timeVal || '00:00').split(':'); // minutes = mi
+    const [yy, mo, dd] = String(date).split('-');
+    const [hh, mi]     = String(timeVal || '00:00').split(':');
 
+    const hourTpl = t('ui.hourSuffix') || '{hh}:{mm}';
     const timeText = unknown
       ? (t('ui.timeUnknown') || '')
-      : (t('ui.hourSuffix') || '{hh}:{mm}')
-          .replace('{hh}', (hh ?? '00').toString().padStart(2,'0'))
-          .replace('{mm}', (mi ?? '00').toString().padStart(2,'0'));
+      : (hourTpl.includes('{h}')
+          ? hourTpl.replace('{h}', String(hh ?? '00').padStart(2,'0'))
+          : hourTpl.replace('{hh}', String(hh ?? '00').padStart(2,'0'))
+                   .replace('{mm}', String(mi ?? '00').padStart(2,'0')));
 
     const summaryTpl = t('ui.birthSummary') || 'Birth date: {y}-{m}-{d} {timeText}';
     const summary = summaryTpl
@@ -1862,7 +1766,6 @@ async function onGenerate(){
 
     if ($('bazi-date')) $('bazi-date').textContent = summary;
 
-    // Prepare payload
     const payload = {
       name, gender, calendar: cal,
       birthdate: date,
@@ -1871,16 +1774,11 @@ async function onGenerate(){
       locale: state.lang
     };
 
-    // Try API first (if provided), fallback to demo
     let data = null;
-    try{
-      data = await generateViaAPI(payload);
-    }catch(_e){}
-    if (!data) data = sampleDemo(date, timeVal, unknown);
+    try{ data = await generateViaAPI(payload); }catch(_e){}
+    if (!data) data = calculateBaziFromInput(date, timeVal, unknown);
 
     hydrateFromAPI(data);
-
-    // hour-unknown tip (auto add/remove/update)
     upsertHourUnknownTip(!!unknown);
 
   }catch(err){
@@ -1895,10 +1793,8 @@ async function onGenerate(){
    * INIT
    * ========================= */
   document.addEventListener('DOMContentLoaded', ()=>{
-    // 设置当前日期和时间
     setNowDefaults();
-    
-    // language
+
     const sel = $('langSelect');
     if (sel){
       sel.value = state.lang;
@@ -1906,14 +1802,12 @@ async function onGenerate(){
         state.lang = e.target.value || 'zh-CN';
         localStorage.setItem('5x_lang', state.lang);
         applyI18n();
-        
-        // 重新生成报告内容以匹配新语言
         if ($('professionalReport') && $('professionalReport').innerHTML) {
           $('professionalReport').innerHTML = buildProReportSections();
         }
       });
     }
-    // time unknown bind
+
     const timeUnknown = $('timeUnknown');
     if (timeUnknown){
       timeUnknown.addEventListener('change', e=>{
@@ -1921,13 +1815,14 @@ async function onGenerate(){
         if ($('birthtime')) $('birthtime').disabled = dis;
       });
     }
-    // generate
+
     const gen = $('genBtn');
     if (gen) gen.addEventListener('click', onGenerate);
 
     initFloatChat();
     applyI18n();
   });
+
 })();
 </script>
 </body>
