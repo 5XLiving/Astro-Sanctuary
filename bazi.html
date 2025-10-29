@@ -603,7 +603,8 @@ a:focus{
 
   <footer data-i18n="footer.copy">© 5XLiving • Astro Sanctuary</footer>
 </main>
-
+  
+<script>window.API_BASE='https://throbbing-lab-1440.hello5xliving.workers.dev';</script>
 <script>
 /*!
  * 5XLiving · Bazi Quick Chart (single-file script)
@@ -1312,6 +1313,14 @@ function t(key){
   return (typeof val === 'string') ? val : '';
 }
 
+function scrubSensitiveEcho(){
+  // never echo creds; also stop browser autofill echoing them
+  const email = document.getElementById('email');
+  const pw    = document.getElementById('password');
+  if (email){ email.value=''; email.autocomplete='email'; }
+  if (pw){ pw.value=''; pw.autocomplete='new-password'; }
+}
+  
 function applyI18n(){
   const dict = dictFor(state.lang);
   const htmlLang = normLang(state.lang);
@@ -1779,6 +1788,24 @@ Rules:
   ].join('\n');
 }
 
+function extractSections(any){
+  if (!any) return null;
+  if (Array.isArray(any.sections)) return { sections: any.sections };
+  if (any.data && Array.isArray(any.data.sections)) return { sections: any.data.sections };
+  if (any.result && Array.isArray(any.result.sections)) return { sections: any.result.sections };
+  if (typeof any === 'string'){
+    try { return extractSections(JSON.parse(any)); } catch {}
+    const matches = any.match(/{[\s\S]*?}/g);
+    if (matches) for (let i = matches.length - 1; i >= 0; i--){
+      try { const obj = JSON.parse(matches[i]); const got = extractSections(obj); if (got) return got; } catch {}
+    }
+  }
+  if (any.text){
+    try { return extractSections(JSON.parse(any.text)); } catch {}
+  }
+  return null;
+}
+  
 // 2.3 Call your backend LLM (new endpoint recommended: /bazi/report)
 async function generateProReport(calc, locale) {
   const payload = {
@@ -1795,19 +1822,18 @@ async function generateProReport(calc, locale) {
   };
 
   if (!CONFIG.API_BASE) return null;
-  const endpoints = ['/bazi/report', '/api/chat/report']; // your worker can map either
-  for (const ep of endpoints) {
-    try {
+  const endpoints = [
+    '/bazi/report',
+    '/api/bazi/report',
+    '/api/chat/report',
+    '/report'
+  ];
+  for (const ep of endpoints){
+    try{
       const rsp = await postJSON(CONFIG.API_BASE + ep, payload);
-      if (rsp?.sections) return rsp; // already JSON
-      // if backend returns text, try parse:
-      if (typeof rsp === 'string') {
-        try { return JSON.parse(rsp); } catch {}
-      }
-      if (rsp?.text) {
-        try { return JSON.parse(rsp.text); } catch {}
-      }
-    } catch(_) {}
+      const parsed = extractSections(rsp);
+      if (parsed) return parsed;
+    }catch(_){} // try next
   }
   return null;
 }
