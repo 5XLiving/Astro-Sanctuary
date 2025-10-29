@@ -1784,65 +1784,112 @@ function sampleDemo(birthdate, timeStr, timeUnknown){
     return null;
   }
 
-  /* =========================
-   * GENERATE HANDLER
-   * ========================= */
-  async function onGenerate(){
-    const date = $('birthdate')?.value;
-    const unknown = $('timeUnknown')?.checked;
-    const timeVal = $('birthtime')?.value || '00:00';
-    const cal = $('calendar')?.value || 'gregorian';
+/* === helper: add/remove/update the hour-unknown tip === */
+function upsertHourUnknownTip(isUnknown){
+  const host = $('professionalReport'); if (!host) return;
+
+  // remove if not unknown
+  const exist = document.getElementById('hourUnknownTip');
+  if (!isUnknown){
+    if (exist) exist.remove();
+    return;
+  }
+
+  const title = t('report.tipTitle') || 'TIP';
+  const body  = t('report.hourUnknownTip') || '';
+
+  // update if exists (e.g. after language switch)
+  if (exist){
+    const h = exist.querySelector('.ai-box-h');
+    const c = exist.querySelector('.ai-box-c');
+    if (h) h.textContent = title;
+    if (c) c.textContent = body;
+    return;
+  }
+
+  // create new
+  const tip = document.createElement('div');
+  tip.id = 'hourUnknownTip';
+  tip.className = 'ai-box';
+  tip.setAttribute('role', 'status');
+  tip.setAttribute('aria-live', 'polite');
+
+  const h = document.createElement('div');
+  h.className = 'ai-box-h';
+  h.textContent = title;
+
+  const c = document.createElement('div');
+  c.className = 'ai-box-c';
+  c.textContent = body;
+
+  tip.append(h, c);
+  host.prepend(tip);
+} 
+  
+/* =========================
+ * GENERATE HANDLER
+ * ========================= */
+async function onGenerate(){
+  setGenLoading(true);
+  try{
+    const date   = $('birthdate')?.value;
+    const unknown= $('timeUnknown')?.checked;
+    const timeVal= $('birthtime')?.value || '00:00';
+    const cal    = $('calendar')?.value || 'gregorian';
     const gender = $('gender')?.value || '';
-    const name = $('name')?.value || '';
+    const name   = $('name')?.value || '';
 
     if (!date){
       showErr(t('err.fillBirthdate') || 'Please enter your birth date');
       return;
     }
 
-    setGenLoading(true);
+    const [yy, mo, dd] = String(date).split('-');              // month = mo
+    const [hh, mi]     = String(timeVal || '00:00').split(':'); // minutes = mi
+
+    const timeText = unknown
+      ? (t('ui.timeUnknown') || '')
+      : (t('ui.hourSuffix') || '{hh}:{mm}')
+          .replace('{hh}', (hh ?? '00').toString().padStart(2,'0'))
+          .replace('{mm}', (mi ?? '00').toString().padStart(2,'0'));
+
+    const summaryTpl = t('ui.birthSummary') || 'Birth date: {y}-{m}-{d} {timeText}';
+    const summary = summaryTpl
+      .replace('{y}', yy)
+      .replace('{m}', mo)
+      .replace('{d}', dd)
+      .replace('{timeText}', timeText);
+
+    if ($('bazi-date')) $('bazi-date').textContent = summary;
+
+    // Prepare payload
+    const payload = {
+      name, gender, calendar: cal,
+      birthdate: date,
+      birthtime: unknown ? null : timeVal,
+      timeUnknown: !!unknown,
+      locale: state.lang
+    };
+
+    // Try API first (if provided), fallback to demo
+    let data = null;
     try{
-      // summary line
-      const [yy,mm,dd] = date.split('-');
-      const timeText = unknown
-        ? (t('ui.timeUnknown') || '')
-        : (t('ui.hourSuffix') || '{h}:00').replace('{h}', (timeVal||'00:00').slice(0,2));
-      const summaryTpl = t('ui.birthSummary') || 'Birth date: {y}-{m}-{d} {timeText}';
-      const summary = summaryTpl.replace('{y}',yy).replace('{m}',mm).replace('{d}',dd).replace('{timeText}', timeText);
-      if ($('bazi-date')) $('bazi-date').textContent = summary;
+      data = await generateViaAPI(payload);
+    }catch(_e){}
+    if (!data) data = sampleDemo(date, timeVal, unknown);
 
-      // Prepare payload
-      const payload = {
-        name, gender, calendar: cal,
-        birthdate: date,
-        birthtime: unknown ? null : timeVal,
-        timeUnknown: !!unknown,
-        locale: state.lang
-      };
+    hydrateFromAPI(data);
 
-      // Try API first (if provided), fallback to demo
-      let data = null;
-      try{
-        data = await generateViaAPI(payload);
-      }catch(_e){}
-      if (!data) data = sampleDemo(date, timeVal, unknown);
+    // hour-unknown tip (auto add/remove/update)
+    upsertHourUnknownTip(!!unknown);
 
-      hydrateFromAPI(data);
-
-      // hour-unknown tip
-      if (unknown && $('professionalReport')){
-        const tip = document.createElement('div');
-        tip.className = 'ai-box';
-        tip.innerHTML = `<div class="ai-box-h">TIP</div><div class="ai-box-c">${t('report.hourUnknownTip') || ''}</div>`;
-        $('professionalReport').prepend(tip);
-      }
-    }catch(err){
-      console.error(err);
-      showErr(t('err.generateFail'));
-    }finally{
-      setGenLoading(false);
-    }
+  }catch(err){
+    console.error(err);
+    showErr(t('err.generateFail') || 'Failed to generate');
+  }finally{
+    setGenLoading(false);
   }
+}
 
   /* =========================
    * INIT
