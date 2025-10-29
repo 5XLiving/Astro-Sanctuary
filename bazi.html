@@ -1489,61 +1489,73 @@ function renderTable(data){
     }
   }
 
-// 浮窗聊天功能
+// 浮窗聊天功能（修正版：无“...”且所有逻辑都在函数内部）
 function initFloatChat() {
-  const toggleBtn = $('#chatToggle');
-  const floatWindow = $('#chatFloat');
-  const closeBtn = $('#chatClose');
-  const sendBtn = $('#chatSend');
-  const input = $('#chatInput');
-  const messages = $('#chatMessages');
-  
+  const $ = id => document.getElementById(id);
+  const toggleBtn   = $('chatToggle');
+  const floatWindow = $('chatFloat');
+  const closeBtn    = $('chatClose');
+  const sendBtn     = $('chatSend');
+  const input       = $('chatInput');
+  const messages    = $('chatMessages');
+
   if (!toggleBtn || !floatWindow) return;
-  
-  // 切换显示/隐藏
-  toggleBtn.addEventListener('click', () => {
-    floatWindow.style.display = floatWindow.style.display === 'flex' ? 'none' : 'flex';
-  });
-  
-  // 关闭按钮
-  closeBtn.addEventListener('click', () => {
-    floatWindow.style.display = 'none';
-  });
-  
-  // 发送消息
-  sendBtn.addEventListener('click', sendMessage);
-  input.addEventListener('keypress', (e) => {
-    if (e.key === 'Enter') sendMessage();
-  });
-  
-  function sendMessage() {
-    const q = input.value.trim();
-    if (!q) return;
-    
-    // 添加用户消息
-    const userMsg = document.createElement('div');
-    userMsg.className = 'ss-msg';
-    userMsg.textContent = q;
-    userMsg.style.background = 'rgba(212,175,55,0.1)';
-    userMsg.style.marginLeft = 'auto';
-    userMsg.style.marginRight = '0';
-    userMsg.style.maxWidth = '80%';
-    messages.appendChild(userMsg);
-    
-    input.value = '';
-    
-    // 添加自动回复
-    setTimeout(() => {
-      const autoMsg = document.createElement('div');
-      autoMsg.className = 'ss-msg';
-      autoMsg.textContent = `收到您的问题：${q}。我们会在分析报告中详细解答。`;
-      autoMsg.style.background = 'rgba(255,255,255,0.05)';
-      autoMsg.style.maxWidth = '80%';
-      messages.appendChild(autoMsg);
-      messages.scrollTop = messages.scrollHeight;
-    }, 1000);
-    
+
+  const show = v => { floatWindow.style.display = v ? 'flex' : 'none'; };
+
+  toggleBtn.addEventListener('click', () => show(floatWindow.style.display !== 'flex'));
+  if (closeBtn) closeBtn.addEventListener('click', () => show(false));
+
+  function appendMsg(text, mine=false){
+    const div = document.createElement('div');
+    div.className = 'ss-msg';
+    div.textContent = text;
+    div.style.background = mine ? 'rgba(212,175,55,0.1)' : 'rgba(255,255,255,0.05)';
+    if (mine) { div.style.marginLeft = 'auto'; div.style.marginRight = '0'; }
+    div.style.maxWidth = '80%';
+    div.style.padding = '8px 12px';
+    div.style.borderRadius = '10px';
+    div.style.margin = '6px 0';
+    messages.appendChild(div);
     messages.scrollTop = messages.scrollHeight;
+  }
+
+  function sendMessage() {
+    const q = (input?.value || '').trim();
+    if (!q) return;
+    appendMsg(q, true);
+    if (input) input.value = '';
+    setTimeout(() => {
+      const auto = (t('chatDyn.autoReply') || '收到：{q}。').replace('{q}', q);
+      appendMsg(auto, false);
+    }, 500);
+  }
+
+  if (sendBtn) sendBtn.addEventListener('click', sendMessage);
+  if (input)   input.addEventListener('keypress', e => { if (e.key === 'Enter') sendMessage(); });
+
+  // 拖拽
+  let isDragging = false, dragOffset = {x:0,y:0};
+  const header = floatWindow.querySelector('.chat-float-header');
+  if (header){
+    header.addEventListener('mousedown', e => {
+      isDragging = true;
+      const rect = floatWindow.getBoundingClientRect();
+      dragOffset.x = e.clientX - rect.left;
+      dragOffset.y = e.clientY - rect.top;
+      floatWindow.style.cursor = 'grabbing';
+    });
+    document.addEventListener('mousemove', e => {
+      if (!isDragging) return;
+      floatWindow.style.left   = (e.clientX - dragOffset.x) + 'px';
+      floatWindow.style.top    = (e.clientY - dragOffset.y) + 'px';
+      floatWindow.style.right  = 'auto';
+      floatWindow.style.bottom = 'auto';
+    });
+    document.addEventListener('mouseup', () => {
+      isDragging = false;
+      floatWindow.style.cursor = 'default';
+    });
   }
   
   // 简单的拖拽功能
@@ -1614,14 +1626,127 @@ document.addEventListener('DOMContentLoaded', () => {
     showResultContainers();
   }
 
-  // Demo generator for immediate rendering (replace with your API later)
-// Demo generator - 使用真实的八字计算
-function sampleDemo(birthdate, timeStr, timeUnknown){
-  // 这里应该调用您已有的八字计算函数
-  const result = calculateBaziFromInput(birthdate, timeStr, timeUnknown);
-  return result;
+/* ===== Bazi core (calculator) ===== */
+class BaziCalculator{
+  constructor(){
+    this.HEAVENLY_STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+    this.EARTHLY_BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+    this.ZODIAC=['鼠','牛','虎','兔','龙','蛇','马','羊','猴','鸡','狗','猪'];
+    this.NAYIN=['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','屋上土','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];
+  }
+  calculateYearPillar(year){
+    const s=(year-4)%10, b=(year-4)%12;
+    return {
+      stem: this.HEAVENLY_STEMS[(s+10)%10],
+      branch: this.EARTHLY_BRANCHES[(b+12)%12],
+      zodiac: this.ZODIAC[(b+12)%12]
+    };
+  }
+  solarMonthIndex(y,m,d){
+    const mmdd=m*100+d;
+    const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
+    let idx=11; for(const [thr,val] of gates){ if(mmdd>=thr) idx=val; }
+    const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
+    return {index:idx, branch:branchBy[idx]};
+  }
+  calculateMonthPillar(year,month,day){
+    const {index,branch}=this.solarMonthIndex(year,month,day);
+    const yStemIdx=this.HEAVENLY_STEMS.indexOf(this.calculateYearPillar(year).stem);
+    const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
+    const stemIdx=(startMap[yStemIdx]+(index-1))%10;
+    return {stem:this.HEAVENLY_STEMS[stemIdx], branch};
+  }
+  calculateDayPillar(year,month,day){
+    const baseUTC=Date.UTC(1900,0,31);
+    const targetUTC=Date.UTC(year,month-1,day);
+    const dayDiff=Math.floor((targetUTC-baseUTC)/86400000);
+    const stemIdx=(0+dayDiff)%10;
+    const branchIdx=(4+dayDiff)%12;
+    return {
+      stem: this.HEAVENLY_STEMS[(stemIdx+10)%10],
+      branch: this.EARTHLY_BRANCHES[(branchIdx+12)%12]
+    };
+  }
+  calculateHourPillar(dayStem,hour){
+    const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
+    const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};
+    const dayIdx=this.HEAVENLY_STEMS.indexOf(dayStem);
+    const hourIndex=Math.floor((hour+1)/2)%12;
+    const stemIdx=(startMap[dayIdx]+hourIndex)%10;
+    return { stem:this.HEAVENLY_STEMS[stemIdx], branch: branchMap[hour] };
+  }
+  getStemElement(stem){ return ({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[stem]; }
+  getBranchElement(branch){ return ({子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'})[branch]; }
+  getNayin(stem,branch){
+    const si=this.HEAVENLY_STEMS.indexOf(stem), bi=this.EARTHLY_BRANCHES.indexOf(branch);
+    return this.NAYIN[(si*2+bi)%this.NAYIN.length];
+  }
 }
 
+/* ===== Adapter the UI expects =====
+   build: {pillars:{labels:[]}, stem:[], branch:[], element:[], nayin:[], elementsPct:{木..水}} */
+function calculateBaziFromInput(birthdate, timeStr, timeUnknown){
+  const [Y,M,D] = (birthdate||'').split('-').map(n=>parseInt(n,10));
+  let hour = 12;
+  if (!timeUnknown && timeStr){ const hh = parseInt(timeStr.slice(0,2),10); if(!Number.isNaN(hh)) hour = hh; }
+
+  const calc = new BaziCalculator();
+  const yearP  = calc.calculateYearPillar(Y);
+  const monthP = calc.calculateMonthPillar(Y,M,D);
+  const dayP   = calc.calculateDayPillar(Y,M,D);
+  const hourP  = timeUnknown ? {stem:'-',branch:'-'} : calc.calculateHourPillar(dayP.stem, hour);
+
+  const stems   = [yearP.stem, monthP.stem, dayP.stem, hourP.stem];
+  const branchs = [yearP.branch, monthP.branch, dayP.branch, hourP.branch];
+
+  // element row = use stem's five element
+  const elemRow = [
+    calc.getStemElement(stems[0]) || '-',
+    calc.getStemElement(stems[1]) || '-',
+    calc.getStemElement(stems[2]) || '-',
+    timeUnknown ? '-' : (calc.getStemElement(stems[3]) || '-')
+  ];
+
+  const nayinRow = [
+    calc.getNayin(stems[0], branchs[0]),
+    calc.getNayin(stems[1], branchs[1]),
+    calc.getNayin(stems[2], branchs[2]),
+    timeUnknown ? '-' : calc.getNayin(stems[3], branchs[3])
+  ];
+
+  // five-element percentages (Chinese keys that your renderBars() expects)
+  const counts = { '木':0,'火':0,'土':0,'金':0,'水':0 };
+  const consider = timeUnknown
+    ? [[stems[0],branchs[0]],[stems[1],branchs[1]],[stems[2],branchs[2]]]
+    : [[stems[0],branchs[0]],[stems[1],branchs[1]],[stems[2],branchs[2]],[stems[3],branchs[3]]];
+  consider.forEach(([s,b])=>{
+    counts[calc.getStemElement(s)]   += 1;
+    counts[calc.getBranchElement(b)] += 1;
+  });
+  const total = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
+  const elementsPct = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, v/total*100]));
+
+  return {
+    pillars: { labels: [
+      stems[0]+branchs[0],
+      stems[1]+branchs[1],
+      stems[2]+branchs[2],
+      timeUnknown ? '-' : (stems[3]+branchs[3])
+    ]},
+    stem: stems,
+    branch: branchs,
+    element: elemRow,
+    nayin: nayinRow,
+    elementsPct,
+    timeUnknown: !!timeUnknown
+  };
+}
+
+/* ===== Replace demo to call the real calculator ===== */
+function sampleDemo(birthdate, timeStr, timeUnknown){
+  return calculateBaziFromInput(birthdate, timeStr, timeUnknown);
+}
+  
   /* =========================
    * API CALL (optional)
    * ========================= */
@@ -1753,7 +1878,7 @@ function sampleDemo(birthdate, timeStr, timeUnknown){
     const gen = $('genBtn');
     if (gen) gen.addEventListener('click', onGenerate);
 
-    initChat();
+    initFloatChat();
     applyI18n();
   });
 })();
