@@ -608,6 +608,11 @@ a:focus{
 /*!
  * 5XLiving · Bazi Quick Chart (single-file script)
  * Place this once at the END of your <body>.
+ * Changes:
+ * - NowBox current time (auto refresh)
+ * - No echo of email/password; no payload logs
+ * - Source badge (#originBadge) shows Local vs AI(API)
+ * - Safer i18n + hour text formatting
  */
 (() => {
   'use strict';
@@ -624,6 +629,7 @@ a:focus{
    * I18N DICTIONARY
    * ========================= */
   const I18N = {
+    /* ---- zh-CN ---- */
 'zh-CN': {
   brand: { subtitle: '5xLiving · 八字简评' },
   nav: { langLabel: '语言' },
@@ -721,6 +727,7 @@ a:focus{
   }
 },
 
+/* ---- zh-TW ---- */
 'zh-TW': {
   brand: { subtitle: '5xLiving · 八字簡評' },
   nav: { langLabel: '語言' },
@@ -818,6 +825,7 @@ a:focus{
   }
 },
 
+/* ---- en ---- */
 'en': {
   brand: { subtitle: '5xLiving · Bazi Brief' },
   nav: { langLabel: 'Language' },
@@ -921,6 +929,7 @@ a:focus{
   }
 },
 
+/* ---- ja ---- */
 'ja': {
   brand: { subtitle: '5xLiving · 八字簡評' },
   nav: { langLabel: '言語' },
@@ -1018,6 +1027,7 @@ a:focus{
   }
 },
 
+/* ---- th ---- */
 'th': {
   brand: { subtitle: '5xLiving · 八字簡評' },
   nav: { langLabel: 'ภาษา' },
@@ -1121,6 +1131,7 @@ a:focus{
   }
 },
 
+/* ---- ms ---- */
 'ms': {
   brand: { subtitle: '5xLiving · Ringkas Bazi' },
   nav: { langLabel: 'Bahasa' },
@@ -1271,77 +1282,100 @@ function setNowDefaults(){
   setInterval(updateNowBox, 60*1000);
 }
 
-  /* =========================
-   * UTILS
-   * ========================= */
-  const KEYS = ['year','month','day','hour'];
+/* =========================
+ * UTILS
+ * ========================= */
+const KEYS = ['year','month','day','hour'];
 
-  const state = {
-    lang: localStorage.getItem('5x_lang') || 'zh-CN'
-  };
+const state = {
+  lang: localStorage.getItem('5x_lang') || 'zh-CN'
+};
 
-  function get(obj, path){
-    return path.split('.').reduce((o,k)=> (o && o[k]!=null) ? o[k] : undefined, obj);
-  }
-  function t(key){
-    const dict = dictFor(state.lang);
+function get(obj, path){
+  return path.split('.').reduce((o,k)=> (o && o[k]!=null) ? o[k] : undefined, obj);
+}
+function t(key){
+  const dict = dictFor(state.lang);
+  const val = get(dict, key);
+  return (typeof val === 'string') ? val : '';
+}
+
+/* ====== Privacy: never echo sensitive ====== */
+function scrubSensitiveEcho(){
+  // Never write email/password into any text node
+  const emailEcho = document.querySelectorAll('#emailEcho,[data-bind=email]');
+  const pwdEcho   = document.querySelectorAll('#passwordEcho,[data-bind=password]');
+  emailEcho.forEach(n=>{ n.textContent=''; });
+  pwdEcho.forEach(n=>{ n.textContent=''; });
+  // Also ensure placeholders are used but values are not copied to any element
+}
+
+function applyI18n(){
+  const dict = dictFor(state.lang);
+  const htmlLang = normLang(state.lang);
+  document.documentElement.lang = htmlLang;
+
+  // data-i18n text
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
     const val = get(dict, key);
-    return (typeof val === 'string') ? val : '';
-  }
+    if (typeof val === 'string' && val) el.textContent = val;
+  });
 
-  function applyI18n(){
-    const dict = dictFor(state.lang);
-    const htmlLang = normLang(state.lang);
-    document.documentElement.lang = htmlLang;
+  // options
+  document.querySelectorAll('option[data-i18n]').forEach(opt=>{
+    const key = opt.getAttribute('data-i18n');
+    const val = get(dict, key);
+    if (typeof val === 'string' && val) opt.textContent = val;
+  });
 
-    // data-i18n text
-    document.querySelectorAll('[data-i18n]').forEach(el=>{
-      const key = el.getAttribute('data-i18n');
-      const val = get(dict, key);
-      if (typeof val === 'string' && val) el.textContent = val;
-    });
+  const ph = {
+    name:    get(dict,'form.namePlaceholder'),
+    email:   get(dict,'auth.emailPlaceholder'),
+    password:get(dict,'auth.passwordPlaceholder'),
+    chat:    get(dict,'chat.placeholder')
+  };
+  if ($('name')     && ph.name)     $('name').placeholder     = ph.name;
+  if ($('email')    && ph.email)    $('email').placeholder    = ph.email;
+  if ($('password') && ph.password) $('password').placeholder = ph.password;
+  if ($('chatInput')&& ph.chat)     $('chatInput').placeholder= ph.chat;
 
-    // options
-    document.querySelectorAll('option[data-i18n]').forEach(opt=>{
-      const key = opt.getAttribute('data-i18n');
-      const val = get(dict, key);
-      if (typeof val === 'string' && val) opt.textContent = val;
-    });
+  const langSelect = $('langSelect');
+  if (langSelect) langSelect.value = state.lang;
 
-    const ph = {
-      name:    get(dict,'form.namePlaceholder'),
-      email:   get(dict,'auth.emailPlaceholder'),
-      password:get(dict,'auth.passwordPlaceholder'),
-      chat:    get(dict,'chat.placeholder')
-    };
-    if ($('name')     && ph.name)     $('name').placeholder     = ph.name;
-    if ($('email')    && ph.email)    $('email').placeholder    = ph.email;
-    if ($('password') && ph.password) $('password').placeholder = ph.password;
-    if ($('chatInput')&& ph.chat)     $('chatInput').placeholder= ph.chat;
+  scrubSensitiveEcho();
+}
 
-    const langSelect = $('langSelect');
-    if (langSelect) langSelect.value = state.lang;
-  }
+function showErr(msg){
+  const box = $('error');
+  if (!box) return;
+  box.textContent = msg || t('err.generateFail') || 'Error';
+  box.style.display = 'block';
+  setTimeout(()=>{ box.style.display='none'; }, 4000);
+}
 
-  function showErr(msg){
-    const box = $('error');
-    if (!box) return;
-    box.textContent = msg || t('err.generateFail') || 'Error';
-    box.style.display = 'block';
-    setTimeout(()=>{ box.style.display='none'; }, 4000);
-  }
+function setGenLoading(v){
+  const btn = $('genBtn'), txt = $('genBtnText'), ld = $('genBtnLoading');
+  if (!btn) return;
+  btn.disabled = !!v;
+  if (txt) txt.style.display = v ? 'none' : 'inline';
+  if (ld)  ld.style.display  = v ? 'inline' : 'none';
+}
 
-  function setGenLoading(v){
-    const btn = $('genBtn'), txt = $('genBtnText'), ld = $('genBtnLoading');
-    if (!btn) return;
-    btn.disabled = !!v;
-    if (txt) txt.style.display = v ? 'none' : 'inline';
-    if (ld)  ld.style.display  = v ? 'inline' : 'none';
-  }
+/* ===== Source badge ===== */
+function setSourceBadge(fromAPI){
+  const el = $('originBadge'); if (!el) return;
+  const zh = state.lang.startsWith('zh');
+  el.style.display = 'inline-flex';
+  el.dataset.src = fromAPI ? 'api' : 'local';
+  el.textContent = fromAPI
+    ? (zh ? '来源：AI（API）' : 'Source: AI (API)')
+    : (zh ? '来源：本地计算' : 'Source: Local calc');
+}
 
-  /* =========================
-   * RENDERERS
-   * ========================= */
+/* =========================
+ * RENDERERS
+ * ========================= */
 function renderPillars(labels){
   const dict = dictFor(state.lang);
   const stemMap = get(dict, 'stemMap') || {};
@@ -1536,26 +1570,26 @@ function initFloatChat() {
   }
 }
 
-  /* =========================
-   * DATA SHAPES & ADAPTERS
-   * ========================= */
-  function hydrateFromAPI(rsp){
-    const pillars = rsp?.pillars?.labels || [
-      (rsp.stem?.[0]||'-') + (rsp.branch?.[0]||''),
-      (rsp.stem?.[1]||'-') + (rsp.branch?.[1]||''),
-      (rsp.stem?.[2]||'-') + (rsp.branch?.[2]||''),
-      (rsp.stem?.[3]||'-') + (rsp.branch?.[3]||'')
-    ];
-    renderPillars(pillars);
-    renderTable({
-      stem: rsp.stem || ['-','-','-','-'],
-      branch: rsp.branch || ['-','-','-','-'],
-      element: rsp.element || ['-','-','-','-'],
-      nayin: rsp.nayin || ['-','-','-','-']
-    });
-    renderBars(rsp.elementsPct || {'木':0,'火':0,'土':0,'金':0,'水':0});
-    showResultContainers();
-  }
+/* =========================
+ * DATA SHAPES & ADAPTERS
+ * ========================= */
+function hydrateFromAPI(rsp){
+  const pillars = rsp?.pillars?.labels || [
+    (rsp.stem?.[0]||'-') + (rsp.branch?.[0]||''),
+    (rsp.stem?.[1]||'-') + (rsp.branch?.[1]||''),
+    (rsp.stem?.[2]||'-') + (rsp.branch?.[2]||''),
+    (rsp.stem?.[3]||'-') + (rsp.branch?.[3]||'')
+  ];
+  renderPillars(pillars);
+  renderTable({
+    stem: rsp.stem || ['-','-','-','-'],
+    branch: rsp.branch || ['-','-','-','-'],
+    element: rsp.element || ['-','-','-','-'],
+    nayin: rsp.nayin || ['-','-','-','-']
+  });
+  renderBars(rsp.elementsPct || {'木':0,'火':0,'土':0,'金':0,'水':0});
+  showResultContainers();
+}
 
 /* ===== Bazi core (calculator) ===== */
 class BaziCalculator{
@@ -1685,6 +1719,7 @@ async function generateViaAPI(payload){
   const endpoints = ['/bazi/quick','/bazi/brief','/bazi'];
   for (const ep of endpoints){
     try{
+      // Never log sensitive payload
       const rsp = await postJSON(CONFIG.API_BASE + ep, payload);
       if (rsp) return rsp;
     }catch(_e){ /* try next */ }
@@ -1774,55 +1809,61 @@ async function onGenerate(){
       locale: state.lang
     };
 
-    let data = null;
-    try{ data = await generateViaAPI(payload); }catch(_e){}
+    let data = null, fromAPI = false;
+    try{ data = await generateViaAPI(payload); if (data) fromAPI = true; }catch(_e){}
     if (!data) data = calculateBaziFromInput(date, timeVal, unknown);
 
     hydrateFromAPI(data);
     upsertHourUnknownTip(!!unknown);
+    setSourceBadge(fromAPI);
 
   }catch(err){
-    console.error(err);
+    // Do not log personal inputs
+    console.error('Generate failed'); // no payload in logs
     showErr(t('err.generateFail') || 'Failed to generate');
   }finally{
     setGenLoading(false);
   }
 }
 
-  /* =========================
-   * INIT
-   * ========================= */
-  document.addEventListener('DOMContentLoaded', ()=>{
-    setNowDefaults();
+/* =========================
+ * INIT
+ * ========================= */
+document.addEventListener('DOMContentLoaded', ()=>{
+  setNowDefaults();
 
-    const sel = $('langSelect');
-    if (sel){
-      sel.value = state.lang;
-      sel.addEventListener('change', e=>{
-        state.lang = e.target.value || 'zh-CN';
-        localStorage.setItem('5x_lang', state.lang);
-        applyI18n();
-        if ($('professionalReport') && $('professionalReport').innerHTML) {
-          $('professionalReport').innerHTML = buildProReportSections();
-        }
-      });
-    }
+  const sel = $('langSelect');
+  if (sel){
+    sel.value = state.lang;
+    sel.addEventListener('change', e=>{
+      state.lang = e.target.value || 'zh-CN';
+      localStorage.setItem('5x_lang', state.lang);
+      applyI18n();
+      if ($('professionalReport') && $('professionalReport').innerHTML) {
+        $('professionalReport').innerHTML = buildProReportSections();
+      }
+      // refresh source badge text (language switch)
+      const srcEl = $('originBadge');
+      if (srcEl && srcEl.dataset.src){
+        setSourceBadge(srcEl.dataset.src === 'api');
+      }
+    });
+  }
 
-    const timeUnknown = $('timeUnknown');
-    if (timeUnknown){
-      timeUnknown.addEventListener('change', e=>{
-        const dis = !!e.target.checked;
-        if ($('birthtime')) $('birthtime').disabled = dis;
-      });
-    }
+  const timeUnknown = $('timeUnknown');
+  if (timeUnknown){
+    timeUnknown.addEventListener('change', e=>{
+      const dis = !!e.target.checked;
+      if ($('birthtime')) $('birthtime').disabled = dis;
+    });
+  }
 
-    const gen = $('genBtn');
-    if (gen) gen.addEventListener('click', onGenerate);
+  const gen = $('genBtn');
+  if (gen) gen.addEventListener('click', onGenerate);
 
-    initFloatChat();
-    applyI18n();
-  });
-
+  initFloatChat();
+  applyI18n();
+});
 })();
 </script>
 </body>
