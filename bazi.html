@@ -1861,6 +1861,61 @@ async function generateProReport(calc, locale) {
   return null;
 }
 
+function synthesizeReport(calc, locale){
+  const lang = normLang(locale||state.lang);
+  const isZH = lang.startsWith('zh');
+
+  // simple reads from calc
+  const elems = calc?.elementsPct || {};
+  const strongest = Object.entries(elems).sort((a,b)=>b[1]-a[1])[0]?.[0];
+  const weakest   = Object.entries(elems).sort((a,b)=>b[1]-a[1]).slice(-1)[0]?.[0];
+  const dayStem   = calc?.stem?.[2] || ''; // day master
+
+  function L(zh, en){ return isZH ? zh : en; }
+
+  const overview = {
+    id: "overview",
+    traits: [
+      L(`以${dayStem||'日主'}为核心，行动果断但看重节奏`,`Day master ${dayStem||''}; decisive with attention to pacing`),
+      L(`五行偏${strongest||'某一'}，擅长在该象中发力`,`Leans ${strongest||'one element'}; excels when using that quality`),
+      L(`相对欠${weakest||'某一'}，遇该象题目需补救`,`Relatively lacking ${weakest||'one element'}; needs compensation in those topics`)
+    ],
+    actions: [
+      L('建立每周复盘仪式（目标/现金流/情绪）','Do a weekly review (goals/cashflow/mood)'),
+      L('把最强象用于主战场，把最弱象安排“补位”任务','Use strongest element for main pushes; assign weakest to supporting routines'),
+      L('对关键关系采用“先共情后建议”的话术','Use empathy-first script in key conversations')
+    ],
+    outcomes: [
+      L('现金流与节奏更稳','More stable cashflow and cadence'),
+      L('人际摩擦减少，推进更顺','Less friction, smoother execution')
+    ],
+    cautions: [
+      L('避免在弱象主题上硬刚（耗能高，回报低）','Avoid brute forcing the weakest-element domains'),
+      L('别牺牲睡眠换效率','Don’t trade sleep for speed')
+    ],
+    timing: L('未来3个月以“强象月份”为推进窗口','Use the next 3 months’ strongest-element months as push windows'),
+    confidence: 0.72
+  };
+
+  const five = {
+    id: "five_elements",
+    traits: [
+      L(`最强：${strongest||'-'}；最弱：${weakest||'-'}` ,`Strongest: ${strongest||'-'}; Weakest: ${weakest||'-'}`),
+      L('以强补弱：环境/作息/社交结构进行调参','Compensate weak element via environment/routine/social design')
+    ],
+    actions: [
+      L('把强象事项安排在高能时段（上午/周前半）','Schedule strongest-element tasks at high-energy times'),
+      L('对弱象事项设置“模板+限时+复盘”','For weakest-element tasks: template + time-box + review')
+    ],
+    outcomes:[ L('整体执行力提升','Execution quality improves') ],
+    cautions:[ L('避免一次性做太多弱象任务','Don’t stack too many weakest-element tasks in a row') ],
+    timing: L('按月度元素流动微调','Adjust monthly with element flow'),
+    confidence: 0.68
+  };
+
+  return { sections: [overview, five] };
+}  
+
 // 2.4 Render JSON → DOM
 function renderProReportJSON(json){
   const host = $('professionalReport');
