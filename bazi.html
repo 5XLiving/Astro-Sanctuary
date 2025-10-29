@@ -710,6 +710,29 @@ a:focus{
     i_control:  '主控（我制衡）',
     control_me: '受压（受制衡）'
   },
+
+  reportLabels: {
+  traits: '特质',
+  actions: '行动',
+  outcomes: '结果倾向',
+  cautions: '注意',
+  timing: '时机',
+  confidence: '可信度'
+},
+  
+reportTitles: {
+  overview: '命盘总览',
+  five_elements: '五行能量分析',
+  ten_gods: '十神配置分析',
+  useful_spirit: '用神喜忌',
+  career: '事业发展',
+  wealth: '财运走势',
+  relationship: '感情婚姻',
+  health: '健康养生',
+  spiritual: '玄学缘分',
+  near_term: '近期运势（3–6个月）'
+},
+  
   units: { before:'', after:'个' },
   chat: { send:'发送', placeholder:'请输入您的问题...', toggle:'问' },
   report: { hourUnknownTip:'⚠️ 提示：因出生时间不详，部分分析仅供参考。', tipTitle:'提示' },
@@ -1839,32 +1862,45 @@ async function generateProReport(calc, locale) {
 }
 
 // 2.4 Render JSON → DOM
-function renderProReportJSON(json) {
+function renderProReportJSON(json){
   const host = $('professionalReport');
   if (!host) return;
-  if (!json?.sections?.length) {
-    host.innerHTML = `<div class="ai-box"><div class="ai-box-h">提示</div><div class="ai-box-c">未获取到报告内容。</div></div>`;
+
+  if (!json?.sections?.length){
+    host.innerHTML = `<div class="ai-box"><div class="ai-box-h">${t('report.tipTitle')||'提示'}</div><div class="ai-box-c">未获取到报告内容。</div></div>`;
     return;
   }
-  const html = json.sections.map(sec=>{
-    const traits   = (sec.traits || []).map(s=>`<li>${s}</li>`).join('');
-    const actions  = (sec.actions|| []).map(s=>`<li>${s}</li>`).join('');
+
+  const dict = dictFor(state.lang);
+  const L = (k, fb='') => (dict.reportLabels?.[k] ?? fb);
+
+  const titleOf = (id, fallback) => {
+    const tmap = dict.reportTitles || {};
+    return tmap[id] || fallback || id;
+  };
+
+  host.innerHTML = json.sections.map(sec=>{
+    const traits   = (sec.traits||[]).map(s=>`<li>${s}</li>`).join('');
+    const actions  = (sec.actions||[]).map(s=>`<li>${s}</li>`).join('');
     const outcomes = (sec.outcomes||[]).map(s=>`<li>${s}</li>`).join('');
     const cautions = (sec.cautions||[]).map(s=>`<li>${s}</li>`).join('');
 
     return `
       <div class="butler-section">
-        <h4>${sec.title || REPORT_SCHEMA.sections.find(x=>x.id===sec.id)?.title || sec.id}</h4>
-        ${traits   ? `<div class="detail-section"><strong>特质 / Traits</strong><ul class="action-list">${traits}</ul></div>` : ''}
-        ${actions  ? `<div class="detail-section"><strong>行动 / Actions</strong><ul class="action-list">${actions}</ul></div>` : ''}
-        ${outcomes ? `<div class="detail-section"><strong>结果倾向 / Outcomes</strong><ul class="action-list">${outcomes}</ul></div>` : ''}
-        ${cautions ? `<div class="detail-section"><strong>注意 / Cautions</strong><ul class="action-list">${cautions}</ul></div>` : ''}
-        ${sec.timing ? `<div class="detail-section"><strong>时机 / Timing</strong><div>${sec.timing}</div></div>` : ''}
-        ${typeof sec.confidence === 'number' ? `<div class="detail-section muted">可信度 ${Math.round(sec.confidence*100)}%</div>` : ''}
+        <h4>${titleOf(sec.id, sec.title)}</h4>
+        ${traits   ? `<div class="detail-section"><strong>${L('traits','Traits')}</strong><ul class="action-list">${traits}</ul></div>` : ''}
+        ${actions  ? `<div class="detail-section"><strong>${L('actions','Actions')}</strong><ul class="action-list">${actions}</ul></div>` : ''}
+        ${outcomes ? `<div class="detail-section"><strong>${L('outcomes','Outcomes')}</strong><ul class="action-list">${outcomes}</ul></div>` : ''}
+        ${cautions ? `<div class="detail-section"><strong>${L('cautions','Cautions')}</strong><ul class="action-list">${cautions}</ul></div>` : ''}
+        ${sec.timing ? `<div class="detail-section"><strong>${L('timing','Timing')}</strong><div>${sec.timing}</div></div>` : ''}
+        ${typeof sec.confidence === 'number'
+            ? `<div class="detail-section muted">${L('confidence','Confidence')} ${Math.round(sec.confidence*100)}%</div>`
+            : ''
+        }
       </div>
     `;
   }).join('');
-  host.innerHTML = html;
+
   $('butlerProfessional')?.style && ( $('butlerProfessional').style.display = 'block' );
 }
   
@@ -1938,6 +1974,15 @@ try {
   }finally{
     setGenLoading(false);
   }
+  
+  // inside onGenerate() after you computed `data` (the chart)
+let report = null;
+try { report = await generateProReport(data, state.lang); } catch {}
+if (!report || !Array.isArray(report.sections) || report.sections.length === 0) {
+  // guaranteed, non-generic, chart-based fallback
+  report = synthesizeReport(data, state.lang);
+}
+renderProReportJSON(report);
 }
 
 /* =========================
