@@ -1611,35 +1611,119 @@ a:focus{
   }
 
   // 专业报告生成器 - 多语言版本
-  function generateProfessionalReport(baziData) {
-    const calc = new BaziCalculator();
-    const dayStem = baziData.stem[2];
-    const tenGods = calc.calculateTenGods(dayStem, baziData.stem);
-    
-    // 计算五行个数
-    const elementCounts = { '金': 0, '木': 0, '水': 0, '火': 0, '土': 0 };
-    baziData.stem.forEach(stem => {
-      const element = calc.getStemElement(stem);
-      if (element !== '-') elementCounts[element]++;
-    });
-    baziData.branch.forEach(branch => {
-      const element = calc.getBranchElement(branch);
-      if (element !== '-') elementCounts[element]++;
-    });
+function generateProfessionalReport(baziData) {
+  const calc = new BaziCalculator();
+  const dayStem = baziData.stem[2];
+  const tenGods = calc.calculateTenGods(dayStem, baziData.stem);
+  
+  // 计算五行个数
+  const elementCounts = { '金': 0, '木': 0, '水': 0, '火': 0, '土': 0 };
+  baziData.stem.forEach(stem => {
+    const element = calc.getStemElement(stem);
+    if (element !== '-') elementCounts[element]++;
+  });
+  baziData.branch.forEach(branch => {
+    const element = calc.getBranchElement(branch);
+    if (element !== '-') elementCounts[element]++;
+  });
 
-    // 十神解释（多语言）
-    const tenGodsDesc = {
-      '比肩': t('report.tenGods.bijian') || '表示兄弟姐妹、朋友同事',
-      '劫财': t('report.tenGods.jiecai') || '表示异性朋友、竞争对手',
-      '食神': t('report.tenGods.shishen') || '表示子女、食禄',
-      '伤官': t('report.tenGods.shangguan') || '表示才华、艺术',
-      '偏财': t('report.tenGods.piancai') || '表示父亲、意外之财',
-      '正财': t('report.tenGods.zhengcai') || '表示妻子、稳定收入',
-      '七杀': t('report.tenGods.qisha') || '表示压力、权威',
-      '正官': t('report.tenGods.zhengguan') || '表示丈夫、官职',
-      '偏印': t('report.tenGods.pianyin') || '表示继母、特殊才能',
-      '正印': t('report.tenGods.zhengyin') || '表示母亲、学识'
-    };
+  // 直接使用真实数据，不使用变量名
+  const dayMasterAnalysis = getDayMasterAnalysis(dayStem);
+  const relationshipTraits = getRelationshipTraits(dayStem);
+  const marriageAdvice = getMarriageAdvice(tenGods);
+  const suitableCareers = getSuitableCareers(dayStem);
+  const careerAdvice = getCareerAdvice(tenGods);
+  const favorableDirections = getFavorableDirections(dayStem);
+  const wealthAnalysis = getWealthAnalysis(tenGods);
+  const healthAnalysis = getHealthAnalysis(dayStem);
+  const healthTips = getHealthTips(dayStem);
+
+  return `
+    <div class="butler-section">
+      <h4>${t('reportTitles.overview')}</h4>
+      <div class="detail-content">
+        <p><strong>${t('reportLabels.dayMaster')}：</strong>${dayMasterAnalysis}</p>
+        <p><strong>${t('reportLabels.elementCount')}：</strong>${elementCounts['金']}${t('elem.metal')}，${elementCounts['木']}${t('elem.wood')}，${elementCounts['水']}${t('elem.water')}，${elementCounts['火']}${t('elem.fire')}，${elementCounts['土']}${t('elem.earth')}</p>
+        <p><strong>${t('reportLabels.elementStrength')}：</strong>${Object.entries(baziData.elementsPct).sort((a,b) => b[1]-a[1]).map(([k,v]) => {
+          const elemNames = { '木': t('elem.wood'), '火': t('elem.fire'), '土': t('elem.earth'), '金': t('elem.metal'), '水': t('elem.water') };
+          return `${elemNames[k]}${Math.round(v)}%`;
+        }).join('，')}</p>
+      </div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${t('reportTitles.tenGods')}</h4>
+      <div class="detail-content">
+        <p><strong>${baziData.stem[0]}${baziData.branch[0]}：</strong>${tenGods[0]} - ${getTenGodsDescription(tenGods[0])}</p>
+        <p><strong>${baziData.stem[1]}${baziData.branch[1]}：</strong>${tenGods[1]} - ${getTenGodsDescription(tenGods[1])}</p>
+        <p><strong>${baziData.stem[2]}${baziData.branch[2]}：</strong>${tenGods[2]} - ${getTenGodsDescription(tenGods[2])}</p>
+        <p><strong>${baziData.stem[3]}${baziData.branch[3]}：</strong>${tenGods[3]} - ${getTenGodsDescription(tenGods[3])}</p>
+      </div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${t('reportTitles.relationship')}</h4>
+      <div class="detail-content">
+        <p><strong>${t('reportLabels.traits')}：</strong>${relationshipTraits}</p>
+        <p><strong>${t('reportLabels.marriageAdvice')}：</strong>${marriageAdvice}</p>
+        <p><strong>${t('reportLabels.relationshipTips')}：</strong>${getRelationshipTips(dayStem)}</p>
+      </div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${t('reportTitles.career')}</h4>
+      <div class="detail-content">
+        <p><strong>${t('reportLabels.suitableCareers')}：</strong>${suitableCareers}</p>
+        <p><strong>${t('reportLabels.careerAdvice')}：</strong>${careerAdvice}</p>
+        <p><strong>${t('reportLabels.favorableDirections')}：</strong>${favorableDirections}</p>
+      </div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${t('reportTitles.wealth')}</h4>
+      <div class="detail-content">
+        <p><strong>${t('reportLabels.wealthCharacteristics')}：</strong>${wealthAnalysis}</p>
+        <p><strong>${t('reportLabels.wealthDirections')}：</strong>${favorableDirections}</p>
+        <p><strong>${t('reportLabels.financialAdvice')}：</strong>${getFinancialAdvice(tenGods)}</p>
+      </div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${t('reportTitles.health')}</h4>
+      <div class="detail-content">
+        <p><strong>${t('reportLabels.healthCharacteristics')}：</strong>${healthAnalysis}</p>
+        <p><strong>${t('reportLabels.healthTips')}：</strong>${healthTips}</p>
+        <p><strong>${t('reportLabels.wellnessAdvice')}：</strong>${getWellnessAdvice(dayStem)}</p>
+      </div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${t('reportTitles.nearTerm')}</h4>
+      <div class="detail-content">
+        <p><strong>${t('reportLabels.overallFortune')}：</strong>${getOverallFortune(tenGods)}</p>
+        <p><strong>${t('reportLabels.favorableTiming')}：</strong>${getFavorableTiming(dayStem)}</p>
+        <p><strong>${t('reportLabels.cautions')}：</strong>${getCautions(tenGods)}</p>
+      </div>
+    </div>
+  `;
+}
+
+// 新增辅助函数
+function getTenGodsDescription(tenGod) {
+  const descriptions = {
+    '比肩': '表示兄弟姐妹、朋友同事，主合作与竞争',
+    '劫财': '表示异性朋友、竞争对手，主破财与机遇',
+    '食神': '表示子女、食禄，主才华与享受',
+    '伤官': '表示才华、艺术，主创意与挑战',
+    '偏财': '表示父亲、意外之财，主横财与风险',
+    '正财': '表示妻子、稳定收入，主正财与稳定',
+    '七杀': '表示压力、权威，主挑战与权力',
+    '正官': '表示丈夫、官职，主事业与责任',
+    '偏印': '表示继母、特殊才能，主智慧与神秘',
+    '正印': '表示母亲、学识，主学习与保护'
+  };
+  return descriptions[tenGod] || '表示特定的人际关系和运势特征';
+}
 
     return `
       <div class="butler-section">
@@ -1730,18 +1814,18 @@ a:focus{
 
   function getRelationshipTraits(dayStem) {
     const traits = {
-      '甲': t('report.relationship.jia') || '感情较为主动，喜欢掌握主导权',
-      '乙': t('report.relationship.yi') || '感情细腻温柔，需要稳定的情感支持',
-      '丙': t('report.relationship.bing') || '感情热情奔放，但容易冲动',
-      '丁': t('report.relationship.ding') || '感情专一执着，但容易猜疑',
-      '戊': t('report.relationship.wu') || '感情稳重务实，重视家庭稳定',
-      '己': t('report.relationship.ji') || '感情细腻体贴，但容易缺乏安全感',
-      '庚': t('report.relationship.geng') || '感情果断直接，不喜欢拖泥带水',
-      '辛': t('report.relationship.xin') || '感情追求完美，对伴侣要求较高',
-      '壬': t('report.relationship.ren') || '感情丰富多变，需要新鲜感',
-      '癸': t('report.relationship.gui') || '感情细腻敏感，容易情绪化'
+      '甲': '感情较为主动，喜欢掌握主导权，但要注意给对方空间',
+      '乙': '感情细腻温柔，需要稳定的情感支持，但不要过度依赖对方',
+      '丙': '感情热情奔放，但容易冲动，但要控制情绪波动',
+      '丁': '感情专一执着，但容易猜疑，但要避免过度猜疑',
+      '戊': '感情稳重务实，重视家庭稳定，但要学会表达情感',
+      '己': '感情细腻体贴，但容易缺乏安全感，但要建立自信心',
+      '庚': '感情果断直接，不喜欢拖泥带水，但要考虑对方感受',
+      '辛': '感情追求完美，对伴侣要求较高，但要接受对方缺点',
+      '壬': '感情丰富多变，需要新鲜感，但要保持感情稳定',
+      '癸': '感情细腻敏感，容易情绪化，但要学会情绪管理'
     };
-    return traits[dayStem] || t('report.relationship.default') || '感情运势平稳，需要用心经营';
+    return tips[dayStem] || '感情运势平稳，需要用心经营，相互理解、真诚沟通是维系感情的关键';
   }
 
   function getMarriageAdvice(tenGods) {
@@ -1798,40 +1882,36 @@ a:focus{
     return directions[dayStem] || t('report.direction.default') || '各个方位都有发展机会';
   }
 
-  function getWealthAnalysis(tenGods) {
-    if (tenGods.includes('偏财')) {
-      return t('report.wealth.good') || '偏财运较好，有机会获得意外之财';
-    } else if (tenGods.includes('正财')) {
-      return t('report.wealth.stable') || '正财运稳定，适合稳定收入的工作';
-    } else {
-      return t('report.wealth.default') || '财运平稳，需要通过努力获得财富';
-    }
+function getFinancialAdvice(tenGods) {
+  if (tenGods.includes('偏财')) {
+    return '可以适当投资理财，但要控制风险，见好就收';
+  } else if (tenGods.includes('正财')) {
+    return '稳扎稳打，通过专业技能和稳定工作积累财富';
+  } else {
+    return '量入为出，做好财务规划，避免不必要的开支';
   }
+}
 
-  function getWealthDirections(dayStem) {
-    return getFavorableDirections(dayStem);
-  }
-
-  function getHealthAnalysis(dayStem) {
-    const health = {
-      '甲': t('report.health.jia') || '注意肝胆健康、筋骨问题',
-      '乙': t('report.health.yi') || '注意肝脏、视力问题',
-      '丙': t('report.health.bing') || '注意心血管、眼睛健康',
-      '丁': t('report.health.ding') || '注意心脏、血液循环',
-      '戊': t('report.health.wu') || '注意脾胃消化功能',
-      '己': t('report.health.ji') || '注意脾胃、皮肤问题',
-      '庚': t('report.health.geng') || '注意呼吸系统、大肠健康',
-      '辛': t('report.health.xin') || '注意肺部、呼吸系统',
-      '壬': t('report.health.ren') || '注意肾脏、泌尿系统',
-      '癸': t('report.health.gui') || '注意肾脏、膀胱'
-    };
-    return health[dayStem] || t('report.health.default') || '体质较为平衡，注意全面保健';
-  }
+function getWellnessAdvice(dayStem) {
+  const advice = {
+    '甲': '注意保护眼睛，肝脏和胆健康、筋骨问题，多进行户外运动，少饮酒，保护视力',
+    '乙': '注意肝脏、视力问题，保持心情愉悦，避免过度用眼和情绪压抑',
+    '丙': '注意心血管、眼睛健康， 控制情绪波动',
+    '丁': '注意心脏、血液循环，保证充足睡眠，避免过度紧张和焦虑',
+    '戊': '注意脾胃消化功能，规律饮食',
+    '己': '注意脾胃、皮肤问题，饮食卫生，避免潮湿环境',
+    '庚': '注意呼吸系统、大肠健康，避免干燥环境',
+    '辛': '注意肺部、呼吸系统，保持空气流通',
+    '壬': '注意肾脏、泌尿系统，保持水分平衡',
+    '癸': '注意肾脏、膀胱，适当休息，避免过度劳累和熬夜'
+  };
+  return advice[dayStem] || '体质较为平衡，保持均衡饮食、适量运动和良好作息，注意全面保健';
+}
 
   function getHealthTips(dayStem) {
     const tips = {
-      '甲': t('report.health.tips.jia') || '少饮酒，保护视力，适度运动',
-      '乙': t('report.health.tips.yi') || '保持情绪稳定，避免用眼过度',
+      '甲': t('report.health.tips.jia') || '',
+      '乙': t('report.health.tips.yi') || '',
       '丙': t('report.health.tips.bing') || '控制情绪，避免熬夜',
       '丁': t('report.health.tips.ding') || '保证充足睡眠，避免过度紧张',
       '戊': t('report.health.tips.wu') || '规律饮食，避免暴饮暴食',
@@ -1844,6 +1924,52 @@ a:focus{
     return tips[dayStem] || t('report.health.tips.default') || '保持健康生活习惯，定期体检';
   }
 
+  function getOverallFortune(tenGods) {
+  if (tenGods.includes('正官') || tenGods.includes('正印')) {
+    return '近期运势平稳上升，适合学习提升和事业发展';
+  } else if (tenGods.includes('七杀') || tenGods.includes('伤官')) {
+    return '面临一些挑战，但也是成长和突破的机会';
+  } else {
+    return '运势相对平稳，适合巩固基础和规划未来';
+  }
+}
+
+function getFavorableTiming(dayStem) {
+  const timing = {
+    '甲': '春季和冬季运势较佳',
+    '乙': '春季和夏季发展机会较多',
+    '丙': '夏季运势最旺',
+    '丁': '夏季和秋季适合推进计划',
+    '戊': '四季皆宜，尤其夏秋之交',
+    '己': '夏秋季节运势较好',
+    '庚': '秋季机遇最多',
+    '辛': '秋季和冬季适合发展',
+    '壬': '冬季运势最佳',
+    '癸': '冬季和春季有利发展'
+  };
+  return timing[dayStem] || '未来3-6个月是关键发展期';
+}
+
+  function getCautions(tenGods) {
+  const cautions = [];
+  
+  if (tenGods.includes('七杀')) {
+    cautions.push('注意压力管理，避免冲动决策');
+  }
+  if (tenGods.includes('伤官')) {
+    cautions.push('注意言辞，避免人际冲突');
+  }
+  if (tenGods.includes('劫财')) {
+    cautions.push('注意财务安全，避免投资风险');
+  }
+  
+  if (cautions.length === 0) {
+    cautions.push('保持谨慎态度，注意身体健康');
+  }
+  
+  return cautions.join('；');
+}
+  
   // 计算八字数据
   function calculateBaziData(birthdate, timeStr, timeUnknown) {
     const [Y, M, D] = birthdate.split('-').map(n => parseInt(n, 10));
@@ -2061,10 +2187,6 @@ a:focus{
     // 初始化翻译和聊天
     applyI18n();
     initFloatChat();
-
-    // 修复报告模板的国际化显示
-function fixReportTemplateI18n(reportData, locale) {
-  const isChinese = locale.startsWith('zh');
   
   if (!reportData.sections) return reportData;
   
@@ -2173,29 +2295,6 @@ function renderProReportJSON(json) {
   if (butlerSection) {
     butlerSection.style.display = 'block';
   }
-}
-
-// 同时修改 generateProReport 函数：
-async function generateProReport(calc, locale) {
-  try {
-    // 如果是中文环境，确保返回中文内容
-    const report = await generateRealBaziAnalysis(calc, locale);
-    
-    // 确保所有内容都正确本地化
-    return fixReportTemplateI18n(report, locale);
-  } catch (error) {
-    console.error('Generate report error:', error);
-    // 返回一个基本的错误报告
-    return {
-      sections: [{
-        id: "error",
-        title: locale.startsWith('zh') ? "报告生成失败" : "Report Generation Failed",
-        traits: [locale.startsWith('zh') ? "暂时无法生成详细报告" : "Unable to generate detailed report"],
-        confidence: 0
-      }]
-    };
-  }
-}
   });
 })();
 </script>
