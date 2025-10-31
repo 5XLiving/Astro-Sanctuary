@@ -2501,5 +2501,163 @@ function getHealthTips(dayStem) {
   }); // 结束 DOMContentLoaded
 })(); // 结束 IIFE
 </script>
+<script>
+// === FIX PACK START ===
+// PASTE THIS AT THE VERY BOTTOM OF YOUR EXISTING SCRIPT (before </script>)
+
+function parseISODate(v){
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v || "");
+  if(!m) return null;
+  return { y:+m[1], m:+m[2], d:+m[3] };
+}
+
+function formatTimeText(hhmm, unknown){
+  const dict = I18N[state.lang] || I18N['zh-CN'];
+  const fmt = get(dict,'ui.hourSuffix') || '{hh}:{mm}';
+  if(unknown) return get(dict,'ui.timeUnknown') || '';
+  const [hh, mm] = (hhmm || '00:00').split(':');
+  return fmt.replace('{hh}', hh ?? '00').replace('{mm}', mm ?? '00');
+}
+
+function handleGenerate(){
+  setGenLoading(true);
+  try{
+    const bd = $('birthdate')?.value;
+    if(!bd){ showErr(t('err.fillBirthdate')); setGenLoading(false); return; }
+    const date = parseISODate(bd);
+    if(!date){ showErr(t('err.invalidDate')); setGenLoading(false); return; }
+
+    const timeUnknown = !!$('timeUnknown')?.checked;
+    const timeVal = $('birthtime')?.value || '00:00';
+    const hour = timeUnknown ? null : Number((timeVal.split(':')[0] || '0'));
+
+    const bc = new BaziCalculator();
+
+    // Pillars
+    const Y = bc.calculateYearPillar(date.y);
+    const M = bc.calculateMonthPillar(date.y, date.m, date.d);
+    const D = bc.calculateDayPillar(date.y, date.m, date.d);
+    const H = hour == null ? null : bc.calculateHourPillar(D.stem, hour);
+
+    const stems    = [Y.stem, M.stem, D.stem, H ? H.stem : '-'];
+    const branches = [Y.branch, M.branch, D.branch, H ? H.branch : '-'];
+    const elements = [
+      bc.getStemElement(Y.stem),
+      bc.getStemElement(M.stem),
+      bc.getStemElement(D.stem),
+      H ? bc.getStemElement(H.stem) : '-'
+    ];
+    const nayins = [
+      bc.getNayin(Y.stem,Y.branch),
+      bc.getNayin(M.stem,M.branch),
+      bc.getNayin(D.stem,D.branch),
+      H ? bc.getNayin(H.stem,H.branch) : '-'
+    ];
+
+    // Render
+    renderPillars([
+      `${Y.stem}${Y.branch}`,
+      `${M.stem}${M.branch}`,
+      `${D.stem}${D.branch}`,
+      H ? `${H.stem}${H.branch}` : '—'
+    ]);
+
+    renderTable({
+      stem: stems,
+      branch: branches,
+      element: elements,
+      nayin: nayins
+    });
+
+    // Elements percentage (simple stem+branch weight)
+    const counts = { '木':0,'火':0,'土':0,'金':0,'水':0 };
+    [Y,M,D].forEach(p=>{
+      counts[bc.getStemElement(p.stem)]++;
+      counts[bc.getBranchElement(p.branch)]++;
+    });
+    if(H){
+      counts[bc.getStemElement(H.stem)]++;
+      counts[bc.getBranchElement(H.branch)]++;
+    }
+    const total = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
+    const pcts = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, v*100/total]));
+    renderBars(pcts);
+
+    // Birth summary line
+    const birthTpl = get(I18N[state.lang] || I18N['zh-CN'], 'ui.birthSummary') || '出生: {y}-{m}-{d} {timeText}';
+    const timeText = formatTimeText(timeVal, timeUnknown);
+    const line = birthTpl
+      .replace('{y}', String(date.y))
+      .replace('{m}', String(date.m).padStart(2,'0'))
+      .replace('{d}', String(date.d).padStart(2,'0'))
+      .replace('{timeText}', timeText);
+    const badge = timeUnknown ? ` <span class="badge-warn">${t('badge.noHour')}</span>` : '';
+    if($('bazi-date')) $('bazi-date').innerHTML = line + badge;
+
+    // Minimal pro report so you can see content render
+    const pro = $('professionalReport');
+    if(pro){
+      const dayStem = D.stem;
+      const tenGods = new BaziCalculator().calculateTenGods(dayStem, stems);
+      const rel = BaziAnalysis.getRelationshipAnalysis(dayStem);
+      const car = BaziAnalysis.getCareerAnalysis(dayStem, tenGods);
+      pro.innerHTML = `
+        <div class="butler-section">
+          <h4>${t('reportTitles.overview')}</h4>
+          <div>${BaziAnalysis.getDayMasterAnalysis(dayStem)}</div>
+        </div>
+        <div class="butler-section">
+          <h4>${t('reportTitles.fiveElements')}</h4>
+          <div>${(Object.entries(pcts)
+            .map(([k,v])=> (I18N[state.lang]?.elemNames?.[k] || k) + ' ' + Math.round(v) + '%')
+            .join(' · '))}</div>
+        </div>
+        <div class="butler-section">
+          <h4>${t('reportTitles.relationship')}</h4>
+          <div>${rel.traits}<br>${rel.tips}</div>
+        </div>
+        <div class="butler-section">
+          <h4>${t('reportTitles.career')}</h4>
+          <div>${car.suitable}<br>${car.advice}</div>
+        </div>`;
+    }
+
+    showResultContainers();
+  } catch(e){
+    console.error(e);
+    showErr(t('err.generateFail'));
+  } finally {
+    setGenLoading(false);
+  }
+}
+
+// language + UI wiring
+function onLangChange(){
+  const sel = $('langSelect');
+  if(!sel) return;
+  state.lang = sel.value;
+  localStorage.setItem('5x_lang', state.lang);
+  applyI18n();
+}
+
+function init(){
+  applyI18n();
+  $('genBtn')?.addEventListener('click', handleGenerate);
+  $('langSelect')?.addEventListener('change', onLangChange);
+  $('timeUnknown')?.addEventListener('change', (e)=>{
+    const disabled = e.target.checked;
+    const t = $('birthtime'); if(t){ t.disabled = disabled; t.style.opacity = disabled ? .6 : 1; }
+  });
+  // float chat show/hide
+  $('chatToggle')?.addEventListener('click', ()=>{ const p=$('chatFloat'); if(p) p.style.display='flex'; });
+  $('chatClose')?.addEventListener('click',  ()=>{ const p=$('chatFloat'); if(p) p.style.display='none'; });
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+// IMPORTANT: close the IIFE if your file started with (()=>{ ... 
+})();
+ // === FIX PACK END ===
+</script>  
 </body>
 </html>        
