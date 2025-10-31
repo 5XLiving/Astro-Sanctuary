@@ -2655,6 +2655,44 @@ function onLangChange(){
   applyI18n();
 }
 
+// === 修复缺失的翻译键 ===
+// 在 I18N 对象定义之后，init() 函数之前添加这段代码
+if (I18N['zh-CN']) {
+  // 添加缺失的翻译键
+  const missingTranslations = {
+    'report.dayMaster.gui': '癸水命：逞强顽固，是努力家',
+    'report.marriage.stable': '婚姻较为稳定，适合建立长期关系',
+    'report.career.gui': '研究机构、心理咨询、艺术创作',
+    'report.career.business': '适合商业、金融领域，财运较好',
+    'report.health.tips.gui': '适量饮水，避免过度劳累'
+  };
+  
+  // 确保这些翻译键存在
+  Object.keys(missingTranslations).forEach(key => {
+    if (!I18N['zh-CN'][key]) {
+      I18N['zh-CN'][key] = missingTranslations[key];
+    }
+  });
+}
+
+// 同时修复翻译函数，提供更好的错误处理
+const originalT = t;
+window.t = function(key) {
+  const result = originalT(key);
+  // 如果返回的是键名本身（说明翻译不存在），提供备用翻译
+  if (result === key) {
+    const fallbacks = {
+      'report.dayMaster.gui': '癸水命：逞强顽固，是努力家',
+      'report.marriage.stable': '婚姻较为稳定，适合建立长期关系',
+      'report.career.gui': '研究机构、心理咨询、艺术创作',
+      'report.career.business': '适合商业、金融领域，财运较好',
+      'report.health.tips.gui': '适量饮水，避免过度劳累'
+    };
+    return fallbacks[key] || key;
+  }
+  return result;
+};
+
 function init(){
   applyI18n();
   $('genBtn')?.addEventListener('click', handleGenerate);
