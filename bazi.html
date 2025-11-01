@@ -1928,8 +1928,9 @@ const BaziAnalysis = {
       '癸': {
         traits: '感情细腻敏感，容易情绪化，但要学会情绪管理',
         tips: '学会情绪管理，理性处理矛盾'
-      }
     };
+  }
+}; // ← BaziAnalysis 结束
     const defaultAnalysis = {
       traits: '感情运势平稳，需要用心经营，相互理解、真诚沟通是维系感情的关键',
       tips: '相互尊重，真诚沟通是维系感情的关键'
@@ -2818,5 +2819,159 @@ if (I18N['zh-CN']) {
     });
 }
 </script>
+<script>/* =========================
+ * 事件绑定 & 初始化
+ * ========================= */
+
+// 当前时间显示（页眉右侧）
+(function initNowClock(){
+  const box = document.getElementById('nowBox');
+  if (!box) return;
+  const fmt = (n)=> String(n).padStart(2,'0');
+  const tick = () => {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = fmt(d.getMonth()+1);
+    const day = fmt(d.getDate());
+    const hh = fmt(d.getHours());
+    const mm = fmt(d.getMinutes());
+    box.textContent = `${y}-${m}-${day} ${hh}:${mm}`;
+  };
+  tick();
+  setInterval(tick, 30_000);
+})();
+
+// 语言切换
+(function bindLang(){
+  const sel = document.getElementById('langSelect');
+  if (!sel) return;
+  sel.addEventListener('change', () => {
+    state.lang = sel.value || 'zh-CN';
+    localStorage.setItem('5x_lang', state.lang);
+    applyI18n();
+  });
+})();
+
+// 生成按钮
+(function bindGenerate(){
+  const btn = document.getElementById('genBtn');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    hideErr?.();
+    const bd = document.getElementById('birthdate')?.value?.trim();
+    const bt = document.getElementById('birthtime')?.value || '00:00';
+    const unknown = document.getElementById('timeUnknown')?.checked;
+
+    if (!bd) { showErr(t('err.fillBirthdate')); return; }
+    const m = bd.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) { showErr(t('err.invalidDate')); return; }
+
+    const year = +m[1], month = +m[2], day = +m[3];
+    let hour = 0, minute = 0;
+    if (!unknown && bt) {
+      const hhmm = bt.split(':'); 
+      hour = +hhmm[0] || 0; minute = +hhmm[1] || 0;
+    }
+
+    setGenLoading(true);
+    try{
+      const calc = new BaziCalculator();
+
+      const yP = calc.calculateYearPillar(year);
+      const mP = calc.calculateMonthPillar(year, month, day);
+      const dP = calc.calculateDayPillar(year, month, day);
+      const hP = unknown ? { stem:'-', branch:'-' } : calc.calculateHourPillar(dP.stem, hour);
+
+      // 顶部四柱
+      renderPillars([`${yP.stem}${yP.branch}`, `${mP.stem}${mP.branch}`, `${dP.stem}${dP.branch}`, `${hP.stem}${hP.branch}`]);
+
+      // 表格
+      const stems = [yP.stem, mP.stem, dP.stem, hP.stem];
+      const branches = [yP.branch, mP.branch, dP.branch, hP.branch];
+      const elements = [
+        calc.getStemElement(yP.stem), 
+        calc.getStemElement(mP.stem), 
+        calc.getStemElement(dP.stem), 
+        hP.stem==='-' ? '-' : calc.getStemElement(hP.stem)
+      ];
+      const nayins = [
+        calc.getNayin(yP.stem, yP.branch),
+        calc.getNayin(mP.stem, mP.branch),
+        calc.getNayin(dP.stem, dP.branch),
+        hP.stem==='-' ? '-' : calc.getNayin(hP.stem, hP.branch)
+      ];
+      renderTable({
+        stem: stems, branch: branches, element: elements, nayin: nayins
+      });
+
+      // 五行统计（很简化：干支主气各+1）
+      const count = { '木':0,'火':0,'土':0,'金':0,'水':0 };
+      [yP,mP,dP,hP].forEach(p=>{
+        if (p.stem && p.stem!=='-') count[calc.getStemElement(p.stem)]++;
+        if (p.branch && p.branch!=='-') count[calc.getBranchElement(p.branch)]++;
+      });
+      const total = Object.values(count).reduce((a,b)=>a+b,0) || 1;
+      const pcts = Object.fromEntries(Object.entries(count).map(([k,v])=>[k, 100*v/total]));
+      renderBars(pcts);
+
+      // 日期行
+      const [hh,mm] = (bt||'00:00').split(':');
+      const timeText = unknown
+        ? (t('ui.timeUnknown') || '')
+        : (t('ui.hourSuffix') || '{hh}:{mm}')
+            .replace('{hh}', (hh ?? '00'))
+            .replace('{mm}', (mm ?? '00'));
+      const dateText = (t('ui.birthSummary') || '出生: {y}-{m}-{d} {timeText}')
+        .replace('{y}', String(year))
+        .replace('{m}', String(month).padStart(2,'0'))
+        .replace('{d}', String(day).padStart(2,'0'))
+        .replace('{timeText}', timeText);
+      const dateBox = document.getElementById('bazi-date');
+      if (dateBox) dateBox.textContent = dateText;
+
+      // 专业区简单展示（示例：日主 + 感情条）
+      const pro = document.getElementById('professionalReport');
+      if (pro){
+        const dm = dP.stem;
+        const dmText = BaziAnalysis.getDayMasterAnalysis(dm);
+        const rel = BaziAnalysis.getRelationshipAnalysis(dm);
+        pro.innerHTML = `
+          <div class="butler-section">
+            <h4>${t('reportTitles.overview')}</h4>
+            <div>${t('reportLabels.dayMaster')||'日主命理'}：${dm}（${dmText}）</div>
+          </div>
+          <div class="butler-section">
+            <h4>${t('reportTitles.relationship')}</h4>
+            <div>${t('reportLabels.traits')||'感情特质'}：${rel.traits}</div>
+            <div>${t('reportLabels.relationshipTips')||'相处之道'}：${rel.tips}</div>
+          </div>
+        `;
+      }
+
+      showResultContainers();
+    }catch(e){
+      console.error(e);
+      showErr(t('err.generateFail'));
+    }finally{
+      setGenLoading(false);
+    }
+  });
+})();
+
+// 浮窗聊天开关
+(function bindChatFloat(){
+  const toggle = document.getElementById('chatToggle');
+  const panel = document.getElementById('chatFloat');
+  const closeBtn = document.getElementById('chatClose');
+  if (toggle && panel) toggle.addEventListener('click', ()=>{ panel.style.display = 'flex'; });
+  if (closeBtn && panel) closeBtn.addEventListener('click', ()=>{ panel.style.display = 'none'; });
+})();
+
+// 初始化一次翻译
+applyI18n();
+
+})(); // ← IIFE 结束
+</script>  
 </body>
 </html>
