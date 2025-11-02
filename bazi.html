@@ -2147,77 +2147,75 @@ function boot(){
     return;
   }
     
-    // language select
-    const langSel = $('langSelect');
-    if(langSel){
-      langSel.value = state.lang;
-      langSel.addEventListener('change', ()=>{
-        state.lang = langSel.value || 'zh-CN';
-        localStorage.setItem('5x_lang', state.lang);
-        applyI18n();
-      });
-    }
-    applyI18n();
+  // language select
+  const langSel = $('langSelect');
+  if(langSel){
+    langSel.value = state.lang;
+    langSel.addEventListener('change', ()=>{
+      state.lang = langSel.value || 'zh-CN';
+      localStorage.setItem('5x_lang', state.lang);
+      applyI18n();
+    });
+  }
+  applyI18n();
 
-    // time unknown toggle
-    const unk = $('timeUnknown'), bt = $('birthtime');
-    if(unk && bt){
-      const sync = ()=>{ bt.disabled = !!unk.checked; bt.style.opacity = bt.disabled? .5:1; };
-      unk.addEventListener('change', sync); sync();
-    }
+  // time unknown toggle
+  const unk = $('timeUnknown'), bt = $('birthtime');
+  if(unk && bt){
+    const sync = ()=>{ bt.disabled = !!unk.checked; bt.style.opacity = bt.disabled? .5:1; };
+    unk.addEventListener('change', sync); sync();
+  }
 
-    // generate button
-    const gen = $('genBtn'); if(gen) gen.addEventListener('click', generate);
+  // generate button - FIXED: removed duplicate declaration
+  const gen = $('genBtn'); 
+  if(gen) {
+    gen.addEventListener('click', generate);
+  } else {
+    console.error('Generate button not found');
+  }
 
-const gen = $('genBtn'); 
-if(gen) {
-  gen.addEventListener('click', generate);
-} else {
-  console.error('Generate button not found');
-}  
-  
-// chat float
-const chatToggle = $('chatToggle'), 
-      chatFloat = $('chatFloat'), 
-      chatClose = $('chatClose'), 
-      chatSend = $('chatSend'), 
-      chatInput = $('chatInput');
+  // chat float
+  const chatToggle = $('chatToggle'), 
+        chatFloat = $('chatFloat'), 
+        chatClose = $('chatClose'), 
+        chatSend = $('chatSend'), 
+        chatInput = $('chatInput');
 
-if(chatToggle && chatFloat){
-  chatToggle.addEventListener('click', ()=>{
-    const isVisible = chatFloat.style.display === 'flex';
-    chatFloat.style.display = isVisible ? 'none' : 'flex';
-  });
-}
+  if(chatToggle && chatFloat){
+    chatToggle.addEventListener('click', ()=>{
+      const isVisible = chatFloat.style.display === 'flex';
+      chatFloat.style.display = isVisible ? 'none' : 'flex';
+    });
+  }
 
-if(chatClose && chatFloat){
-  chatClose.addEventListener('click', ()=>{ 
-    chatFloat.style.display = 'none'; 
-  });
-}
+  if(chatClose && chatFloat){
+    chatClose.addEventListener('click', ()=>{ 
+      chatFloat.style.display = 'none'; 
+    });
+  }
 
-if(chatSend && chatInput){
-  chatSend.addEventListener('click', ()=>{
-    const q = (chatInput.value || '').trim(); 
-    if(!q) return;
+  if(chatSend && chatInput){
+    chatSend.addEventListener('click', ()=>{
+      const q = (chatInput.value || '').trim(); 
+      if(!q) return;
+      
+      appendMsg(q, 'user');
+      chatInput.value = '';
+      
+      // Simple auto-reply
+      setTimeout(() => {
+        const tpl = t('chatDyn.autoReply') || '收到：{q}。稍后可在专业报告相应章节找到要点。';
+        appendMsg(tpl.replace('{q}', q), 'bot');
+      }, 500);
+    });
     
-    appendMsg(q, 'user');
-    chatInput.value = '';
-    
-    // Simple auto-reply
-    setTimeout(() => {
-      const tpl = t('chatDyn.autoReply') || '收到：{q}。稍后可在专业报告相应章节找到要点。';
-      appendMsg(tpl.replace('{q}', q), 'bot');
-    }, 500);
-  });
-  
-  chatInput.addEventListener('keydown', (e)=>{ 
-    if(e.key === 'Enter'){ 
-      e.preventDefault(); 
-      chatSend.click(); 
-    } 
-  });
-}
+    chatInput.addEventListener('keydown', (e)=>{ 
+      if(e.key === 'Enter'){ 
+        e.preventDefault(); 
+        chatSend.click(); 
+      } 
+    });
+  }
 
   // run
   if(document.readyState === 'loading'){
