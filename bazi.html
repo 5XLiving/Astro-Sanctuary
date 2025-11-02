@@ -1045,8 +1045,11 @@ function applyI18n() {
     return map[stem] || String(stem).toLowerCase();
   }
 const BaziAnalysis = {
-  dayMasterLine(stem){ return t('report.dayMaster.'+stemToPinyin(stem)) || ''; },
-  relation(dayStem){
+  dayMasterLine(stem){ 
+    const key = 'report.dayMaster.' + stemToPinyin(stem);
+    return t(key) || ''; 
+  },
+  
     const dict={
       '甲':{traits:'感情较为主动，喜欢掌握主导权，但要注意给对方空间',tips:'学会倾听对方意见，保持沟通平衡'},
       '乙':{traits:'感情细腻温柔，需要稳定的情感支持，但不要过度依赖对方',tips:'建立自信，明确表达自己的需求'},
@@ -1061,11 +1064,13 @@ const BaziAnalysis = {
     };
     return dict[dayStem]||{traits:'感情运势平稳，需要用心经营',tips:'相互尊重，真诚沟通是关键'};
   },
+  
   marriageAdvice(ten){
-    if(ten.includes('正官')||ten.includes('正财')) return t('report.marriage.stable');
-    if(ten.includes('七杀')||ten.includes('偏财')) return t('report.marriage.experienced');
-    return t('report.marriage.default');
+    if(ten.includes('正官')||ten.includes('正财')) return 'report.marriage.stable';
+    if(ten.includes('七杀')||ten.includes('偏财')) return 'report.marriage.experienced';
+    return 'report.marriage.default';
   },
+  
   career(dayStem,ten){
     const map={
       '甲':'管理岗位、创业开拓、建筑工程',
@@ -1088,9 +1093,11 @@ const BaziAnalysis = {
     
     return {
       suitable: map[dayStem] || '稳扎稳打，在专业领域深耕发展', 
-      advice: adviceKey  // 返回翻译键，不是直接文本
+      advice: adviceKey
     };
-  },
+  }
+};
+  
   wealthDirs(dayStem){
     const dirs={
       '甲':'东方、东南方','乙':'东方、南方','丙':'南方','丁':'南方、西南方',
@@ -1210,12 +1217,18 @@ function buildProReport(ctx){
     '</div>' : '';
 
 // 使用更安全的字符串拼接方式
-const html = tip +
-  '<div class="butler-section">' +
-    '<h4>' + t('reportTitles.overview') + '</h4>' +
-    '<div>' + t('reportLabels.dayMaster') + '：' + (t('report.dayMaster.' + stemToPinyin(dayStem)) || t('report.dayMaster.default') || dayStem) + '</div>' +
-    '<div>' + t('reportLabels.elementCount') + '：' + ['木','火','土','金','水'].map(k => mapName[k] + ' ' + pctTxt(k)).join('｜') + '</div>' +
-  '</div>' +
+  const html = tip +
+    '<div class="butler-section">' +
+      '<h4>' + t('reportTitles.overview') + '</h4>' +
+      '<div>' + t('reportLabels.dayMaster') + '：' + 
+        // 修复这里：直接调用翻译函数，而不是使用字符串拼接
+        (BaziAnalysis.dayMasterLine(dayStem) || t('report.dayMaster.default')) + 
+      '</div>' +
+      '<div>' + t('reportLabels.elementCount') + '：' + 
+        ['木','火','土','金','水'].map(k => mapName[k] + ' ' + pctTxt(k)).join('｜') + 
+      '</div>' +
+    '</div>' +
+
 
   '<div class="butler-section">' +
     '<h4>' + t('reportTitles.fiveElements') + '</h4>' +
@@ -1236,19 +1249,27 @@ const html = tip +
     '<div>' + t('reportLabels.restrainElements') + '：' + (restrainElems(dayStem).join('、') || '—') + '</div>' +
   '</div>' +
 
-  '<div class="butler-section">' +
-    '<h4>' + t('reportTitles.relationship') + '</h4>' +
-    '<div>' + t('reportLabels.traits') + '：' + relation.traits + '</div>' +
-    '<div>' + t('reportLabels.marriageAdvice') + '：' + BaziAnalysis.marriageAdvice(tenGods) + '</div>' +
-    '<div>' + t('reportLabels.relationshipTips') + '：' + relation.tips + '</div>' +
-  '</div>' +
+    // 修复婚姻建议
+    '<div class="butler-section">' +
+      '<h4>' + t('reportTitles.relationship') + '</h4>' +
+      '<div>' + t('reportLabels.traits') + '：' + relation.traits + '</div>' +
+      '<div>' + t('reportLabels.marriageAdvice') + '：' + 
+        // 修复这里：直接返回翻译文本
+        t(BaziAnalysis.marriageAdvice(tenGods)) + 
+      '</div>' +
+      '<div>' + t('reportLabels.relationshipTips') + '：' + relation.tips + '</div>' +
+    '</div>' +
 
-  '<div class="butler-section">' +
-    '<h4>' + t('reportTitles.career') + '</h4>' +
-    '<div>' + t('reportLabels.suitableCareers') + '：' + career.suitable + '</div>' +
-    '<div>' + t('reportLabels.careerAdvice') + '：' + t(career.advice) + '</div>' +
-    '<div>' + t('reportLabels.favorableDirections') + '：' + wealthDirs + '</div>' +
-  '</div>' +
+    // 修复职业建议
+    '<div class="butler-section">' +
+      '<h4>' + t('reportTitles.career') + '</h4>' +
+      '<div>' + t('reportLabels.suitableCareers') + '：' + career.suitable + '</div>' +
+      '<div>' + t('reportLabels.careerAdvice') + '：' + 
+        // 修复这里：翻译职业建议
+        t(career.advice) + 
+      '</div>' +
+      '<div>' + t('reportLabels.favorableDirections') + '：' + wealthDirs + '</div>' +
+    '</div>' +
 
   '<div class="butler-section">' +
     '<h4>' + t('reportTitles.wealth') + '</h4>' +
@@ -1257,12 +1278,18 @@ const html = tip +
     '<div>' + t('reportLabels.financialAdvice') + '：' + BaziAnalysis.financeAdvice(tenGods) + '</div>' +
   '</div>' +
 
-  '<div class="butler-section">' +
-    '<h4>' + t('reportTitles.health') + '</h4>' +
-    '<div>' + t('reportLabels.healthCharacteristics') + '：' + BaziAnalysis.health(dayStem) + '</div>' +
-    '<div>' + t('reportLabels.healthTips') + '：' + (t('report.health.tips.' + stemToPinyin(dayStem)) || t('report.health.tips.default') || '') + '</div>' +
-    '<div>' + t('reportLabels.wellnessAdvice') + '：' + (t('report.wellness.default') || '规律作息、适量运动、情绪稳定、少熬夜') + '</div>' +
-  '</div>' +
+    // 修复健康提示
+    '<div class="butler-section">' +
+      '<h4>' + t('reportTitles.health') + '</h4>' +
+      '<div>' + t('reportLabels.healthCharacteristics') + '：' + BaziAnalysis.health(dayStem) + '</div>' +
+      '<div>' + t('reportLabels.healthTips') + '：' + 
+        // 修复这里：翻译健康提示
+        (t('report.health.tips.' + stemToPinyin(dayStem)) || t('report.health.tips.default')) + 
+      '</div>' +
+      '<div>' + t('reportLabels.wellnessAdvice') + '：' + 
+        (t('report.wellness.default') || '规律作息、适量运动、情绪稳定、少熬夜') + 
+      '</div>' +
+    '</div>' +
 
   '<div class="butler-section">' +
     '<h4>' + t('reportTitles.nearTerm') + '</h4>' +
@@ -1271,15 +1298,16 @@ const html = tip +
     '<div>' + t('reportLabels.cautions') + '：' + (t('report.cautions.default') || '避开情绪决策，控制支出') + '</div>' +
   '</div>' +
 
-  '<div class="butler-section">' +
-    '<h4>' + t('reportTitles.actions') + '</h4>' +
-    '<ul class="action-list">' +
-      '<li>' + (t('report.action.weekly') || '每周至少一次') + ' ' + (weakest ? mapName[weakest] : (t('elem.fiveElements') || '五行')) + ' ' + (t('report.action.energy') || '元素的"补能"行动（环境、食物、颜色、方向）。') + '</li>' +
-      '<li>' + (t('report.action.career') || '职业：依据"') + t(career.advice) + (t('report.action.career2') || '"细化下月行动清单（学习/项目/人脉）。') + '</li>' +
-      '<li>' + (t('report.action.relationship') || '感情：本周安排一次高质量沟通（30分钟），聚焦彼此需求。') + '</li>' +
-      '<li>' + (t('report.action.wealth') || '财富：设立"风险阈值"，偏财机会严格止盈。') + '</li>' +
-    '</ul>' +
-  '</div>';
+    '<div class="butler-section">' +
+      '<h4>' + t('reportTitles.actions') + '</h4>' +
+      '<ul class="action-list">' +
+        '<li>' + t('report.action.weekly') + ' ' + 
+          (weakest ? mapName[weakest] : t('elem.fiveElements')) + ' ' + t('report.action.energy') + '</li>' +
+        '<li>' + t('report.action.career') + t(career.advice) + t('report.action.career2') + '</li>' +
+        '<li>' + t('report.action.relationship') + '</li>' +
+        '<li>' + t('report.action.wealth') + '</li>' +
+      '</ul>' +
+    '</div>';
 
 if (box) box.innerHTML = html;
 
