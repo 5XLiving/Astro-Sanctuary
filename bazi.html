@@ -370,6 +370,25 @@ a:focus{
   box-shadow: 0 6px 20px rgba(230,199,110,.5);
 }
 
+.me-msg {
+  background: rgba(212, 175, 55, 0.15);
+  border-left: 3px solid var(--gold);
+  margin-left: 20px;
+}
+
+.ss-msg {
+  background: rgba(32, 107, 196, 0.15);
+  border-left: 3px solid #58b9ff;
+  margin-right: 20px;
+}    
+
+.me-msg, .ss-msg {
+  padding: 8px 12px;
+  margin: 8px 0;
+  border-radius: 8px;
+  line-height: 1.4;
+}
+    
 /* 响应式调整 */
 @media (max-width: 768px) {
   .chat-float {
@@ -1737,6 +1756,17 @@ reportLabels:{
    * PRO REPORT (10 sections)
    * ========================= */
 function buildProReport(ctx){
+    if (!ctx) {
+    console.error('No context provided for report');
+    return;
+  }
+  
+  const box = $('professionalReport'); 
+  if (!box) {
+    console.error('Professional report container not found');
+    return;
+  }
+  
   lastCtx = ctx;
   const {pcts = {}, dayStem = '', tenGods = [], unknown=false} = ctx || {};
   const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
@@ -1942,14 +1972,16 @@ function buildProReport(ctx){
   /* =========================
    * CHAT FLOAT (local echo)
    * ========================= */
-  function appendMsg(text, who='user'){
-    const box=$('chatMessages'); if(!box) return;
-    const div=document.createElement('div');
-    div.className = who==='user' ? 'me-msg' : 'ss-msg';
-    div.textContent = text;
-    box.appendChild(div);
-    box.scrollTop = box.scrollHeight;
-  }
+function appendMsg(text, who = 'user'){
+  const box = $('chatMessages'); 
+  if(!box) return;
+  
+  const div = document.createElement('div');
+  div.className = who === 'user' ? 'me-msg' : 'ss-msg';
+  div.textContent = text;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
 
   /* =========================
    * AUTH FIELDS: HIDE BY DEFAULT (reveal on demand)
@@ -1989,7 +2021,18 @@ function buildProReport(ctx){
   /* =========================
    * BOOTSTRAP EVENTS
    * ========================= */
-  function boot(){
+function boot(){
+  // Check if required elements exist
+  if (!$('genBtn')) {
+    console.error('Generate button not found');
+    return;
+  }
+  
+  if (!$('result')) {
+    console.error('Result section not found');
+    return;
+  }
+    
     // language select
     const langSel = $('langSelect');
     if(langSel){
@@ -2012,32 +2055,55 @@ function buildProReport(ctx){
     // generate button
     const gen = $('genBtn'); if(gen) gen.addEventListener('click', generate);
 
-    // chat float
-    const chatToggle=$('chatToggle'), chatFloat=$('chatFloat'), chatClose=$('chatClose'), chatSend=$('chatSend'), chatInput=$('chatInput');
-    if(chatToggle && chatFloat){
-      chatToggle.addEventListener('click', ()=>{ chatFloat.style.display = (chatFloat.style.display==='flex'?'none':'flex'); });
-    }
-    if(chatClose && chatFloat){
-      chatClose.addEventListener('click', ()=>{ chatFloat.style.display='none'; });
-    }
-    if(chatSend && chatInput){
-      chatSend.addEventListener('click', ()=>{
-        const q = (chatInput.value||'').trim(); if(!q) return;
-        appendMsg(q, 'user');
-        chatInput.value='';
-        // simple auto-reply
-        const tpl = t('chatDyn.autoReply') || '收到：{q}。';
-        appendMsg(tpl.replace('{q}', q), 'bot');
-      });
-      chatInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); chatSend.click(); } });
-    }
+const gen = $('genBtn'); 
+if(gen) {
+  gen.addEventListener('click', generate);
+} else {
+  console.error('Generate button not found');
+}  
+  
+// chat float
+const chatToggle = $('chatToggle'), 
+      chatFloat = $('chatFloat'), 
+      chatClose = $('chatClose'), 
+      chatSend = $('chatSend'), 
+      chatInput = $('chatInput');
 
-    // header clock
-    tickNow(); setInterval(tickNow, 1000);
+if(chatToggle && chatFloat){
+  chatToggle.addEventListener('click', ()=>{
+    const isVisible = chatFloat.style.display === 'flex';
+    chatFloat.style.display = isVisible ? 'none' : 'flex';
+  });
+}
 
-    // hide auth inputs by default
-    setupAuthReveal();
-  }
+if(chatClose && chatFloat){
+  chatClose.addEventListener('click', ()=>{ 
+    chatFloat.style.display = 'none'; 
+  });
+}
+
+if(chatSend && chatInput){
+  chatSend.addEventListener('click', ()=>{
+    const q = (chatInput.value || '').trim(); 
+    if(!q) return;
+    
+    appendMsg(q, 'user');
+    chatInput.value = '';
+    
+    // Simple auto-reply
+    setTimeout(() => {
+      const tpl = t('chatDyn.autoReply') || '收到：{q}。稍后可在专业报告相应章节找到要点。';
+      appendMsg(tpl.replace('{q}', q), 'bot');
+    }, 500);
+  });
+  
+  chatInput.addEventListener('keydown', (e)=>{ 
+    if(e.key === 'Enter'){ 
+      e.preventDefault(); 
+      chatSend.click(); 
+    } 
+  });
+}
 
   // run
   if(document.readyState === 'loading'){
