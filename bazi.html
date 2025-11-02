@@ -1130,9 +1130,9 @@ function applyI18n() {
     return Object.keys(map).reduce((acc,k)=> acc.replaceAll(k, map[k]), s);
   }
 
-  /* =========================
-   * PRO REPORT (10 sections)
-   * ========================= */
+/* =========================
+ * PRO REPORT (10 sections)
+ * ========================= */
 function buildProReport(ctx){
     if (!ctx) {
     console.error('No context provided for report');
@@ -1238,9 +1238,9 @@ function buildProReport(ctx){
       '</ul>' +
     '</div>';
 
-  const box = $('professionalReport'); 
   if (box) box.innerHTML = html;
 
+  // 辅助函数定义
   function pctTxt(e){ return Math.round(pcts[e]||0)+'%'; }
   
   function wealthTrait(ten){
@@ -1275,6 +1275,80 @@ function buildProReport(ctx){
     return Object.entries({木:p.木||0,火:p.火||0,土:p.土||0,金:p.金||0,水:p.水||0})
       .sort((a,b)=>a[1]-b[1]).slice(0,2).map(([k])=>names[k]);
   }
+}
+
+// 添加缺失的函数定义
+function stemToPinyin(stem){
+  const map = {'甲':'jia','乙':'yi','丙':'bing','丁':'ding','戊':'wu','己':'ji','庚':'geng','辛':'xin','壬':'ren','癸':'gui'};
+  return map[stem] || String(stem).toLowerCase();
+}
+
+function i18nDirs(s){
+  if(!s) return '';
+  const L = state.lang;
+  const maps = {
+    'zh-CN': {'东方':'东方','东南方':'东南方','南方':'南方','西南方':'西南方','西方':'西方','西北方':'西北方','北方':'北方','东北方':'东北方','中部、本地':'中部/本地'},
+    'zh-TW': {'东方':'東方','东南方':'東南方','南方':'南方','西南方':'西南方','西方':'西方','西北方':'西北方','北方':'北方','东北方':'東北方','中部、本地':'中部/本地'},
+    'en':    {'东方':'East','东南方':'Southeast','南方':'South','西南方':'Southwest','西方':'West','西北方':'Northwest','北方':'North','东北方':'Northeast','中部、本地':'Center / Local'},
+    'ja':    {'东方':'東','东南方':'南東','南方':'南','西南方':'南西','西方':'西','西北方':'北西','北方':'北','东北方':'北東','中部、本地':'中央 / ローカル'},
+    'th':    {'东方':'ตะวันออก','东南方':'ตะวันออกเฉียงใต้','南方':'ใต้','西南方':'ตะวันตกเฉียงใต้','西方':'ตะวันตก','西北方':'ตะวันตกเฉียงเหนือ','北方':'เหนือ','东北方':'ตะวันออกเฉียงเหนือ','中部、本地':'กึ่งกลาง / พื้นที่ใกล้'},
+    'ms':    {'东方':'Timur','东南方':'Tenggara','南方':'Selatan','西南方':'Barat Daya','西方':'Barat','西北方':'Barat Laut','北方':'Utara','东北方':'Timur Laut','中部、本地':'Tengah / Tempatan'}
+  };
+  const map = maps[L] || maps['en'];
+  return Object.keys(map).reduce((acc,k)=> acc.replaceAll(k, map[k]), s);
+}
+
+// 确保 BaziAnalysis 对象存在
+if (typeof BaziAnalysis === 'undefined') {
+  window.BaziAnalysis = {
+    relation: function(dayStem) {
+      const dict = {
+        '甲': {traits: '感情较为主动，喜欢掌握主导权，但要注意给对方空间', tips: '学会倾听对方意见，保持沟通平衡'},
+        '乙': {traits: '感情细腻温柔，需要稳定的情感支持，但不要过度依赖对方', tips: '建立自信，明确表达自己的需求'},
+        // 其他日主的定义...
+      };
+      return dict[dayStem] || {traits: '感情运势平稳，需要用心经营', tips: '相互尊重，真诚沟通是关键'};
+    },
+    career: function(dayStem, ten) {
+      const map = {
+        '甲': '管理岗位、创业开拓、建筑工程',
+        '乙': '教育文化、创意设计、咨询顾问',
+        // 其他日主的定义...
+      };
+      let adv = '稳扎稳打，在专业领域深耕发展';
+      if(ten.includes('正官')||ten.includes('七杀')) adv = '适合管理岗位或自主创业，有领导潜力';
+      else if(ten.includes('正财')||ten.includes('偏财')) adv = '适合商业、金融领域，财运较好';
+      else if(ten.includes('食神')||ten.includes('伤官')) adv = '适合创意、艺术、技术类工作';
+      return {suitable: map[dayStem] || '稳扎稳打，在专业领域深耕发展', advice: adv};
+    },
+    marriageAdvice: function(ten) {
+      if(ten.includes('正官')||ten.includes('正财')) return '婚姻较为稳定，适合建立长期关系';
+      if(ten.includes('七杀')||ten.includes('偏财')) return '感情经历可能较多，需要找到真正适合的伴侣';
+      return '婚姻需要双方共同努力经营';
+    },
+    wealthDirs: function(dayStem) {
+      const dirs = {
+        '甲': '东方、东南方', '乙': '东方、南方', '丙': '南方', '丁': '南方、西南方',
+        '戊': '中部、本地', '己': '中部、西南方', '庚': '西方、西北方', '辛': '西方、北方',
+        '壬': '北方', '癸': '北方、东方'
+      };
+      return dirs[dayStem] || '-';
+    },
+    financeAdvice: function(ten) {
+      if(ten.includes('偏财')) return '适当投资理财，控制风险，见好就收';
+      if(ten.includes('正财')) return '稳扎稳打，通过专业与稳定收入积累财富';
+      return '量入为出，做好规划，避免不必要开支';
+    },
+    health: function(dayStem) {
+      const c = {
+        '甲': '肝胆、视力、筋骨', '乙': '肝脏功能与情绪调节', '丙': '心血管与眼睛，注意情绪',
+        '丁': '心脏与循环，保证睡眠', '戊': '脾胃消化，规律饮食', '己': '脾胃与皮肤，注意卫生',
+        '庚': '呼吸系统与大肠，避免干燥', '辛': '肺部与呼吸，保持通风', '壬': '肾脏泌尿，水分平衡',
+        '癸': '肾与膀胱，避免过劳'
+      };
+      return c[dayStem] || '体质较为平衡，注意作息';
+    }
+  };
 }
 
   /* =========================
