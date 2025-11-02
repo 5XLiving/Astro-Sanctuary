@@ -824,44 +824,119 @@ function get(obj, path) {
   return String(path).split('.').reduce((o, k) => (o && o[k] != null) ? o[k] : undefined, obj);
 }
 
-function t(key) {
+function t(key, params = {}) {
   if (!key || typeof key !== 'string') {
-    console.warn('Invalid translation key:', key);
     return key || '';
   }
   
-  // 确保 state 对象存在
-  if (typeof state === 'undefined') {
-    console.error('State object is not defined');
-    return key;
+  // 确保状态存在
+  window.state = window.state || { lang: 'zh-CN' };
+  
+  // 1. 直接从字典获取翻译
+  let translation = getTranslation(key);
+  
+  // 2. 如果找不到，智能生成
+  if (!translation) {
+    translation = generateSmartTranslation(key);
   }
   
-  const dict = (typeof I18N === 'object' && I18N[state.lang]) 
-    ? I18N[state.lang] 
-    : (I18N && I18N['zh-CN']) || {};
+  // 3. 替换参数
+  return replaceParams(translation, params);
+}
   
+// 新增的辅助函数
+function getTranslation(key) {
+  const dict = I18N[window.state.lang] || I18N['zh-CN'] || {};
   let val = get(dict, key);
   
-  // If not found in current language, try fallback
-  if (val == null && state.lang !== 'zh-CN') {
-    const fallbackDict = I18N && I18N['zh-CN'];
-    val = get(fallbackDict, key);
-  }
-  
-  // If still not found, return the key itself for debugging
-  if (val == null) {
-    console.warn('Translation missing for key:', key, 'in language:', state.lang);
-    return key;
+  // 如果当前语言没有，回退到中文
+  if (!val && window.state.lang !== 'zh-CN') {
+    val = get(I18N['zh-CN'], key);
   }
   
   return val;
-} // 这里缺少了闭合括号
+}
 
+function generateSmartTranslation(key) {
+  console.warn('智能生成翻译:', key);
+  
+  const parts = key.split('.');
+  const type = parts[0];
+  const subType = parts[1];
+  const value = parts[2];
+  const subValue = parts[3];
+
+  // 报告相关翻译
+  if (type === 'report') {
+    if (subType === 'dayMaster') {
+      const stemMap = {
+        'jia': '甲木命：有积极性的开拓精神，精力旺盛',
+        'yi': '乙木命：性格柔顺，喜行善事，有同情心',
+        'bing': '丙火命：热情豪爽，自信好胜，善言健谈',
+        'ding': '丁火命：敦厚朴实，重信守义',
+        'wu': '戊土命：有积极性，干一行易于对事物热衷',
+        'ji': '己土命：和缓，谨慎，心灵手巧',
+        'geng': '庚金命：积极进取，勇敢果决',
+        'xin': '辛金命：沉着坦直无私，待人接物认真',
+        'ren': '壬水命：心胸宽广，机智灵敏，喜欢自由，讨厌束缚',
+        'gui': '癸水命：逞强顽固，是努力家'
+      };
+      return stemMap[value] || `${value}命理特征分析`;
+    }
+    
+    if (subType === 'marriage') {
+      const map = {
+        'stable': '婚姻较为稳定，适合建立长期关系',
+        'experienced': '感情经历可能较多，需要找到真正适合的伴侣',
+        'default': '婚姻需要双方共同努力经营'
+      };
+      return map[value] || map['default'];
+    }
+    
+    if (subType === 'career') {
+      const map = {
+        'leadership': '适合管理岗位或自主创业，有领导潜力',
+        'business': '适合商业、金融领域，财运较好',
+        'creative': '适合创意、艺术、技术类工作',
+        'steady': '稳扎稳打，在专业领域深耕发展'
+      };
+      return map[value] || map['steady'];
+    }
+    
+    if (subType === 'health' && value === 'tips') {
+      const stem = subValue;
+      const map = {
+        'jia': '定期检查肝功能，保护视力',
+        'yi': '注意情绪调节，避免眼部疲劳',
+        'bing': '控制情绪，避免熬夜',
+        'ding': '保证充足睡眠，避免过度紧张',
+        'wu': '规律饮食，避免暴饮暴食',
+        'ji': '注意饮食卫生，避免潮湿环境',
+        'geng': '注意保暖，避免干燥环境',
+        'xin': '保持空气流通，避免烟尘',
+        'ren': '保持水分平衡，避免受凉，注意肾脏保养',
+        'gui': '适量饮水，避免过度劳累'
+      };
+      return map[stem] || '保持良好作息，注意身心健康';
+    }
+  }
+  
+  // 返回有意义的默认值
+  return key.split('.').pop() || key;
+}
+
+function replaceParams(text, params) {
+  if (typeof text !== 'string') return text;
+  return text.replace(/\{(\w+)\}/g, (match, key) => {
+    return params[key] !== undefined ? params[key] : match;
+  });
+}
+
+// === 只保留一个 applyI18n 函数 ===
 function applyI18n() {
   // 确保 state 对象存在
   if (typeof state === 'undefined' || !state.lang) {
     console.error('Language state not initialized');
-    // 设置默认语言
     window.state = window.state || { lang: 'zh-CN' };
   }
   
