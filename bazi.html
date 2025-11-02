@@ -1563,38 +1563,67 @@ reportLabels:{
   }
 }; // <-- this was missing
 
-/* helpers */
-const utils = {
-  get(obj, path, def){
-    if (obj == null) return def;
-    const parts = Array.isArray(path) ? path : String(path).split('.').filter(Boolean);
-    let cur = obj;
-    for (const p of parts){ if (cur == null) return def; cur = cur[p]; }
-    return cur === undefined ? def : cur;
-  }
-};
+/* =========================
+ * I18N DICTIONARY (uses the one already embedded above)
+ * ========================= */
+// I18N object is defined earlier in your code block.
+// Helpers:
+function get(obj, path) {
+  if (!obj || !path) return undefined;
+  return String(path).split('.').reduce((o, k) => (o && o[k] != null) ? o[k] : undefined, obj);
+}
 
-  function t(key){
-    const dict = (typeof I18N === 'object' && I18N[state.lang]) ? I18N[state.lang] : (I18N && I18N['zh-CN']) || {};
-    let val = get(dict, key); if (val != null) return val;
-    val = I18N ? get(I18N['zh-CN'] || {}, key) : undefined;
-    return (val != null) ? val : key;
+function t(key) {
+  if (!key || typeof key !== 'string') return key || '';
+  
+  // Debug logging (remove in production)
+  // console.log('Translating key:', key, 'for language:', state.lang);
+  
+  const dict = (typeof I18N === 'object' && I18N[state.lang]) 
+    ? I18N[state.lang] 
+    : (I18N && I18N['zh-CN']) || {};
+  
+  let val = get(dict, key);
+  
+  // If not found in current language, try fallback
+  if (val == null && state.lang !== 'zh-CN') {
+    const fallbackDict = I18N && I18N['zh-CN'];
+    val = get(fallbackDict, key);
   }
-  function applyI18n(){
-    document.documentElement.lang = state.lang;
+  
+  // If still not found, return the key itself for debugging
+  return (val != null) ? val : key;
+}
 
+function applyI18n() {
+  if (!state || !state.lang) {
+    console.error('Language state not initialized');
+    return;
+  }
+  
+  document.documentElement.lang = state.lang;
+
+  try {
     // text nodes
-    document.querySelectorAll('[data-i18n]').forEach(el=>{
+    document.querySelectorAll('[data-i18n]').forEach(el => {
       const key = el.getAttribute('data-i18n');
+      if (!key) return;
+      
       const val = t(key);
-      if (typeof val === 'string' && val) el.textContent = val;
+      if (typeof val === 'string' && val) {
+        el.textContent = val;
+      }
     });
 
     // option labels
-    document.querySelectorAll('option[data-i18n]').forEach(opt=>{
+    document.querySelectorAll('option[data-i18n]').forEach(opt => {
       const key = opt.getAttribute('data-i18n');
+      if (!key) return;
+      
       const val = t(key);
-      if (typeof val === 'string' && val) opt.textContent = val;
+      if (typeof val === 'string' && val) {
+        opt.textContent = val;
+      }
     });
 
     // placeholders
@@ -1604,15 +1633,43 @@ const utils = {
       password: t('auth.passwordPlaceholder'),
       chat: t('chat.placeholder')
     };
+    
     if ($('name') && ph.name) $('name').placeholder = ph.name;
     if ($('email') && ph.email) $('email').placeholder = ph.email;
     if ($('password') && ph.password) $('password').placeholder = ph.password;
     if ($('chatInput') && ph.chat) $('chatInput').placeholder = ph.chat;
 
     // Re-render report on language change
-    if (lastCtx) buildProReport(lastCtx);
+    if (lastCtx) {
+      setTimeout(() => {
+        try {
+          buildProReport(lastCtx);
+        } catch (e) {
+          console.error('Error rebuilding report on language change:', e);
+        }
+      }, 100);
+    }
+    
+  } catch (error) {
+    console.error('Error in applyI18n:', error);
   }
+}
 
+// Add this debug function to check translation coverage
+function debugTranslations() {
+  const missing = [];
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    const key = el.getAttribute('data-i18n');
+    const val = t(key);
+    if (val === key) {
+      missing.push(key);
+    }
+  });
+  
+  if (missing.length > 0) {
+    console.warn('Missing translations for keys:', missing);
+  }
+}
   /* =========================
    * UI UTILS
    * ========================= */
