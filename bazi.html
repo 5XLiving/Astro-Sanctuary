@@ -1020,14 +1020,10 @@ reportLabels:{
 };
 
   /* =========================
-   * I18N HELPERS
+   * I18N DICTIONARY (uses the one already embedded above)
    * ========================= */
-  // Defensive fallbacks (won't clash if already defined above)
-  if (typeof SG_TZ === 'undefined') { var SG_TZ = 'Asia/Singapore'; }
-  if (typeof $ === 'undefined') { var $ = id => document.getElementById(id); }
-  if (typeof state === 'undefined') { var state = { lang: localStorage.getItem('5x_lang') || 'zh-CN' }; }
-  if (typeof lastCtx === 'undefined') { var lastCtx = null; }
-
+  // I18N object is defined earlier in your code block.
+  // Helpers:
   function get(obj, path){
     return String(path).split('.').reduce((o,k)=>(o && o[k] != null)? o[k] : undefined, obj);
   }
@@ -1037,38 +1033,38 @@ reportLabels:{
     val = I18N ? get(I18N['zh-CN'] || {}, key) : undefined;
     return (val != null) ? val : key;
   }
-function applyI18n(){
-  document.documentElement.lang = state.lang;
+  function applyI18n(){
+    document.documentElement.lang = state.lang;
 
-  // text nodes
-  document.querySelectorAll('[data-i18n]').forEach(el=>{
-    const key = el.getAttribute('data-i18n');
-    const val = t(key);
-    if (typeof val === 'string' && val) el.textContent = val;
-  });
+    // text nodes
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const key = el.getAttribute('data-i18n');
+      const val = t(key);
+      if (typeof val === 'string' && val) el.textContent = val;
+    });
 
-  // option labels
-  document.querySelectorAll('option[data-i18n]').forEach(opt=>{
-    const key = opt.getAttribute('data-i18n');
-    const val = t(key);
-    if (typeof val === 'string' && val) opt.textContent = val;
-  });
+    // option labels
+    document.querySelectorAll('option[data-i18n]').forEach(opt=>{
+      const key = opt.getAttribute('data-i18n');
+      const val = t(key);
+      if (typeof val === 'string' && val) opt.textContent = val;
+    });
 
-  // placeholders
-  const ph = {
-    name: t('form.namePlaceholder'),
-    email: t('auth.emailPlaceholder'),
-    password: t('auth.passwordPlaceholder'),
-    chat: t('chat.placeholder')
-  };
-  if ($('name') && ph.name) $('name').placeholder = ph.name;
-  if ($('email') && ph.email) $('email').placeholder = ph.email;
-  if ($('password') && ph.password) $('password').placeholder = ph.password;
-  if ($('chatInput') && ph.chat) $('chatInput').placeholder = ph.chat;
+    // placeholders
+    const ph = {
+      name: t('form.namePlaceholder'),
+      email: t('auth.emailPlaceholder'),
+      password: t('auth.passwordPlaceholder'),
+      chat: t('chat.placeholder')
+    };
+    if ($('name') && ph.name) $('name').placeholder = ph.name;
+    if ($('email') && ph.email) $('email').placeholder = ph.email;
+    if ($('password') && ph.password) $('password').placeholder = ph.password;
+    if ($('chatInput') && ph.chat) $('chatInput').placeholder = ph.chat;
 
-  // Re-render report on language change
-  if (lastCtx) buildProReport(lastCtx);
-}
+    // Re-render report on language change
+    if (lastCtx) buildProReport(lastCtx);
+  }
 
   /* =========================
    * UI UTILS
@@ -1108,7 +1104,7 @@ function applyI18n(){
       const s=(year-4)%10, b=(year-4)%12;
       return {stem:this.HEAVENLY_STEMS[(s+10)%10], branch:this.EARTHLY_BRANCHES[(b+12)%12]};
     }
-    solarMonthIndex(y,m,d){ // rough 節氣划分
+    solarMonthIndex(y,m,d){ // rough 節氣
       const mmdd=m*100+d;
       const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
       let idx=11; for(const [thr,val] of gates){ if(mmdd>=thr) idx=val; }
@@ -1231,7 +1227,6 @@ function applyI18n(){
     });
   }
   function renderBars(pcts){
-    const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
     ['木','火','土','金','水'].forEach(e=>{
       const pct=Math.max(0,Math.min(100,Math.round(pcts[e]||0)));
       const bar=$('bar-'+e), lab=$('pct-'+e);
@@ -1241,6 +1236,7 @@ function applyI18n(){
     const entries=Object.entries(pcts).sort((a,b)=>b[1]-a[1]);
     if(entries.length){
       const strongest = entries[0][0], weakest = entries[entries.length-1][0];
+      const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
       const tpl = (t('ui.balance') || '{strongest} 最旺，{weakest} 偏弱。');
       const txt = tpl.replace('{strongest}', mapName[strongest]).replace('{weakest}', mapName[weakest]);
       const el=$('bazi-elements-balance'); if(el) el.textContent=txt;
@@ -1271,7 +1267,7 @@ function applyI18n(){
    * ========================= */
   function buildProReport(ctx){
     lastCtx = ctx;
-    const {pcts = {}, dayStem = '', tenGods = []} = ctx || {};
+    const {pcts = {}, dayStem = '', tenGods = [], unknown=false} = ctx || {};
     const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
     const sortedElems = Object.entries({木:pcts.木||0,火:pcts.火||0,土:pcts.土||0,金:pcts.金||0,水:pcts.水||0}).sort((a,b)=>b[1]-a[1]);
     const strongest = sortedElems[0]?.[0];
@@ -1285,7 +1281,14 @@ function applyI18n(){
     const wealthDirs = i18nDirs(BaziAnalysis.wealthDirs(dayStem));
     const useful = computeUseful(dayStem, pcts);
 
+    const tip = unknown ? `
+      <div class="ai-box">
+        <div class="ai-box-h">${t('report.tipTitle')}</div>
+        <div class="ai-box-c">${t('report.hourUnknownTip')}</div>
+      </div>` : '';
+
     const html = `
+      ${tip}
       <div class="butler-section">
         <h4>${t('reportTitles.overview')}</h4>
         <div>${t('reportLabels.dayMaster')}：${t('report.dayMaster.'+stemToPinyin(dayStem)) || dayStem}</div>
@@ -1359,7 +1362,7 @@ function applyI18n(){
     const box = $('professionalReport'); if (box) box.innerHTML = html;
 
     function pctTxt(e){ return Math.round(pcts[e]||0)+'%'; }
-    function wealthTrait(ten){ 
+    function wealthTrait(ten){
       if(ten.includes('正财')) return '以稳定收入为主，适合积累式理财';
       if(ten.includes('偏财')) return '偏财机会多，注意节制风险';
       return '财运平稳，重在技能与口碑带动收入';
@@ -1399,168 +1402,173 @@ function applyI18n(){
     const [Y,M,D]=birth.split('-').map(n=>parseInt(n,10));
     const unknown = $('timeUnknown')?.checked;
     const timeVal = $('birthtime')?.value || '00:00';
-    const hh = parseInt((timeVal.split(':')[0]||'0'),10);
+    const [hhStr, mmStr] = timeVal.split(':');
+    const hh = parseInt((hhStr||'0'),10) || 0;
 
-    const calc = new BaziCalculator();
-    const y = calc.yearPillar(Y);
-    const m = calc.monthPillar(Y,M,D);
-    const d = calc.dayPillar(Y,M,D);
-    const h = unknown ? {stem:'-',branch:'-'} : calc.hourPillar(d.stem, isFinite(hh)?hh:0);
+    setGenLoading(true);
+    try{
+      const calc = new BaziCalculator();
+      const y = calc.yearPillar(Y);
+      const m = calc.monthPillar(Y,M,D);
+      const d = calc.dayPillar(Y,M,D);
+      const h = unknown ? {stem:'-',branch:'-'} : calc.hourPillar(d.stem, hh);
 
-    // Top tiles
-    const labels=[y.stem+y.branch, m.stem+m.branch, d.stem+d.branch, unknown? (t('badge.noHour')||'-') : (h.stem+h.branch)];
-    renderPillars(labels);
+      // Top tiles
+      const labels=[y.stem+y.branch, m.stem+m.branch, d.stem+d.branch, unknown? (t('badge.noHour')||'-') : (h.stem+h.branch)];
+      renderPillars(labels);
 
-    // Table data (localized element names)
-    const stems=[y.stem,m.stem,d.stem, unknown? '-' : h.stem];
-    const branch=[y.branch,m.branch,d.branch, unknown? '-' : h.branch];
-    const elemMap = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
-    const rawElems=[calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem), unknown? '-' : calc.stemElem(h.stem)];
-    const elements = rawElems.map(e => elemMap[e] || e);
-    const nayin=[calc.nayin(y.stem,y.branch),calc.nayin(m.stem,m.branch),calc.nayin(d.stem,d.branch), unknown? '-' : calc.nayin(h.stem,h.branch)];
-    renderTable({stem:stems,branch:branch,element:elements,nayin});
+      // Table data (localized element names)
+      const stems=[y.stem,m.stem,d.stem, unknown? '-' : h.stem];
+      const branch=[y.branch,m.branch,d.branch, unknown? '-' : h.branch];
+      const elemMap = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+      const rawElems=[calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem), unknown? '-' : calc.stemElem(h.stem)];
+      const elements = rawElems.map(e => elemMap[e] || e);
+      const nayin=[calc.nayin(y.stem,y.branch),calc.nayin(m.stem,m.branch),calc.nayin(d.stem,d.branch), unknown? '-' : calc.nayin(h.stem,h.branch)];
+      renderTable({stem:stems,branch:branch,element:elements,nayin});
 
-    // Element weights (stems + branches, simple count)
-    const allElems = [calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem)]
-      .concat(unknown?[]:[calc.stemElem(h.stem)])
-      .concat([calc.branchElem(y.branch),calc.branchElem(m.branch),calc.branchElem(d.branch)])
-      .concat(unknown?[]:[calc.branchElem(h.branch)]);
-    const counts = {木:0,火:0,土:0,金:0,水:0};
-    allElems.forEach(e=>{ if(counts[e]!=null) counts[e]++; });
-    const total = Object.values(counts).reduce((a,b)=>a+b,0)||1;
-    const pcts = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, 100*v/total]));
-    renderBars(pcts);
+      // Element weights (stems + branches)
+      const allElems = [calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem)]
+        .concat(unknown?[]:[calc.stemElem(h.stem)])
+        .concat([calc.branchElem(y.branch),calc.branchElem(m.branch),calc.branchElem(d.branch)])
+        .concat(unknown?[]:[calc.branchElem(h.branch)]);
+      const counts = {木:0,火:0,土:0,金:0,水:0};
+      allElems.forEach(e=>{ if(counts[e]!=null) counts[e]++; });
+      const total = Object.values(counts).reduce((a,b)=>a+b,0)||1;
+      const pcts = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, 100*v/total]));
+      renderBars(pcts);
 
-    // Date summary
-    const timeText = unknown ? (t('ui.timeUnknown')||'') : (t('ui.hourSuffix')||'{hh}:{mm}')
-      .replace('{hh}', String(hh).padStart(2,'0'))
-      .replace('{mm}', (timeVal.split(':')[1]||'00').padStart(2,'0'));
-    const btxt = (t('ui.birthSummary')||'')
-      .replace('{y}',Y).replace('{m}',M).replace('{d}',D).replace('{timeText}',timeText);
-    if($('bazi-date')) $('bazi-date').textContent = btxt;
+      // Date summary
+      const timeText = unknown ? (t('ui.timeUnknown')||'') : (t('ui.hourSuffix')||'{hh}:{mm}')
+        .replace('{hh}', String(hh).padStart(2,'0'))
+        .replace('{mm}', String(parseInt(mmStr||'0',10)||0).padStart(2,'0'));
+      const btxt = (t('ui.birthSummary')||'')
+        .replace('{y}',Y)
+        .replace('{m}',M)
+        .replace('{d}',D)
+        .replace('{timeText}', timeText);
+      const bd=$('bazi-date'); if (bd) bd.textContent = btxt;
 
-    // Ten Gods
-    const ten = calc.tenGods(d.stem, stems);
+      // Ten Gods & report
+      const tg = calc.tenGods(d.stem, stems);
+      const ctx = { pcts, dayStem: d.stem, tenGods: tg, unknown };
+      buildProReport(ctx);
 
-    // Unknown hour tip
-    const pr = $('professionalReport');
-    if (pr) pr.innerHTML = ''; // clear before rebuild
-    if(unknown && pr){
-      const tip = `<div class="ai-box"><div class="ai-box-h">${t('report.tipTitle')}</div><div class="ai-box-c">${t('report.hourUnknownTip')}</div></div>`;
-      pr.insertAdjacentHTML('afterbegin',tip);
+      showResult();
+    }catch(e){
+      console.error(e);
+      showErr(t('err.generateFail'));
+    }finally{
+      setGenLoading(false);
     }
-
-    // Build Pro Report (10 sections)
-    const ctx = {Y,M,D,unknown, stems, branch, pcts, dayStem:d.stem, tenGods:ten};
-    lastCtx = ctx;
-    buildProReport(ctx);
-
-    showResult();
   }
 
   /* =========================
-   * CHAT FLOAT
+   * CHAT FLOAT (local echo)
    * ========================= */
-  function pushMsg(who, text){
-    const box = $('chatMessages'); if(!box) return;
-    const div = document.createElement('div');
-    div.className = who==='me' ? 'me-msg' : 'ss-msg';
+  function appendMsg(text, who='user'){
+    const box=$('chatMessages'); if(!box) return;
+    const div=document.createElement('div');
+    div.className = who==='user' ? 'me-msg' : 'ss-msg';
     div.textContent = text;
     box.appendChild(div);
     box.scrollTop = box.scrollHeight;
   }
 
   /* =========================
-   * AUTH FIELDS — HIDE BY DEFAULT (per your rule)
+   * AUTH FIELDS: HIDE BY DEFAULT (reveal on demand)
    * ========================= */
-  function setupAuthFields(){
+  function setupAuthReveal(){
     const fields = $('authFields');
-    if (fields) fields.style.display = 'none';
+    if(!fields) return;
+    fields.style.display='none';
+    const btn = document.createElement('button');
+    btn.type='button';
+    btn.className='btn ghost block';
+    btn.id='revealAuthBtn';
+    btn.textContent = '👁 显示账号输入 / Reveal login fields';
+    // insert before login form
+    const panelBody = fields.parentElement;
+    panelBody.insertBefore(btn, panelBody.firstChild);
+    btn.addEventListener('click', ()=>{
+      const visible = fields.style.display!=='none';
+      fields.style.display = visible ? 'none' : 'grid';
+      btn.textContent = visible ? '👁 显示账号输入 / Reveal login fields' : '🙈 隐藏账号输入 / Hide login fields';
+    });
+
+    // prevent real submit (no echo of credentials)
     const loginForm = $('loginForm');
-    if (loginForm){
-      const reveal = document.createElement('button');
-      reveal.type = 'button';
-      reveal.className = 'btn ghost block';
-      reveal.id = 'revealAuthBtn';
-      reveal.textContent = '显示登录输入 / Reveal Login Fields';
-      loginForm.parentNode.insertBefore(reveal, loginForm);
-      reveal.addEventListener('click', ()=>{
-        if(fields) fields.style.display = 'grid';
-        reveal.style.display = 'none';
-      });
+    const registerForm = $('registerForm');
+    const resetBtn = $('resetBtn');
+    const err = $('authError');
+    function block(e){
+      e?.preventDefault();
+      if(err){ err.style.display='block'; err.textContent='Auth not wired yet / 登录暂未接入'; setTimeout(()=>err.style.display='none',3000); }
     }
+    if(loginForm) loginForm.addEventListener('submit', block);
+    if(registerForm) registerForm.addEventListener('submit', block);
+    if(resetBtn) resetBtn.addEventListener('click', block);
   }
 
   /* =========================
-   * INIT
+   * BOOTSTRAP EVENTS
    * ========================= */
-  function init(){
-    // Lang init
+  function boot(){
+    // language select
     const langSel = $('langSelect');
-    if (langSel){
+    if(langSel){
       langSel.value = state.lang;
-      langSel.onchange = () => {
-        state.lang = langSel.value;
+      langSel.addEventListener('change', ()=>{
+        state.lang = langSel.value || 'zh-CN';
         localStorage.setItem('5x_lang', state.lang);
-        applyI18n(); // will also re-render report
-      };
+        applyI18n();
+      });
     }
     applyI18n();
 
-    // Clock
-    tickNow(); setInterval(tickNow, 1000);
-
-    // Time unknown toggle
-    const unk = $('timeUnknown'), timeInput = $('birthtime');
-    if (unk && timeInput){
-      const sync = ()=>{ timeInput.disabled = unk.checked; };
+    // time unknown toggle
+    const unk = $('timeUnknown'), bt = $('birthtime');
+    if(unk && bt){
+      const sync = ()=>{ bt.disabled = !!unk.checked; bt.style.opacity = bt.disabled? .5:1; };
       unk.addEventListener('change', sync); sync();
     }
 
-    // Generate
-    const genBtn = $('genBtn');
-    if (genBtn){
-      genBtn.addEventListener('click', ()=>{
-        try{
-          setGenLoading(true);
-          generate();
-        }catch(e){
-          console.error(e); showErr(t('err.generateFail'));
-        }finally{
-          setGenLoading(false);
-        }
-      });
-    }
+    // generate button
+    const gen = $('genBtn'); if(gen) gen.addEventListener('click', generate);
 
-    // Chat float
+    // chat float
     const chatToggle=$('chatToggle'), chatFloat=$('chatFloat'), chatClose=$('chatClose'), chatSend=$('chatSend'), chatInput=$('chatInput');
-    if (chatToggle && chatFloat){
-      chatToggle.addEventListener('click', ()=>{ chatFloat.style.display='flex'; });
+    if(chatToggle && chatFloat){
+      chatToggle.addEventListener('click', ()=>{ chatFloat.style.display = (chatFloat.style.display==='flex'?'none':'flex'); });
     }
-    if (chatClose && chatFloat){
+    if(chatClose && chatFloat){
       chatClose.addEventListener('click', ()=>{ chatFloat.style.display='none'; });
     }
-    if (chatSend && chatInput){
+    if(chatSend && chatInput){
       chatSend.addEventListener('click', ()=>{
         const q = (chatInput.value||'').trim(); if(!q) return;
-        pushMsg('me', q);
-        const tpl = t('chatDyn.autoReply') || '收到：{q}。';
-        pushMsg('ss', tpl.replace('{q}', q));
+        appendMsg(q, 'user');
         chatInput.value='';
+        // simple auto-reply
+        const tpl = t('chatDyn.autoReply') || '收到：{q}。';
+        appendMsg(tpl.replace('{q}', q), 'bot');
       });
-      chatInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); chatSend.click(); }});
+      chatInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); chatSend.click(); } });
     }
 
-    // VIP auth: keep hidden until reveal
-    setupAuthFields();
+    // header clock
+    tickNow(); setInterval(tickNow, 1000);
+
+    // hide auth inputs by default
+    setupAuthReveal();
   }
 
-  // DOM ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
+  // run
+  if(document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot);
+  }else{
+    boot();
   }
+
 })();
 </script>
 </body>
