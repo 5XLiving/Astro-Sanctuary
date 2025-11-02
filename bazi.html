@@ -610,12 +610,18 @@ a:focus{
 (() => {
   'use strict';
 
-  /* ===== Basic Config ===== */
-  const CONFIG = { API_BASE: '' }; // local calc
-  const SG_TZ  = 'Asia/Singapore';
+  /* =========================
+   * BASIC CONFIG
+   * ========================= */
+  const SG_TZ = 'Asia/Singapore';
+  const $ = id => document.getElementById(id);
+  const state = { lang: localStorage.getItem('5x_lang') || 'zh-CN' };
+  let lastCtx = null;
 
-  /* ===== I18N (fixed / syntax-clean) ===== */
-const I18N = {
+  /* =========================
+   * I18N DICTIONARY (as supplied, trimmed to keys we use)
+   * ========================= */
+  const I18N = {
 'zh-CN': {
   brand:{subtitle:'5xLiving · 八字简评'}, nav:{langLabel:'语言'},
   lang:{'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu'},
@@ -1013,62 +1019,72 @@ reportLabels:{
  }
 };
 
-  /* ===== Helpers ===== */
-  const $ = id => document.getElementById(id);
-  const state = { lang: localStorage.getItem('5x_lang') || 'zh-CN' };
-
-  function get(obj, path){ return path.split('.').reduce((o,k)=>(o&&o[k]!=null)?o[k]:undefined,obj); }
-  function t(key){ const d=I18N[state.lang]||I18N['zh-CN']; const v=get(d,key); return (typeof v==='string')?v:key; }
-
-  function applyI18n(){
+  /* =========================
+   * I18N HELPERS
+   * ========================= */
+  function get(obj, path){
+    return String(path).split('.').reduce((o,k)=>(o && o[k] != null)? o[k] : undefined, obj);
+  }
+  function t(key){
     const dict = I18N[state.lang] || I18N['zh-CN'];
+    let val = get(dict, key); if (val != null) return val;
+    val = get(I18N['zh-CN'], key); if (val != null) return val;
+    return key;
+  }
+  function applyI18n(){
     document.documentElement.lang = state.lang;
-
     document.querySelectorAll('[data-i18n]').forEach(el=>{
-      const key=el.getAttribute('data-i18n'); const val=get(dict,key);
-      if(typeof val==='string' && val) el.textContent=val;
+      const key=el.getAttribute('data-i18n'); const val=t(key);
+      if (typeof val==='string' && val) el.textContent=val;
     });
     document.querySelectorAll('option[data-i18n]').forEach(opt=>{
-      const key=opt.getAttribute('data-i18n'); const val=get(dict,key);
-      if(typeof val==='string' && val) opt.textContent=val;
+      const key=opt.getAttribute('data-i18n'); const val=t(key);
+      if (typeof val==='string' && val) opt.textContent=val;
     });
-
+    // placeholders
     const ph = {
-      name:get(dict,'form.namePlaceholder'),
-      email:get(dict,'auth.emailPlaceholder'),
-      password:get(dict,'auth.passwordPlaceholder'),
-      chat:get(dict,'chat.placeholder')
+      name: t('form.namePlaceholder'),
+      email: t('auth.emailPlaceholder'),
+      password: t('auth.passwordPlaceholder'),
+      chat: t('chat.placeholder')
     };
-    if($('name')&&ph.name) $('name').placeholder=ph.name;
-    if($('email')&&ph.email) $('email').placeholder=ph.email;
-    if($('password')&&ph.password) $('password').placeholder=ph.password;
-    if($('chatInput')&&ph.chat) $('chatInput').placeholder=ph.chat;
+    if ($('name') && ph.name) $('name').placeholder = ph.name;
+    if ($('email') && ph.email) $('email').placeholder = ph.email;
+    if ($('password') && ph.password) $('password').placeholder = ph.password;
+    if ($('chatInput') && ph.chat) $('chatInput').placeholder = ph.chat;
 
-    if($('langSelect')) $('langSelect').value=state.lang;
+    // Re-render report on language change
+    if (lastCtx) buildProReport(lastCtx);
   }
 
+  /* =========================
+   * UI UTILS
+   * ========================= */
   function showErr(msg){
-    const box=$('error'); if(!box) return;
+    const box = $('error'); if (!box) return;
     box.textContent = msg || t('err.generateFail');
-    box.style.display='block'; setTimeout(()=>box.style.display='none',4000);
+    box.style.display = 'block';
+    setTimeout(()=>{ box.style.display='none'; }, 4000);
   }
   function setGenLoading(v){
     const btn=$('genBtn'), txt=$('genBtnText'), ld=$('genBtnLoading');
-    if(btn) btn.disabled=!!v;
-    if(txt) txt.style.display = v?'none':'inline';
-    if(ld) ld.style.display = v?'inline':'none';
+    if (btn) btn.disabled = !!v;
+    if (txt) txt.style.display = v ? 'none' : 'inline';
+    if (ld) ld.style.display = v ? 'inline' : 'none';
   }
-
-  /* ===== Time (SG) ===== */
   function tickNow(){
-    const box = $('nowBox'); if(!box) return;
+    const box = $('nowBox'); if (!box) return;
     const dt = new Date();
     try{
-      box.textContent = dt.toLocaleString(undefined,{ timeZone:SG_TZ, hour12:false });
-    }catch{ box.textContent = dt.toISOString().replace('T',' ').slice(0,19); }
+      box.textContent = dt.toLocaleString(undefined, { timeZone: SG_TZ, hour12:false });
+    }catch{
+      box.textContent = dt.toISOString().replace('T',' ').slice(0,19);
+    }
   }
 
-  /* ===== Calculator ===== */
+  /* =========================
+   * BAZI CORE (simplified)
+   * ========================= */
   class BaziCalculator {
     constructor(){
       this.HEAVENLY_STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
@@ -1079,7 +1095,7 @@ reportLabels:{
       const s=(year-4)%10, b=(year-4)%12;
       return {stem:this.HEAVENLY_STEMS[(s+10)%10], branch:this.EARTHLY_BRANCHES[(b+12)%12]};
     }
-    solarMonthIndex(y,m,d){
+    solarMonthIndex(y,m,d){ // rough 節氣划分
       const mmdd=m*100+d;
       const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
       let idx=11; for(const [thr,val] of gates){ if(mmdd>=thr) idx=val; }
@@ -1109,10 +1125,7 @@ reportLabels:{
     }
     stemElem(s){ return ({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[s]||'-'; }
     branchElem(b){ return ({子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'})[b]||'-'; }
-    nayin(s,b){
-      const si=this.HEAVENLY_STEMS.indexOf(s), bi=this.EARTHLY_BRANCHES.indexOf(b);
-      return this.NAYIN[(si*2+bi)%this.NAYIN.length];
-    }
+    nayin(s,b){ const si=this.HEAVENLY_STEMS.indexOf(s), bi=this.EARTHLY_BRANCHES.indexOf(b); return this.NAYIN[(si*2+bi)%this.NAYIN.length]; }
     tenGods(dayStem, stems){
       const map={
         '甲':{'甲':'比肩','乙':'劫财','丙':'食神','丁':'伤官','戊':'偏财','己':'正财','庚':'七杀','辛':'正官','壬':'偏印','癸':'正印'},
@@ -1128,21 +1141,17 @@ reportLabels:{
       };
       const m=map[dayStem]||{}; return stems.map(s=>m[s]||'-');
     }
-  }   // ← ADD THIS CLOSING BRACE to properly close the BaziCalculator class
-
-  /* ===== Stem to Pinyin Mapping ===== */
-  function stemToPinyin(stem){
-    const map = {
-      '甲': 'jia', '乙': 'yi', '丙': 'bing', '丁': 'ding',
-      '戊': 'wu', '己': 'ji', '庚': 'geng', '辛': 'xin',
-      '壬': 'ren', '癸': 'gui'
-    };
-    return map[stem] || stem.toLowerCase();
   }
 
-  /* ===== Analysis helpers ===== */
+  /* =========================
+   * ANALYSIS HELPERS
+   * ========================= */
+  function stemToPinyin(stem){
+    const map = {'甲':'jia','乙':'yi','丙':'bing','丁':'ding','戊':'wu','己':'ji','庚':'geng','辛':'xin','壬':'ren','癸':'gui'};
+    return map[stem] || String(stem).toLowerCase();
+  }
   const BaziAnalysis = {
-    dayMasterLine(stem){ return t('report.dayMaster.'+stem.toLowerCase()) || t('report.dayMaster.default'); },
+    dayMasterLine(stem){ return t('report.dayMaster.'+stemToPinyin(stem)) || ''; },
     relation(dayStem){
       const dict={
         '甲':{traits:'感情较为主动，喜欢掌握主导权，但要注意给对方空间',tips:'学会倾听对方意见，保持沟通平衡'},
@@ -1158,59 +1167,65 @@ reportLabels:{
       };
       return dict[dayStem]||{traits:'感情运势平稳，需要用心经营',tips:'相互尊重，真诚沟通是关键'};
     },
-    marriageAdvice(ten){ if(ten.includes('正官')||ten.includes('正财')) return t('report.marriage.stable');
-                          if(ten.includes('七杀')||ten.includes('偏财')) return t('report.marriage.experienced');
-                          return t('report.marriage.default'); },
+    marriageAdvice(ten){
+      if(ten.includes('正官')||ten.includes('正财')) return t('report.marriage.stable');
+      if(ten.includes('七杀')||ten.includes('偏财')) return t('report.marriage.experienced');
+      return t('report.marriage.default');
+    },
     career(dayStem,ten){
       const map={甲:'管理岗位、创业开拓、建筑工程',乙:'教育文化、创意设计、咨询顾问',丙:'市场营销、娱乐产业、能源行业',丁:'技术研发、医疗服务、精密制造',戊:'金融投资、房地产、资源管理',己:'人力资源、服务行业、农业相关',庚:'法律行业、机械工程、军警职业',辛:'金融分析、精密仪器、珠宝行业',壬:'贸易物流、旅游行业、创意产业',癸:'研究机构、心理咨询、艺术创作'};
       let adv=t('report.career.steady');
       if(ten.includes('正官')||ten.includes('七杀')) adv=t('report.career.leadership');
       else if(ten.includes('正财')||ten.includes('偏财')) adv=t('report.career.business');
       else if(ten.includes('食神')||ten.includes('伤官')) adv=t('report.career.creative');
-      return {suitable:map[dayStem]||t('report.career.default'), advice:adv};
+      return {suitable:map[dayStem]||t('report.career.steady'), advice:adv};
     },
     wealthDirs(dayStem){
-      const dirs={甲:'东方、东南方',乙:'东方、南方',丙:'南方',丁:'南方、西南方',戊:'中部、本地',己:'中部、西南方',庚:'西方、西北方',辛:'西方、北方',壬:'北方',癸:'北方、东方'}; 
+      const dirs={甲:'东方、东南方',乙:'东方、南方',丙:'南方',丁:'南方、西南方',戊:'中部、本地',己:'中部、西南方',庚:'西方、西北方',辛:'西方、北方',壬:'北方',癸:'北方、东方'};
       return dirs[dayStem]||'-';
     },
-    financeAdvice(ten){ if(ten.includes('偏财')) return '适当投资理财，控制风险，见好就收'; 
-                         if(ten.includes('正财')) return '稳扎稳打，通过专业与稳定收入积累财富';
-                         return '量入为出，做好规划，避免不必要开支'; },
+    financeAdvice(ten){
+      if(ten.includes('偏财')) return '适当投资理财，控制风险，见好就收';
+      if(ten.includes('正财')) return '稳扎稳打，通过专业与稳定收入积累财富';
+      return '量入为出，做好规划，避免不必要开支';
+    },
     health(dayStem){
       const c={甲:'肝胆、视力、筋骨',乙:'肝脏功能与情绪调节',丙:'心血管与眼睛，注意情绪',丁:'心脏与循环，保证睡眠',戊:'脾胃消化，规律饮食',己:'脾胃与皮肤，注意卫生',庚:'呼吸系统与大肠，避免干燥',辛:'肺部与呼吸，保持通风',壬:'肾脏泌尿，水分平衡',癸:'肾与膀胱，避免过劳'};
       return c[dayStem]||'体质较为平衡，注意作息';
-    },
-    healthTips(dayStem){ return t('report.health.tips.'+dayStem.toLowerCase()) || t('report.health.tips.default'); }
+    }
   };
 
-  /* ===== Rendering ===== */
+  /* =========================
+   * RENDERERS
+   * ========================= */
   function renderPillars(labels){
     const titles=[t('pillar.year'),t('pillar.month'),t('pillar.day'),t('pillar.hour')];
-    $('bazi-pillars').innerHTML = labels.map((lab,i)=>`
+    const box = $('bazi-pillars'); if(!box) return;
+    box.innerHTML = labels.map((lab,i)=>`
       <div class="pillar"><div class="tit">${titles[i]}</div><div class="gz">${lab||'-'}</div></div>
-    `).join('');
+    ).join('');
   }
   function renderTable(data){
     const keys=['year','month','day','hour'];
     ['stem','branch','element','nayin'].forEach(row=>{
-      keys.forEach((k,i)=>{
-        const cell=$(k+'-'+row); if(cell) cell.textContent = (data[row]&&data[row][i])?data[row][i]:'-';
+      keys.forEach(k=>{
+        const cell=$(k+'-'+row); if(cell) cell.textContent = (data[row]&&data[row][keys.indexOf(k)])?data[row][keys.indexOf(k)]:'-';
       });
     });
   }
   function renderBars(pcts){
+    const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
     ['木','火','土','金','水'].forEach(e=>{
       const pct=Math.max(0,Math.min(100,Math.round(pcts[e]||0)));
       const bar=$('bar-'+e), lab=$('pct-'+e);
       if(bar) bar.style.width=pct+'%';
       if(lab) lab.textContent=pct+'%';
     });
-    // balance line
     const entries=Object.entries(pcts).sort((a,b)=>b[1]-a[1]);
     if(entries.length){
       const strongest = entries[0][0], weakest = entries[entries.length-1][0];
-      const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
-      const txt = t('ui.balance').replace('{strongest}', mapName[strongest]).replace('{weakest}', mapName[weakest]);
+      const tpl = (t('ui.balance') || '{strongest} 最旺，{weakest} 偏弱。');
+      const txt = tpl.replace('{strongest}', mapName[strongest]).replace('{weakest}', mapName[weakest]);
       const el=$('bazi-elements-balance'); if(el) el.textContent=txt;
     }
   }
@@ -1220,79 +1235,44 @@ reportLabels:{
     if(b) b.style.display='block';
   }
 
-  /* ===== Main generate ===== */
-  function generate(){
-    const birth = ($('birthdate')?.value||'').trim();
-    if(!birth) return showErr(t('err.fillBirthdate'));
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return showErr(t('err.invalidDate'));
-    const [Y,M,D]=birth.split('-').map(n=>parseInt(n,10));
-    const unknown = $('timeUnknown')?.checked;
-    const timeVal = $('birthtime')?.value || '00:00';
-    const hh = parseInt((timeVal.split(':')[0]||'0'),10);
-
-    const calc = new BaziCalculator();
-    const y = calc.yearPillar(Y);
-    const m = calc.monthPillar(Y,M,D);
-    const d = calc.dayPillar(Y,M,D);
-    const h = unknown ? {stem:'-',branch:'-'} : calc.hourPillar(d.stem, isFinite(hh)?hh:0);
-
-    // labels
-    const labels=[y.stem+y.branch, m.stem+m.branch, d.stem+d.branch, unknown? (t('badge.noHour')||'-') : (h.stem+h.branch)];
-    renderPillars(labels);
-
-    // table data
-    const stems=[y.stem,m.stem,d.stem, unknown? '-' : h.stem];
-    const branch=[y.branch,m.branch,d.branch, unknown? '-' : h.branch];
-    const elements=[calc.stemElem(y.stem), calc.stemElem(m.stem), calc.stemElem(d.stem), unknown? '-' : calc.stemElem(h.stem)];
-    const nayin=[calc.nayin(y.stem,y.branch),calc.nayin(m.stem,m.branch),calc.nayin(d.stem,d.branch), unknown? '-' : calc.nayin(h.stem,h.branch)];
-    renderTable({stem:stems,branch:branch,element:elements,nayin});
-
-    // element counts (stems + branches)
-    const allElems = [calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem)]
-      .concat(unknown?[]:[calc.stemElem(h.stem)])
-      .concat([calc.branchElem(y.branch),calc.branchElem(m.branch),calc.branchElem(d.branch)])
-      .concat(unknown?[]:[calc.branchElem(h.branch)]);
-    const counts = {木:0,火:0,土:0,金:0,水:0};
-    allElems.forEach(e=>{ if(counts[e]!=null) counts[e]++; });
-    const total = Object.values(counts).reduce((a,b)=>a+b,0)||1;
-    const pcts = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, 100*v/total]));
-    renderBars(pcts);
-
-    // date summary
-    const timeText = unknown ? (t('ui.timeUnknown')||'') : (t('ui.hourSuffix')||'{hh}:{mm}').replace('{hh}', String(hh).padStart(2,'0')).replace('{mm}', (timeVal.split(':')[1]||'00').padStart(2,'0'));
-    const btxt = (t('ui.birthSummary')||'').replace('{y}',Y).replace('{m}',M).replace('{d}',D).replace('{timeText}',timeText);
-    if($('bazi-date')) $('bazi-date').textContent = btxt;
-    if(unknown && $('professionalReport')){
-      const tip = `<div class="ai-box"><div class="ai-box-h">${t('report.tipTitle')}</div><div class="ai-box-c">${t('report.hourUnknownTip')}</div></div>`;
-      $('professionalReport').insertAdjacentHTML('afterbegin',tip);
-    }
-
-    // Ten Gods relative to day stem
-    const ten = calc.tenGods(d.stem, stems);
-
-    // build professional report (10 sections)
-    buildProReport({Y,M,D,unknown, stems, branch, pcts, dayStem:d.stem, tenGods:ten});
-    showResult();
+  function i18nDirs(s){
+    if(!s) return '';
+    const L = state.lang;
+    const maps = {
+      'zh-CN': {'东方':'东方','东南方':'东南方','南方':'南方','西南方':'西南方','西方':'西方','西北方':'西北方','北方':'北方','东北方':'东北方','中部、本地':'中部/本地'},
+      'zh-TW': {'东方':'東方','东南方':'東南方','南方':'南方','西南方':'西南方','西方':'西方','西北方':'西北方','北方':'北方','东北方':'東北方','中部、本地':'中部/本地'},
+      'en':    {'东方':'East','东南方':'Southeast','南方':'South','西南方':'Southwest','西方':'West','西北方':'Northwest','北方':'North','东北方':'Northeast','中部、本地':'Center / Local'},
+      'ja':    {'东方':'東','东南方':'南東','南方':'南','西南方':'南西','西方':'西','西北方':'北西','北方':'北','东北方':'北東','中部、本地':'中央 / ローカル'},
+      'th':    {'东方':'ตะวันออก','东南方':'ตะวันออกเฉียงใต้','南方':'ใต้','西南方':'ตะวันตกเฉียงใต้','西方':'ตะวันตก','西北方':'ตะวันตกเฉียงเหนือ','北方':'เหนือ','东北方':'ตะวันออกเฉียงเหนือ','中部、本地':'กึ่งกลาง / พื้นที่ใกล้'},
+      'ms':    {'东方':'Timur','东南方':'Tenggara','南方':'Selatan','西南方':'Barat Daya','西方':'Barat','西北方':'Barat Laut','北方':'Utara','东北方':'Timur Laut','中部、本地':'Tengah / Tempatan'}
+    };
+    const map = maps[L] || maps['en'];
+    return Object.keys(map).reduce((acc,k)=> acc.replaceAll(k, map[k]), s);
   }
 
+  /* =========================
+   * PRO REPORT (10 sections)
+   * ========================= */
   function buildProReport(ctx){
-    const {pcts, dayStem, tenGods, stems, branch} = ctx;
+    lastCtx = ctx;
+    const {pcts, dayStem, tenGods} = ctx;
     const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
     const sortedElems = Object.entries(pcts).sort((a,b)=>b[1]-a[1]);
     const strongest = sortedElems[0][0], weakest = sortedElems[sortedElems.length-1][0];
-    const elemLine = `${mapName[strongest]}最旺，${mapName[weakest]}偏弱。`;
+    const elemLine = (t('ui.balance') || '{strongest} 最旺，{weakest} 偏弱。')
+      .replace('{strongest}', mapName[strongest])
+      .replace('{weakest}', mapName[weakest]);
 
     const relation = BaziAnalysis.relation(dayStem);
     const career = BaziAnalysis.career(dayStem, tenGods);
-    const wealthDirs = BaziAnalysis.wealthDirs(dayStem);
-
-    const useful = computeUseful(dayStem, pcts); // naive balance-based
+    const wealthDirs = i18nDirs(BaziAnalysis.wealthDirs(dayStem));
+    const useful = computeUseful(dayStem, pcts);
 
     const html = `
       <div class="butler-section">
         <h4>${t('reportTitles.overview')}</h4>
         <div>${t('reportLabels.dayMaster')}：${t('report.dayMaster.'+stemToPinyin(dayStem))}</div>
-        <div>${t('reportLabels.elementCount')}：木${pctTxt('木')}｜火${pctTxt('火')}｜土${pctTxt('土')}｜金${pctTxt('金')}｜水${pctTxt('水')}</div>
+        <div>${t('reportLabels.elementCount')}：${['木','火','土','金','水'].map(k => mapName[k] + pctTxt(k)).join('｜')}</div>
       </div>
 
       <div class="butler-section">
@@ -1345,7 +1325,7 @@ reportLabels:{
       <div class="butler-section">
         <h4>${t('reportTitles.nearTerm')}</h4>
         <div>${t('reportLabels.overallFortune')}：${nearTermOverall(strongest, weakest)}</div>
-        <div>${t('reportLabels.favorableTiming')}：逢${mapName[strongest]}月（同气），或${mapName[weakest]}月（补缺）重点布局</div>
+        <div>${t('reportLabels.favorableTiming')}：逢${mapName[strongest]}月（同气），或${mapName[weakest]}月（补缺）布局</div>
         <div>${t('reportLabels.cautions')}：避开情绪决策，控制支出</div>
       </div>
 
@@ -1353,14 +1333,13 @@ reportLabels:{
         <h4>${t('reportTitles.actions')}</h4>
         <ul class="action-list">
           <li>每周至少一次${mapName[weakest]}元素的“补能”行动（环境、食物、颜色、方向）。</li>
-          <li>职业：根据“${career.advice}”调整下月行动清单（学习/项目/人脉）。</li>
-          <li>感情：本周进行一次高质量沟通（30分钟），聚焦彼此需求。</li>
+          <li>职业：依据“${career.advice}”细化下月行动清单（学习/项目/人脉）。</li>
+          <li>感情：本周安排一次高质量沟通（30分钟），聚焦彼此需求。</li>
           <li>财富：设立“风险阈值”，偏财机会严格止盈。</li>
         </ul>
       </div>
     `;
-
-    $('professionalReport').innerHTML = html;
+    const box = $('professionalReport'); if (box) box.innerHTML = html;
 
     function pctTxt(e){ return Math.round(pcts[e]||0)+'%'; }
     function wealthTrait(ten){ 
@@ -1377,98 +1356,191 @@ reportLabels:{
     }
     function supportElems(dm){
       const map={甲:['水','木'],乙:['水','木'],丙:['木','火'],丁:['木','火'],戊:['火','土'],己:['火','土'],庚:['土','金'],辛:['土','金'],壬:['金','水'],癸:['金','水']};
-      return (map[dm]||[]).map(x=>mapName[x]);
+      const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+      return (map[dm]||[]).map(x=>names[x]);
     }
     function restrainElems(dm){
       const map={甲:['金'],乙:['金'],丙:['水'],丁:['水'],戊:['木'],己:['木'],庚:['火'],辛:['火'],壬:['土'],癸:['土']};
-      return (map[dm]||[]).map(x=>mapName[x]);
+      const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+      return (map[dm]||[]).map(x=>names[x]);
     }
     function computeUseful(dm,pcts){
-      // 简化：取最弱的1-2个为“喜用优先补”
-      const arr=Object.entries(pcts).sort((a,b)=>a[1]-b[1]).slice(0,2).map(([k])=>mapName[k]);
-      return arr.length?arr:[mapName['水']];
+      const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+      return Object.entries(pcts).sort((a,b)=>a[1]-b[1]).slice(0,2).map(([k])=>names[k]);
     }
   }
 
-  /* ===== Chat Float ===== */
-  function setupChat(){
-    const btn=$('chatToggle'), box=$('chatFloat'), close=$('chatClose');
-    if(btn) btn.onclick=()=>{ box.style.display='flex'; };
-    if(close) close.onclick=()=>{ box.style.display='none'; };
-    const send=$('chatSend'), input=$('chatInput'), msgs=$('chatMessages');
-    function push(role, text){
-      const div=document.createElement('div'); div.className='ss-msg';
-      div.textContent=(role==='user'?'你： ':'')+text; msgs.appendChild(div); msgs.scrollTop=msgs.scrollHeight;
+  /* =========================
+   * MAIN GENERATE
+   * ========================= */
+  function generate(){
+    const birth = ($('birthdate')?.value||'').trim();
+    if(!birth) return showErr(t('err.fillBirthdate'));
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return showErr(t('err.invalidDate'));
+    const [Y,M,D]=birth.split('-').map(n=>parseInt(n,10));
+    const unknown = $('timeUnknown')?.checked;
+    const timeVal = $('birthtime')?.value || '00:00';
+    const hh = parseInt((timeVal.split(':')[0]||'0'),10);
+
+    const calc = new BaziCalculator();
+    const y = calc.yearPillar(Y);
+    const m = calc.monthPillar(Y,M,D);
+    const d = calc.dayPillar(Y,M,D);
+    const h = unknown ? {stem:'-',branch:'-'} : calc.hourPillar(d.stem, isFinite(hh)?hh:0);
+
+    // Top tiles
+    const labels=[y.stem+y.branch, m.stem+m.branch, d.stem+d.branch, unknown? (t('badge.noHour')||'-') : (h.stem+h.branch)];
+    renderPillars(labels);
+
+    // Table data (localized element names)
+    const stems=[y.stem,m.stem,d.stem, unknown? '-' : h.stem];
+    const branch=[y.branch,m.branch,d.branch, unknown? '-' : h.branch];
+    const elemMap = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+    const rawElems=[calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem), unknown? '-' : calc.stemElem(h.stem)];
+    const elements = rawElems.map(e => elemMap[e] || e);
+    const nayin=[calc.nayin(y.stem,y.branch),calc.nayin(m.stem,m.branch),calc.nayin(d.stem,d.branch), unknown? '-' : calc.nayin(h.stem,h.branch)];
+    renderTable({stem:stems,branch:branch,element:elements,nayin});
+
+    // Element weights (stems + branches, simple count)
+    const allElems = [calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem)]
+      .concat(unknown?[]:[calc.stemElem(h.stem)])
+      .concat([calc.branchElem(y.branch),calc.branchElem(m.branch),calc.branchElem(d.branch)])
+      .concat(unknown?[]:[calc.branchElem(h.branch)]);
+    const counts = {木:0,火:0,土:0,金:0,水:0};
+    allElems.forEach(e=>{ if(counts[e]!=null) counts[e]++; });
+    const total = Object.values(counts).reduce((a,b)=>a+b,0)||1;
+    const pcts = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, 100*v/total]));
+    renderBars(pcts);
+
+    // Date summary
+    const timeText = unknown ? (t('ui.timeUnknown')||'') : (t('ui.hourSuffix')||'{hh}:{mm}')
+      .replace('{hh}', String(hh).padStart(2,'0'))
+      .replace('{mm}', (timeVal.split(':')[1]||'00').padStart(2,'0'));
+    const btxt = (t('ui.birthSummary')||'')
+      .replace('{y}',Y).replace('{m}',M).replace('{d}',D).replace('{timeText}',timeText);
+    if($('bazi-date')) $('bazi-date').textContent = btxt;
+
+    // Ten Gods
+    const ten = calc.tenGods(d.stem, stems);
+
+    // Unknown hour tip
+    const pr = $('professionalReport');
+    if (pr) pr.innerHTML = ''; // clear before rebuild
+    if(unknown && pr){
+      const tip = `<div class="ai-box"><div class="ai-box-h">${t('report.tipTitle')}</div><div class="ai-box-c">${t('report.hourUnknownTip')}</div></div>`;
+      pr.insertAdjacentHTML('afterbegin',tip);
     }
-    if(send) send.onclick=()=>{
-      const q=(input.value||'').trim(); if(!q) return;
-      push('user', q); input.value='';
-      const reply=(t('chatDyn.autoReply')||'').replace('{q}', q);
-      setTimeout(()=>push('assistant', reply), 200);
-    };
+
+    // Build Pro Report (10 sections)
+    buildProReport({Y,M,D,unknown, stems, branch, pcts, dayStem:d.stem, tenGods:ten});
+
+    showResult();
   }
 
-  /* ===== VIP Auth: Hide credentials by default ===== */
-  function setupAuthReveal(){
-    const fields=$('authFields'); if(!fields) return;
-    fields.style.display='none'; fields.dataset.revealed='0';
+  /* =========================
+   * CHAT FLOAT
+   * ========================= */
+  function pushMsg(who, text){
+    const box = $('chatMessages'); if(!box) return;
+    const div = document.createElement('div');
+    div.className = who==='me' ? 'me-msg' : 'ss-msg';
+    div.textContent = text;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
 
-    function ensureReveal(e){
-      if(fields.dataset.revealed!=='1'){
-        e.preventDefault();
-        fields.style.display='grid';
-        fields.dataset.revealed='1';
-        // DO NOT log email/password anywhere
-      }
+  /* =========================
+   * AUTH FIELDS — HIDE BY DEFAULT (per your rule)
+   * ========================= */
+  function setupAuthFields(){
+    const fields = $('authFields');
+    if (fields) fields.style.display = 'none';
+    const loginForm = $('loginForm');
+    if (loginForm){
+      const reveal = document.createElement('button');
+      reveal.type = 'button';
+      reveal.className = 'btn ghost block';
+      reveal.id = 'revealAuthBtn';
+      reveal.textContent = '显示登录输入 / Reveal Login Fields';
+      loginForm.parentNode.insertBefore(reveal, loginForm);
+      reveal.addEventListener('click', ()=>{
+        if(fields) fields.style.display = 'grid';
+        reveal.style.display = 'none';
+      });
     }
-    const loginForm=$('loginForm'), registerForm=$('registerForm'), resetBtn=$('resetBtn');
-    if(loginForm) loginForm.addEventListener('submit', ensureReveal);
-    if(registerForm) registerForm.addEventListener('submit', ensureReveal);
-    if(resetBtn) resetBtn.addEventListener('click', ()=>{ fields.style.display='grid'; fields.dataset.revealed='1'; });
   }
 
-  /* ===== Lang & Events ===== */
-  function setupEvents(){
-    const langSel=$('langSelect');
-    if(langSel) langSel.onchange=()=>{
-      state.lang=langSel.value; localStorage.setItem('5x_lang', state.lang); applyI18n();
-    };
-    const gen=$('genBtn'); if(gen) gen.onclick=()=>{ try{ setGenLoading(true); generate(); } finally{ setTimeout(()=>setGenLoading(false), 300);} };
+  /* =========================
+   * INIT
+   * ========================= */
+  function init(){
+    // Lang init
+    const langSel = $('langSelect');
+    if (langSel){
+      langSel.value = state.lang;
+      langSel.onchange = () => {
+        state.lang = langSel.value;
+        localStorage.setItem('5x_lang', state.lang);
+        applyI18n();
+      };
+    }
+    applyI18n();
+
+    // Clock
+    tickNow(); setInterval(tickNow, 1000);
+
+    // Time unknown toggle
+    const unk = $('timeUnknown'), timeInput = $('birthtime');
+    if (unk && timeInput){
+      const sync = ()=>{ timeInput.disabled = unk.checked; };
+      unk.addEventListener('change', sync); sync();
+    }
+
+    // Generate
+    const genBtn = $('genBtn');
+    if (genBtn){
+      genBtn.addEventListener('click', ()=>{
+        try{
+          setGenLoading(true);
+          generate();
+        }catch(e){
+          console.error(e); showErr(t('err.generateFail'));
+        }finally{
+          setGenLoading(false);
+        }
+      });
+    }
+
+    // Chat float
+    const chatToggle=$('chatToggle'), chatFloat=$('chatFloat'), chatClose=$('chatClose'), chatSend=$('chatSend'), chatInput=$('chatInput');
+    if (chatToggle && chatFloat){
+      chatToggle.addEventListener('click', ()=>{ chatFloat.style.display='flex'; });
+    }
+    if (chatClose && chatFloat){
+      chatClose.addEventListener('click', ()=>{ chatFloat.style.display='none'; });
+    }
+    if (chatSend && chatInput){
+      chatSend.addEventListener('click', ()=>{
+        const q = (chatInput.value||'').trim(); if(!q) return;
+        pushMsg('me', q);
+        const tpl = t('chatDyn.autoReply') || '收到：{q}。';
+        pushMsg('ss', tpl.replace('{q}', q));
+        chatInput.value='';
+      });
+      chatInput.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ e.preventDefault(); chatSend.click(); }});
+    }
+
+    // VIP auth: keep hidden until reveal
+    setupAuthFields();
   }
 
-  /* ===== Set Default Date & Time ===== */
-function setDefaultDateTime() {
-  const now = new Date();
-  
-  // 设置默认日期为当前日期
-  const dateInput = $('birthdate');
-  if (dateInput && !dateInput.value) {
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    dateInput.value = `${year}-${month}-${day}`;
+  // DOM ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
   }
-  
-  // 设置默认时间为当前时间
-  const timeInput = $('birthtime');
-  if (timeInput && !timeInput.value) {
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    timeInput.value = `${hours}:${minutes}`;
-  }
-}
-
-function init(){
-  applyI18n(); 
-  setupEvents(); 
-  setupChat(); 
-  setupAuthReveal();
-  setDefaultDateTime(); // 设置当前日期时间为默认值
-  tickNow(); 
-  setInterval(tickNow, 1000);
-}
-  document.addEventListener('DOMContentLoaded', init);
 })();
-</script> 
+</script>
 </body>
 </html>
