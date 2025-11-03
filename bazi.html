@@ -2556,6 +2556,542 @@ if (document.readyState === 'loading') {
 })();
 </script>
 <script>
+(() => {
+  'use strict';
+
+  /* ========= BASIC ========= */
+  const SG_TZ = 'Asia/Singapore';
+  const $ = id => document.getElementById(id);
+  const qs = (sel, root=document) => root.querySelector(sel);
+  const qsa = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+
+  // language state (use your preferred key)
+  const LANG_KEY = '5x_lang';
+  const state = { lang: localStorage.getItem(LANG_KEY) || 'zh-CN' };
+  window.state = state;
+  window.lastCtx = null;
+
+  // Safe I18N access (uses window.I18N you defined above)
+  const I18N = (window.I18N ||= {});
+  function deepGet(obj, path){
+    return String(path).split('.').reduce((o,k)=> (o && o[k] != null) ? o[k] : undefined, obj);
+  }
+  function t(key){
+    const lang = state.lang || 'zh-CN';
+    const langDict = I18N[lang] || {};
+    const baseDict = I18N['zh-CN'] || {};
+    let v = deepGet(langDict, key);
+    if (v != null) return v;
+    if (Object.prototype.hasOwnProperty.call(langDict, key)) return langDict[key];
+    if (key.startsWith('report.')){
+      const k2 = key.slice(7);
+      v = deepGet(langDict, k2);
+      if (v != null) return v;
+      if (Object.prototype.hasOwnProperty.call(langDict, k2)) return langDict[k2];
+    }
+    v = deepGet(baseDict, key);
+    if (v != null) return v;
+    if (Object.prototype.hasOwnProperty.call(baseDict, key)) return baseDict[key];
+    if (key.startsWith('report.')){
+      const k2 = key.slice(7);
+      v = deepGet(baseDict, k2);
+      if (v != null) return v;
+      if (Object.prototype.hasOwnProperty.call(baseDict, k2)) return baseDict[k2];
+    }
+    return key;
+  }
+  function applyI18n(){
+    document.documentElement.lang = state.lang;
+    qsa('[data-i18n]').forEach(el=>{
+      const key = el.getAttribute('data-i18n');
+      const val = t(key);
+      if (typeof val === 'string') el.textContent = val;
+    });
+    qsa('option[data-i18n]').forEach(opt=>{
+      const key = opt.getAttribute('data-i18n');
+      const val = t(key);
+      if (typeof val === 'string') opt.textContent = val;
+    });
+    // placeholders
+    const setPh = (id, key) => {
+      const el = $(id); if (!el) return;
+      const val = t(key); if (typeof val === 'string') el.placeholder = val;
+    };
+    setPh('name','form.namePlaceholder');
+    setPh('chatInput','chat.placeholder');
+
+    // Only set auth placeholders if fields are visible (we hide by default)
+    const authFields = $('authFields');
+    if (authFields && getComputedStyle(authFields).display !== 'none'){
+      setPh('email','auth.emailPlaceholder');
+      setPh('password','auth.passwordPlaceholder');
+    }
+
+    // Rebuild report on language switch
+    if (window.lastCtx) buildProReport(window.lastCtx);
+  }
+  function setLang(lang){
+    if (!I18N[lang]) return;
+    state.lang = lang;
+    try { localStorage.setItem(LANG_KEY, lang); } catch(_) {}
+    applyI18n();
+  }
+
+  /* ========= LIVE CLOCK ========= */
+  function tickNow(){
+    const box = $('nowBox'); if (!box) return;
+    const dt = new Date();
+    try{
+      box.textContent = dt.toLocaleString(undefined, { timeZone: SG_TZ, hour12:false });
+    }catch{
+      box.textContent = dt.toISOString().replace('T',' ').slice(0,19);
+    }
+  }
+
+  /* ========= BAZI CORE (coarse but consistent) ========= */
+  class BaziCalculator {
+    constructor(){
+      this.HEAVENLY_STEMS = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+      this.EARTHLY_BRANCHES = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+      this.NAYIN = ['海中金','炉中火','大林木','路旁土','剑锋金','山头火','涧下水','城头土','白蜡金','杨柳木','泉中水','屋上土','霹雳火','松柏木','长流水','砂石金','山下火','平地木','壁上土','金箔金','佛灯火','天河水','大驿土','钗钏金','桑柘木','大溪水','沙中土','天上火','石榴木','大海水'];
+      this.stemElemMap = {甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'};
+      this.branchElemMap = {子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'};
+    }
+    yearPillar(year){
+      const s=(year-4)%10, b=(year-4)%12;
+      return { stem: this.HEAVENLY_STEMS[(s+10)%10], branch: this.EARTHLY_BRANCHES[(b+12)%12] };
+    }
+    // very rough solar-month index around 節氣 thresholds
+    solarMonthIndex(y,m,d){
+      const mmdd = m*100 + d;
+      const gates = [[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
+      let idx = 11;
+      for (const [thr,val] of gates){ if (mmdd >= thr) idx = val; }
+      const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
+      return { index: idx, branch: branchBy[idx] };
+    }
+    monthPillar(year,month,day){
+      const {index,branch} = this.solarMonthIndex(year,month,day);
+      const yStemIdx = this.HEAVENLY_STEMS.indexOf(this.yearPillar(year).stem);
+      const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
+      const stemIdx=(startMap[yStemIdx]+(index-1))%10;
+      return { stem: this.HEAVENLY_STEMS[stemIdx], branch };
+    }
+    dayPillar(year,month,day){
+      const baseUTC = Date.UTC(1900,0,31);
+      const targetUTC = Date.UTC(year,month-1,day);
+      const dayDiff = Math.floor((targetUTC - baseUTC)/86400000);
+      const stemIdx = (0 + dayDiff) % 10;
+      const branchIdx = (4 + dayDiff) % 12;
+      return { stem: this.HEAVENLY_STEMS[(stemIdx+10)%10], branch: this.EARTHLY_BRANCHES[(branchIdx+12)%12] };
+    }
+    hourPillar(dayStem,hour24){
+      const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
+      const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};
+      const stems=this.HEAVENLY_STEMS;
+      const dIdx = stems.indexOf(dayStem);
+      const hourIndex = Math.floor((hour24+1)/2)%12;
+      const stemIdx=(startMap[dIdx]+hourIndex)%10;
+      return { stem: stems[stemIdx], branch: branchMap[hour24] };
+    }
+    stemElem(s){ return this.stemElemMap[s] || '-'; }
+    branchElem(b){ return this.branchElemMap[b] || '-'; }
+    nayin(s,b){
+      const si=this.HEAVENLY_STEMS.indexOf(s), bi=this.EARTHLY_BRANCHES.indexOf(b);
+      return this.NAYIN[(si*2+bi)%this.NAYIN.length];
+    }
+    tenGods(dayStem, stems){
+      const map={
+        '甲':{'甲':'比肩','乙':'劫财','丙':'食神','丁':'伤官','戊':'偏财','己':'正财','庚':'七杀','辛':'正官','壬':'偏印','癸':'正印'},
+        '乙':{'甲':'劫财','乙':'比肩','丙':'伤官','丁':'食神','戊':'正财','己':'偏财','庚':'正官','辛':'七杀','壬':'正印','癸':'偏印'},
+        '丙':{'甲':'偏印','乙':'正印','丙':'比肩','丁':'劫财','戊':'食神','己':'伤官','庚':'偏财','辛':'正财','壬':'七杀','癸':'正官'},
+        '丁':{'甲':'正印','乙':'偏印','丙':'劫财','丁':'比肩','戊':'伤官','己':'食神','庚':'正财','辛':'偏财','壬':'正官','癸':'七杀'},
+        '戊':{'甲':'七杀','乙':'正官','丙':'偏印','丁':'正印','戊':'比肩','己':'劫财','庚':'食神','辛':'伤官','壬':'偏财','癸':'正财'},
+        '己':{'甲':'正官','乙':'七杀','丙':'正印','丁':'偏印','戊':'劫财','己':'比肩','庚':'伤官','辛':'食神','壬':'正财','癸':'偏财'},
+        '庚':{'甲':'偏财','乙':'正财','丙':'七杀','丁':'正官','戊':'偏印','己':'正印','庚':'比肩','辛':'劫财','壬':'食神','癸':'伤官'},
+        '辛':{'甲':'正财','乙':'偏财','丙':'正官','丁':'七杀','戊':'正印','己':'偏印','庚':'劫财','辛':'比肩','壬':'伤官','癸':'食神'},
+        '壬':{'甲':'食神','乙':'伤官','丙':'偏财','丁':'正财','戊':'七杀','己':'正官','庚':'偏印','辛':'正印','壬':'比肩','癸':'劫财'},
+        '癸':{'甲':'伤官','乙':'食神','丙':'正财','丁':'偏财','戊':'正官','己':'七杀','庚':'正印','辛':'偏印','壬':'劫财','癸':'比肩'}
+      };
+      const m = map[dayStem] || {};
+      return stems.map(s=>m[s]||'-');
+    }
+  }
+  const calc = new BaziCalculator();
+
+  /* ========= ANALYSIS HELPERS ========= */
+  const TEN_GODS_EN = {
+    '比肩':'Peer (Bi Jian)','劫财':'Rob Wealth (Jie Cai)','食神':'Eating God (Shi Shen)',
+    '伤官':'Hurting Officer (Shang Guan)','偏财':'Indirect Wealth (Pian Cai)','正财':'Direct Wealth (Zheng Cai)',
+    '七杀':'Seven Killings (Qi Sha)','正官':'Direct Officer (Zheng Guan)','偏印':'Indirect Resource (Pian Yin)','正印':'Direct Resource (Zheng Yin)'
+  };
+  function mapTenGodsStr(str){
+    if (state.lang!=='en' || !str) return str;
+    return String(str).split(/[/、|\s]+/).filter(Boolean).map(w => TEN_GODS_EN[w] || w).join(' / ');
+  }
+  function stemToPinyin(stem){
+    const m={'甲':'jia','乙':'yi','丙':'bing','丁':'ding','戊':'wu','己':'ji','庚':'geng','辛':'xin','壬':'ren','癸':'gui'};
+    return m[stem] || String(stem).toLowerCase();
+  }
+  function countElements(items){
+    const cnt = {木:0,火:0,土:0,金:0,水:0};
+    items.forEach(e => { if (cnt[e] != null) cnt[e] += 1; });
+    return cnt;
+  }
+  function strongestWeakest(cnt){
+    const entries = Object.entries(cnt);
+    entries.sort((a,b)=>b[1]-a[1]);
+    return { strongest: entries[0][0], weakest: entries[entries.length-1][0] };
+  }
+
+  /* ========= RENDERERS ========= */
+  function renderPillars(ctx){
+    const host = $('bazi-pillars'); if (!host) return;
+    host.innerHTML = '';
+    const labels = [t('pillar.year'), t('pillar.month'), t('pillar.day'), t('pillar.hour')];
+    const data = [ctx.year, ctx.month, ctx.day, ctx.hour || {stem:'-',branch:'-'}];
+    data.forEach((p,i)=>{
+      const div = document.createElement('div');
+      div.className = 'pillar';
+      div.innerHTML = `
+        <div class="tit">${labels[i] || ''}</div>
+        <div class="gz">${p.stem||'-'}${p.branch||'-'}</div>
+      `;
+      host.appendChild(div);
+    });
+
+    // table
+    const cells = {
+      'year-stem':ctx.year.stem,   'month-stem':ctx.month.stem, 'day-stem':ctx.day.stem, 'hour-stem':ctx.hour?.stem || '-',
+      'year-branch':ctx.year.branch,'month-branch':ctx.month.branch,'day-branch':ctx.day.branch,'hour-branch':ctx.hour?.branch || '-',
+      'year-element':ctx.yearElem, 'month-element':ctx.monthElem,'day-element':ctx.dayElem,'hour-element':ctx.hourElem || '-',
+      'year-nayin':ctx.yearNayin,  'month-nayin':ctx.monthNayin,'day-nayin':ctx.dayNayin,'hour-nayin':ctx.hourNayin || '-'
+    };
+    Object.entries(cells).forEach(([id,val])=>{
+      const el=$(id); if (el) el.textContent = val==null?'-':val;
+    });
+
+    // date summary line
+    const timeText = ctx.timeUnknown ? (t('ui.timeUnknown')||'') :
+      (t('ui.hourSuffix')||'{hh}:{mm}').replace('{hh}', String(ctx.hh).padStart(2,'0')).replace('{mm}', String(ctx.mm).padStart(2,'0'));
+    const line = (t('ui.birthSummary') || 'Birth: {y}-{m}-{d} {timeText}')
+      .replace('{y}', ctx.y).replace('{m}', String(ctx.m).padStart(2,'0'))
+      .replace('{d}', String(ctx.d).padStart(2,'0')).replace('{timeText}', timeText);
+    const dateBox = $('bazi-date');
+    if (dateBox){
+      dateBox.innerHTML = line + (ctx.timeUnknown ? ` <span class="badge-warn">${t('badge.noHour')}</span>` : '');
+    }
+  }
+
+  function renderBars(ctx){
+    // element counts from stems + branches (hour optional)
+    const elems = [
+      ctx.yearElem, ctx.monthElem, ctx.dayElem,
+      ctx.hourElem || null,
+      calc.branchElem(ctx.year.branch), calc.branchElem(ctx.month.branch),
+      calc.branchElem(ctx.day.branch), ctx.hour ? calc.branchElem(ctx.hour.branch) : null
+    ].filter(Boolean);
+    const cnt = countElements(elems);
+    const total = Object.values(cnt).reduce((a,b)=>a+b,0) || 1;
+    ['木','火','土','金','水'].forEach(k=>{
+      const pct = Math.round(cnt[k]*100/total);
+      const bar = $('bar-'+k), txt=$('pct-'+k);
+      if (bar) bar.style.width = pct + '%';
+      if (txt) txt.textContent = pct + '%';
+    });
+    const sw = strongestWeakest(cnt);
+    const balBox = $('bazi-elements-balance');
+    if (balBox){
+      balBox.textContent = (t('ui.balance') || '').replace('{strongest}', I18N[state.lang]?.elemNames?.[sw.strongest] || sw.strongest)
+                                                  .replace('{weakest}', I18N[state.lang]?.elemNames?.[sw.weakest] || sw.weakest);
+    }
+    return {cnt, total, strongest: sw.strongest, weakest: sw.weakest};
+  }
+
+  /* ========= PRO REPORT (10 sections) ========= */
+  function buildProReport(ctx){
+    const host = $('professionalReport'); if (!host) return;
+    const { strongest, weakest } = renderBars(ctx); // ensure bars are fresh
+
+    // day master line
+    const dmKey = 'report.dayMaster.'+stemToPinyin(ctx.day.stem);
+    const dmLine = t(dmKey);
+
+    // simple useful-spirit suggestion: prefer weakest (to补缺) + month officer
+    const useful = [weakest];
+
+    // Ten Gods (relative to day stem) for 4 stems
+    const stems = [ctx.year.stem, ctx.month.stem, ctx.day.stem, ctx.hour?.stem].filter(Boolean);
+    const tgArr = calc.tenGods(ctx.day.stem, stems);
+
+    // Near term fortune text (toy logic by month branch)
+    const nearMap = ['steady','upward','focus','study','foundation'];
+    const nearKey = nearMap[(ctx.m % nearMap.length)];
+    const nearText = t('fortune.'+nearKey);
+
+    // Sections
+    const S = {
+      titles: I18N[state.lang]?.reportTitles || I18N['zh-CN'].reportTitles,
+      labels: I18N[state.lang]?.reportLabels || I18N['zh-CN'].reportLabels
+    };
+
+    const hourNote = ctx.timeUnknown ? `<div class="ai-box"><div class="ai-box-h">${t('report.tipTitle')}</div><div class="ai-box-c">${t('report.hourUnknownTip')}</div></div>` : '';
+
+    const html = `
+      ${hourNote}
+      <div class="butler-section">
+        <h4>${S.titles.overview}</h4>
+        <div>${t('reportLabels.dayMaster')}：${ctx.day.stem}${calc.stemElem(ctx.day.stem)}｜${dmLine}</div>
+        <div>${t('reportLabels.strength')}：${t('fortune.steady')}</div>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.fiveElements}</h4>
+        <div>${t('reportLabels.elementCount')}：木${ctx.eCnt.木} 火${ctx.eCnt.火} 土${ctx.eCnt.土} 金${ctx.eCnt.金} 水${ctx.eCnt.水}</div>
+        <div>${t('ui.balance').replace('{strongest}', I18N[state.lang]?.elemNames?.[strongest]||strongest).replace('{weakest}', I18N[state.lang]?.elemNames?.[weakest]||weakest)}</div>
+        <div>${t('reportLabels.supportElements')}：${ctx.support?.join('、') || '-'}</div>
+        <div>${t('reportLabels.missingElements')}：${ctx.missing?.join('、') || '-'}</div>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.tenGods}</h4>
+        <div>${t('reportLabels.tenGods')}：${mapTenGodsStr(tgArr.join('、'))}</div>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.useful}</h4>
+        <div>${t('reportLabels.usefulSpirit')}：${useful.map(e=>I18N[state.lang]?.elemNames?.[e]||e).join('、')}</div>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.relationship}</h4>
+        <div>${t('report.marriage.default')}</div>
+        <ul class="action-list">
+          <li>${t('reportLabels.relationshipTips')}：${t('action.relationship')}</li>
+        </ul>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.career}</h4>
+        <div>${t('report.career.steady')}</div>
+        <ul class="action-list">
+          <li>${t('action.career')}</li>
+          <li>${t('action.career2')}</li>
+        </ul>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.wealth}</h4>
+        <div>${t('wealth.steady')}</div>
+        <ul class="action-list">
+          <li>${t('action.wealth')}</li>
+        </ul>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.health}</h4>
+        <div>${t('report.health.tips.'+stemToPinyin(ctx.day.stem)) || t('wellness.default')}</div>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.nearTerm}</h4>
+        <div>${nearText}</div>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.actions}</h4>
+        <ul class="action-list">
+          <li>${t('action.weekly')} ${t('action.energy')}</li>
+          <li>${t('action.career')}</li>
+          <li>${t('action.relationship')}</li>
+          <li>${t('action.wealth')}</li>
+        </ul>
+      </div>
+    `;
+    host.innerHTML = html;
+
+    // show the professional box
+    const proBox = $('butlerProfessional');
+    if (proBox) proBox.style.display = 'block';
+  }
+
+  /* ========= GENERATE HANDLER ========= */
+  function setGenLoading(v){
+    const btn=$('genBtn'), txt=$('genBtnText'), ld=$('genBtnLoading');
+    if (btn) btn.disabled = !!v;
+    if (txt) txt.style.display = v ? 'none' : 'inline';
+    if (ld) ld.style.display = v ? 'inline' : 'none';
+  }
+  function showErr(msg){
+    const box=$('error'); if (!box) return;
+    box.textContent = msg || t('err.generateFail');
+    box.style.display = 'block';
+    setTimeout(()=>{ box.style.display='none'; }, 4000);
+  }
+  function handleGenerate(){
+    const birth = $('birthdate')?.value?.trim();
+    if (!birth) return showErr(t('err.fillBirthdate'));
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birth);
+    if (!m) return showErr(t('err.invalidDate'));
+    const y = +m[1], mo = +m[2], d = +m[3];
+
+    const timeUnknown = !!$('timeUnknown')?.checked;
+    const timeVal = $('birthtime')?.value || '00:00';
+    let hh = 0, mm = 0;
+    if (!timeUnknown && /^\d{2}:\d{2}$/.test(timeVal)){
+      const tt = timeVal.split(':'); hh = +tt[0]; mm = +tt[1];
+    }
+
+    setGenLoading(true);
+    try{
+      // pillars
+      const year = calc.yearPillar(y);
+      const month = calc.monthPillar(y, mo, d);
+      const day = calc.dayPillar(y, mo, d);
+      const hour = timeUnknown ? null : calc.hourPillar(day.stem, hh);
+
+      // elements + nayin
+      const yearElem = calc.stemElem(year.stem);
+      const monthElem = calc.stemElem(month.stem);
+      const dayElem = calc.stemElem(day.stem);
+      const hourElem = hour ? calc.stemElem(hour.stem) : null;
+
+      const yearNayin = calc.nayin(year.stem, year.branch);
+      const monthNayin = calc.nayin(month.stem, month.branch);
+      const dayNayin = calc.nayin(day.stem, day.branch);
+      const hourNayin = hour ? calc.nayin(hour.stem, hour.branch) : null;
+
+      const ctx = {
+        y, m:mo, d,
+        hh, mm, timeUnknown,
+        year, month, day, hour,
+        yearElem, monthElem, dayElem, hourElem,
+        yearNayin, monthNayin, dayNayin, hourNayin
+      };
+
+      // element counts for overview
+      const elemList = [yearElem, monthElem, dayElem, hourElem].filter(Boolean);
+      const eCnt = countElements(elemList);
+      ctx.eCnt = eCnt;
+
+      // support/missing (very simple heuristics)
+      const missing = Object.entries(eCnt).filter(([k,v])=>v===0).map(([k])=>k);
+      ctx.missing = missing;
+      const support = Object.entries(eCnt).filter(([k,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([k])=>k).slice(0,2);
+      ctx.support = support;
+
+      window.lastCtx = ctx;
+
+      // show result
+      const result = $('result'); if (result) result.style.display = 'block';
+      renderPillars(ctx);
+      renderBars(ctx);
+      buildProReport(ctx);
+    }catch(e){
+      console.error(e);
+      showErr(t('err.generateFail'));
+    }finally{
+      setGenLoading(false);
+    }
+  }
+
+  /* ========= CHAT FLOAT ========= */
+  function pushMsg(html, from='user'){
+    const box = $('chatMessages'); if (!box) return;
+    const div = document.createElement('div');
+    div.className = 'ss-msg ' + (from==='user'?'user':'ai');
+    div.style.margin = '8px 0';
+    div.style.whiteSpace = 'pre-wrap';
+    div.textContent = html;
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
+  function handleChatSend(){
+    const inp = $('chatInput'); if (!inp) return;
+    const q = (inp.value || '').trim();
+    if (!q) return;
+    pushMsg(q, 'user');
+    inp.value = '';
+    // stubbed local reply (hook your API here if you want)
+    const reply = (t('chatDyn.autoReply') || 'Received: {q}').replace('{q}', q);
+    setTimeout(()=>pushMsg(reply,'ai'), 200);
+  }
+  function bindChat(){
+    const toggle = $('chatToggle');
+    const panel = $('chatFloat');
+    const close = $('chatClose');
+    toggle?.addEventListener('click', ()=>{ panel.style.display = (panel.style.display==='flex')?'none':'flex'; panel.style.flexDirection='column'; });
+    close?.addEventListener('click', ()=>{ panel.style.display='none'; });
+    $('chatSend')?.addEventListener('click', handleChatSend);
+    $('chatInput')?.addEventListener('keydown', e=>{
+      if (e.key==='Enter' && !e.shiftKey){ e.preventDefault(); handleChatSend(); }
+    });
+  }
+
+  /* ========= PRIVACY: HIDE AUTH FIELDS BY DEFAULT ========= */
+  function hideAuthFields(){
+    const fld = $('authFields');
+    if (fld) fld.style.display = 'none';
+  }
+  function revealAuthOnce(ev){
+    const fld = $('authFields');
+    if (fld && getComputedStyle(fld).display==='none'){
+      ev?.preventDefault();
+      fld.style.display = 'grid';
+      applyI18n(); // set placeholders now that it's visible
+      return true; // handled reveal
+    }
+    return false; // already visible; proceed to real submit (if wired)
+  }
+  function bindAuthReveal(){
+    $('loginForm')?.addEventListener('submit', (e)=>{ if (revealAuthOnce(e)) return; e.preventDefault(); });
+    $('registerForm')?.addEventListener('submit', (e)=>{ if (revealAuthOnce(e)) return; e.preventDefault(); });
+    $('resetBtn')?.addEventListener('click', (e)=>{ if (revealAuthOnce(e)) return; });
+  }
+
+  /* ========= MISC UI BINDS ========= */
+  function bindAll(){
+    // language select
+    const sel = $('langSelect');
+    if (sel){
+      sel.value = state.lang;
+      sel.addEventListener('change', ()=> setLang(sel.value));
+    }
+
+    // time unknown toggle
+    const tUnk = $('timeUnknown');
+    const tInp = $('birthtime');
+    if (tUnk && tInp){
+      const update = ()=>{ tInp.disabled = tUnk.checked; };
+      tUnk.addEventListener('change', update); update();
+    }
+
+    // generate
+    $('genBtn')?.addEventListener('click', handleGenerate);
+
+    // chat
+    bindChat();
+
+    // auth privacy
+    hideAuthFields();
+    bindAuthReveal();
+
+    // initial i18n
+    applyI18n();
+
+    // header clock (optional)
+    tickNow();
+    setInterval(tickNow, 1000);
+  }
+
+  // init
+  document.readyState === 'loading'
+    ? document.addEventListener('DOMContentLoaded', bindAll)
+    : bindAll();
+
+})();
+</script>  
+<script>
 /* === NOW + BIRTH DEFAULTS (SGT) === */
 (function () {
   const $ = (id) => document.getElementById(id);
