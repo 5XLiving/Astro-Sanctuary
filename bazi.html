@@ -2825,18 +2825,31 @@ function renderTable(data){
 
 /* ========= PRO REPORT (10 sections) - FIXED ========= */
 function buildProReport(ctx){
-  const host = $('professionalReport'); if (!host) return;
+  const host = $('professionalReport'); 
+  if (!host) return;
   
-  // Safely extract day stem with fallback
-  const dayStem = (ctx && ctx.day && ctx.day.stem) || (ctx && ctx.dayStem) || '-';
+  // 确保我们有必要的上下文数据
+  if (!ctx) {
+    console.error('No context provided for report');
+    return;
+  }
+
+  // 安全地提取数据，提供默认值
+  const dayStem = ctx.dayStem || (ctx.day && ctx.day.stem) || '-';
+  const pcts = ctx.pcts || {木:0, 火:0, 土:0, 金:0, 水:0};
+  const tenGods = ctx.tenGods || [];
+  const unknown = ctx.unknown || false;
   
-  // Ensure we have element counts
+  // 计算五行计数
   const elemList = [
     ctx.yearElem, ctx.monthElem, ctx.dayElem, ctx.hourElem
   ].filter(Boolean);
   const eCnt = countElements(elemList);
   
-  const { strongest, weakest } = renderBars(ctx);
+  // 找到最强和最弱的元素
+  const entries = Object.entries(pcts).sort((a,b) => b[1] - a[1]);
+  const strongest = entries[0] ? entries[0][0] : '木';
+  const weakest = entries.length > 0 ? entries[entries.length-1][0] : '水';
 
   // day master line with safe access
   const dmKey = 'report.dayMaster.' + stemToPinyin(dayStem);
@@ -2857,16 +2870,22 @@ function buildProReport(ctx){
 
   // Near term fortune
   const nearMap = ['steady','upward','focus','study','foundation'];
-  const nearKey = nearMap[((ctx.m || 1) % nearMap.length)];
+  const nearKey = nearMap[Math.floor(Math.random() * nearMap.length)]; // 随机选择一个
   const nearText = t('fortune.' + nearKey) || t('fortune.steady');
 
+  // 获取翻译
   const S = {
     titles: (I18N[state.lang] && I18N[state.lang].reportTitles) || (I18N['zh-CN'] && I18N['zh-CN'].reportTitles) || {},
     labels: (I18N[state.lang] && I18N[state.lang].reportLabels) || (I18N['zh-CN'] && I18N['zh-CN'].reportLabels) || {}
   };
 
-  const hourNote = (ctx && ctx.timeUnknown) ? 
+  const hourNote = unknown ? 
     `<div class="ai-box"><div class="ai-box-h">${t('report.tipTitle')}</div><div class="ai-box-c">${t('report.hourUnknownTip')}</div></div>` : '';
+
+  // 辅助函数：获取元素名称
+  function getElemName(elem) {
+    return (I18N[state.lang] && I18N[state.lang].elemNames && I18N[state.lang].elemNames[elem]) || elem;
+  }
 
   const html = `
     ${hourNote}
@@ -2880,8 +2899,8 @@ function buildProReport(ctx){
       <h4>${S.titles.fiveElements || '🌿 Five Elements'}</h4>
       <div>${S.labels.elementCount || 'Element Count'}：木${eCnt.木 || 0} 火${eCnt.火 || 0} 土${eCnt.土 || 0} 金${eCnt.金 || 0} 水${eCnt.水 || 0}</div>
       <div>${(t('ui.balance') || 'Balance: {strongest} strongest, {weakest} weakest')
-        .replace('{strongest}', (I18N[state.lang] && I18N[state.lang].elemNames && I18N[state.lang].elemNames[strongest]) || strongest || '-')
-        .replace('{weakest}', (I18N[state.lang] && I18N[state.lang].elemNames && I18N[state.lang].elemNames[weakest]) || weakest || '-')}</div>
+        .replace('{strongest}', getElemName(strongest))
+        .replace('{weakest}', getElemName(weakest))}</div>
     </div>
 
     <div class="butler-section">
@@ -2891,7 +2910,7 @@ function buildProReport(ctx){
 
     <div class="butler-section">
       <h4>${S.titles.useful || '🔑 Useful Spirit'}</h4>
-      <div>${S.labels.usefulSpirit || 'Useful Spirit'}：${useful.map(e => (I18N[state.lang] && I18N[state.lang].elemNames && I18N[state.lang].elemNames[e]) || e).join('、') || '-'}</div>
+      <div>${S.labels.usefulSpirit || 'Useful Spirit'}：${useful.map(e => getElemName(e)).join('、') || '-'}</div>
     </div>
 
     <div class="butler-section">
@@ -2941,6 +2960,25 @@ function buildProReport(ctx){
   `;
   
   host.innerHTML = html;
+
+  // show the professional box
+  const proBox = $('butlerProfessional');
+  if (proBox) proBox.style.display = 'block';
+}
+
+// 添加缺失的辅助函数
+function countElements(items) {
+  const cnt = {木:0, 火:0, 土:0, 金:0, 水:0};
+  items.forEach(e => { 
+    if (cnt[e] != null) cnt[e] += 1; 
+  });
+  return cnt;
+}
+
+function stemToPinyin(stem){
+  const map = {'甲':'jia','乙':'yi','丙':'bing','丁':'ding','戊':'wu','己':'ji','庚':'geng','辛':'xin','壬':'ren','癸':'gui'};
+  return map[stem] || String(stem).toLowerCase();
+}
 
   // show the professional box
   const proBox = $('butlerProfessional');
