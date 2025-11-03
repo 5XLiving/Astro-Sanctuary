@@ -2887,6 +2887,47 @@ function buildProReport(ctx){
     return (I18N[state.lang] && I18N[state.lang].elemNames && I18N[state.lang].elemNames[elem]) || elem;
   }
 
+  // 辅助函数：百分比文本
+  function pctTxt(e){ return Math.round(pcts[e]||0)+'%'; }
+  
+  // 辅助函数：财富特质
+  function wealthTrait(ten){
+    if(ten.includes('正财')) return t('report.wealth.stable') || '以稳定收入为主，适合积累式理财';
+    if(ten.includes('偏财')) return t('report.wealth.opportunity') || '偏财机会多，注意节制风险';
+    return t('report.wealth.steady') || '财运平稳，重在技能与口碑带动收入';
+  }
+  
+  // 辅助函数：近期运势
+  function nearTermOverall(strong,weak){
+    if(!strong) return t('report.fortune.steady') || '平稳调整期';
+    if(strong===weak) return t('report.fortune.steady') || '平稳调整期';
+    if(strong==='木'||strong==='火') return t('report.fortune.upward') || '势头向上，利推广/表达';
+    if(strong==='金') return t('report.fortune.focus') || '收敛聚焦，利制度与执行';
+    if(strong==='水') return t('report.fortune.study') || '学习调研期，先蓄后发';
+    return t('report.fortune.foundation') || '打基础、稳节奏为主';
+  }
+  
+  // 辅助函数：支持元素
+  function supportElems(dm){
+    const map={甲:['水','木'],乙:['水','木'],丙:['木','火'],丁:['木','火'],戊:['火','土'],己:['火','土'],庚:['土','金'],辛:['土','金'],壬:['金','水'],癸:['金','水']};
+    const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+    return (map[dm]||[]).map(x=>names[x]);
+  }
+  
+  // 辅助函数：克制元素
+  function restrainElems(dm){
+    const map={甲:['金'],乙:['金'],丙:['水'],丁:['水'],戊:['木'],己:['木'],庚:['火'],辛:['火'],壬:['土'],癸:['土']};
+    const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+    return (map[dm]||[]).map(x=>names[x]);
+  }
+  
+  // 辅助函数：计算喜用神
+  function computeUseful(dm,p){
+    const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+    return Object.entries({木:p.木||0,火:p.火||0,土:p.土||0,金:p.金||0,水:p.水||0})
+      .sort((a,b)=>a[1]-b[1]).slice(0,2).map(([k])=>names[k]);
+  }
+
   const html = `
     ${hourNote}
     <div class="butler-section">
@@ -2901,6 +2942,7 @@ function buildProReport(ctx){
       <div>${(t('ui.balance') || 'Balance: {strongest} strongest, {weakest} weakest')
         .replace('{strongest}', getElemName(strongest))
         .replace('{weakest}', getElemName(weakest))}</div>
+      <div>${S.labels.elementStrength || 'Element Strength'}：${Object.entries(pcts).map(([k,v]) => getElemName(k) + Math.round(v) + '%').join('，')}</div>
     </div>
 
     <div class="butler-section">
@@ -2910,49 +2952,51 @@ function buildProReport(ctx){
 
     <div class="butler-section">
       <h4>${S.titles.useful || '🔑 Useful Spirit'}</h4>
-      <div>${S.labels.usefulSpirit || 'Useful Spirit'}：${useful.map(e => getElemName(e)).join('、') || '-'}</div>
+      <div>${S.labels.usefulSpirit || 'Useful Spirit'}：${computeUseful(dayStem, pcts).join('、') || '-'}</div>
+      <div>${S.labels.supportElements || 'Support Elements'}：${supportElems(dayStem).join('、') || '—'}</div>
+      <div>${S.labels.restrainElements || 'Restrain Elements'}：${restrainElems(dayStem).join('、') || '—'}</div>
     </div>
 
     <div class="butler-section">
       <h4>${S.titles.relationship || '💕 Relationships'}</h4>
-      <div>${t('report.marriage.default')}</div>
-      <ul class="action-list">
-        <li>${t('action.relationship')}</li>
-      </ul>
+      <div>${S.labels.traits || 'Traits'}：${BaziAnalysis.relation(dayStem).traits}</div>
+      <div>${S.labels.marriageAdvice || 'Marriage Advice'}：${BaziAnalysis.marriageAdvice(tgArr)}</div>
+      <div>${S.labels.relationshipTips || 'Relationship Tips'}：${BaziAnalysis.relation(dayStem).tips}</div>
     </div>
 
     <div class="butler-section">
       <h4>${S.titles.career || '💼 Career'}</h4>
-      <div>${t('report.career.steady')}</div>
-      <ul class="action-list">
-        <li>${t('action.career')}</li>
-        <li>${t('action.career2')}</li>
-      </ul>
+      <div>${S.labels.suitableCareers || 'Suitable Careers'}：${BaziAnalysis.career(dayStem, tgArr).suitable}</div>
+      <div>${S.labels.careerAdvice || 'Career Advice'}：${t(BaziAnalysis.career(dayStem, tgArr).advice)}</div>
+      <div>${S.labels.favorableDirections || 'Favorable Directions'}：${i18nDirs(BaziAnalysis.wealthDirs(dayStem))}</div>
     </div>
 
     <div class="butler-section">
       <h4>${S.titles.wealth || '💰 Wealth'}</h4>
-      <div>${t('wealth.steady')}</div>
-      <ul class="action-list">
-        <li>${t('action.wealth')}</li>
-      </ul>
+      <div>${S.labels.wealthCharacteristics || 'Wealth Characteristics'}：${wealthTrait(tgArr)}</div>
+      <div>${S.labels.wealthDirections || 'Wealth Directions'}：${i18nDirs(BaziAnalysis.wealthDirs(dayStem))}</div>
+      <div>${S.labels.financialAdvice || 'Financial Advice'}：${BaziAnalysis.financeAdvice(tgArr)}</div>
     </div>
 
     <div class="butler-section">
       <h4>${S.titles.health || '🌡️ Health'}</h4>
-      <div>${t('report.health.tips.' + stemToPinyin(dayStem)) || t('wellness.default')}</div>
+      <div>${S.labels.healthCharacteristics || 'Health Characteristics'}：${BaziAnalysis.health(dayStem)}</div>
+      <div>${S.labels.healthTips || 'Health Tips'}：${t('report.health.tips.' + stemToPinyin(dayStem)) || t('report.health.tips.default')}</div>
+      <div>${S.labels.wellnessAdvice || 'Wellness Advice'}：${t('wellness.default') || '规律作息、适量运动、情绪稳定、少熬夜'}</div>
     </div>
 
     <div class="butler-section">
       <h4>${S.titles.nearTerm || '🔮 Near-term'}</h4>
-      <div>${nearText}</div>
+      <div>${S.labels.overallFortune || 'Overall Fortune'}：${nearTermOverall(strongest, weakest)}</div>
+      <div>${S.labels.favorableTiming || 'Favorable Timing'}：${strongest ? '逢' + getElemName(strongest) + (t('elem.month') || '月') + '（' + (t('sameQi') || '同气') + '）' : '—'}${weakest ? '，或' + getElemName(weakest) + (t('elem.month') || '月') + '（' + (t('complement') || '补缺') + '）' : ''}${t('layout') || '布局'}</div>
+      <div>${S.labels.cautions || 'Cautions'}：${t('cautions.default') || '避开情绪决策，控制支出'}</div>
     </div>
 
     <div class="butler-section">
       <h4>${S.titles.actions || '📝 Actions'}</h4>
       <ul class="action-list">
-        <li>${t('action.weekly')} ${t('action.energy')}</li>
-        <li>${t('action.career')}</li>
+        <li>${t('action.weekly')} ${weakest ? getElemName(weakest) : t('elem.fiveElements')} ${t('action.energy')}</li>
+        <li>${t('action.career')}${t(BaziAnalysis.career(dayStem, tgArr).advice)}${t('action.career2')}</li>
         <li>${t('action.relationship')}</li>
         <li>${t('action.wealth')}</li>
       </ul>
@@ -2961,6 +3005,24 @@ function buildProReport(ctx){
   
   host.innerHTML = html;
 
+  // show the professional box
+  const proBox = $('butlerProfessional');
+  if (proBox) proBox.style.display = 'block';
+}
+
+// 添加缺失的辅助函数
+function countElements(items) {
+  const cnt = {木:0, 火:0, 土:0, 金:0, 水:0};
+  items.forEach(e => { 
+    if (cnt[e] != null) cnt[e] += 1; 
+  });
+  return cnt;
+}
+
+function stemToPinyin(stem){
+  const map = {'甲':'jia','乙':'yi','丙':'bing','丁':'ding','戊':'wu','己':'ji','庚':'geng','辛':'xin','壬':'ren','癸':'gui'};
+  return map[stem] || String(stem).toLowerCase();
+}
   // show the professional box
   const proBox = $('butlerProfessional');
   if (proBox) proBox.style.display = 'block';
