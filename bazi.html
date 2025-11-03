@@ -3505,111 +3505,149 @@ if (document.readyState === 'loading') {
   }
 
   /* ========= PRO REPORT (10 sections) ========= */
-  function buildProReport(ctx){
-    const host = $('professionalReport'); if (!host) return;
-    const { strongest, weakest } = renderBars(ctx); // ensure bars are fresh
-
-    // day master line
-    const dmKey = 'report.dayMaster.'+stemToPinyin(ctx.day.stem);
-    const dmLine = t(dmKey);
-
-    // simple useful-spirit suggestion: prefer weakest (to补缺) + month officer
-    const useful = [weakest];
-
-    // Ten Gods (relative to day stem) for 4 stems
-    const stems = [ctx.year.stem, ctx.month.stem, ctx.day.stem, ctx.hour?.stem].filter(Boolean);
-    const tgArr = calc.tenGods(ctx.day.stem, stems);
-
-    // Near term fortune text (toy logic by month branch)
-    const nearMap = ['steady','upward','focus','study','foundation'];
-    const nearKey = nearMap[(ctx.m % nearMap.length)];
-    const nearText = t('fortune.'+nearKey);
-
-    // Sections
-    const S = {
-      titles: I18N[state.lang]?.reportTitles || I18N['zh-CN'].reportTitles,
-      labels: I18N[state.lang]?.reportLabels || I18N['zh-CN'].reportLabels
-    };
-
-    const hourNote = ctx.timeUnknown ? `<div class="ai-box"><div class="ai-box-h">${t('report.tipTitle')}</div><div class="ai-box-c">${t('report.hourUnknownTip')}</div></div>` : '';
-
-    const html = `
-      ${hourNote}
-      <div class="butler-section">
-        <h4>${S.titles.overview}</h4>
-        <div>${t('reportLabels.dayMaster')}：${ctx.day.stem}${calc.stemElem(ctx.day.stem)}｜${dmLine}</div>
-        <div>${t('reportLabels.strength')}：${t('fortune.steady')}</div>
-      </div>
-
-      <div class="butler-section">
-        <h4>${S.titles.fiveElements}</h4>
-        <div>${t('reportLabels.elementCount')}：木${ctx.eCnt.木} 火${ctx.eCnt.火} 土${ctx.eCnt.土} 金${ctx.eCnt.金} 水${ctx.eCnt.水}</div>
-        <div>${t('ui.balance').replace('{strongest}', I18N[state.lang]?.elemNames?.[strongest]||strongest).replace('{weakest}', I18N[state.lang]?.elemNames?.[weakest]||weakest)}</div>
-        <div>${t('reportLabels.supportElements')}：${ctx.support?.join('、') || '-'}</div>
-        <div>${t('reportLabels.missingElements')}：${ctx.missing?.join('、') || '-'}</div>
-      </div>
-
-      <div class="butler-section">
-        <h4>${S.titles.tenGods}</h4>
-        <div>${t('reportLabels.tenGods')}：${mapTenGodsStr(tgArr.join('、'))}</div>
-      </div>
-
-      <div class="butler-section">
-        <h4>${S.titles.useful}</h4>
-        <div>${t('reportLabels.usefulSpirit')}：${useful.map(e=>I18N[state.lang]?.elemNames?.[e]||e).join('、')}</div>
-      </div>
-
-      <div class="butler-section">
-        <h4>${S.titles.relationship}</h4>
-        <div>${t('report.marriage.default')}</div>
-        <ul class="action-list">
-          <li>${t('reportLabels.relationshipTips')}：${t('action.relationship')}</li>
-        </ul>
-      </div>
-
-      <div class="butler-section">
-        <h4>${S.titles.career}</h4>
-        <div>${t('report.career.steady')}</div>
-        <ul class="action-list">
-          <li>${t('action.career')}</li>
-          <li>${t('action.career2')}</li>
-        </ul>
-      </div>
-
-      <div class="butler-section">
-        <h4>${S.titles.wealth}</h4>
-        <div>${t('wealth.steady')}</div>
-        <ul class="action-list">
-          <li>${t('action.wealth')}</li>
-        </ul>
-      </div>
-
-      <div class="butler-section">
-        <h4>${S.titles.health}</h4>
-        <div>${t('report.health.tips.'+stemToPinyin(ctx.day.stem)) || t('wellness.default')}</div>
-      </div>
-
-      <div class="butler-section">
-        <h4>${S.titles.nearTerm}</h4>
-        <div>${nearText}</div>
-      </div>
-
-      <div class="butler-section">
-        <h4>${S.titles.actions}</h4>
-        <ul class="action-list">
-          <li>${t('action.weekly')} ${t('action.energy')}</li>
-          <li>${t('action.career')}</li>
-          <li>${t('action.relationship')}</li>
-          <li>${t('action.wealth')}</li>
-        </ul>
-      </div>
-    `;
-    host.innerHTML = html;
-
-    // show the professional box
-    const proBox = $('butlerProfessional');
-    if (proBox) proBox.style.display = 'block';
+function buildProReport(ctx){
+  const host = $('professionalReport'); if (!host) return;
+  
+  // 确保我们有必要的上下文数据
+  if (!ctx) {
+    console.error('No context provided for report');
+    return;
   }
+
+  // 计算五行计数的辅助函数（放在buildProReport内部）
+  function countElements(items) {
+    const cnt = {木:0, 火:0, 土:0, 金:0, 水:0};
+    items.forEach(e => { 
+      if (cnt[e] != null) cnt[e] += 1; 
+    });
+    return cnt;
+  }
+  
+  // 计算五行计数
+  const elemList = [
+    ctx.yearElem, ctx.monthElem, ctx.dayElem, ctx.hourElem
+  ].filter(Boolean);
+  const eCnt = countElements(elemList);
+  
+  // 找到最强和最弱的元素
+  const pcts = ctx.pcts || {木:0, 火:0, 土:0, 金:0, 水:0};
+  const entries = Object.entries(pcts).sort((a,b) => b[1] - a[1]);
+  const strongest = entries[0] ? entries[0][0] : '木';
+  const weakest = entries.length > 0 ? entries[entries.length-1][0] : '水';
+
+  // day master line
+  const dmKey = 'report.dayMaster.'+stemToPinyin(ctx.day.stem);
+  const dmLine = t(dmKey);
+
+  // simple useful-spirit suggestion: prefer weakest (to补缺) + month officer
+  const useful = [weakest];
+
+  // Ten Gods (relative to day stem) for 4 stems
+  const stems = [ctx.year.stem, ctx.month.stem, ctx.day.stem, ctx.hour?.stem].filter(Boolean);
+  const tgArr = calc.tenGods(ctx.day.stem, stems);
+
+  // Near term fortune text (toy logic by month branch)
+  const nearMap = ['steady','upward','focus','study','foundation'];
+  const nearKey = nearMap[(ctx.m % nearMap.length)];
+  const nearText = t('fortune.'+nearKey);
+
+  // Sections
+  const S = {
+    titles: I18N[state.lang]?.reportTitles || I18N['zh-CN'].reportTitles,
+    labels: I18N[state.lang]?.reportLabels || I18N['zh-CN'].reportLabels
+  };
+
+  const hourNote = ctx.timeUnknown ? `<div class="ai-box"><div class="ai-box-h">${t('report.tipTitle')}</div><div class="ai-box-c">${t('report.hourUnknownTip')}</div></div>` : '';
+
+  // 辅助函数：获取元素名称
+  function getElemName(elem) {
+    return (I18N[state.lang] && I18N[state.lang].elemNames && I18N[state.lang].elemNames[elem]) || elem;
+  }
+
+  const html = `
+    ${hourNote}
+    <div class="butler-section">
+      <h4>${S.titles.overview}</h4>
+      <div>${t('reportLabels.dayMaster')}：${ctx.day.stem}${calc.stemElem(ctx.day.stem)}｜${dmLine}</div>
+      <div>${t('reportLabels.strength')}：${t('fortune.steady')}</div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.fiveElements}</h4>
+      <div>${t('reportLabels.elementCount')}：木${eCnt.木 || 0} 火${eCnt.火 || 0} 土${eCnt.土 || 0} 金${eCnt.金 || 0} 水${eCnt.水 || 0}</div>
+      <div>${t('ui.balance').replace('{strongest}', getElemName(strongest)).replace('{weakest}', getElemName(weakest))}</div>
+      <div>${t('reportLabels.supportElements')}：${supportElems(ctx.day.stem).join('、') || '-'}</div>
+      <div>${t('reportLabels.missingElements')}：${Object.entries(eCnt).filter(([_,v]) => v === 0).map(([k]) => getElemName(k)).join('、') || '-'}</div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.tenGods}</h4>
+      <div>${t('reportLabels.tenGods')}：${mapTenGodsStr(tgArr.join('、'))}</div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.useful}</h4>
+      <div>${t('reportLabels.usefulSpirit')}：${useful.map(e=>getElemName(e)).join('、')}</div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.relationship}</h4>
+      <div>${t('report.marriage.default')}</div>
+      <ul class="action-list">
+        <li>${t('reportLabels.relationshipTips')}：${t('action.relationship')}</li>
+      </ul>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.career}</h4>
+      <div>${t('report.career.steady')}</div>
+      <ul class="action-list">
+        <li>${t('action.career')}</li>
+        <li>${t('action.career2')}</li>
+      </ul>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.wealth}</h4>
+      <div>${t('wealth.steady')}</div>
+      <ul class="action-list">
+        <li>${t('action.wealth')}</li>
+      </ul>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.health}</h4>
+      <div>${t('report.health.tips.'+stemToPinyin(ctx.day.stem)) || t('wellness.default')}</div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.nearTerm}</h4>
+      <div>${nearText}</div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.actions}</h4>
+      <ul class="action-list">
+        <li>${t('action.weekly')} ${t('action.energy')}</li>
+        <li>${t('action.career')}</li>
+        <li>${t('action.relationship')}</li>
+        <li>${t('action.wealth')}</li>
+      </ul>
+    </div>
+  `;
+  host.innerHTML = html;
+
+  // show the professional box
+  const proBox = $('butlerProfessional');
+  if (proBox) proBox.style.display = 'block';
+}
+
+// 添加缺失的辅助函数
+function supportElems(dm){
+  const map={甲:['水','木'],乙:['水','木'],丙:['木','火'],丁:['木','火'],戊:['火','土'],己:['火','土'],庚:['土','金'],辛:['土','金'],壬:['金','水'],癸:['金','水']};
+  const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+  return (map[dm]||[]).map(x=>names[x]);
+}
 
   /* ========= GENERATE HANDLER ========= */
   function setGenLoading(v){
