@@ -3234,6 +3234,7 @@ if (document.readyState === 'loading') {
 }
 })(); // 这一行闭合开头的 (function () {
 </script>
+  
 <script>
 /* === LANG SWITCH PATCH === */
 (function initLangSwitch(){
@@ -3245,10 +3246,10 @@ if (document.readyState === 'loading') {
   let lang = supported.includes(saved) ? saved : 'zh-CN';
 
   // Allow ?lang=en (optional)
-try{
-  const q = new URLSearchParams(location.search).get('lang');
-  if (q && supported.includes(q)) lang = q;
-}catch(e){}
+  try{
+    const q = new URLSearchParams(location.search).get('lang');
+    if (q && supported.includes(q)) lang = q;
+  }catch(e){} // ✅ 修复：添加参数 e
 
   // Persist + reflect
   window.state = Object.assign({ lang }, (window.state||{}));
@@ -3271,6 +3272,7 @@ try{
   }
 })();
 </script>
+  
 <script>
 (() => {
   'use strict';
@@ -3500,14 +3502,14 @@ try{
     }
   }
 
-  function renderBars(ctx){
-    // element counts from stems + branches (hour optional)
-    const elems = [
-      ctx.yearElem, ctx.monthElem, ctx.dayElem,
-      ctx.hourElem || null,
-      calc.branchElem(ctx.year.branch), calc.branchElem(ctx.month.branch),
-      calc.branchElem(ctx.day.branch), ctx.hour ? calc.branchElem(ctx.hour.branch) : null
-    ].filter(Boolean);
+function renderBars(ctx){
+  // element counts from stems + branches (hour optional)
+  const elems = [
+    ctx.yearElem, ctx.monthElem, ctx.dayElem,
+    ctx.hourElem || null,
+    window.calc.branchElem(ctx.year.branch), window.calc.branchElem(ctx.month.branch), // 改为 window.calc
+    window.calc.branchElem(ctx.day.branch), ctx.hour ? window.calc.branchElem(ctx.hour.branch) : null // 改为 window.calc
+  ].filter(Boolean);
     const cnt = countElements(elems);
     const total = Object.values(cnt).reduce((a,b)=>a+b,0) || 1;
     ['木','火','土','金','水'].forEach(k=>{
@@ -3563,9 +3565,9 @@ function buildProReport(ctx){
   // simple useful-spirit suggestion: prefer weakest (to补缺) + month officer
   const useful = [weakest];
 
-  // Ten Gods (relative to day stem) for 4 stems
-  const stems = [ctx.year.stem, ctx.month.stem, ctx.day.stem, ctx.hour?.stem].filter(Boolean);
-  const tgArr = calc.tenGods(ctx.day.stem, stems);
+// Ten Gods (relative to day stem) for 4 stems
+const stems = [ctx.year.stem, ctx.month.stem, ctx.day.stem, ctx.hour?.stem].filter(Boolean);
+const tgArr = window.calc.tenGods(ctx.day.stem, stems); // 改为 window.calc
 
   // Near term fortune text (toy logic by month branch)
   const nearMap = ['steady','upward','focus','study','foundation'];
@@ -3589,7 +3591,7 @@ function buildProReport(ctx){
     ${hourNote}
     <div class="butler-section">
       <h4>${S.titles.overview}</h4>
-      <div>${t('reportLabels.dayMaster')}：${ctx.day.stem}${calc.stemElem(ctx.day.stem)}｜${dmLine}</div>
+      <div>${t('reportLabels.dayMaster')}：${ctx.day.stem}${window.calc.stemElem(ctx.day.stem)}｜${dmLine}</div> // 改为 window.calc
       <div>${t('reportLabels.strength')}：${t('fortune.steady')}</div>
     </div>
 
@@ -3683,6 +3685,7 @@ function supportElems(dm){
     box.style.display = 'block';
     setTimeout(()=>{ box.style.display='none'; }, 4000);
   }
+  
 function handleGenerate(){
   const birth = $('birthdate')?.value?.trim();
   if (!birth) return showErr(t('err.fillBirthdate'));
@@ -3699,22 +3702,22 @@ function handleGenerate(){
 
   setGenLoading(true);
   try{
-    // pillars
-    const year = calc.yearPillar(y);
-    const month = calc.monthPillar(y, mo, d);
-    const day = calc.dayPillar(y, mo, d);
-    const hour = timeUnknown ? null : calc.hourPillar(day.stem, hh);
+    // pillars - 全部改为 window.calc
+    const year = window.calc.yearPillar(y);
+    const month = window.calc.monthPillar(y, mo, d);
+    const day = window.calc.dayPillar(y, mo, d);
+    const hour = timeUnknown ? null : window.calc.hourPillar(day.stem, hh);
 
-    // elements + nayin
-    const yearElem = calc.stemElem(year.stem);
-    const monthElem = calc.stemElem(month.stem);
-    const dayElem = calc.stemElem(day.stem);
-    const hourElem = hour ? calc.stemElem(hour.stem) : null;
+    // elements + nayin - 全部改为 window.calc
+    const yearElem = window.calc.stemElem(year.stem);
+    const monthElem = window.calc.stemElem(month.stem);
+    const dayElem = window.calc.stemElem(day.stem);
+    const hourElem = hour ? window.calc.stemElem(hour.stem) : null;
 
-    const yearNayin = calc.nayin(year.stem, year.branch);
-    const monthNayin = calc.nayin(month.stem, month.branch);
-    const dayNayin = calc.nayin(day.stem, day.branch);
-    const hourNayin = hour ? calc.nayin(hour.stem, hour.branch) : null;
+    const yearNayin = window.calc.nayin(year.stem, year.branch);
+    const monthNayin = window.calc.nayin(month.stem, month.branch);
+    const dayNayin = window.calc.nayin(day.stem, day.branch);
+    const hourNayin = hour ? window.calc.nayin(hour.stem, hour.branch) : null;
 
     const ctx = {
       y, m: mo, d,
