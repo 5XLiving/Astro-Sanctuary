@@ -3019,74 +3019,82 @@ function buildProReport(ctx){
   if (proBox) proBox.style.display = 'block';
 }
 
-  /* =========================
-   * MAIN GENERATE
-   * ========================= */
-  function generate(){
-    const birth = ($('birthdate')?.value||'').trim();
-    if(!birth) return showErr(t('err.fillBirthdate'));
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return showErr(t('err.invalidDate'));
-    const [Y,M,D]=birth.split('-').map(n=>parseInt(n,10));
-    const unknown = $('timeUnknown')?.checked;
-    const timeVal = $('birthtime')?.value || '00:00';
-    const [hhStr, mmStr] = timeVal.split(':');
-    const hh = parseInt((hhStr||'0'),10) || 0;
+/* =========================
+ * MAIN GENERATE
+ * ========================= */
+function generate(){
+  const birth = ($('birthdate')?.value||'').trim();
+  if(!birth) return showErr(t('err.fillBirthdate'));
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return showErr(t('err.invalidDate'));
+  const [Y,M,D]=birth.split('-').map(n=>parseInt(n,10));
+  const unknown = $('timeUnknown')?.checked;
+  const timeVal = $('birthtime')?.value || '00:00';
+  const [hhStr, mmStr] = timeVal.split(':');
+  const hh = parseInt((hhStr||'0'),10) || 0;
 
-    setGenLoading(true);
-    try{
-      const y = calc.yearPillar(Y);
-      const m = calc.monthPillar(Y,M,D);
-      const d = calc.dayPillar(Y,M,D);
-      const h = unknown ? {stem:'-',branch:'-'} : calc.hourPillar(d.stem, hh);
+  setGenLoading(true);
+  try{
+    const y = calc.yearPillar(Y);
+    const m = calc.monthPillar(Y,M,D);
+    const d = calc.dayPillar(Y,M,D);
+    const h = unknown ? {stem:'-',branch:'-'} : calc.hourPillar(d.stem, hh);
 
-      // Top tiles
-      const labels=[y.stem+y.branch, m.stem+m.branch, d.stem+d.branch, unknown? (t('badge.noHour')||'-') : (h.stem+h.branch)];
-      renderPillars(labels);
+    // Top tiles
+    const labels=[y.stem+y.branch, m.stem+m.branch, d.stem+d.branch, unknown? (t('badge.noHour')||'-') : (h.stem+h.branch)];
+    renderPillars(labels);
 
-      // Table data (localized element names)
-      const stems=[y.stem,m.stem,d.stem, unknown? '-' : h.stem];
-      const branch=[y.branch,m.branch,d.branch, unknown? '-' : h.branch];
-      const elemMap = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
-      const rawElems=[calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem), unknown? '-' : calc.stemElem(h.stem)];
-      const elements = rawElems.map(e => elemMap[e] || e);
-      const nayin=[calc.nayin(y.stem,y.branch),calc.nayin(m.stem,m.branch),calc.nayin(d.stem,d.branch), unknown? '-' : calc.nayin(h.stem,h.branch)];
-      renderTable({stem:stems,branch:branch,element:elements,nayin});
+    // Table data (localized element names)
+    const stems=[y.stem,m.stem,d.stem, unknown? '-' : h.stem];
+    const branch=[y.branch,m.branch,d.branch, unknown? '-' : h.branch];
+    const elemMap = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+    const rawElems=[calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem), unknown? '-' : calc.stemElem(h.stem)];
+    const elements = rawElems.map(e => elemMap[e] || e);
+    const nayin=[calc.nayin(y.stem,y.branch),calc.nayin(m.stem,m.branch),calc.nayin(d.stem,d.branch), unknown? '-' : calc.nayin(h.stem,h.branch)];
+    renderTable({stem:stems,branch:branch,element:elements,nayin});
 
-      // Element weights (stems + branches)
-      const allElems = [calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem)]
-        .concat(unknown?[]:[calc.stemElem(h.stem)])
-        .concat([calc.branchElem(y.branch),calc.branchElem(m.branch),calc.branchElem(d.branch)])
-        .concat(unknown?[]:[calc.branchElem(h.branch)]);
-      const counts = {木:0,火:0,土:0,金:0,水:0};
-      allElems.forEach(e=>{ if(counts[e]!=null) counts[e]++; });
-      const total = Object.values(counts).reduce((a,b)=>a+b,0)||1;
-      const pcts = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, 100*v/total]));
-      renderBars(pcts);
+// Element weights (stems + branches)
+const allElems = [calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem)]
+  .concat(unknown?[]:[calc.stemElem(h.stem)])
+  .concat([calc.branchElem(y.branch),calc.branchElem(m.branch),calc.branchElem(d.branch)])
+  .concat(unknown?[]:[calc.branchElem(h.branch)]);
+const counts = {木:0,火:0,土:0,金:0,水:0};
+allElems.forEach(e=>{ if(counts[e]!=null) counts[e]++; });
+const total = Object.values(counts).reduce((a,b)=>a+b,0)||1;
+const pcts = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, 100*v/total]));
 
-      // Date summary
-      const timeText = unknown ? (t('ui.timeUnknown')||'') : (t('ui.hourSuffix')||'{hh}:{mm}')
-        .replace('{hh}', String(hh).padStart(2,'0'))
-        .replace('{mm}', String(parseInt(mmStr||'0',10)||0).padStart(2,'0'));
-      const btxt = (t('ui.birthSummary')||'')
-        .replace('{y}',Y)
-        .replace('{m}',M)
-        .replace('{d}',D)
-        .replace('{timeText}', timeText);
-      const bd=$('bazi-date'); if (bd) bd.textContent = btxt;
+// ✅ 修改这一行，传递对象参数并接收返回值
+const renderResult = renderBars({pcts: pcts});
+    
+    // Ten Gods & report      
+    const tg = calc.tenGods(d.stem, stems);
+    const ctx = { 
+      pcts: renderResult || pcts, // 使用 renderBars 返回的 pcts 或默认的 pcts
+      dayStem: d.stem, 
+      tenGods: tg, 
+      unknown,
+      year: y,
+      month: m, 
+      day: d,
+      hour: h,
+      yearElem: calc.stemElem(y.stem),
+      monthElem: calc.stemElem(m.stem),
+      dayElem: calc.stemElem(d.stem),
+      hourElem: h && h.stem !== '-' ? calc.stemElem(h.stem) : null,
+      m: M, // 月份
+      y: Y, // 年份
+      d: D, // 日期
+      counts: counts // 添加 counts 用于五行计数
+    };
 
-      // Ten Gods & report
-      const tg = calc.tenGods(d.stem, stems);
-      const ctx = { pcts, dayStem: d.stem, tenGods: tg, unknown };
-      buildProReport(ctx);
-
-      showResult();
-    }catch(e){
-      console.error(e);
-      showErr(t('err.generateFail'));
-    }finally{
-      setGenLoading(false);
-    }
+    buildProReport(ctx);
+    showResult();
+  }catch(e){
+    console.error(e);
+    showErr(t('err.generateFail'));
+  }finally{
+    setGenLoading(false);
   }
+}
 
   /* =========================
    * CHAT FLOAT (local echo)
