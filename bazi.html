@@ -2823,104 +2823,129 @@ function renderTable(data){
     return Object.keys(map).reduce((acc,k)=> acc.replaceAll(k, map[k]), s);
   }
 
-  /* =========================
-   * PRO REPORT (10 sections)
-   * ========================= */
+/* ========= PRO REPORT (10 sections) - FIXED ========= */
 function buildProReport(ctx){
-  lastCtx = ctx;
-  const {pcts = {}, dayStem = '', tenGods = [], unknown=false} = ctx || {};
-  const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
-  const sortedElems = Object.entries({木:pcts.木||0,火:pcts.火||0,土:pcts.土||0,金:pcts.金||0,水:pcts.水||0}).sort((a,b)=>b[1]-a[1]);
-  const strongest = sortedElems[0]?.[0];
-  const weakest = sortedElems.at(-1)?.[0] || strongest;
-  const elemLine = (t('ui.balance') || '{strongest} 最旺，{weakest} 偏弱。')
-    .replace('{strongest}', strongest ? mapName[strongest] : '-')
-    .replace('{weakest}', weakest ? mapName[weakest] : '-');
+  const host = $('professionalReport'); if (!host) return;
+  
+  // Safely extract day stem with fallback
+  const dayStem = (ctx && ctx.day && ctx.day.stem) || (ctx && ctx.dayStem) || '-';
+  
+  // Ensure we have element counts
+  const elemList = [
+    ctx.yearElem, ctx.monthElem, ctx.dayElem, ctx.hourElem
+  ].filter(Boolean);
+  const eCnt = countElements(elemList);
+  
+  const { strongest, weakest } = renderBars(ctx);
 
-  const relation = BaziAnalysis.relation(dayStem);
-  const career = BaziAnalysis.career(dayStem, tenGods);
-  const wealthDirs = i18nDirs(BaziAnalysis.wealthDirs(dayStem));
-  const useful = computeUseful(dayStem, pcts);
+  // day master line with safe access
+  const dmKey = 'report.dayMaster.' + stemToPinyin(dayStem);
+  const dmLine = t(dmKey) || `${dayStem}${calc.stemElem(dayStem)}`;
 
-  const tip = unknown ? `
-    <div class="ai-box">
-      <div class="ai-box-h">${t('report.tipTitle')}</div>
-      <div class="ai-box-c">${t('report.hourUnknownTip')}</div>
-    </div>` : '';
+  // useful-spirit suggestion
+  const useful = [weakest].filter(Boolean);
+
+  // Ten Gods with safe access
+  const stems = [
+    (ctx.year && ctx.year.stem) || '-', 
+    (ctx.month && ctx.month.stem) || '-', 
+    dayStem, 
+    (ctx.hour && ctx.hour.stem) || '-'
+  ].filter(s => s !== '-');
+  
+  const tgArr = stems.length > 0 ? calc.tenGods(dayStem, stems) : ['-'];
+
+  // Near term fortune
+  const nearMap = ['steady','upward','focus','study','foundation'];
+  const nearKey = nearMap[((ctx.m || 1) % nearMap.length)];
+  const nearText = t('fortune.' + nearKey) || t('fortune.steady');
+
+  const S = {
+    titles: (I18N[state.lang] && I18N[state.lang].reportTitles) || (I18N['zh-CN'] && I18N['zh-CN'].reportTitles) || {},
+    labels: (I18N[state.lang] && I18N[state.lang].reportLabels) || (I18N['zh-CN'] && I18N['zh-CN'].reportLabels) || {}
+  };
+
+  const hourNote = (ctx && ctx.timeUnknown) ? 
+    `<div class="ai-box"><div class="ai-box-h">${t('report.tipTitle')}</div><div class="ai-box-c">${t('report.hourUnknownTip')}</div></div>` : '';
 
   const html = `
-    ${tip}
+    ${hourNote}
     <div class="butler-section">
-      <h4>${t('reportTitles.overview')}</h4>
-      <div>${t('reportLabels.dayMaster')}：${labelStem(ctx.day.stem)}｜${dmLine}</div>
-      <div>${t('reportLabels.elementCount')}：${['木','火','土','金','水'].map(k => mapName[k] + ' ' + pctTxt(k)).join('｜')}</div>
+      <h4>${S.titles.overview || '📊 Overview'}</h4>
+      <div>${S.labels.dayMaster || 'Day Master'}：${dmLine}</div>
+      <div>${S.labels.strength || 'Strength'}：${t('fortune.steady')}</div>
     </div>
 
     <div class="butler-section">
-      <h4>${t('reportTitles.fiveElements')}</h4>
-      <div>${elemLine}</div>
-      <div>${t('reportLabels.elementStrength')}：${Object.entries(pcts).map(([k,v])=>mapName[k]+Math.round(v)+'%').join('，')}</div>
-      <div>${t('reportLabels.missingElements')}：${Object.entries(pcts).filter(([_,v])=>v===0).map(([k])=>mapName[k]).join('、') || '—'}</div>
+      <h4>${S.titles.fiveElements || '🌿 Five Elements'}</h4>
+      <div>${S.labels.elementCount || 'Element Count'}：木${eCnt.木 || 0} 火${eCnt.火 || 0} 土${eCnt.土 || 0} 金${eCnt.金 || 0} 水${eCnt.水 || 0}</div>
+      <div>${(t('ui.balance') || 'Balance: {strongest} strongest, {weakest} weakest')
+        .replace('{strongest}', (I18N[state.lang] && I18N[state.lang].elemNames && I18N[state.lang].elemNames[strongest]) || strongest || '-')
+        .replace('{weakest}', (I18N[state.lang] && I18N[state.lang].elemNames && I18N[state.lang].elemNames[weakest]) || weakest || '-')}</div>
     </div>
 
     <div class="butler-section">
-      <h4>${t('reportTitles.tenGods')}</h4>
-      <div>（${t('pillar.year')}/${t('pillar.month')}/${t('pillar.day')}/${t('pillar.hour')}）${t('reportLabels.tenGods') || '十神'}：${tenGods.join(' / ')}</div>
+      <h4>${S.titles.tenGods || '⚡ Ten Gods'}</h4>
+      <div>${S.labels.tenGods || 'Ten Gods'}：${mapTenGodsStr(tgArr.join('、'))}</div>
     </div>
 
     <div class="butler-section">
-      <h4>${t('reportTitles.useful')}</h4>
-      <div>${t('reportLabels.usefulSpirit')}：${useful.join('、')}</div>
-      <div>${t('reportLabels.supportElements')}：${supportElems(dayStem).join('、') || '—'}</div>
-      <div>${t('reportLabels.restrainElements')}：${restrainElems(dayStem).join('、') || '—'}</div>
+      <h4>${S.titles.useful || '🔑 Useful Spirit'}</h4>
+      <div>${S.labels.usefulSpirit || 'Useful Spirit'}：${useful.map(e => (I18N[state.lang] && I18N[state.lang].elemNames && I18N[state.lang].elemNames[e]) || e).join('、') || '-'}</div>
     </div>
 
     <div class="butler-section">
-      <h4>${t('reportTitles.relationship')}</h4>
-      <div>${t('reportLabels.traits')}：${relation.traits}</div>
-      <div>${t('reportLabels.marriageAdvice')}：${BaziAnalysis.marriageAdvice(tenGods)}</div>
-      <div>${t('reportLabels.relationshipTips')}：${relation.tips}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.career')}</h4>
-      <div>${t('reportLabels.suitableCareers')}：${career.suitable}</div>
-      <div>${t('reportLabels.careerAdvice')}：${career.advice}</div>
-      <div>${t('reportLabels.favorableDirections')}：${wealthDirs}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.wealth')}</h4>
-      <div>${t('reportLabels.wealthCharacteristics')}：${wealthTrait(tenGods)}</div>
-      <div>${t('reportLabels.wealthDirections')}：${wealthDirs}</div>
-      <div>${t('reportLabels.financialAdvice')}：${BaziAnalysis.financeAdvice(tenGods)}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.health')}</h4>
-      <div>${t('reportLabels.healthCharacteristics')}：${BaziAnalysis.health(dayStem)}</div>
-      <div>${t('reportLabels.healthTips')}：${t('report.health.tips.'+stemToPinyin(dayStem))}</div>
-      <div>${t('reportLabels.wellnessAdvice')}：${t('report.wellness.default') || '规律作息、适量运动、情绪稳定、少熬夜'}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.nearTerm')}</h4>
-      <div>${t('reportLabels.overallFortune')}：${nearTermOverall(strongest, weakest)}</div>
-      <div>${t('reportLabels.favorableTiming')}：${strongest?`逢${mapName[strongest]}${t('elem.month') || '月'}（${t('report.sameQi') || '同气'}）`:'—'}${weakest?`，或${mapName[weakest]}${t('elem.month') || '月'}（${t('report.complement') || '补缺'}）`:''}${t('report.layout') || '布局'}</div>
-      <div>${t('reportLabels.cautions')}：${t('report.cautions.default') || '避开情绪决策，控制支出'}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.actions')}</h4>
+      <h4>${S.titles.relationship || '💕 Relationships'}</h4>
+      <div>${t('report.marriage.default')}</div>
       <ul class="action-list">
-        <li>${t('report.action.weekly') || '每周至少一次'}${weakest?mapName[weakest]:t('elem.fiveElements') || '五行'}${t('report.action.energy') || '元素的"补能"行动（环境、食物、颜色、方向）。'}</li>
-        <li>${t('report.action.career') || '职业：依据"'}${career.advice||'—'}${t('report.action.career2') || '"细化下月行动清单（学习/项目/人脉）。'}</li>
-        <li>${t('report.action.relationship') || '感情：本周安排一次高质量沟通（30分钟），聚焦彼此需求。'}</li>
-        <li>${t('report.action.wealth') || '财富：设立"风险阈值"，偏财机会严格止盈。'}</li>
+        <li>${t('action.relationship')}</li>
+      </ul>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.career || '💼 Career'}</h4>
+      <div>${t('report.career.steady')}</div>
+      <ul class="action-list">
+        <li>${t('action.career')}</li>
+        <li>${t('action.career2')}</li>
+      </ul>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.wealth || '💰 Wealth'}</h4>
+      <div>${t('wealth.steady')}</div>
+      <ul class="action-list">
+        <li>${t('action.wealth')}</li>
+      </ul>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.health || '🌡️ Health'}</h4>
+      <div>${t('report.health.tips.' + stemToPinyin(dayStem)) || t('wellness.default')}</div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.nearTerm || '🔮 Near-term'}</h4>
+      <div>${nearText}</div>
+    </div>
+
+    <div class="butler-section">
+      <h4>${S.titles.actions || '📝 Actions'}</h4>
+      <ul class="action-list">
+        <li>${t('action.weekly')} ${t('action.energy')}</li>
+        <li>${t('action.career')}</li>
+        <li>${t('action.relationship')}</li>
+        <li>${t('action.wealth')}</li>
       </ul>
     </div>
   `;
-  const box = $('professionalReport'); if (box) box.innerHTML = html;
+  
+  host.innerHTML = html;
+
+  // show the professional box
+  const proBox = $('butlerProfessional');
+  if (proBox) proBox.style.display = 'block';
+}
 
   function pctTxt(e){ return Math.round(pcts[e]||0)+'%'; }
   function wealthTrait(ten){
@@ -3567,72 +3592,62 @@ if (document.readyState === 'loading') {
     box.style.display = 'block';
     setTimeout(()=>{ box.style.display='none'; }, 4000);
   }
-  function handleGenerate(){
-    const birth = $('birthdate')?.value?.trim();
-    if (!birth) return showErr(t('err.fillBirthdate'));
-    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birth);
-    if (!m) return showErr(t('err.invalidDate'));
-    const y = +m[1], mo = +m[2], d = +m[3];
+function handleGenerate(){
+  const birth = $('birthdate')?.value?.trim();
+  if (!birth) return showErr(t('err.fillBirthdate'));
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(birth);
+  if (!m) return showErr(t('err.invalidDate'));
+  const y = +m[1], mo = +m[2], d = +m[3];
 
-    const timeUnknown = !!$('timeUnknown')?.checked;
-    const timeVal = $('birthtime')?.value || '00:00';
-    let hh = 0, mm = 0;
-    if (!timeUnknown && /^\d{2}:\d{2}$/.test(timeVal)){
-      const tt = timeVal.split(':'); hh = +tt[0]; mm = +tt[1];
-    }
-
-    setGenLoading(true);
-    try{
-      // pillars
-      const year = calc.yearPillar(y);
-      const month = calc.monthPillar(y, mo, d);
-      const day = calc.dayPillar(y, mo, d);
-      const hour = timeUnknown ? null : calc.hourPillar(day.stem, hh);
-
-      // elements + nayin
-      const yearElem = calc.stemElem(year.stem);
-      const monthElem = calc.stemElem(month.stem);
-      const dayElem = calc.stemElem(day.stem);
-      const hourElem = hour ? calc.stemElem(hour.stem) : null;
-
-      const yearNayin = calc.nayin(year.stem, year.branch);
-      const monthNayin = calc.nayin(month.stem, month.branch);
-      const dayNayin = calc.nayin(day.stem, day.branch);
-      const hourNayin = hour ? calc.nayin(hour.stem, hour.branch) : null;
-
-      const ctx = {
-        y, m:mo, d,
-        hh, mm, timeUnknown,
-        year, month, day, hour,
-        yearElem, monthElem, dayElem, hourElem,
-        yearNayin, monthNayin, dayNayin, hourNayin
-      };
-
-      // element counts for overview
-      const elemList = [yearElem, monthElem, dayElem, hourElem].filter(Boolean);
-      const eCnt = countElements(elemList);
-      ctx.eCnt = eCnt;
-
-      // support/missing (very simple heuristics)
-      const missing = Object.entries(eCnt).filter(([k,v])=>v===0).map(([k])=>k);
-      ctx.missing = missing;
-      const support = Object.entries(eCnt).filter(([k,v])=>v>0).sort((a,b)=>b[1]-a[1]).map(([k])=>k).slice(0,2);
-      ctx.support = support;
-
-      window.lastCtx = ctx;
-
-      // show result
-      const result = $('result'); if (result) result.style.display = 'block';
-      renderPillars(ctx);
-      renderBars(ctx);
-      buildProReport(ctx);
-    }catch(e){
-      console.error(e);
-      showErr(t('err.generateFail'));
-    }finally{
-      setGenLoading(false);
-    }
+  const timeUnknown = !!$('timeUnknown')?.checked;
+  const timeVal = $('birthtime')?.value || '00:00';
+  let hh = 0, mm = 0;
+  if (!timeUnknown && /^\d{2}:\d{2}$/.test(timeVal)){
+    const tt = timeVal.split(':'); hh = +tt[0]; mm = +tt[1];
   }
+
+  setGenLoading(true);
+  try{
+    // pillars
+    const year = calc.yearPillar(y);
+    const month = calc.monthPillar(y, mo, d);
+    const day = calc.dayPillar(y, mo, d);
+    const hour = timeUnknown ? null : calc.hourPillar(day.stem, hh);
+
+    // elements + nayin
+    const yearElem = calc.stemElem(year.stem);
+    const monthElem = calc.stemElem(month.stem);
+    const dayElem = calc.stemElem(day.stem);
+    const hourElem = hour ? calc.stemElem(hour.stem) : null;
+
+    const yearNayin = calc.nayin(year.stem, year.branch);
+    const monthNayin = calc.nayin(month.stem, month.branch);
+    const dayNayin = calc.nayin(day.stem, day.branch);
+    const hourNayin = hour ? calc.nayin(hour.stem, hour.branch) : null;
+
+    const ctx = {
+      y, m: mo, d,
+      hh, mm, timeUnknown,
+      year, month, day, hour,
+      yearElem, monthElem, dayElem, hourElem,
+      yearNayin, monthNayin, dayNayin, hourNayin,
+      dayStem: day.stem // Ensure dayStem is available
+    };
+
+    window.lastCtx = ctx;
+
+    // show result
+    const result = $('result'); if (result) result.style.display = 'block';
+    renderPillars(ctx);
+    renderBars(ctx);
+    buildProReport(ctx);
+  }catch(e){
+    console.error(e);
+    showErr(t('err.generateFail'));
+  }finally{
+    setGenLoading(false);
+  }
+}
 
   /* ========= CHAT FLOAT ========= */
   function pushMsg(html, from='user'){
