@@ -2833,17 +2833,7 @@ function renderTable(data){
 
 /* ========= PRO REPORT (10 sections) - FIXED ========= */
 function buildProReport(ctx){
-  const host = $('professionalReport'); 
-  if (!host) return;
-  
-  // 添加 countElements 函数定义
-  function countElements(items) {
-    const cnt = {木:0, 火:0, 土:0, 金:0, 水:0};
-    items.forEach(e => { 
-      if (cnt[e] != null) cnt[e] += 1; 
-    });
-    return cnt;
-  }
+  const host = $('professionalReport'); if (!host) return;
   
   // 确保我们有必要的上下文数据
   if (!ctx) {
@@ -2857,20 +2847,27 @@ function buildProReport(ctx){
   const tenGods = ctx.tenGods || [];
   const unknown = ctx.unknown || false;
   
-  // 计算五行计数
-  const elemList = [
-    ctx.yearElem, ctx.monthElem, ctx.dayElem, ctx.hourElem
+  // 计算五行计数（使用与 renderBars 相同的逻辑）
+  const allElems = [
+    ctx.yearElem, ctx.monthElem, ctx.dayElem, ctx.hourElem,
+    window.calc.branchElem(ctx.year.branch),
+    window.calc.branchElem(ctx.month.branch), 
+    window.calc.branchElem(ctx.day.branch),
+    ctx.hour ? window.calc.branchElem(ctx.hour.branch) : null
   ].filter(Boolean);
-  const eCnt = countElements(elemList); // ✅ 现在这个函数已定义
   
-  // 找到最强和最弱的元素
-  const entries = Object.entries(pcts).sort((a,b) => b[1] - a[1]);
+  const eCnt = countElements(allElems);
+  
+  // 找到最强和最弱的元素（使用五行计数而不是百分比）
+  const entries = Object.entries(eCnt).sort((a,b) => b[1] - a[1]);
   const strongest = entries[0] ? entries[0][0] : '木';
-  const weakest = entries.length > 0 ? entries[entries.length-1][0] : '水';
+  const weakest = entries.length > 0 ? 
+    Object.entries(eCnt).filter(([_,v]) => v === 0).map(([k]) => k)[0] || entries[entries.length-1][0] 
+    : '水';
 
   // day master line with safe access
   const dmKey = 'report.dayMaster.' + stemToPinyin(dayStem);
-  const dmLine = t(dmKey) || `${dayStem}${calc.stemElem(dayStem)}`;
+  const dmLine = t(dmKey) || `${dayStem}${window.calc.stemElem(dayStem)}`;
 
   // useful-spirit suggestion
   const useful = [weakest].filter(Boolean);
@@ -2883,7 +2880,7 @@ function buildProReport(ctx){
     (ctx.hour && ctx.hour.stem) || '-'
   ].filter(s => s !== '-');
   
-  const tgArr = stems.length > 0 ? calc.tenGods(dayStem, stems) : ['-'];
+  const tgArr = stems.length > 0 ? window.calc.tenGods(dayStem, stems) : ['-'];
 
   // Near term fortune
   const nearMap = ['steady','upward','focus','study','foundation'];
