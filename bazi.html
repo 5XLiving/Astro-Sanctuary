@@ -2701,11 +2701,6 @@ function setLang(lang){
   /* =========================
    * ANALYSIS HELPERS
    * ========================= */
-  function countElements(items){
-  const cnt = {木:0,火:0,土:0,金:0,水:0};
-  items.forEach(e => { if (cnt[e] != null) cnt[e] += 1; });
-  return cnt;
-}
   function stemToPinyin(stem){
     const map = {'甲':'jia','乙':'yi','丙':'bing','丁':'ding','戊':'wu','己':'ji','庚':'geng','辛':'xin','壬':'ren','癸':'gui'};
     return map[stem] || String(stem).toLowerCase();
@@ -2834,6 +2829,15 @@ function buildProReport(ctx){
   const host = $('professionalReport'); 
   if (!host) return;
   
+  // 添加 countElements 函数定义
+  function countElements(items) {
+    const cnt = {木:0, 火:0, 土:0, 金:0, 水:0};
+    items.forEach(e => { 
+      if (cnt[e] != null) cnt[e] += 1; 
+    });
+    return cnt;
+  }
+  
   // 确保我们有必要的上下文数据
   if (!ctx) {
     console.error('No context provided for report');
@@ -2850,16 +2854,16 @@ function buildProReport(ctx){
   const elemList = [
     ctx.yearElem, ctx.monthElem, ctx.dayElem, ctx.hourElem
   ].filter(Boolean);
-  const eCnt = countElements(elemList);
+  const eCnt = countElements(elemList); // ✅ 现在这个函数已定义
   
   // 找到最强和最弱的元素
   const entries = Object.entries(pcts).sort((a,b) => b[1] - a[1]);
   const strongest = entries[0] ? entries[0][0] : '木';
   const weakest = entries.length > 0 ? entries[entries.length-1][0] : '水';
 
-  // day master line with safe access - FIXED THIS LINE
+  // day master line with safe access
   const dmKey = 'report.dayMaster.' + stemToPinyin(dayStem);
-  const dmLine = t(dmKey) || `${dayStem}${calc.stemElem(dayStem)}`; // 添加了默认值
+  const dmLine = t(dmKey) || `${dayStem}${calc.stemElem(dayStem)}`;
 
   // useful-spirit suggestion
   const useful = [weakest].filter(Boolean);
@@ -2876,7 +2880,7 @@ function buildProReport(ctx){
 
   // Near term fortune
   const nearMap = ['steady','upward','focus','study','foundation'];
-  const nearKey = nearMap[Math.floor(Math.random() * nearMap.length)];
+  const nearKey = nearMap[Math.floor(Math.random() * nearMap.length)]; // 随机选择一个
   const nearText = t('fortune.' + nearKey) || t('fortune.steady');
 
   // 获取翻译
@@ -3670,7 +3674,19 @@ function supportElems(dm){
 }
 
 /* ========= GENERATE HANDLER ========= */
-
+function setGenLoading(v){
+  const btn=$('genBtn'), txt=$('genBtnText'), ld=$('genBtnLoading');
+  if (btn) btn.disabled = !!v;
+  if (txt) txt.style.display = v ? 'none' : 'inline';
+  if (ld) ld.style.display = v ? 'inline' : 'none';
+}
+function showErr(msg){
+  const box=$('error'); if (!box) return;
+  box.textContent = msg || t('err.generateFail');
+  box.style.display = 'block';
+  setTimeout(()=>{ box.style.display='none'; }, 4000);
+}
+  
 function handleGenerate(){
   const birth = $('birthdate')?.value?.trim();
   if (!birth) return showErr(t('err.fillBirthdate'));
