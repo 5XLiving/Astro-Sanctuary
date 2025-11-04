@@ -15,7 +15,7 @@
     /* 保持你的原有样式，并修复/补全少量细节 */
 :root{
   --bg:#0b0f14;
-  --bg-accent:#0e1520; 
+  --bg-accent:#0e1520;
   --card:#11161dcc;
   --surface:#0f1624;
   --line:#1f2a36;
@@ -2829,15 +2829,6 @@ function buildProReport(ctx){
   const host = $('professionalReport'); 
   if (!host) return;
   
-  // 添加 countElements 函数定义
-  function countElements(items) {
-    const cnt = {木:0, 火:0, 土:0, 金:0, 水:0};
-    items.forEach(e => { 
-      if (cnt[e] != null) cnt[e] += 1; 
-    });
-    return cnt;
-  }
-  
   // 确保我们有必要的上下文数据
   if (!ctx) {
     console.error('No context provided for report');
@@ -2854,7 +2845,7 @@ function buildProReport(ctx){
   const elemList = [
     ctx.yearElem, ctx.monthElem, ctx.dayElem, ctx.hourElem
   ].filter(Boolean);
-  const eCnt = countElements(elemList); // ✅ 现在这个函数已定义
+  const eCnt = countElements(elemList);
   
   // 找到最强和最弱的元素
   const entries = Object.entries(pcts).sort((a,b) => b[1] - a[1]);
@@ -3020,86 +3011,143 @@ function buildProReport(ctx){
   if (proBox) proBox.style.display = 'block';
 }
 
-/* =========================
- * MAIN GENERATE
- * ========================= */
-function generate(){
-  const birth = ($('birthdate')?.value||'').trim();
-  if(!birth) return showErr(t('err.fillBirthdate'));
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return showErr(t('err.invalidDate'));
-  const [Y,M,D]=birth.split('-').map(n=>parseInt(n,10));
-  const unknown = $('timeUnknown')?.checked;
-  const timeVal = $('birthtime')?.value || '00:00';
-  const [hhStr, mmStr] = timeVal.split(':');
-  const hh = parseInt((hhStr||'0'),10) || 0;
+// 添加缺失的辅助函数
+function countElements(items) {
+  const cnt = {木:0, 火:0, 土:0, 金:0, 水:0};
+  items.forEach(e => { 
+    if (cnt[e] != null) cnt[e] += 1; 
+  });
+  return cnt;
+}
 
-  setGenLoading(true);
-  try{
-    const y = window.calc.yearPillar(Y);
-    const m = window.calc.monthPillar(Y,M,D);
-    const d = window.calc.dayPillar(Y,M,D);
-    const h = unknown ? {stem:'-',branch:'-'} : window.calc.hourPillar(d.stem, hh);
+function stemToPinyin(stem){
+  const map = {'甲':'jia','乙':'yi','丙':'bing','丁':'ding','戊':'wu','己':'ji','庚':'geng','辛':'xin','壬':'ren','癸':'gui'};
+  return map[stem] || String(stem).toLowerCase();
+}
+  // show the professional box
+  const proBox = $('butlerProfessional');
+  if (proBox) proBox.style.display = 'block';
+}
 
-    // Top tiles
-    const labels=[y.stem+y.branch, m.stem+m.branch, d.stem+d.branch, unknown? (t('badge.noHour')||'-') : (h.stem+h.branch)];
-    renderPillars(labels);
+// 添加缺失的辅助函数
+function countElements(items) {
+  const cnt = {木:0, 火:0, 土:0, 金:0, 水:0};
+  items.forEach(e => { 
+    if (cnt[e] != null) cnt[e] += 1; 
+  });
+  return cnt;
+}
 
-// Table data (localized element names)
-const stems=[y.stem,m.stem,d.stem, unknown? '-' : h.stem];
-const branch=[y.branch,m.branch,d.branch, unknown? '-' : h.branch];
-const elemMap = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
-const rawElems=[window.calc.stemElem(y.stem),window.calc.stemElem(m.stem),window.calc.stemElem(d.stem), unknown? '-' : window.calc.stemElem(h.stem)];
-const elements = rawElems.map(e => elemMap[e] || e);
-const nayin=[window.calc.nayin(y.stem,y.branch),window.calc.nayin(m.stem,m.branch),window.calc.nayin(d.stem,d.branch), unknown? '-' : window.calc.nayin(h.stem,h.branch)];
-renderTable({stem:stems,branch:branch,element:elements,nayin});
+function stemToPinyin(stem){
+  const map = {'甲':'jia','乙':'yi','丙':'bing','丁':'ding','戊':'wu','己':'ji','庚':'geng','辛':'xin','壬':'ren','癸':'gui'};
+  return map[stem] || String(stem).toLowerCase();
+}
 
-// Element weights (stems + branches)
-const allElems = [window.calc.stemElem(y.stem),window.calc.stemElem(m.stem),window.calc.stemElem(d.stem)]
-  .concat(unknown?[]:[window.calc.stemElem(h.stem)])
-  .concat([window.calc.branchElem(y.branch),window.calc.branchElem(m.branch),window.calc.branchElem(d.branch)])
-  .concat(unknown?[]:[window.calc.branchElem(h.branch)]);
-const counts = {木:0,火:0,土:0,金:0,水:0};
-allElems.forEach(e=>{ if(counts[e]!=null) counts[e]++; });
-const total = Object.values(counts).reduce((a,b)=>a+b,0)||1;
-const pcts = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, 100*v/total]));
+  // show the professional box
+  const proBox = $('butlerProfessional');
+  if (proBox) proBox.style.display = 'block';
+}
 
-// ✅ 修改这一行，传递对象参数并接收返回值
-const renderResult = renderBars({pcts: pcts});
+  function pctTxt(e){ return Math.round(pcts[e]||0)+'%'; }
+  function wealthTrait(ten){
+    if(ten.includes('正财')) return t('report.wealth.stable') || '以稳定收入为主，适合积累式理财';
+    if(ten.includes('偏财')) return t('report.wealth.opportunity') || '偏财机会多，注意节制风险';
+    return t('report.wealth.steady') || '财运平稳，重在技能与口碑带动收入';
+  }
+  function nearTermOverall(strong,weak){
+    if(!strong) return t('report.fortune.steady') || '平稳调整期';
+    if(strong===weak) return t('report.fortune.steady') || '平稳调整期';
+    if(strong==='木'||strong==='火') return t('report.fortune.upward') || '势头向上，利推广/表达';
+    if(strong==='金') return t('report.fortune.focus') || '收敛聚焦，利制度与执行';
+    if(strong==='水') return t('report.fortune.study') || '学习调研期，先蓄后发';
+    return t('report.fortune.foundation') || '打基础、稳节奏为主';
+  }
+  function supportElems(dm){
+    const map={甲:['水','木'],乙:['水','木'],丙:['木','火'],丁:['木','火'],戊:['火','土'],己:['火','土'],庚:['土','金'],辛:['土','金'],壬:['金','水'],癸:['金','水']};
+    const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+    return (map[dm]||[]).map(x=>names[x]);
+  }
+  function restrainElems(dm){
+    const map={甲:['金'],乙:['金'],丙:['水'],丁:['水'],戊:['木'],己:['木'],庚:['火'],辛:['火'],壬:['土'],癸:['土']};
+    const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+    return (map[dm]||[]).map(x=>names[x]);
+  }
+  function computeUseful(dm,p){
+    const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+    return Object.entries({木:p.木||0,火:p.火||0,土:p.土||0,金:p.金||0,水:p.水||0})
+      .sort((a,b)=>a[1]-b[1]).slice(0,2).map(([k])=>names[k]);
+  }
+}
 
-// Date summary
-const timeText = unknown ? (t('ui.timeUnknown')||'') : (t('ui.hourSuffix')||'{hh}:{mm}')
-  .replace('{hh}', String(hh).padStart(2,'0'))
-  .replace('{mm}', String(parseInt(mmStr||'0',10)||0).padStart(2,'0'));
-const btxt = (t('ui.birthSummary')||'')
-  .replace('{y}',Y)
-  .replace('{m}',M)
-  .replace('{d}',D)
-  .replace('{timeText}', timeText);
-const bd=$('bazi-date'); if (bd) bd.textContent = btxt;
+  /* =========================
+   * MAIN GENERATE
+   * ========================= */
+  function generate(){
+    const birth = ($('birthdate')?.value||'').trim();
+    if(!birth) return showErr(t('err.fillBirthdate'));
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return showErr(t('err.invalidDate'));
+    const [Y,M,D]=birth.split('-').map(n=>parseInt(n,10));
+    const unknown = $('timeUnknown')?.checked;
+    const timeVal = $('birthtime')?.value || '00:00';
+    const [hhStr, mmStr] = timeVal.split(':');
+    const hh = parseInt((hhStr||'0'),10) || 0;
 
-// Ten Gods & report      
-const tg = window.calc.tenGods(d.stem, stems);
-const ctx = { 
-  pcts: renderResult || pcts, // 使用 renderBars 返回的 pcts 或默认的 pcts
-  dayStem: d.stem, 
-  tenGods: tg, 
-  unknown,
-  year: y,
-  month: m, 
-  day: d,
-  hour: h,
-  yearElem: window.calc.stemElem(y.stem),
-  monthElem: window.calc.stemElem(m.stem),
-  dayElem: window.calc.stemElem(d.stem),
-  hourElem: h && h.stem !== '-' ? window.calc.stemElem(h.stem) : null,
-  m: M, // 月份
-  y: Y, // 年份
-  d: D, // 日期
-  counts: counts // 添加 counts 用于五行计数
-};
+    setGenLoading(true);
+    try{
+      const calc = new BaziCalculator();
+      const y = calc.yearPillar(Y);
+      const m = calc.monthPillar(Y,M,D);
+      const d = calc.dayPillar(Y,M,D);
+      const h = unknown ? {stem:'-',branch:'-'} : calc.hourPillar(d.stem, hh);
 
-buildProReport(ctx);
-showResult();
+      // Top tiles
+      const labels=[y.stem+y.branch, m.stem+m.branch, d.stem+d.branch, unknown? (t('badge.noHour')||'-') : (h.stem+h.branch)];
+      renderPillars(labels);
+
+      // Table data (localized element names)
+      const stems=[y.stem,m.stem,d.stem, unknown? '-' : h.stem];
+      const branch=[y.branch,m.branch,d.branch, unknown? '-' : h.branch];
+      const elemMap = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+      const rawElems=[calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem), unknown? '-' : calc.stemElem(h.stem)];
+      const elements = rawElems.map(e => elemMap[e] || e);
+      const nayin=[calc.nayin(y.stem,y.branch),calc.nayin(m.stem,m.branch),calc.nayin(d.stem,d.branch), unknown? '-' : calc.nayin(h.stem,h.branch)];
+      renderTable({stem:stems,branch:branch,element:elements,nayin});
+
+      // Element weights (stems + branches)
+      const allElems = [calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem)]
+        .concat(unknown?[]:[calc.stemElem(h.stem)])
+        .concat([calc.branchElem(y.branch),calc.branchElem(m.branch),calc.branchElem(d.branch)])
+        .concat(unknown?[]:[calc.branchElem(h.branch)]);
+      const counts = {木:0,火:0,土:0,金:0,水:0};
+      allElems.forEach(e=>{ if(counts[e]!=null) counts[e]++; });
+      const total = Object.values(counts).reduce((a,b)=>a+b,0)||1;
+      const pcts = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, 100*v/total]));
+      renderBars(pcts);
+
+      // Date summary
+      const timeText = unknown ? (t('ui.timeUnknown')||'') : (t('ui.hourSuffix')||'{hh}:{mm}')
+        .replace('{hh}', String(hh).padStart(2,'0'))
+        .replace('{mm}', String(parseInt(mmStr||'0',10)||0).padStart(2,'0'));
+      const btxt = (t('ui.birthSummary')||'')
+        .replace('{y}',Y)
+        .replace('{m}',M)
+        .replace('{d}',D)
+        .replace('{timeText}', timeText);
+      const bd=$('bazi-date'); if (bd) bd.textContent = btxt;
+
+      // Ten Gods & report
+      const tg = calc.tenGods(d.stem, stems);
+      const ctx = { pcts, dayStem: d.stem, tenGods: tg, unknown };
+      buildProReport(ctx);
+
+      showResult();
+    }catch(e){
+      console.error(e);
+      showErr(t('err.generateFail'));
+    }finally{
+      setGenLoading(false);
+    }
+  }
 
   /* =========================
    * CHAT FLOAT (local echo)
@@ -3233,9 +3281,8 @@ if (document.readyState === 'loading') {
 } else {
   boot();
 }
-})(); // 这一行闭合开头的 (function () {
+})();
 </script>
-  
 <script>
 /* === LANG SWITCH PATCH === */
 (function initLangSwitch(){
@@ -3250,7 +3297,7 @@ if (document.readyState === 'loading') {
   try{
     const q = new URLSearchParams(location.search).get('lang');
     if (q && supported.includes(q)) lang = q;
-  }catch(e){} // ✅ 修复：添加参数 e
+  }catch{}
 
   // Persist + reflect
   window.state = Object.assign({ lang }, (window.state||{}));
@@ -3273,7 +3320,6 @@ if (document.readyState === 'loading') {
   }
 })();
 </script>
-  
 <script>
 (() => {
   'use strict';
@@ -3436,8 +3482,7 @@ if (document.readyState === 'loading') {
       return stems.map(s=>m[s]||'-');
     }
   }
-
-  window.calc = new BaziCalculator();
+  const calc = new BaziCalculator();
 
   /* ========= ANALYSIS HELPERS ========= */
   const TEN_GODS_EN = {
@@ -3503,14 +3548,14 @@ if (document.readyState === 'loading') {
     }
   }
 
-function renderBars(ctx){
-  // element counts from stems + branches (hour optional)
-  const elems = [
-    ctx.yearElem, ctx.monthElem, ctx.dayElem,
-    ctx.hourElem || null,
-    window.calc.branchElem(ctx.year.branch), window.calc.branchElem(ctx.month.branch), // 改为 window.calc
-    window.calc.branchElem(ctx.day.branch), ctx.hour ? window.calc.branchElem(ctx.hour.branch) : null // 改为 window.calc
-  ].filter(Boolean);
+  function renderBars(ctx){
+    // element counts from stems + branches (hour optional)
+    const elems = [
+      ctx.yearElem, ctx.monthElem, ctx.dayElem,
+      ctx.hourElem || null,
+      calc.branchElem(ctx.year.branch), calc.branchElem(ctx.month.branch),
+      calc.branchElem(ctx.day.branch), ctx.hour ? calc.branchElem(ctx.hour.branch) : null
+    ].filter(Boolean);
     const cnt = countElements(elems);
     const total = Object.values(cnt).reduce((a,b)=>a+b,0) || 1;
     ['木','火','土','金','水'].forEach(k=>{
@@ -3529,164 +3574,125 @@ function renderBars(ctx){
   }
 
   /* ========= PRO REPORT (10 sections) ========= */
-function buildProReport(ctx){
-  const host = $('professionalReport'); if (!host) return;
-  
-  // 确保我们有必要的上下文数据
-  if (!ctx) {
-    console.error('No context provided for report');
-    return;
+  function buildProReport(ctx){
+    const host = $('professionalReport'); if (!host) return;
+    const { strongest, weakest } = renderBars(ctx); // ensure bars are fresh
+
+    // day master line
+    const dmKey = 'report.dayMaster.'+stemToPinyin(ctx.day.stem);
+    const dmLine = t(dmKey);
+
+    // simple useful-spirit suggestion: prefer weakest (to补缺) + month officer
+    const useful = [weakest];
+
+    // Ten Gods (relative to day stem) for 4 stems
+    const stems = [ctx.year.stem, ctx.month.stem, ctx.day.stem, ctx.hour?.stem].filter(Boolean);
+    const tgArr = calc.tenGods(ctx.day.stem, stems);
+
+    // Near term fortune text (toy logic by month branch)
+    const nearMap = ['steady','upward','focus','study','foundation'];
+    const nearKey = nearMap[(ctx.m % nearMap.length)];
+    const nearText = t('fortune.'+nearKey);
+
+    // Sections
+    const S = {
+      titles: I18N[state.lang]?.reportTitles || I18N['zh-CN'].reportTitles,
+      labels: I18N[state.lang]?.reportLabels || I18N['zh-CN'].reportLabels
+    };
+
+    const hourNote = ctx.timeUnknown ? `<div class="ai-box"><div class="ai-box-h">${t('report.tipTitle')}</div><div class="ai-box-c">${t('report.hourUnknownTip')}</div></div>` : '';
+
+    const html = `
+      ${hourNote}
+      <div class="butler-section">
+        <h4>${S.titles.overview}</h4>
+        <div>${t('reportLabels.dayMaster')}：${ctx.day.stem}${calc.stemElem(ctx.day.stem)}｜${dmLine}</div>
+        <div>${t('reportLabels.strength')}：${t('fortune.steady')}</div>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.fiveElements}</h4>
+        <div>${t('reportLabels.elementCount')}：木${ctx.eCnt.木} 火${ctx.eCnt.火} 土${ctx.eCnt.土} 金${ctx.eCnt.金} 水${ctx.eCnt.水}</div>
+        <div>${t('ui.balance').replace('{strongest}', I18N[state.lang]?.elemNames?.[strongest]||strongest).replace('{weakest}', I18N[state.lang]?.elemNames?.[weakest]||weakest)}</div>
+        <div>${t('reportLabels.supportElements')}：${ctx.support?.join('、') || '-'}</div>
+        <div>${t('reportLabels.missingElements')}：${ctx.missing?.join('、') || '-'}</div>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.tenGods}</h4>
+        <div>${t('reportLabels.tenGods')}：${mapTenGodsStr(tgArr.join('、'))}</div>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.useful}</h4>
+        <div>${t('reportLabels.usefulSpirit')}：${useful.map(e=>I18N[state.lang]?.elemNames?.[e]||e).join('、')}</div>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.relationship}</h4>
+        <div>${t('report.marriage.default')}</div>
+        <ul class="action-list">
+          <li>${t('reportLabels.relationshipTips')}：${t('action.relationship')}</li>
+        </ul>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.career}</h4>
+        <div>${t('report.career.steady')}</div>
+        <ul class="action-list">
+          <li>${t('action.career')}</li>
+          <li>${t('action.career2')}</li>
+        </ul>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.wealth}</h4>
+        <div>${t('wealth.steady')}</div>
+        <ul class="action-list">
+          <li>${t('action.wealth')}</li>
+        </ul>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.health}</h4>
+        <div>${t('report.health.tips.'+stemToPinyin(ctx.day.stem)) || t('wellness.default')}</div>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.nearTerm}</h4>
+        <div>${nearText}</div>
+      </div>
+
+      <div class="butler-section">
+        <h4>${S.titles.actions}</h4>
+        <ul class="action-list">
+          <li>${t('action.weekly')} ${t('action.energy')}</li>
+          <li>${t('action.career')}</li>
+          <li>${t('action.relationship')}</li>
+          <li>${t('action.wealth')}</li>
+        </ul>
+      </div>
+    `;
+    host.innerHTML = html;
+
+    // show the professional box
+    const proBox = $('butlerProfessional');
+    if (proBox) proBox.style.display = 'block';
   }
 
-  // 计算五行计数的辅助函数（放在buildProReport内部）
-  function countElements(items) {
-    const cnt = {木:0, 火:0, 土:0, 金:0, 水:0};
-    items.forEach(e => { 
-      if (cnt[e] != null) cnt[e] += 1; 
-    });
-    return cnt;
+  /* ========= GENERATE HANDLER ========= */
+  function setGenLoading(v){
+    const btn=$('genBtn'), txt=$('genBtnText'), ld=$('genBtnLoading');
+    if (btn) btn.disabled = !!v;
+    if (txt) txt.style.display = v ? 'none' : 'inline';
+    if (ld) ld.style.display = v ? 'inline' : 'none';
   }
-  
-  // 计算五行计数
-  const elemList = [
-    ctx.yearElem, ctx.monthElem, ctx.dayElem, ctx.hourElem
-  ].filter(Boolean);
-  const eCnt = countElements(elemList);
-  
-  // 找到最强和最弱的元素
-  const pcts = ctx.pcts || {木:0, 火:0, 土:0, 金:0, 水:0};
-  const entries = Object.entries(pcts).sort((a,b) => b[1] - a[1]);
-  const strongest = entries[0] ? entries[0][0] : '木';
-  const weakest = entries.length > 0 ? entries[entries.length-1][0] : '水';
-
-  // day master line
-  const dmKey = 'report.dayMaster.'+stemToPinyin(ctx.day.stem);
-  const dmLine = t(dmKey);
-
-  // simple useful-spirit suggestion: prefer weakest (to补缺) + month officer
-  const useful = [weakest];
-
-// Ten Gods (relative to day stem) for 4 stems
-const stems = [ctx.year.stem, ctx.month.stem, ctx.day.stem, ctx.hour?.stem].filter(Boolean);
-const tgArr = window.calc.tenGods(ctx.day.stem, stems); // 改为 window.calc
-
-  // Near term fortune text (toy logic by month branch)
-  const nearMap = ['steady','upward','focus','study','foundation'];
-  const nearKey = nearMap[(ctx.m % nearMap.length)];
-  const nearText = t('fortune.'+nearKey);
-
-  // Sections
-  const S = {
-    titles: I18N[state.lang]?.reportTitles || I18N['zh-CN'].reportTitles,
-    labels: I18N[state.lang]?.reportLabels || I18N['zh-CN'].reportLabels
-  };
-
-  const hourNote = ctx.timeUnknown ? `<div class="ai-box"><div class="ai-box-h">${t('report.tipTitle')}</div><div class="ai-box-c">${t('report.hourUnknownTip')}</div></div>` : '';
-
-  // 辅助函数：获取元素名称
-  function getElemName(elem) {
-    return (I18N[state.lang] && I18N[state.lang].elemNames && I18N[state.lang].elemNames[elem]) || elem;
+  function showErr(msg){
+    const box=$('error'); if (!box) return;
+    box.textContent = msg || t('err.generateFail');
+    box.style.display = 'block';
+    setTimeout(()=>{ box.style.display='none'; }, 4000);
   }
-
-  const html = `
-    ${hourNote}
-    <div class="butler-section">
-      <h4>${S.titles.overview}</h4>
-      <div>${t('reportLabels.dayMaster')}：${ctx.day.stem}${window.calc.stemElem(ctx.day.stem)}｜${dmLine}</div> // 改为 window.calc
-      <div>${t('reportLabels.strength')}：${t('fortune.steady')}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${S.titles.fiveElements}</h4>
-      <div>${t('reportLabels.elementCount')}：木${eCnt.木 || 0} 火${eCnt.火 || 0} 土${eCnt.土 || 0} 金${eCnt.金 || 0} 水${eCnt.水 || 0}</div>
-      <div>${t('ui.balance').replace('{strongest}', getElemName(strongest)).replace('{weakest}', getElemName(weakest))}</div>
-      <div>${t('reportLabels.supportElements')}：${supportElems(ctx.day.stem).join('、') || '-'}</div>
-      <div>${t('reportLabels.missingElements')}：${Object.entries(eCnt).filter(([_,v]) => v === 0).map(([k]) => getElemName(k)).join('、') || '-'}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${S.titles.tenGods}</h4>
-      <div>${t('reportLabels.tenGods')}：${mapTenGodsStr(tgArr.join('、'))}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${S.titles.useful}</h4>
-      <div>${t('reportLabels.usefulSpirit')}：${useful.map(e=>getElemName(e)).join('、')}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${S.titles.relationship}</h4>
-      <div>${t('report.marriage.default')}</div>
-      <ul class="action-list">
-        <li>${t('reportLabels.relationshipTips')}：${t('action.relationship')}</li>
-      </ul>
-    </div>
-
-    <div class="butler-section">
-      <h4>${S.titles.career}</h4>
-      <div>${t('report.career.steady')}</div>
-      <ul class="action-list">
-        <li>${t('action.career')}</li>
-        <li>${t('action.career2')}</li>
-      </ul>
-    </div>
-
-    <div class="butler-section">
-      <h4>${S.titles.wealth}</h4>
-      <div>${t('wealth.steady')}</div>
-      <ul class="action-list">
-        <li>${t('action.wealth')}</li>
-      </ul>
-    </div>
-
-    <div class="butler-section">
-      <h4>${S.titles.health}</h4>
-      <div>${t('report.health.tips.'+stemToPinyin(ctx.day.stem)) || t('wellness.default')}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${S.titles.nearTerm}</h4>
-      <div>${nearText}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${S.titles.actions}</h4>
-      <ul class="action-list">
-        <li>${t('action.weekly')} ${t('action.energy')}</li>
-        <li>${t('action.career')}</li>
-        <li>${t('action.relationship')}</li>
-        <li>${t('action.wealth')}</li>
-      </ul>
-    </div>
-  `;
-  host.innerHTML = html;
-
-  // show the professional box
-  const proBox = $('butlerProfessional');
-  if (proBox) proBox.style.display = 'block';
-}
-
-// 添加缺失的辅助函数
-function supportElems(dm){
-  const map={甲:['水','木'],乙:['水','木'],丙:['木','火'],丁:['木','火'],戊:['火','土'],己:['火','土'],庚:['土','金'],辛:['土','金'],壬:['金','水'],癸:['金','水']};
-  const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
-  return (map[dm]||[]).map(x=>names[x]);
-}
-
-/* ========= GENERATE HANDLER ========= */
-function setGenLoading(v){
-  const btn=$('genBtn'), txt=$('genBtnText'), ld=$('genBtnLoading');
-  if (btn) btn.disabled = !!v;
-  if (txt) txt.style.display = v ? 'none' : 'inline';
-  if (ld) ld.style.display = v ? 'inline' : 'none';
-}
-function showErr(msg){
-  const box=$('error'); if (!box) return;
-  box.textContent = msg || t('err.generateFail');
-  box.style.display = 'block';
-  setTimeout(()=>{ box.style.display='none'; }, 4000);
-}
-  
 function handleGenerate(){
   const birth = $('birthdate')?.value?.trim();
   if (!birth) return showErr(t('err.fillBirthdate'));
@@ -3703,22 +3709,22 @@ function handleGenerate(){
 
   setGenLoading(true);
   try{
-    // pillars - 全部改为 window.calc
-    const year = window.calc.yearPillar(y);
-    const month = window.calc.monthPillar(y, mo, d);
-    const day = window.calc.dayPillar(y, mo, d);
-    const hour = timeUnknown ? null : window.calc.hourPillar(day.stem, hh);
+    // pillars
+    const year = calc.yearPillar(y);
+    const month = calc.monthPillar(y, mo, d);
+    const day = calc.dayPillar(y, mo, d);
+    const hour = timeUnknown ? null : calc.hourPillar(day.stem, hh);
 
-    // elements + nayin - 全部改为 window.calc
-    const yearElem = window.calc.stemElem(year.stem);
-    const monthElem = window.calc.stemElem(month.stem);
-    const dayElem = window.calc.stemElem(day.stem);
-    const hourElem = hour ? window.calc.stemElem(hour.stem) : null;
+    // elements + nayin
+    const yearElem = calc.stemElem(year.stem);
+    const monthElem = calc.stemElem(month.stem);
+    const dayElem = calc.stemElem(day.stem);
+    const hourElem = hour ? calc.stemElem(hour.stem) : null;
 
-    const yearNayin = window.calc.nayin(year.stem, year.branch);
-    const monthNayin = window.calc.nayin(month.stem, month.branch);
-    const dayNayin = window.calc.nayin(day.stem, day.branch);
-    const hourNayin = hour ? window.calc.nayin(hour.stem, hour.branch) : null;
+    const yearNayin = calc.nayin(year.stem, year.branch);
+    const monthNayin = calc.nayin(month.stem, month.branch);
+    const dayNayin = calc.nayin(day.stem, day.branch);
+    const hourNayin = hour ? calc.nayin(hour.stem, hour.branch) : null;
 
     const ctx = {
       y, m: mo, d,
@@ -3736,14 +3742,13 @@ function handleGenerate(){
     renderPillars(ctx);
     renderBars(ctx);
     buildProReport(ctx);
-    
   }catch(e){
     console.error(e);
     showErr(t('err.generateFail'));
   }finally{
     setGenLoading(false);
   }
-} // <-- This closing brace was missing for the function
+}
 
   /* ========= CHAT FLOAT ========= */
   function pushMsg(html, from='user'){
