@@ -608,11 +608,10 @@ a:focus{
 </main>
   
 <script>window.API_BASE='https://throbbing-lab-1440.hello5xliving.workers.dev';</script>
-<script>
 /* =========================================================
- * 5XLiving · I18N Pack  —  zh-CN / zh-TW / en / ja / th / ms
- * Paste this ONCE, BEFORE your main app script.
+ * Script 1: 5XLiving · I18N Pack  —  zh-CN / zh-TW / en / ja / th / ms
  * ========================================================= */
+<script>
 (function () {
   'use strict';
 
@@ -1245,14 +1244,15 @@ a:focus{
       .join(' / ');
   };
 })();
-</script>  
-<script>
+</script>
+
+/* =========================
+ * Script 2: basic config
+ * ========================= */      
+<script>    
 (() => {
   'use strict';
-
-  /* =========================
-   * BASIC CONFIG
-   * ========================= */
+  
   const SG_TZ = 'Asia/Singapore';
   const $ = id => document.getElementById(id);
   const state = { lang: localStorage.getItem('5x_lang') || 'zh-CN' };
@@ -3236,9 +3236,11 @@ if (document.readyState === 'loading') {
 }
 })(); // 这一行闭合开头的 (function () {
 </script>
-  
-<script>
-/* === LANG SWITCH PATCH === */
+
+/* =========================
+ * Script 3: LANG SWITCH PATCH
+ * ========================= */    
+<script>    
 (function initLangSwitch(){
   const $ = (id)=>document.getElementById(id);
 
@@ -3274,8 +3276,11 @@ if (document.readyState === 'loading') {
   }
 })();
 </script>
-  
-<script>
+
+/* =========================
+ * Script 4: 
+ * ========================= */    
+<script>  
 (() => {
   'use strict';
 
@@ -3842,79 +3847,70 @@ function handleGenerate(){
 
 })();
 </script>  
+  
+/* =========================
+ * Script 5: BIRTH DEFAULTS PRESET 
+ * ========================= */    
 <script>
-/* === NOW + BIRTH DEFAULTS (SGT) === */
+/* === PRESET FORM VALUES + FIX I18N === */
 (function () {
   const $ = (id) => document.getElementById(id);
   const TZ = 'Asia/Singapore';
-  const localeMap = { 'zh-CN':'zh-CN','zh-TW':'zh-TW','en':'en-US','ja':'ja-JP','th':'th-TH','ms':'ms' };
-  const getLocale = () => (localeMap[(window.state && window.state.lang) || 'zh-CN'] || 'en-US');
 
-  // Live clock in header
-  window.tickNow = function () {
-    const box = $('nowBox'); if (!box) return;
-    const fmt = new Intl.DateTimeFormat(getLocale(), {
-      weekday:'short', year:'numeric', month:'2-digit', day:'2-digit',
-      hour:'2-digit', minute:'2-digit', hour12:false, timeZone: TZ
-    });
-    box.textContent = fmt.format(new Date()) + ' (SGT)';
-  };
-
-  // One-time fill for birthdate/time (only if empty)
-  function initBirthDefaults() {
-    const bd = $('birthdate') || document.querySelector('[name="birthdate"]');
-    const bt = $('birthtime') || document.querySelector('[name="birthtime"]');
-    const unk = $('timeUnknown') || $('unknown') || document.querySelector('#birthtimeUnknown, [name="timeUnknown"]');
-
+  // 预设表单值（硬编码）
+  function presetFormValues() {
     const nowSG = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }));
-
-    if (bd && !bd.value) {
+    
+    // 预设出生日期为今天
+    const birthdate = $('birthdate');
+    if (birthdate && !birthdate.value) {
       const y = nowSG.getFullYear();
       const m = String(nowSG.getMonth() + 1).padStart(2, '0');
       const d = String(nowSG.getDate()).padStart(2, '0');
-      bd.value = `${y}-${m}-${d}`;            // works for <input type="date">
+      birthdate.value = `${y}-${m}-${d}`;
     }
 
-    if (bt) {
+    // 预设出生时间为当前时间
+    const birthtime = $('birthtime');
+    if (birthtime && !birthtime.value) {
       const hh = String(nowSG.getHours()).padStart(2, '0');
       const mm = String(nowSG.getMinutes()).padStart(2, '0');
-      if (!bt.value) bt.value = `${hh}:${mm}`; // works for <input type="time">
+      birthtime.value = `${hh}:${mm}`;
+    }
 
-      const setUnknownState = () => {
-        const isUnknown = !!(unk && unk.checked);
-        bt.disabled = isUnknown;
-        if (isUnknown) bt.value = '';
-      };
-      setUnknownState();
+    // 预设性别为男性
+    const gender = $('gender');
+    if (gender && !gender.value) {
+      gender.value = 'male';
+    }
 
-      if (unk && !unk._wired) {
-        unk._wired = true;
-        unk.addEventListener('change', () => {
-          if (unk.checked) {
-            bt.disabled = true; bt.value = '';
-          } else {
-            bt.disabled = false;
-            if (!bt.value) {
-              const n = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }));
-              bt.value = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
-            }
-          }
-        });
-      }
+    // 预设历法为阳历
+    const calendar = $('calendar');
+    if (calendar && !calendar.value) {
+      calendar.value = 'gregorian';
     }
   }
 
-  // Run now
-  initBirthDefaults();
-  tickNow(); setInterval(tickNow, 60_000);
-
-  // When language changes, keep the clock format in sync (don’t touch inputs)
-  const _applyI18n = window.applyI18n;
-  window.applyI18n = function () {
-    if (typeof _applyI18n === 'function') _applyI18n();
-    tickNow();
+  // Live clock in header
+  window.tickNow = function () {
+    const box = $('nowBox'); 
+    if (!box) return;
+    const dt = new Date();
+    try {
+      box.textContent = dt.toLocaleString(undefined, { timeZone: TZ, hour12: false });
+    } catch {
+      box.textContent = dt.toISOString().replace('T', ' ').slice(0, 19);
+    }
   };
+
+  // 初始化
+  document.addEventListener('DOMContentLoaded', function() {
+    presetFormValues();
+    tickNow();
+    setInterval(tickNow, 60000);
+  });
+
 })();
-</script>  
+</script>
 </body>
 </html>
