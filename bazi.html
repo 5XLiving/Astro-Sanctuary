@@ -1329,5 +1329,236 @@ a:focus{
   tickNow(); setInterval(tickNow, 60_000);
 })();
 </script>  
+<script>
+/* =========================================================
+ * Bazi · CN renderer + language-pack loader
+ * - Built-in zh-CN render
+ * - Lazy-load packs: /assets/bazi language pack/{tw|en|jp|th|ms}.js
+ * - Pack API: registerBaziPack(lang, { render(payload), answer(q) })
+ * ========================================================= */
+(function () {
+  'use strict';
+
+  const $ = (id) => document.getElementById(id);
+  const SG_TZ = 'Asia/Singapore';
+
+  /* ---------- Global pack registry ---------- */
+  window.BaziPacks = window.BaziPacks || {};
+  window.registerBaziPack = function (lang, mod) {
+    window.BaziPacks[lang] = mod || {};
+  };
+
+  /* ---------- Loader: map lang -> file in your folder ---------- */
+  const BASE = '/assets/bazi language pack/';
+  const fileFor = {
+    'zh-TW': 'tw.js',
+    'en':    'en.js',
+    'ja':    'jp.js',
+    'th':    'th.js',
+    'ms':    'ms.js'
+  };
+
+  function loadScriptOnce(src) {
+    return new Promise((resolve, reject) => {
+      // If already loaded, resolve
+      for (const s of document.scripts) {
+        if (s.src && s.src.endsWith(src)) return resolve();
+      }
+      const el = document.createElement('script');
+      el.src = src;
+      el.async = true;
+      el.onload = () => resolve();
+      el.onerror = () => reject(new Error('Failed to load ' + src));
+      document.head.appendChild(el);
+    });
+  }
+
+  async function ensurePack(lang) {
+    if (lang === 'zh-CN') return null; // built-in
+    if (window.BaziPacks[lang]) return window.BaziPacks[lang];
+    const file = fileFor[lang] || (lang + '.js');
+    // support space in folder name
+    const src = BASE + file;
+    await loadScriptOnce(src);
+    return window.BaziPacks[lang] || null;
+  }
+
+  /* ---------- Helpers ---------- */
+  function t(key) {
+    const lang = (window.state && window.state.lang) || 'zh-CN';
+    const dict  = (window.I18N && window.I18N[lang])   || {};
+    const base  = (window.I18N && window.I18N['zh-CN'])|| {};
+    const deepGet = (o,p)=>String(p).split('.').reduce((a,k)=>a&&a[k]!=null?a[k]:undefined,o);
+    let v = deepGet(dict, key);
+    if (v != null) return v;
+    if (key.startsWith('report.')) {
+      const k2 = key.slice(7);
+      v = deepGet(dict, k2);
+      if (v != null) return v;
+      v = deepGet(base, k2);
+      if (v != null) return v;
+    }
+    v = deepGet(base, key);
+    return v != null ? v : key;
+  }
+
+  function show(elem) { if (elem) elem.style.display = ''; }
+  function hide(elem) { if (elem) elem.style.display = 'none'; }
+
+  function setText(id, val) { const el = $(id); if (el) el.textContent = val; }
+
+  function setBars(percentMap) {
+    const keys = ['木','火','土','金','水'];
+    keys.forEach(k => {
+      const p = Math.max(0, Math.min(100, Number(percentMap[k] ?? 0)));
+      const bar = $('bar-' + k);
+      const pct = $('pct-' + k);
+      if (bar) bar.style.width = p + '%';
+      if (pct) pct.textContent = p + '%';
+    });
+
+    // strongest/weakest label
+    const entries = keys.map(k => [k, Number(percentMap[k] || 0)]);
+    entries.sort((a,b)=>b[1]-a[1]);
+    const strongest = entries[0][0], weakest = entries[entries.length-1][0];
+    const txt = (t('ui.balance') || 'Strongest {strongest}, weakest {weakest}.')
+      .replace('{strongest}', strongest).replace('{weakest}', weakest);
+    const box = $('bazi-elements-balance'); if (box) box.textContent = txt;
+  }
+
+  function fmtBirthLine(birthdate, birthtime, timeUnknown) {
+    try {
+      const [y,m,d] = String(birthdate).split('-').map(Number);
+      const timeText = timeUnknown
+        ? (t('ui.timeUnknown') || '时间不详')
+        : (t('ui.hourSuffix') || '{hh}:{mm}')
+            .replace('{hh}', String((birthtime||'00:00').split(':')[0]||'00'))
+            .replace('{mm}', String((birthtime||'00:00').split(':')[1]||'00'));
+      return (t('ui.birthSummary') || '出生日期: {y}-{m}-{d} {timeText}')
+            .replace('{y}', y).replace('{m}', m).replace('{d}', d)
+            .replace('{timeText}', timeText);
+    } catch {
+      return birthdate + (birthtime ? (' ' + birthtime) : '');
+    }
+  }
+
+  /* ---------- Built-in zh-CN render (placeholder logic) ---------- */
+  function renderCN(payload) {
+    const { birthdate, birthtime, timeUnknown } = payload || {};
+    const res = $('result');
+    if (!res) return;
+
+    // 1) Show result block
+    show(res);
+
+    // 2) Fill pillars area with placeholders (until your API is wired)
+    const pillsWrap = $('bazi-pillars');
+    if (pillsWrap) {
+      pillsWrap.innerHTML = `
+        <div class="pillar"><div class="tit">${t('pillar.year')}</div><div class="gz" id="gz-year">--</div></div>
+        <div class="pillar"><div class="tit">${t('pillar.month')}</div><div class="gz" id="gz-month">--</div></div>
+        <div class="pillar"><div class="tit">${t('pillar.day')}</div><div class="gz" id="gz-day">--</div></div>
+        <div class="pillar"><div class="tit">${t('pillar.hour')}</div><div class="gz" id="gz-hour">${timeUnknown ? (t('badge.noHour')||'未纳入时柱') : '--'}</div></div>
+      `;
+    }
+
+    // 3) Header line under pillars
+    const line = fmtBirthLine(birthdate, birthtime, timeUnknown);
+    const bd = $('bazi-date'); if (bd) bd.textContent = line;
+
+    // 4) Bars (simple deterministic demo so UI looks alive)
+    //    Hash the date/time digits into a 5-way split that sums 100.
+    const seed = (birthdate + (birthtime||'00:00')).replace(/\D/g,'');
+    const nums = [0,0,0,0,0];
+    for (let i=0;i<seed.length;i++) nums[i%5]+= Number(seed[i]||0);
+    const sum = nums.reduce((a,b)=>a+b,0)||1;
+    const pct = nums.map(n=> Math.round(n*100/sum));
+    // adjust rounding drift to sum exactly 100
+    let drift = 100 - pct.reduce((a,b)=>a+b,0);
+    while (drift !== 0) { const idx = drift>0 ? 0 : 4; pct[idx]+= drift>0?1:-1; drift = 100 - pct.reduce((a,b)=>a+b,0); }
+    setBars({ '木':pct[0], '火':pct[1], '土':pct[2], '金':pct[3], '水':pct[4] });
+
+    // 5) Table cells (keep placeholders)
+    setText('year-stem','—'); setText('month-stem','—'); setText('day-stem','—'); setText('hour-stem', timeUnknown?'—':'—');
+    setText('year-branch','—'); setText('month-branch','—'); setText('day-branch','—'); setText('hour-branch', timeUnknown?'—':'—');
+    setText('year-element','—'); setText('month-element','—'); setText('day-element','—'); setText('hour-element', timeUnknown?'—':'—');
+    setText('year-nayin','—'); setText('month-nayin','—'); setText('day-nayin','—'); setText('hour-nayin', timeUnknown?'—':'—');
+
+    // 6) Optionally show Butler area (you can keep it hidden until a real report is ready)
+    const pro = $('butlerProfessional'); if (pro) pro.style.display = 'block';
+    const rpt = $('professionalReport');
+    if (rpt) {
+      rpt.innerHTML = `
+        <div class="butler-section">
+          <h4>${t('reportTitles.overview')||'命盘总览'}</h4>
+          <div class="muted">${t('report.generating')||'正在生成专业分析报告...'}</div>
+          ${timeUnknown ? `<div class="badge-warn">${t('report.hourUnknownTip')||''}</div>` : ``}
+        </div>
+      `;
+    }
+  }
+
+  /* ---------- Event wiring ---------- */
+  window.addEventListener('bazi:generate', async (e) => {
+    const payload = e.detail || {};
+    const lang = payload.lang || (window.state && window.state.lang) || 'zh-CN';
+
+    try {
+      if (lang === 'zh-CN') {
+        renderCN(payload);
+        window.dispatchEvent(new CustomEvent('bazi:render-done'));
+        return;
+      }
+      const pack = await ensurePack(lang);
+      if (pack && typeof pack.render === 'function') {
+        await pack.render(payload);
+        window.dispatchEvent(new CustomEvent('bazi:render-done'));
+      } else {
+        // fallback to CN if pack missing
+        renderCN(payload);
+        window.dispatchEvent(new CustomEvent('bazi:render-done'));
+      }
+    } catch (err) {
+      window.dispatchEvent(new CustomEvent('bazi:render-fail', { detail: { message: err.message } }));
+    }
+  });
+
+  window.addEventListener('butler:ask', async (e) => {
+    const { q } = e.detail || {};
+    const lang = (window.state && window.state.lang) || 'zh-CN';
+
+    function append(text, who='bot') {
+      const box = $('chatMessages'); if (!box) return;
+      const div = document.createElement('div');
+      div.className = who === 'user' ? 'me-msg' : 'ss-msg';
+      div.textContent = text;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    try {
+      if (lang !== 'zh-CN') {
+        const pack = await ensurePack(lang);
+        if (pack && typeof pack.answer === 'function') {
+          const a = await pack.answer(q);
+          append(a || '');
+          return;
+        }
+      }
+      // default auto-reply (CN)
+      const msg = (t('chatDyn.autoReply') || '收到：{q}。').replace('{q}', q || '');
+      append(msg, 'bot');
+    } catch (err) {
+      append(t('report.failed') || '出错了，请稍后重试。', 'bot');
+    }
+  });
+
+  // Prefetch when language changes (soft)
+  window.addEventListener('ui:lang-changed', (e) => {
+    const lang = e.detail && e.detail.lang;
+    if (lang && lang !== 'zh-CN') ensurePack(lang).catch(()=>{});
+  });
+})();
+</script>  
 </body>
 </html>
