@@ -1,3 +1,115 @@
+<Script>
+  elemNames:{ 木:'Kayu', 火:'Api', 土:'Tanah', 金:'Logam', 水:'Air' },
+
+  report:{
+    hourUnknownTip:'⚠️ Nota: Masa lahir tidak diketahui—sesetengah bahagian rujukan sahaja.',
+    tipTitle:'Nota',
+    generating:'Menjana analisis profesional...',
+    failed:'Gagal menjana laporan. Cuba lagi kemudian.'
+  },
+
+  reportTitles:{
+    overview:'📊 Gambaran Umum',
+    fiveElements:'🌿 Analisis Lima Unsur',
+    tenGods:'⚡ Sepuluh Dewa (Ten Gods)',
+    useful:'🔑 Useful Spirit',
+    relationship:'💕 Hubungan & Perkahwinan',
+    career:'💼 Pembangunan Kerjaya',
+    wealth:'💰 Analisis Kekayaan',
+    health:'🌡️ Kesihatan & Penjagaan',
+    nearTerm:'🔮 Nasib Terdekat',
+    actions:'📝 Senarai Tindakan'
+  },
+
+  reportLabels:{
+    dayMaster:'Day Master',
+    strength:'Kekuatan Day Master',
+    usefulSpirit:'Useful Spirit',
+    elementCount:'Bilangan Unsur',
+    elementStrength:'Kekuatan Unsur',
+    supportElements:'Unsur Penyokong',
+    restrainElements:'Unsur Mengurang/Mengawal',
+    missingElements:'Unsur Hilang',
+    traits:'Sifat hubungan',
+    marriageAdvice:'Nasihat perkahwinan',
+    relationshipTips:'Cara berinteraksi',
+    suitableCareers:'Industri sesuai',
+    careerAdvice:'Nasihat kerjaya',
+    favorableDirections:'Arah yang menguntungkan',
+    wealthCharacteristics:'Ciri-ciri kekayaan',
+    wealthDirections:'Arah rezeki',
+    financialAdvice:'Nasihat kewangan',
+    healthCharacteristics:'Ciri tubuh/konstitusi',
+    healthTips:'Perhatian',
+    wellnessAdvice:'Nasihat penjagaan',
+    overallFortune:'Nasib keseluruhan',
+    favorableTiming:'Masa yang baik',
+    cautions:'Amaran',
+    tenGods:'Sepuluh Dewa'
+  },
+
+  wellness:{ default:'Rutin teratur, senaman sederhana, emosi stabil, kurang tidur lewat' },
+  cautions:{ default:'Elak keputusan beremosi; kawal perbelanjaan' },
+
+  action:{
+    weekly:'Sekurang-kurangnya sekali seminggu',
+    energy:'Tindakan “mengisi tenaga” unsur (persekitaran, makanan, warna, arah).',
+    career:'Kerjaya: perincikan tindakan bulan depan (pembelajaran/projek/rangkaian).',
+    career2:'(Terjemah kepada kursus, portfolio, networking.)',
+    relationship:'Hubungan: นัดสนทนาคุณภาพ 30 นาที mingguนี้ — focus keperluan bersama.',
+    wealth:'Kewangan: tetapkan ambang risiko; ambil untung tegas untuk spekulasi.'
+  },
+
+  sameQi:'Qi sejenis',
+  complement:'Melengkapkan kekurangan',
+  layout:'Tata letak',
+
+  fortune:{
+    steady:'Fasa pelarasan stabil',
+    upward:'Trend menaik; baik untuk promosi/ekspresi',
+    focus:'Tumpu & laksana sistem',
+    study:'Fasa kajian/pembelajaran; kumpul sebelum lancar',
+    foundation:'Bina asas; kekalkan rentak stabil'
+  },
+
+  wealth:{
+    stable:'Utamakan pendapatan stabil; sesuai pelaburan terkumpul',
+    opportunity:'Banyak peluang “windfall”; kawal risiko',
+    steady:'Kewangan stabil; naikkan pendapatan melalui kemahiran & reputasi'
+  },
+
+  'report.dayMaster.jia':'甲木命: bersemangat, semangat perintis, bertenaga.',
+  'report.dayMaster.yi':'乙木命: lembut, suka berbuat baik, berbelas kasihan.',
+  'report.dayMaster.bing':'丙火命: bersemangat, yakin, ekspresif.',
+  'report.dayMaster.ding':'丁火命: tulus dan stabil, boleh dipercayai.',
+  'report.dayMaster.wu':'戊土命: proaktif; mudah bersemangat terhadap kerja.',
+  'report.dayMaster.ji':'己土命: tenang, berhati-hati, cekap.',
+  'report.dayMaster.geng':'庚金命: berani dan tegas, berdaya usaha.',
+  'report.dayMaster.xin':'辛金命: tenang, jujur, teliti.',
+  'report.dayMaster.ren':'壬水命: berpandangan luas, tangkas, cinta kebebasan, anti kekangan.',
+  'report.dayMaster.gui':'癸水命: keras kepala tetapi rajin dan tekun.',
+
+  'report.marriage.stable':'Perkahwinan cenderung stabil—sesuai hubungan jangka panjang.',
+  'report.marriage.experienced':'Mungkin berpengalaman banyak; cari pasangan yang benar-benar sesuai.',
+  'report.marriage.default':'Perkahwinan berkembang melalui usaha kedua-dua pihak.',
+
+  'report.career.leadership':'Sesuai pengurusan atau keusahawanan; potensi kepimpinan.',
+  'report.career.business':'Sesuai bidang perniagaan/kewangan; rezeki baik.',
+  'report.career.creative':'Sesuai kerja kreatif, seni, atau teknologi.',
+  'report.career.steady':'Tumbuh stabil dengan mendalamkan kepakaran.',
+
+  'report.health.tips.jia':'Periksa hati secara berkala; jaga penglihatan.',
+  'report.health.tips.yi':'Kawal emosi; elak keletihan mata.',
+  'report.health.tips.bing':'Urus emosi; elak tidur lewat.',
+  'report.health.tips.ding':'Tidur secukupnya; elak ketegangan berlebihan.',
+  'report.health.tips.wu':'Makan teratur; elak makan berlebihan.',
+  'report.health.tips.ji':'Jaga kebersihan makanan; elak persekitaran lembap.',
+  'report.health.tips.geng':'Kekal hangat; elak udara terlalu kering.',
+  'report.health.tips.xin':'Pengudaraan baik; elak asap/debu.',
+  'report.health.tips.ren':'Kekalkan hidrasi; jaga kesihatan buah pinggang.',
+  'report.health.tips.gui':'Minum mencukupi; elak kerja berlebihan.'
+  };
+</script>  
 <script>
 // ms.js — Bazi language pack (Bahasa Melayu)
 // Registers: registerBaziPack('ms', { render(payload), answer(q) })
