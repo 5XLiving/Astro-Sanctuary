@@ -1,4 +1,117 @@
 <script>
+  elemNames:{ 木:'Wood', 火:'Fire', 土:'Earth', 金:'Metal', 水:'Water' },
+
+  report:{
+    hourUnknownTip:'⚠️ Note: Birth time unknown—some parts are reference-only.',
+    tipTitle:'Note',
+    generating:'Generating professional analysis...',
+    failed:'Report generation failed. Please try again later.'
+  },
+
+  reportTitles:{
+    overview:'📊 Overview',
+    fiveElements:'🌿 Five-Element Analysis',
+    tenGods:'⚡ Ten Gods',
+    useful:'🔑 Useful Spirit',
+    relationship:'💕 Relationships & Marriage',
+    career:'💼 Career Development',
+    wealth:'💰 Wealth Analysis',
+    health:'🌡️ Health & Wellness',
+    nearTerm:'🔮 Near-Term Fortune',
+    actions:'📝 Action Checklist'
+  },
+
+  reportLabels:{
+    dayMaster:'Day Master',
+    strength:'Day Master Strength',
+    usefulSpirit:'Useful Spirit',
+    elementCount:'Element Counts',
+    elementStrength:'Element Strengths',
+    supportElements:'Supporting Elements',
+    restrainElements:'Draining/Controlling Elements',
+    missingElements:'Missing Elements',
+    traits:'Relationship Traits',
+    marriageAdvice:'Marriage Advice',
+    relationshipTips:'How to Get Along',
+    suitableCareers:'Suitable Industries',
+    careerAdvice:'Career Advice',
+    favorableDirections:'Favorable Directions',
+    wealthCharacteristics:'Wealth Traits',
+    wealthDirections:'Wealth Directions',
+    financialAdvice:'Financial Advice',
+    healthCharacteristics:'Constitution Traits',
+    healthTips:'Cautions',
+    wellnessAdvice:'Wellness Advice',
+    overallFortune:'Overall Fortune',
+    favorableTiming:'Favorable Timing',
+    cautions:'Cautions',
+    tenGods:'Ten Gods'
+  },
+
+  wellness:{ default:'Regular routine, moderate exercise, emotional stability, less late nights' },
+  cautions:{ default:'Avoid emotional decisions; control spending' },
+
+  action:{
+    weekly:'At least once weekly',
+    energy:'“Re-charging” via elements (environment, food, colors, directions).',
+    career:'Career: refine next-month actions by your positioning (learning/projects/network).',
+    career2:'(Detail into courses, portfolio, networking.)',
+    relationship:'Relationship: schedule one 30-min quality talk this week; focus on needs.',
+    wealth:'Wealth: set a risk threshold; take profit strictly on speculative gains.'
+  },
+
+  sameQi:'Same Qi',
+  complement:'Complement',
+  layout:'Layout',
+
+  fortune:{
+    steady:'Stabilization phase',
+    upward:'Uptrend; good for promotion/expression',
+    focus:'Converge & focus; good for systems and execution',
+    study:'Research/learning phase; store before launch',
+    foundation:'Lay foundations; keep steady rhythm'
+  },
+
+  wealth:{
+    stable:'Prioritize stable income; suited to accumulative investing',
+    opportunity:'More windfall chances—tame the risk',
+    steady:'Stable wealth; grow income via skills & reputation'
+  },
+
+  'report.dayMaster.jia':'Jia Wood: pioneering, energetic, proactive.',
+  'report.dayMaster.yi':'Yi Wood: gentle, benevolent, compassionate.',
+  'report.dayMaster.bing':'Bing Fire: passionate, confident, expressive.',
+  'report.dayMaster.ding':'Ding Fire: sincere, steady, trustworthy.',
+  'report.dayMaster.wu':'Wu Earth: proactive; easily devoted to chosen work.',
+  'report.dayMaster.ji':'Ji Earth: mild, cautious, skillful.',
+  'report.dayMaster.geng':'Geng Metal: enterprising, brave, decisive.',
+  'report.dayMaster.xin':'Xin Metal: calm, upright, meticulous.',
+  'report.dayMaster.ren':'Ren Water: broad-minded, agile, loves freedom, dislikes restraint.',
+  'report.dayMaster.gui':'Gui Water: headstrong yet diligent; persevering.',
+
+  'report.marriage.stable':'Marriage is relatively stable—good for long-term bonds.',
+  'report.marriage.experienced':'May have more experiences; focus on a truly suitable partner.',
+  'report.marriage.default':'Marriage thrives on joint effort from both sides.',
+
+  'report.career.leadership':'Fits management or entrepreneurship; leadership potential.',
+  'report.career.business':'Good for business/finance; solid wealth potential.',
+  'report.career.creative':'Suited to creative, art, or tech roles.',
+  'report.career.steady':'Steady growth by deepening expertise.',
+
+  'report.health.tips.jia':'Check liver regularly; protect eyesight.',
+  'report.health.tips.yi':'Regulate emotions; avoid eye fatigue.',
+  'report.health.tips.bing':'Manage emotions; avoid staying up late.',
+  'report.health.tips.ding':'Sleep well; avoid excessive tension.',
+  'report.health.tips.wu':'Regular meals; avoid binging.',
+  'report.health.tips.ji':'Mind food hygiene; avoid dampness.',
+  'report.health.tips.geng':'Keep warm; avoid overly dry air.',
+  'report.health.tips.xin':'Airy rooms; avoid smoke/dust.',
+  'report.health.tips.ren':'Stay hydrated; mind kidney health.',
+  'report.health.tips.gui':'Drink adequately; avoid overwork.'
+};
+</script>
+
+<script>
 /* EN pack: registers render() + answer() */
 (function(){
   const $ = (id)=>document.getElementById(id);
