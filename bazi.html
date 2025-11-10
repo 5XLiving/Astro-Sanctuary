@@ -916,7 +916,8 @@ I18N['zh-CN'] = {
   badge:{ noHour:'未納入時柱' },
 
   chatDyn:{ autoReply:'收到：{q}。稍後可在專業報告相應章節找到要點。' },
-
+};
+  
 I18N['en'] = {
   brand:{ subtitle:'5xLiving · Bazi Brief' },
   nav:{ langLabel:'Language' },
@@ -1006,6 +1007,7 @@ I18N['en'] = {
   badge:{ noHour:'Hour pillar omitted' },
 
   chatDyn:{ autoReply:'Got it: {q}. Key points will appear in the corresponding report section.' },
+};
 
 I18N['ja'] = {
   brand:{ subtitle:'5xLiving · 四柱推命クイック' },
@@ -1096,7 +1098,8 @@ I18N['ja'] = {
   badge:{ noHour:'時柱を含まず' },
 
   chatDyn:{ autoReply:'了解：{q}。該当セクションに要点をまとめます。' },
-
+};
+  
 I18N['th'] = {
   brand:{ subtitle:'5xLiving · บทสรุปปาจื้อ' },
   nav:{ langLabel:'ภาษา' },
@@ -1186,7 +1189,8 @@ I18N['th'] = {
   badge:{ noHour:'ยังไม่รวมเสาเวลา' },
 
   chatDyn:{ autoReply:'รับทราบ: {q} สรุปใจความจะอยู่ในหัวข้อรายงานที่เกี่ยวข้อง' },
-
+};
+  
 I18N['ms'] = {
   brand:{ subtitle:'5xLiving · Ringkasan Bazi' },
   nav:{ langLabel:'Bahasa' },
@@ -1275,7 +1279,179 @@ I18N['ms'] = {
 
   badge:{ noHour:'Tiang jam tidak diambil kira' },
 
-  chatDyn:{ autoReply:'Diterima: {q}. Poin utama akan muncul dalam seksyen laporan berkaitan.' },
+  chatDyn:{ autoReply:'Diterima: {q}. Poin utama akan muncul dalam seksyen laporan berkaitan.' }
+}；  
+
+  /* =========================
+   * Language asset loader
+   * ========================= */
+  // 默认按同目录文件名规则加载：tw.js / en.js / jp.js / th.js / ms.js
+  const LANG_ASSET = {
+    'zh-TW':'tw.js',
+    'en':'en.js',
+    'ja':'jp.js',
+    'th':'th.js',
+    'ms':'ms.js'
+  };
+  function loadLangAsset(lang){
+    return new Promise((resolve) => {
+      // zh-CN 内联，不需要加载
+      if (lang === 'zh-CN') return resolve('ok');
+
+      // 已经有字典就直接用
+      if (I18N[lang]) return resolve('ok');
+
+      const src = LANG_ASSET[lang];
+      if (!src){ return resolve('missing'); }
+
+      // 防止重复插入
+      if (document.querySelector(`script[data-i18n-src="${src}"]`)) return resolve('ok');
+
+      const s = document.createElement('script');
+      s.src = src;
+      s.async = true;
+      s.defer = true;
+      s.setAttribute('data-i18n-src', src);
+      s.onload = () => resolve('ok');
+      s.onerror = () => resolve('error');
+      document.head.appendChild(s);
+    });
+  }
+
+  /* =========================
+   * I18N helpers
+   * ========================= */
+  function deepGet(obj, path){
+    return String(path).split('.').reduce((o,k)=> (o && o[k] != null) ? o[k] : undefined, obj);
+  }
+
+  function pickDict(lang){
+    // 选择：lang → en → zh-CN
+    if (I18N[lang]) return I18N[lang];
+    if (I18N['en']) return I18N['en'];
+    return I18N['zh-CN'];
+  }
+
+  function t(key){
+    const dict = pickDict(state.lang);
+    const baseCN = I18N['zh-CN'] || {};
+    // 深取
+    let v = deepGet(dict, key);
+    if (v != null) return v;
+    // 尝试英文
+    if (dict !== I18N['en'] && I18N['en']){
+      v = deepGet(I18N['en'], key);
+      if (v != null) return v;
+    }
+    // 兜底中文
+    v = deepGet(baseCN, key);
+    return (v != null) ? v : key;
+  }
+
+  function applyI18n(){
+    document.documentElement.lang = state.lang;
+
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const key = el.getAttribute('data-i18n');
+      const val = t(key);
+      if (typeof val === 'string') el.textContent = val;
+    });
+
+    document.querySelectorAll('option[data-i18n]').forEach(opt=>{
+      const key = opt.getAttribute('data-i18n');
+      const val = t(key);
+      if (typeof val === 'string') opt.textContent = val;
+    });
+
+    document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+      const key = el.getAttribute('data-i18n-ph');
+      const val = t(key);
+      if (typeof val === 'string') el.setAttribute('placeholder', val);
+    });
+
+    // placeholders（仅在显示时）
+    const setPh = (id, key) => {
+      const el = document.getElementById(id);
+      const val = t(key);
+      if (el && typeof val === 'string') el.placeholder = val;
+    };
+    setPh('name','form.namePlaceholder');
+    setPh('chatInput','chat.placeholder');
+
+    // 不主动展示账号输入；若你点击显示按钮再设置占位
+    const fields = document.getElementById('authFields');
+    if (fields && getComputedStyle(fields).display !== 'none') {
+      setPh('email','auth.emailPlaceholder');
+      setPh('password','auth.passwordPlaceholder');
+    }
+
+    if (typeof window.buildProReport === 'function' && window.lastCtx){
+      window.buildProReport(window.lastCtx);
+    }
+  }
+
+  async function setLang(lang){
+    state.lang = lang;
+    try{ localStorage.setItem('5x_lang', lang); }catch{}
+    await loadLangAsset(lang);   // 尝试加载外部语言
+    // 若目标语言缺失，则 t() 会自动回退到 en 或 zh-CN
+    applyI18n();
+  }
+
+  /* =========================
+   * Wire language select
+   * ========================= */
+  function onLangChange(e){ setLang(e.target?.value || 'zh-CN'); }
+
+  function tickNow(){
+    const box = $('nowBox'); if (!box) return;
+    try{
+      const dt = new Intl.DateTimeFormat(
+        { 'zh-CN':'zh-CN','zh-TW':'zh-TW','en':'en-US','ja':'ja-JP','th':'th-TH','ms':'ms' }[state.lang] || 'zh-CN',
+        { weekday:'short', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false, timeZone: SG_TZ }
+      ).format(new Date());
+      box.textContent = dt + ' (SGT)';
+    }catch{
+      const d = new Date();
+      box.textContent = d.toISOString().replace('T',' ').slice(0,16) + ' (SGT)';
+    }
+  }
+
+  /* =========================
+   * Boot
+   * ========================= */
+  async function boot(){
+    const sel = $('langSelect');
+    if (sel){
+      sel.value = state.lang;
+      sel.addEventListener('change', onLangChange);
+    }
+
+    // 首次加载：如果不是 zh-CN，则尝试加载对应语言文件
+    if (state.lang !== 'zh-CN'){
+      await loadLangAsset(state.lang);
+    }
+    applyI18n();
+
+    // 时钟
+    tickNow();
+    setInterval(tickNow, 60_000);
+
+    // 你原有的隐藏登录输入的逻辑仍可保留（此处不重复）
+  }
+
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', boot, { once:true });
+  }else{
+    boot();
+  }
+
+  // 暴露全局以便你原有代码继续调用
+  window.t = t;
+  window.applyI18n = applyI18n;
+  window.setLang = setLang;
+
+})();  
 
 /* =========================
  * I18N helpers (uses global I18N + state.lang)
