@@ -393,6 +393,7 @@ a:focus{
       <a class="brand" href="https://astro.5xliving.com/" target="_self">
         <span class="brand-badge">5X</span>
       <span class="title" data-i18n="brand.subtitle">5xLiving · 八字简评</span>
+      <div class="now muted" id="nowBox" aria-live="polite"></div>   
     </a>
     <div class="lang">
       <label for="langSelect" class="muted" data-i18n="nav.langLabel">语言</label>
@@ -605,6 +606,29 @@ a:focus{
 </main>
   
 <script>window.API_BASE='https://throbbing-lab-1440.hello5xliving.workers.dev';</script>
+<script>
+/* --- i18n core --- */
+(() => {
+  const I18N = (window.I18N = window.I18N || {});
+  let CUR = 'zh-CN';
+
+  window.ensure = (code, dict) => { I18N[code] = dict; };
+  window.setLang = (code) => { CUR = I18N[code] ? code : CUR; renderTokens(); };
+
+  function get(obj, path) {
+    return path.split('.').reduce((o,k)=> (o && o[k]!=null ? o[k] : undefined), obj);
+  }
+  window.t = (key, fallback='') => get(I18N[CUR], key) ?? get(I18N['zh-CN']||{}, key) ?? fallback || key;
+
+  // Replace inline tokens like "report.dayMaster.jia" inside elements
+  window.renderTokens = (root=document) => {
+    const SEL = '[data-i18n-text], .i18n-text';
+    for (const el of root.querySelectorAll(SEL)) {
+      el.innerHTML = el.innerHTML.replace(/\breport\.[\w.]+/g, (m)=> t(m, m));
+    }
+  };
+})();
+</script>    
 <script id="bazi-app">
 (() => {
   'use strict';
@@ -696,17 +720,725 @@ a:focus{
     'report.health.tips.ren':'保持水分平衡，避免受凉，注意肾脏保养',
     'report.health.tips.gui':'适量饮水，避免过度劳累'
   };
-  /* --- your other five dicts unchanged (shortened here for brevity) --- */
-  I18N['zh-TW'] = /* ... from your current code ... */ I18N['zh-TW'] || I18N['zh-CN'];
-  I18N['en']    = /* ... from your current code ... */ I18N['en']    || I18N['zh-CN'];
-  I18N['ja']    = /* ... from your current code ... */ I18N['ja']    || I18N['zh-CN'];
-  I18N['th']    = /* ... from your current code ... */ I18N['th']    || I18N['zh-CN'];
-  I18N['ms']    = /* ... from your current code ... */ I18N['ms']    || I18N['zh-CN'];
-
-  /* ========= I18N HELPERS (single source of truth) ========= */
-  function deepGet(obj, path){
-    return String(path).split('.').reduce((o,k)=> (o && o[k] != null) ? o[k] : undefined, obj);
+  /* ===== zh-TW ===== */
+I18N['zh-TW'] = {
+  brand:{ subtitle:'5xLiving · 八字簡評' },
+  nav:{ langLabel:'語言' },
+  lang:{ 'zh-CN':'簡體中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+  app:{ title:'八字命理 · 快速排盤' },
+  form:{
+    nameLabel:'姓名（可選）', namePlaceholder:'你的稱呼（用於個人化）',
+    genderLabel:'性別', gender:{ hidden:'不透露', male:'男性', female:'女性' },
+    calendarLabel:'曆法', calendar:{ gregorian:'陽曆', lunar:'農曆' },
+    birthdateLabel:'出生日期', birthtimeLabel:'出生時間', timeUnknown:'出生時間不詳'
+  },
+  btn:{ generate:'生成八字', loading:'計算中…' },
+  result:{ title:'您的生辰八字命盤' },
+  pillar:{ year:'年柱', month:'月柱', day:'日柱', hour:'時柱' },
+  table:{ row:{ stem:'天干', branch:'地支', fiveElem:'五行', nayin:'納音' } },
+  energy:{ title:'五行能量分析' },
+  elem:{ wood:'木', fire:'火', earth:'土', metal:'金', water:'水', month:'月', fiveElements:'五行' },
+  pro:{ title:'🧙‍♂️ 心憐管家 · 專業命理分析', welcome:'您好！我是您的專業命理顧問，已生成詳細分析報告。歡迎提問。' },
+  chat:{ send:'發送', placeholder:'請輸入您的問題…', toggle:'問' },
+  vip:{
+    title:'🌙 會員區域 VIP Segment',
+    group:{ astrology:'🗝 命理空間專屬內容', spiritual:'🌙 心憐空間專屬內容' },
+    astrology:{
+      match:'姻緣方向：戀愛緣分、婚姻走勢',
+      career:'事業方向：職場發展、創業潛力',
+      wealth:'財運方向：財位分析、理財時機',
+      pet:'寵物命理：伴侶動物的性格與緣分'
+    },
+    spiritual:{
+      record:'靈性記錄：照片、夢境、聲音、願望祈禱',
+      courses:'命理課程：八字 / 塔羅 / 占星 / 靈數',
+      family:'家族紀念系統：親人靈性紀念與延續',
+      practice:'每週能量練習 / 神明儀式任務'
+    },
+    login:{ title:'💎 登入 VIP 功能' },
+    services:{ header:'會員服務' },
+    upgrade:'💎 升級為 VIP（月費）',
+    back:'← 返回命理商城',
+    priceNote:'$9.9 / 月費 VIP（命理空間 + 心憐空間 + 靈性課程）'
+  },
+  auth:{
+    header:'帳戶登入 / 註冊', login:'登入帳戶', reset:'🔑 重設密碼', register:'註冊帳戶',
+    freeTrialNote:'註冊帳號贈送一次免費體驗',
+    emailPlaceholder:'信箱 Email',
+    passwordPlaceholder:'密碼 Password（至少8位，含大小寫數字符號）'
+  },
+  footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+  err:{ fillBirthdate:'請填寫出生日期', invalidDate:'無效的日期格式，請用 YYYY-MM-DD', generateFail:'生成失敗，請稍後重試' },
+  ui:{ unknown:'未知', timeUnknown:'時間不詳', hourSuffix:'{hh}:{mm}', birthSummary:'出生：{y}-{m}-{d} {timeText}', balance:'五行中{strongest}最強，{weakest}最弱。' },
+  badge:{ noHour:'未納入時柱' },
+  chatDyn:{ autoReply:'已收到：{q}。稍後可在專業報告相應章節查看重點。' },
+  reportTitles:{ overview:'📊 命盤總覽', fiveElements:'🌿 五行分析', tenGods:'⚡ 十神配置', useful:'🔑 喜用神', relationship:'💕 感情婚姻', career:'💼 事業發展', wealth:'💰 財運分析', health:'🌡️ 健康養生', nearTerm:'🔮 近期運勢', actions:'📝 行動清單' },
+  reportLabels:{
+    dayMaster:'日主命理', elementCount:'五行個數', elementStrength:'五行旺衰',
+    missingElements:'五行所缺', tenGods:'十神配置', usefulSpirit:'喜用神',
+    supportElements:'幫扶五行', restrainElements:'剋洩五行',
+    traits:'感情特質', marriageAdvice:'婚姻建議', relationshipTips:'相處之道',
+    suitableCareers:'適合行業', careerAdvice:'發展建議', favorableDirections:'有利方位',
+    wealthCharacteristics:'財運特點', wealthDirections:'求財方向', financialAdvice:'理財建議',
+    healthCharacteristics:'體質特點', healthTips:'注意事項', wellnessAdvice:'養生建議',
+    overallFortune:'整體運勢', favorableTiming:'有利時機', cautions:'注意事項'
+  },
+  wealth:{ stable:'以穩定收入為主，適合累積式理財', opportunity:'偏財機會多，注意節制風險', steady:'財運平穩，重在專業與口碑帶動' },
+  fortune:{ steady:'平穩調整期', upward:'勢頭向上，利推廣/表達', focus:'收斂聚焦，利制度與執行', study:'學習調研期，先蓄後發', foundation:'打基礎、穩節奏為主' },
+  report:{
+    dayMaster:{ jia:'日主為甲木：外柔內剛，重視成長、規劃與開創。' },
+    marriage:{ experienced:'婚姻建議：以成熟穩重為主，給彼此空間與安全感。' },
+    career:{ leadership:'事業建議：發揮主導力，目標清楚、步調穩健，慎選合作。' },
+    health:{ tips:{ jia:'肝膽與筋骨為重點；早睡早起、伸展筋絡、少油多蔬。' } }
   }
+};
+
+/* ===== English ===== */
+I18N['en'] = {
+  brand:{ subtitle:'5xLiving · Bazi Quick Read' },
+  nav:{ langLabel:'Language' },
+  lang:{ 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+  app:{ title:'Chinese Bazi · Quick Calculator' },
+  form:{
+    nameLabel:'Name (optional)', namePlaceholder:'Your name (for personalization)',
+    genderLabel:'Gender', gender:{ hidden:'Prefer not to say', male:'Male', female:'Female' },
+    calendarLabel:'Calendar', calendar:{ gregorian:'Gregorian', lunar:'Lunar' },
+    birthdateLabel:'Birthdate', birthtimeLabel:'Birth time', timeUnknown:'Time of birth unknown'
+  },
+  btn:{ generate:'Generate Bazi', loading:'Calculating…' },
+  result:{ title:'Your Bazi Chart' },
+  pillar:{ year:'Year Pillar', month:'Month Pillar', day:'Day Pillar', hour:'Hour Pillar' },
+  table:{ row:{ stem:'Heavenly Stem', branch:'Earthly Branch', fiveElem:'Five Elements', nayin:'Na Yin' } },
+  energy:{ title:'Five-Element Energy' },
+  elem:{ wood:'Wood', fire:'Fire', earth:'Earth', metal:'Metal', water:'Water', month:' month', fiveElements:'five elements' },
+  pro:{ title:'🧙‍♂️ Xinlian Butler · Professional Analysis', welcome:'Hello! I generated a detailed reading. Ask me anything.' },
+  chat:{ send:'Send', placeholder:'Type your question…', toggle:'Ask' },
+  vip:{
+    title:'🌙 VIP Segment',
+    group:{ astrology:'🗝 Mingli Space (Members)', spiritual:'🌙 Xinlian Space (Members)' },
+    astrology:{
+      match:'Relationship: romance & marriage trend',
+      career:'Career: development & entrepreneurship',
+      wealth:'Wealth: money position & timing',
+      pet:'Pet Destiny: companion animal traits & bonds'
+    },
+    spiritual:{
+      record:'Spiritual records: photos, dreams, voice, wishes',
+      courses:'Courses: Bazi / Tarot / Astrology / Numerology',
+      family:'Family Memorial: remembrance & continuation',
+      practice:'Weekly energy practice / deity rituals'
+    },
+    login:{ title:'💎 VIP Login Features' },
+    services:{ header:'Member Services' },
+    upgrade:'💎 Upgrade to VIP (Monthly)',
+    back:'← Back to Shop',
+    priceNote:'$9.9 / month (Mingli + Xinlian + Courses)'
+  },
+  auth:{
+    header:'Account Login / Register', login:'Log in', reset:'🔑 Reset password', register:'Register',
+    freeTrialNote:'Sign-up includes one free trial',
+    emailPlaceholder:'Email',
+    passwordPlaceholder:'Password (min 8 chars incl. cases/digits/symbols)'
+  },
+  footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+  err:{ fillBirthdate:'Please fill the birthdate', invalidDate:'Invalid date. Use YYYY-MM-DD', generateFail:'Generation failed. Try again.' },
+  ui:{ unknown:'Unknown', timeUnknown:'Unknown time', hourSuffix:'{hh}:{mm}', birthSummary:'Born: {y}-{m}-{d} {timeText}', balance:'{strongest} strongest, {weakest} weakest among the five.' },
+  badge:{ noHour:'Hour pillar omitted' },
+  chatDyn:{ autoReply:'Got it: {q}. You will find key points in the report.' },
+  reportTitles:{ overview:'📊 Overview', fiveElements:'🌿 Five Elements', tenGods:'⚡ Ten Gods', useful:'🔑 Useful Spirit', relationship:'💕 Relationship', career:'💼 Career', wealth:'💰 Wealth', health:'🌡️ Health', nearTerm:'🔮 Near Term', actions:'📝 Action List' },
+  reportLabels:{
+    dayMaster:'Day Master', elementCount:'Element counts', elementStrength:'Element strengths',
+    missingElements:'Missing elements', tenGods:'Ten Gods', usefulSpirit:'Useful spirit',
+    supportElements:'Supporting elements', restrainElements:'Restraining elements',
+    traits:'Traits', marriageAdvice:'Marriage advice', relationshipTips:'Tips',
+    suitableCareers:'Suitable fields', careerAdvice:'Career advice', favorableDirections:'Favorable directions',
+    wealthCharacteristics:'Wealth characteristics', wealthDirections:'Wealth directions', financialAdvice:'Financial advice',
+    healthCharacteristics:'Constitution', healthTips:'Notes', wellnessAdvice:'Wellness advice',
+    overallFortune:'Overall fortune', favorableTiming:'Good timing', cautions:'Cautions'
+  },
+  wealth:{ stable:'Focus on steady income and compounding', opportunity:'Many windfalls; manage risk', steady:'Stable; let expertise & reputation drive income' },
+  fortune:{ steady:'Stable adjustment phase', upward:'Rising; good for promotion/expression', focus:'Focus & systemize execution', study:'Study & research first', foundation:'Lay foundations; keep tempo steady' },
+  report:{
+    dayMaster:{ jia:'Day Master Jia Wood: gentle yet firm; growth, planning, pioneering.' },
+    marriage:{ experienced:'Be steady and mature; give each other space and safety.' },
+    career:{ leadership:'Lead with clarity; set tempo; choose partners wisely.' },
+    health:{ tips:{ jia:'Care for liver/tendons; sleep early; stretch; lighter oils; more greens.' } }
+  }
+};
+
+/* ===== 日本語 ===== */
+I18N['ja'] = {
+  brand:{ subtitle:'5xLiving · 八字クイックレポート' },
+  nav:{ langLabel:'言語' },
+  lang:{ 'zh-CN':'簡体字','zh-TW':'繁體字','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+  app:{ title:'四柱推命（八字）· クイック鑑定' },
+  form:{
+    nameLabel:'お名前（任意）', namePlaceholder:'個別表示のためのお名前',
+    genderLabel:'性別', gender:{ hidden:'未回答', male:'男性', female:'女性' },
+    calendarLabel:'暦', calendar:{ gregorian:'西暦', lunar:'旧暦' },
+    birthdateLabel:'生年月日', birthtimeLabel:'出生時刻', timeUnknown:'出生時刻不明'
+  },
+  btn:{ generate:'作成', loading:'計算中…' },
+  result:{ title:'あなたの四柱（八字）チャート' },
+  pillar:{ year:'年柱', month:'月柱', day:'日柱', hour:'時柱' },
+  table:{ row:{ stem:'天干', branch:'地支', fiveElem:'五行', nayin:'納音' } },
+  energy:{ title:'五行エネルギー' },
+  elem:{ wood:'木', fire:'火', earth:'土', metal:'金', water:'水', month:'月', fiveElements:'五行' },
+  pro:{ title:'🧙‍♂️ 心憐バトラー · プロ鑑定', welcome:'詳細レポートを作成しました。ご質問をどうぞ。' },
+  chat:{ send:'送信', placeholder:'質問を入力…', toggle:'質問' },
+  vip:{
+    title:'🌙 会員エリア（VIP）',
+    group:{ astrology:'🗝 命理スペース（会員）', spiritual:'🌙 心憐スペース（会員）' },
+    astrology:{
+      match:'恋愛・結婚の傾向',
+      career:'キャリア：発展・起業',
+      wealth:'財運：財位分析・投資タイミング',
+      pet:'ペット命理：性格・ご縁'
+    },
+    spiritual:{
+      record:'スピリチュアル記録：写真・夢・音声・祈願',
+      courses:'講座：八字 / タロット / 西洋占星 / 数秘',
+      family:'家族メモリアル：追悼と継承',
+      practice:'毎週のエネルギー練習 / 儀式'
+    },
+    login:{ title:'💎 VIP ログイン機能' },
+    services:{ header:'会員サービス' },
+    upgrade:'💎 VIP（月額）にアップグレード',
+    back:'← ショップに戻る',
+    priceNote:'$9.9 / 月（命理 + 心憐 + 講座）'
+  },
+  auth:{
+    header:'ログイン / 登録', login:'ログイン', reset:'🔑 パスワード再設定', register:'登録',
+    freeTrialNote:'登録で1回の無料体験',
+    emailPlaceholder:'メールアドレス',
+    passwordPlaceholder:'パスワード（8文字以上・大小英数記号）'
+  },
+  footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+  err:{ fillBirthdate:'生年月日を入力してください', invalidDate:'日付形式は YYYY-MM-DD', generateFail:'作成に失敗しました' },
+  ui:{ unknown:'不明', timeUnknown:'時刻不明', hourSuffix:'{hh}:{mm}', birthSummary:'出生：{y}-{m}-{d} {timeText}', balance:'五行では{strongest}が最強、{weakest}が最弱。' },
+  badge:{ noHour:'時柱なし' },
+  chatDyn:{ autoReply:'受信：{q}。該当セクションに要点があります。' },
+  reportTitles:{ overview:'📊 総合', fiveElements:'🌿 五行', tenGods:'⚡ 十神', useful:'🔑 用神', relationship:'💕 恋愛・関係', career:'💼 キャリア', wealth:'💰 財運', health:'🌡️ 健康', nearTerm:'🔮 近未来', actions:'📝 行動' },
+  reportLabels:{
+    dayMaster:'日主', elementCount:'要素数', elementStrength:'強弱',
+    missingElements:'不足要素', tenGods:'十神', usefulSpirit:'用神',
+    supportElements:'支援要素', restrainElements:'抑制要素',
+    traits:'特質', marriageAdvice:'結婚アドバイス', relationshipTips:'相手とのコツ',
+    suitableCareers:'適職', careerAdvice:'助言', favorableDirections:'有利方位',
+    wealthCharacteristics:'財運の特徴', wealthDirections:'求財方位', financialAdvice:'資産運用',
+    healthCharacteristics:'体質', healthTips:'注意点', wellnessAdvice:'養生',
+    overallFortune:'総合運', favorableTiming:'良い時期', cautions:'注意事項'
+  },
+  wealth:{ stable:'安定収入と積立重視', opportunity:'偏財機会多め・リスク管理', steady:'専門性と評判で収入を伸ばす' },
+  fortune:{ steady:'安定調整期', upward:'上昇基調・発信◎', focus:'集中と制度化', study:'学習・研究期', foundation:'基盤づくり期' },
+  report:{
+    dayMaster:{ jia:'日主 甲木：柔らかくも芯が強い。成長・計画・開拓。' },
+    marriage:{ experienced:'落ち着きと相互の自由・安心を大切に。' },
+    career:{ leadership:'明確にリードし、ペースを整え、協業は慎重に。' },
+    health:{ tips:{ jia:'肝胆・腱をケア。早寝早起き、ストレッチ、油控えめ、緑多め。' } }
+  }
+};
+
+/* ===== ภาษาไทย ===== */
+I18N['th'] = {
+  brand:{ subtitle:'5xLiving · โหราศาสตร์จีน (Bazi) แบบย่อ' },
+  nav:{ langLabel:'ภาษา' },
+  lang:{ 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+  app:{ title:'ดวงจีน Bazi · เครื่องคำนวณฉับไว' },
+  form:{
+    nameLabel:'ชื่อ (ไม่บังคับ)', namePlaceholder:'ชื่อของคุณ (เพื่อการปรับเฉพาะบุคคล)',
+    genderLabel:'เพศ', gender:{ hidden:'ไม่ระบุ', male:'ชาย', female:'หญิง' },
+    calendarLabel:'ปฏิทิน', calendar:{ gregorian:'สากล', lunar:'จันทรคติ' },
+    birthdateLabel:'วันเกิด', birthtimeLabel:'เวลาเกิด', timeUnknown:'ไม่ทราบเวลาเกิด'
+  },
+  btn:{ generate:'คำนวณ Bazi', loading:'กำลังคำนวณ…' },
+  result:{ title:'ผังดวง Bazi ของคุณ' },
+  pillar:{ year:'เสาหลักปี', month:'เสาหลักเดือน', day:'เสาหลักวัน', hour:'เสาหลักเวลา' },
+  table:{ row:{ stem:'ก้านฟ้า', branch:'กิ่งดิน', fiveElem:'ธาตุทั้งห้า', nayin:'นาอิน' } },
+  energy:{ title:'พลังธาตุทั้งห้า' },
+  elem:{ wood:'ไม้', fire:'ไฟ', earth:'ดิน', metal:'โลหะ', water:'น้ำ', month:' เดือน', fiveElements:'ธาตุทั้งห้า' },
+  pro:{ title:'🧙‍♂️ ผู้ช่วย Xinlian · วิเคราะห์มืออาชีพ', welcome:'สวัสดีค่ะ/ครับ! สร้างรายงานละเอียดแล้ว ถามมาได้เลย' },
+  chat:{ send:'ส่ง', placeholder:'พิมพ์คำถาม…', toggle:'ถาม' },
+  vip:{
+    title:'🌙 พื้นที่สมาชิก VIP',
+    group:{ astrology:'🗝 พื้นที่ดวง (สมาชิก)', spiritual:'🌙 พื้นที่ Xinlian (สมาชิก)' },
+    astrology:{
+      match:'ความรัก/แต่งงาน',
+      career:'งาน/ศักยภาพผู้ประกอบการ',
+      wealth:'โชคลาภ/จังหวะการลงทุน',
+      pet:'ดวงสัตว์เลี้ยงและสายสัมพันธ์'
+    },
+    spiritual:{
+      record:'บันทึกด้านจิตวิญญาณ: รูป ความฝัน เสียง คำอธิษฐาน',
+      courses:'คอร์ส: Bazi / ไพ่ทาโรต์ / โหราศาสตร์ / เลขศาสตร์',
+      family:'อนุสรณ์ครอบครัว: รำลึกและสืบต่อ',
+      practice:'การฝึกพลังรายสัปดาห์ / พิธีกรรม'
+    },
+    login:{ title:'💎 ฟังก์ชันเข้าสู่ระบบ VIP' },
+    services:{ header:'บริการสมาชิก' },
+    upgrade:'💎 อัปเกรด VIP (รายเดือน)',
+    back:'← กลับร้านค้า',
+    priceNote:'$9.9 / เดือน (พื้นที่ดวง + Xinlian + คอร์ส)'
+  },
+  auth:{
+    header:'เข้าสู่ระบบ / สมัคร', login:'เข้าสู่ระบบ', reset:'🔑 รีเซ็ตรหัสผ่าน', register:'สมัครสมาชิก',
+    freeTrialNote:'สมัครแล้วรับสิทธิ์ทดลองใช้ฟรี 1 ครั้ง',
+    emailPlaceholder:'อีเมล',
+    passwordPlaceholder:'รหัสผ่าน (อย่างน้อย 8 ตัว รวมตัวพิมพ์/ตัวเลข/สัญลักษณ์)'
+  },
+  footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+  err:{ fillBirthdate:'กรอกวันเกิดก่อน', invalidDate:'รูปแบบวันที่ไม่ถูกต้อง ใช้ YYYY-MM-DD', generateFail:'สร้างไม่สำเร็จ' },
+  ui:{ unknown:'ไม่ทราบ', timeUnknown:'ไม่ทราบเวลา', hourSuffix:'{hh}:{mm}', birthSummary:'เกิด: {y}-{m}-{d} {timeText}', balance:'ในห้าธาตุ {strongest} เด่นสุด และ {weakest} อ่อนสุด' },
+  badge:{ noHour:'ไม่มีเสาหลักเวลา' },
+  chatDyn:{ autoReply:'รับแล้ว: {q} ดูสรุปในรายงานได้' },
+  reportTitles:{ overview:'📊 ภาพรวม', fiveElements:'🌿 ธาตุทั้งห้า', tenGods:'⚡ สิบทวยเทพ', useful:'🔑 ธาตุช่วย', relationship:'💕 ความรัก', career:'💼 การงาน', wealth:'💰 ทรัพย์', health:'🌡️ สุขภาพ', nearTerm:'🔮 ระยะใกล้', actions:'📝 การลงมือทำ' },
+  reportLabels:{
+    dayMaster:'ดวงวันเกิด', elementCount:'จำนวนธาตุ', elementStrength:'ความแรงของธาตุ',
+    missingElements:'ธาตุที่ขาด', tenGods:'สิบทวยเทพ', usefulSpirit:'ธาตุช่วย',
+    supportElements:'ธาตุหนุน', restrainElements:'ธาตุข่ม',
+    traits:'ลักษณะ', marriageAdvice:'คำแนะนำการแต่งงาน', relationshipTips:'วิธีอยู่ร่วม',
+    suitableCareers:'สาขาที่เหมาะ', careerAdvice:'คำแนะนำงาน', favorableDirections:'ทิศที่ดี',
+    wealthCharacteristics:'ลักษณะการเงิน', wealthDirections:'ทิศทำเงิน', financialAdvice:'คำแนะนำการเงิน',
+    healthCharacteristics:'ธาตุร่างกาย', healthTips:'ข้อควรระวัง', wellnessAdvice:'การดูแล',
+    overallFortune:'ภาพรวมโชค', favorableTiming:'จังหวะดี', cautions:'ข้อควรระวัง'
+  },
+  wealth:{ stable:'รายได้มั่นคงและการออม', opportunity:'ลาภลอยมาก คุมความเสี่ยง', steady:'มั่นคง ใช้ความเชี่ยวชาญขับเคลื่อน' },
+  fortune:{ steady:'ช่วงปรับตัว', upward:'ขาขึ้น เหมาะการสื่อสาร/โปรโมท', focus:'โฟกัสและลงระบบ', study:'ศึกษา/วิจัยก่อน', foundation:'วางรากฐาน' },
+  report:{
+    dayMaster:{ jia:'ธาตุไม้เจี่ย: อ่อนโยนแต่มุ่งมั่น เน้นเติบโต วางแผน เริ่มสิ่งใหม่' },
+    marriage:{ experienced:'นิ่ง สุขุม ให้พื้นที่และความปลอดภัยแก่กัน' },
+    career:{ leadership:'นำอย่างชัดเจน กำหนดจังหวะ เลือกพาร์ทเนอร์อย่างรอบคอบ' },
+    health:{ tips:{ jia:'ดูแลตับและเส้นเอ็น นอนเร็ว ยืดเหยียด ลดมัน เพิ่มผักเขียว' } }
+  }
+};
+
+/* ===== Bahasa Melayu ===== */
+I18N['ms'] = {
+  brand:{ subtitle:'5xLiving · Bazi Pantas' },
+  nav:{ langLabel:'Bahasa' },
+  lang:{ 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+  app:{ title:'Bazi Cina · Kalkulator Pantas' },
+  form:{
+    nameLabel:'Nama (pilihan)', namePlaceholder:'Nama anda (untuk peribadi)',
+    genderLabel:'Jantina', gender:{ hidden:'Tidak mahu sebut', male:'Lelaki', female:'Perempuan' },
+    calendarLabel:'Kalendar', calendar:{ gregorian:'Gregory', lunar:'Lunar' },
+    birthdateLabel:'Tarikh lahir', birthtimeLabel:'Masa lahir', timeUnknown:'Masa lahir tidak diketahui'
+  },
+  btn:{ generate:'Jana Bazi', loading:'Mengira…' },
+  result:{ title:'Carta Bazi Anda' },
+  pillar:{ year:'Tiang Tahun', month:'Tiang Bulan', day:'Tiang Hari', hour:'Tiang Jam' },
+  table:{ row:{ stem:'Batang Langit', branch:'Dahan Bumi', fiveElem:'Lima Unsur', nayin:'Na Yin' } },
+  energy:{ title:'Tenaga Lima Unsur' },
+  elem:{ wood:'Kayu', fire:'Api', earth:'Tanah', metal:'Logam', water:'Air', month:' bulan', fiveElements:'lima unsur' },
+  pro:{ title:'🧙‍♂️ Pembantu Xinlian · Analisis Profesional', welcome:'Hai! Laporan terperinci telah dijana. Tanyakan apa-apa.' },
+  chat:{ send:'Hantar', placeholder:'Taip soalan…', toggle:'Tanya' },
+  vip:{
+    title:'🌙 Segmen VIP',
+    group:{ astrology:'🗝 Ruang Mingli (Ahli)', spiritual:'🌙 Ruang Xinlian (Ahli)' },
+    astrology:{
+      match:'Arah cinta & perkahwinan',
+      career:'Kerjaya & potensi usahawan',
+      wealth:'Kedudukan wang & masa pelaburan',
+      pet:'Nasib haiwan peliharaan & ikatan'
+    },
+    spiritual:{
+      record:'Rekod rohani: foto, mimpi, suara, doa',
+      courses:'Kursus: Bazi / Tarot / Astrologi / Numerologi',
+      family:'Memorial keluarga: memperingati & meneruskan',
+      practice:'Amalan tenaga mingguan / ritual'
+    },
+    login:{ title:'💎 Ciri Log Masuk VIP' },
+    services:{ header:'Perkhidmatan Ahli' },
+    upgrade:'💎 Naik taraf VIP (Bulanan)',
+    back:'← Kembali ke Kedai',
+    priceNote:'$9.9 / bulan (Mingli + Xinlian + Kursus)'
+  },
+  auth:{
+    header:'Log masuk / Daftar', login:'Log masuk', reset:'🔑 Tetap semula kata laluan', register:'Daftar',
+    freeTrialNote:'Daftar disertakan satu percubaan percuma',
+    emailPlaceholder:'Emel',
+    passwordPlaceholder:'Kata laluan (min 8 aksara, huruf/simbol/nombor)'
+  },
+  footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+  err:{ fillBirthdate:'Sila isi tarikh lahir', invalidDate:'Tarikh tidak sah. Guna YYYY-MM-DD', generateFail:'Gagal menjana' },
+  ui:{ unknown:'Tidak diketahui', timeUnknown:'Masa tidak diketahui', hourSuffix:'{hh}:{mm}', birthSummary:'Lahir: {y}-{m}-{d} {timeText}', balance:'Antara lima unsur, {strongest} paling kuat dan {weakest} paling lemah.' },
+  badge:{ noHour:'Tiada tiang jam' },
+  chatDyn:{ autoReply:'Diterima: {q}. Poin penting ada dalam laporan.' },
+  reportTitles:{ overview:'📊 Gambaran', fiveElements:'🌿 Lima Unsur', tenGods:'⚡ Sepuluh Dewa', useful:'🔑 Unsur Berguna', relationship:'💕 Hubungan', career:'💼 Kerjaya', wealth:'💰 Rezeki', health:'🌡️ Kesihatan', nearTerm:'🔮 Jangka Dekat', actions:'📝 Tindakan' },
+  reportLabels:{
+    dayMaster:'Day Master', elementCount:'Kiraan unsur', elementStrength:'Kekuatan unsur',
+    missingElements:'Unsur kurang', tenGods:'Sepuluh Dewa', usefulSpirit:'Unsur berguna',
+    supportElements:'Unsur sokong', restrainElements:'Unsur menahan',
+    traits:'Sifat', marriageAdvice:'Nasihat perkahwinan', relationshipTips:'Cara serasi',
+    suitableCareers:'Bidang sesuai', careerAdvice:'Nasihat kerjaya', favorableDirections:'Arah baik',
+    wealthCharacteristics:'Ciri rezeki', wealthDirections:'Arah rezeki', financialAdvice:'Nasihat kewangan',
+    healthCharacteristics:'Ciri tubuh', healthTips:'Perhatian', wellnessAdvice:'Penjagaan',
+    overallFortune:'Rezeki keseluruhan', favorableTiming:'Masa baik', cautions:'Perhatian'
+  },
+/* ===== zh-TW ===== */
+I18N['zh-TW'] = {
+  brand:{ subtitle:'5xLiving · 八字簡評' },
+  nav:{ langLabel:'語言' },
+  lang:{ 'zh-CN':'簡體中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+  app:{ title:'八字命理 · 快速排盤' },
+  form:{
+    nameLabel:'姓名（可選）', namePlaceholder:'你的稱呼（用於個人化）',
+    genderLabel:'性別', gender:{ hidden:'不透露', male:'男性', female:'女性' },
+    calendarLabel:'曆法', calendar:{ gregorian:'陽曆', lunar:'農曆' },
+    birthdateLabel:'出生日期', birthtimeLabel:'出生時間', timeUnknown:'出生時間不詳'
+  },
+  btn:{ generate:'生成八字', loading:'計算中…' },
+  result:{ title:'您的生辰八字命盤' },
+  pillar:{ year:'年柱', month:'月柱', day:'日柱', hour:'時柱' },
+  table:{ row:{ stem:'天干', branch:'地支', fiveElem:'五行', nayin:'納音' } },
+  energy:{ title:'五行能量分析' },
+  elem:{ wood:'木', fire:'火', earth:'土', metal:'金', water:'水', month:'月', fiveElements:'五行' },
+  pro:{ title:'🧙‍♂️ 心憐管家 · 專業命理分析', welcome:'您好！我是您的專業命理顧問，已生成詳細分析報告。歡迎提問。' },
+  chat:{ send:'發送', placeholder:'請輸入您的問題…', toggle:'問' },
+  vip:{
+    title:'🌙 會員區域 VIP Segment',
+    group:{ astrology:'🗝 命理空間專屬內容', spiritual:'🌙 心憐空間專屬內容' },
+    astrology:{
+      match:'姻緣方向：戀愛緣分、婚姻走勢',
+      career:'事業方向：職場發展、創業潛力',
+      wealth:'財運方向：財位分析、理財時機',
+      pet:'寵物命理：伴侶動物的性格與緣分'
+    },
+    spiritual:{
+      record:'靈性記錄：照片、夢境、聲音、願望祈禱',
+      courses:'命理課程：八字 / 塔羅 / 占星 / 靈數',
+      family:'家族紀念系統：親人靈性紀念與延續',
+      practice:'每週能量練習 / 神明儀式任務'
+    },
+    login:{ title:'💎 登入 VIP 功能' },
+    services:{ header:'會員服務' },
+    upgrade:'💎 升級為 VIP（月費）',
+    back:'← 返回命理商城',
+    priceNote:'$9.9 / 月費 VIP（命理空間 + 心憐空間 + 靈性課程）'
+  },
+  auth:{
+    header:'帳戶登入 / 註冊', login:'登入帳戶', reset:'🔑 重設密碼', register:'註冊帳戶',
+    freeTrialNote:'註冊帳號贈送一次免費體驗',
+    emailPlaceholder:'信箱 Email',
+    passwordPlaceholder:'密碼 Password（至少8位，含大小寫數字符號）'
+  },
+  footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+  err:{ fillBirthdate:'請填寫出生日期', invalidDate:'無效的日期格式，請用 YYYY-MM-DD', generateFail:'生成失敗，請稍後重試' },
+  ui:{ unknown:'未知', timeUnknown:'時間不詳', hourSuffix:'{hh}:{mm}', birthSummary:'出生：{y}-{m}-{d} {timeText}', balance:'五行中{strongest}最強，{weakest}最弱。' },
+  badge:{ noHour:'未納入時柱' },
+  chatDyn:{ autoReply:'已收到：{q}。稍後可在專業報告相應章節查看重點。' },
+  reportTitles:{ overview:'📊 命盤總覽', fiveElements:'🌿 五行分析', tenGods:'⚡ 十神配置', useful:'🔑 喜用神', relationship:'💕 感情婚姻', career:'💼 事業發展', wealth:'💰 財運分析', health:'🌡️ 健康養生', nearTerm:'🔮 近期運勢', actions:'📝 行動清單' },
+  reportLabels:{
+    dayMaster:'日主命理', elementCount:'五行個數', elementStrength:'五行旺衰',
+    missingElements:'五行所缺', tenGods:'十神配置', usefulSpirit:'喜用神',
+    supportElements:'幫扶五行', restrainElements:'剋洩五行',
+    traits:'感情特質', marriageAdvice:'婚姻建議', relationshipTips:'相處之道',
+    suitableCareers:'適合行業', careerAdvice:'發展建議', favorableDirections:'有利方位',
+    wealthCharacteristics:'財運特點', wealthDirections:'求財方向', financialAdvice:'理財建議',
+    healthCharacteristics:'體質特點', healthTips:'注意事項', wellnessAdvice:'養生建議',
+    overallFortune:'整體運勢', favorableTiming:'有利時機', cautions:'注意事項'
+  },
+  wealth:{ stable:'以穩定收入為主，適合累積式理財', opportunity:'偏財機會多，注意節制風險', steady:'財運平穩，重在專業與口碑帶動' },
+  fortune:{ steady:'平穩調整期', upward:'勢頭向上，利推廣/表達', focus:'收斂聚焦，利制度與執行', study:'學習調研期，先蓄後發', foundation:'打基礎、穩節奏為主' },
+  report:{
+    dayMaster:{ jia:'日主為甲木：外柔內剛，重視成長、規劃與開創。' },
+    marriage:{ experienced:'婚姻建議：以成熟穩重為主，給彼此空間與安全感。' },
+    career:{ leadership:'事業建議：發揮主導力，目標清楚、步調穩健，慎選合作。' },
+    health:{ tips:{ jia:'肝膽與筋骨為重點；早睡早起、伸展筋絡、少油多蔬。' } }
+  }
+};
+
+/* ===== English ===== */
+I18N['en'] = {
+  brand:{ subtitle:'5xLiving · Bazi Quick Read' },
+  nav:{ langLabel:'Language' },
+  lang:{ 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+  app:{ title:'Chinese Bazi · Quick Calculator' },
+  form:{
+    nameLabel:'Name (optional)', namePlaceholder:'Your name (for personalization)',
+    genderLabel:'Gender', gender:{ hidden:'Prefer not to say', male:'Male', female:'Female' },
+    calendarLabel:'Calendar', calendar:{ gregorian:'Gregorian', lunar:'Lunar' },
+    birthdateLabel:'Birthdate', birthtimeLabel:'Birth time', timeUnknown:'Time of birth unknown'
+  },
+  btn:{ generate:'Generate Bazi', loading:'Calculating…' },
+  result:{ title:'Your Bazi Chart' },
+  pillar:{ year:'Year Pillar', month:'Month Pillar', day:'Day Pillar', hour:'Hour Pillar' },
+  table:{ row:{ stem:'Heavenly Stem', branch:'Earthly Branch', fiveElem:'Five Elements', nayin:'Na Yin' } },
+  energy:{ title:'Five-Element Energy' },
+  elem:{ wood:'Wood', fire:'Fire', earth:'Earth', metal:'Metal', water:'Water', month:' month', fiveElements:'five elements' },
+  pro:{ title:'🧙‍♂️ Xinlian Butler · Professional Analysis', welcome:'Hello! I generated a detailed reading. Ask me anything.' },
+  chat:{ send:'Send', placeholder:'Type your question…', toggle:'Ask' },
+  vip:{
+    title:'🌙 VIP Segment',
+    group:{ astrology:'🗝 Mingli Space (Members)', spiritual:'🌙 Xinlian Space (Members)' },
+    astrology:{
+      match:'Relationship: romance & marriage trend',
+      career:'Career: development & entrepreneurship',
+      wealth:'Wealth: money position & timing',
+      pet:'Pet Destiny: companion animal traits & bonds'
+    },
+    spiritual:{
+      record:'Spiritual records: photos, dreams, voice, wishes',
+      courses:'Courses: Bazi / Tarot / Astrology / Numerology',
+      family:'Family Memorial: remembrance & continuation',
+      practice:'Weekly energy practice / deity rituals'
+    },
+    login:{ title:'💎 VIP Login Features' },
+    services:{ header:'Member Services' },
+    upgrade:'💎 Upgrade to VIP (Monthly)',
+    back:'← Back to Shop',
+    priceNote:'$9.9 / month (Mingli + Xinlian + Courses)'
+  },
+  auth:{
+    header:'Account Login / Register', login:'Log in', reset:'🔑 Reset password', register:'Register',
+    freeTrialNote:'Sign-up includes one free trial',
+    emailPlaceholder:'Email',
+    passwordPlaceholder:'Password (min 8 chars incl. cases/digits/symbols)'
+  },
+  footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+  err:{ fillBirthdate:'Please fill the birthdate', invalidDate:'Invalid date. Use YYYY-MM-DD', generateFail:'Generation failed. Try again.' },
+  ui:{ unknown:'Unknown', timeUnknown:'Unknown time', hourSuffix:'{hh}:{mm}', birthSummary:'Born: {y}-{m}-{d} {timeText}', balance:'{strongest} strongest, {weakest} weakest among the five.' },
+  badge:{ noHour:'Hour pillar omitted' },
+  chatDyn:{ autoReply:'Got it: {q}. You will find key points in the report.' },
+  reportTitles:{ overview:'📊 Overview', fiveElements:'🌿 Five Elements', tenGods:'⚡ Ten Gods', useful:'🔑 Useful Spirit', relationship:'💕 Relationship', career:'💼 Career', wealth:'💰 Wealth', health:'🌡️ Health', nearTerm:'🔮 Near Term', actions:'📝 Action List' },
+  reportLabels:{
+    dayMaster:'Day Master', elementCount:'Element counts', elementStrength:'Element strengths',
+    missingElements:'Missing elements', tenGods:'Ten Gods', usefulSpirit:'Useful spirit',
+    supportElements:'Supporting elements', restrainElements:'Restraining elements',
+    traits:'Traits', marriageAdvice:'Marriage advice', relationshipTips:'Tips',
+    suitableCareers:'Suitable fields', careerAdvice:'Career advice', favorableDirections:'Favorable directions',
+    wealthCharacteristics:'Wealth characteristics', wealthDirections:'Wealth directions', financialAdvice:'Financial advice',
+    healthCharacteristics:'Constitution', healthTips:'Notes', wellnessAdvice:'Wellness advice',
+    overallFortune:'Overall fortune', favorableTiming:'Good timing', cautions:'Cautions'
+  },
+  wealth:{ stable:'Focus on steady income and compounding', opportunity:'Many windfalls; manage risk', steady:'Stable; let expertise & reputation drive income' },
+  fortune:{ steady:'Stable adjustment phase', upward:'Rising; good for promotion/expression', focus:'Focus & systemize execution', study:'Study & research first', foundation:'Lay foundations; keep tempo steady' },
+  report:{
+    dayMaster:{ jia:'Day Master Jia Wood: gentle yet firm; growth, planning, pioneering.' },
+    marriage:{ experienced:'Be steady and mature; give each other space and safety.' },
+    career:{ leadership:'Lead with clarity; set tempo; choose partners wisely.' },
+    health:{ tips:{ jia:'Care for liver/tendons; sleep early; stretch; lighter oils; more greens.' } }
+  }
+};
+
+/* ===== 日本語 ===== */
+I18N['ja'] = {
+  brand:{ subtitle:'5xLiving · 八字クイックレポート' },
+  nav:{ langLabel:'言語' },
+  lang:{ 'zh-CN':'簡体字','zh-TW':'繁體字','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+  app:{ title:'四柱推命（八字）· クイック鑑定' },
+  form:{
+    nameLabel:'お名前（任意）', namePlaceholder:'個別表示のためのお名前',
+    genderLabel:'性別', gender:{ hidden:'未回答', male:'男性', female:'女性' },
+    calendarLabel:'暦', calendar:{ gregorian:'西暦', lunar:'旧暦' },
+    birthdateLabel:'生年月日', birthtimeLabel:'出生時刻', timeUnknown:'出生時刻不明'
+  },
+  btn:{ generate:'作成', loading:'計算中…' },
+  result:{ title:'あなたの四柱（八字）チャート' },
+  pillar:{ year:'年柱', month:'月柱', day:'日柱', hour:'時柱' },
+  table:{ row:{ stem:'天干', branch:'地支', fiveElem:'五行', nayin:'納音' } },
+  energy:{ title:'五行エネルギー' },
+  elem:{ wood:'木', fire:'火', earth:'土', metal:'金', water:'水', month:'月', fiveElements:'五行' },
+  pro:{ title:'🧙‍♂️ 心憐バトラー · プロ鑑定', welcome:'詳細レポートを作成しました。ご質問をどうぞ。' },
+  chat:{ send:'送信', placeholder:'質問を入力…', toggle:'質問' },
+  vip:{
+    title:'🌙 会員エリア（VIP）',
+    group:{ astrology:'🗝 命理スペース（会員）', spiritual:'🌙 心憐スペース（会員）' },
+    astrology:{
+      match:'恋愛・結婚の傾向',
+      career:'キャリア：発展・起業',
+      wealth:'財運：財位分析・投資タイミング',
+      pet:'ペット命理：性格・ご縁'
+    },
+    spiritual:{
+      record:'スピリチュアル記録：写真・夢・音声・祈願',
+      courses:'講座：八字 / タロット / 西洋占星 / 数秘',
+      family:'家族メモリアル：追悼と継承',
+      practice:'毎週のエネルギー練習 / 儀式'
+    },
+    login:{ title:'💎 VIP ログイン機能' },
+    services:{ header:'会員サービス' },
+    upgrade:'💎 VIP（月額）にアップグレード',
+    back:'← ショップに戻る',
+    priceNote:'$9.9 / 月（命理 + 心憐 + 講座）'
+  },
+  auth:{
+    header:'ログイン / 登録', login:'ログイン', reset:'🔑 パスワード再設定', register:'登録',
+    freeTrialNote:'登録で1回の無料体験',
+    emailPlaceholder:'メールアドレス',
+    passwordPlaceholder:'パスワード（8文字以上・大小英数記号）'
+  },
+  footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+  err:{ fillBirthdate:'生年月日を入力してください', invalidDate:'日付形式は YYYY-MM-DD', generateFail:'作成に失敗しました' },
+  ui:{ unknown:'不明', timeUnknown:'時刻不明', hourSuffix:'{hh}:{mm}', birthSummary:'出生：{y}-{m}-{d} {timeText}', balance:'五行では{strongest}が最強、{weakest}が最弱。' },
+  badge:{ noHour:'時柱なし' },
+  chatDyn:{ autoReply:'受信：{q}。該当セクションに要点があります。' },
+  reportTitles:{ overview:'📊 総合', fiveElements:'🌿 五行', tenGods:'⚡ 十神', useful:'🔑 用神', relationship:'💕 恋愛・関係', career:'💼 キャリア', wealth:'💰 財運', health:'🌡️ 健康', nearTerm:'🔮 近未来', actions:'📝 行動' },
+  reportLabels:{
+    dayMaster:'日主', elementCount:'要素数', elementStrength:'強弱',
+    missingElements:'不足要素', tenGods:'十神', usefulSpirit:'用神',
+    supportElements:'支援要素', restrainElements:'抑制要素',
+    traits:'特質', marriageAdvice:'結婚アドバイス', relationshipTips:'相手とのコツ',
+    suitableCareers:'適職', careerAdvice:'助言', favorableDirections:'有利方位',
+    wealthCharacteristics:'財運の特徴', wealthDirections:'求財方位', financialAdvice:'資産運用',
+    healthCharacteristics:'体質', healthTips:'注意点', wellnessAdvice:'養生',
+    overallFortune:'総合運', favorableTiming:'良い時期', cautions:'注意事項'
+  },
+  wealth:{ stable:'安定収入と積立重視', opportunity:'偏財機会多め・リスク管理', steady:'専門性と評判で収入を伸ばす' },
+  fortune:{ steady:'安定調整期', upward:'上昇基調・発信◎', focus:'集中と制度化', study:'学習・研究期', foundation:'基盤づくり期' },
+  report:{
+    dayMaster:{ jia:'日主 甲木：柔らかくも芯が強い。成長・計画・開拓。' },
+    marriage:{ experienced:'落ち着きと相互の自由・安心を大切に。' },
+    career:{ leadership:'明確にリードし、ペースを整え、協業は慎重に。' },
+    health:{ tips:{ jia:'肝胆・腱をケア。早寝早起き、ストレッチ、油控えめ、緑多め。' } }
+  }
+};
+
+/* ===== ภาษาไทย ===== */
+I18N['th'] = {
+  brand:{ subtitle:'5xLiving · โหราศาสตร์จีน (Bazi) แบบย่อ' },
+  nav:{ langLabel:'ภาษา' },
+  lang:{ 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+  app:{ title:'ดวงจีน Bazi · เครื่องคำนวณฉับไว' },
+  form:{
+    nameLabel:'ชื่อ (ไม่บังคับ)', namePlaceholder:'ชื่อของคุณ (เพื่อการปรับเฉพาะบุคคล)',
+    genderLabel:'เพศ', gender:{ hidden:'ไม่ระบุ', male:'ชาย', female:'หญิง' },
+    calendarLabel:'ปฏิทิน', calendar:{ gregorian:'สากล', lunar:'จันทรคติ' },
+    birthdateLabel:'วันเกิด', birthtimeLabel:'เวลาเกิด', timeUnknown:'ไม่ทราบเวลาเกิด'
+  },
+  btn:{ generate:'คำนวณ Bazi', loading:'กำลังคำนวณ…' },
+  result:{ title:'ผังดวง Bazi ของคุณ' },
+  pillar:{ year:'เสาหลักปี', month:'เสาหลักเดือน', day:'เสาหลักวัน', hour:'เสาหลักเวลา' },
+  table:{ row:{ stem:'ก้านฟ้า', branch:'กิ่งดิน', fiveElem:'ธาตุทั้งห้า', nayin:'นาอิน' } },
+  energy:{ title:'พลังธาตุทั้งห้า' },
+  elem:{ wood:'ไม้', fire:'ไฟ', earth:'ดิน', metal:'โลหะ', water:'น้ำ', month:' เดือน', fiveElements:'ธาตุทั้งห้า' },
+  pro:{ title:'🧙‍♂️ ผู้ช่วย Xinlian · วิเคราะห์มืออาชีพ', welcome:'สวัสดีค่ะ/ครับ! สร้างรายงานละเอียดแล้ว ถามมาได้เลย' },
+  chat:{ send:'ส่ง', placeholder:'พิมพ์คำถาม…', toggle:'ถาม' },
+  vip:{
+    title:'🌙 พื้นที่สมาชิก VIP',
+    group:{ astrology:'🗝 พื้นที่ดวง (สมาชิก)', spiritual:'🌙 พื้นที่ Xinlian (สมาชิก)' },
+    astrology:{
+      match:'ความรัก/แต่งงาน',
+      career:'งาน/ศักยภาพผู้ประกอบการ',
+      wealth:'โชคลาภ/จังหวะการลงทุน',
+      pet:'ดวงสัตว์เลี้ยงและสายสัมพันธ์'
+    },
+    spiritual:{
+      record:'บันทึกด้านจิตวิญญาณ: รูป ความฝัน เสียง คำอธิษฐาน',
+      courses:'คอร์ส: Bazi / ไพ่ทาโรต์ / โหราศาสตร์ / เลขศาสตร์',
+      family:'อนุสรณ์ครอบครัว: รำลึกและสืบต่อ',
+      practice:'การฝึกพลังรายสัปดาห์ / พิธีกรรม'
+    },
+    login:{ title:'💎 ฟังก์ชันเข้าสู่ระบบ VIP' },
+    services:{ header:'บริการสมาชิก' },
+    upgrade:'💎 อัปเกรด VIP (รายเดือน)',
+    back:'← กลับร้านค้า',
+    priceNote:'$9.9 / เดือน (พื้นที่ดวง + Xinlian + คอร์ส)'
+  },
+  auth:{
+    header:'เข้าสู่ระบบ / สมัคร', login:'เข้าสู่ระบบ', reset:'🔑 รีเซ็ตรหัสผ่าน', register:'สมัครสมาชิก',
+    freeTrialNote:'สมัครแล้วรับสิทธิ์ทดลองใช้ฟรี 1 ครั้ง',
+    emailPlaceholder:'อีเมล',
+    passwordPlaceholder:'รหัสผ่าน (อย่างน้อย 8 ตัว รวมตัวพิมพ์/ตัวเลข/สัญลักษณ์)'
+  },
+  footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+  err:{ fillBirthdate:'กรอกวันเกิดก่อน', invalidDate:'รูปแบบวันที่ไม่ถูกต้อง ใช้ YYYY-MM-DD', generateFail:'สร้างไม่สำเร็จ' },
+  ui:{ unknown:'ไม่ทราบ', timeUnknown:'ไม่ทราบเวลา', hourSuffix:'{hh}:{mm}', birthSummary:'เกิด: {y}-{m}-{d} {timeText}', balance:'ในห้าธาตุ {strongest} เด่นสุด และ {weakest} อ่อนสุด' },
+  badge:{ noHour:'ไม่มีเสาหลักเวลา' },
+  chatDyn:{ autoReply:'รับแล้ว: {q} ดูสรุปในรายงานได้' },
+  reportTitles:{ overview:'📊 ภาพรวม', fiveElements:'🌿 ธาตุทั้งห้า', tenGods:'⚡ สิบทวยเทพ', useful:'🔑 ธาตุช่วย', relationship:'💕 ความรัก', career:'💼 การงาน', wealth:'💰 ทรัพย์', health:'🌡️ สุขภาพ', nearTerm:'🔮 ระยะใกล้', actions:'📝 การลงมือทำ' },
+  reportLabels:{
+    dayMaster:'ดวงวันเกิด', elementCount:'จำนวนธาตุ', elementStrength:'ความแรงของธาตุ',
+    missingElements:'ธาตุที่ขาด', tenGods:'สิบทวยเทพ', usefulSpirit:'ธาตุช่วย',
+    supportElements:'ธาตุหนุน', restrainElements:'ธาตุข่ม',
+    traits:'ลักษณะ', marriageAdvice:'คำแนะนำการแต่งงาน', relationshipTips:'วิธีอยู่ร่วม',
+    suitableCareers:'สาขาที่เหมาะ', careerAdvice:'คำแนะนำงาน', favorableDirections:'ทิศที่ดี',
+    wealthCharacteristics:'ลักษณะการเงิน', wealthDirections:'ทิศทำเงิน', financialAdvice:'คำแนะนำการเงิน',
+    healthCharacteristics:'ธาตุร่างกาย', healthTips:'ข้อควรระวัง', wellnessAdvice:'การดูแล',
+    overallFortune:'ภาพรวมโชค', favorableTiming:'จังหวะดี', cautions:'ข้อควรระวัง'
+  },
+  wealth:{ stable:'รายได้มั่นคงและการออม', opportunity:'ลาภลอยมาก คุมความเสี่ยง', steady:'มั่นคง ใช้ความเชี่ยวชาญขับเคลื่อน' },
+  fortune:{ steady:'ช่วงปรับตัว', upward:'ขาขึ้น เหมาะการสื่อสาร/โปรโมท', focus:'โฟกัสและลงระบบ', study:'ศึกษา/วิจัยก่อน', foundation:'วางรากฐาน' },
+  report:{
+    dayMaster:{ jia:'ธาตุไม้เจี่ย: อ่อนโยนแต่มุ่งมั่น เน้นเติบโต วางแผน เริ่มสิ่งใหม่' },
+    marriage:{ experienced:'นิ่ง สุขุม ให้พื้นที่และความปลอดภัยแก่กัน' },
+    career:{ leadership:'นำอย่างชัดเจน กำหนดจังหวะ เลือกพาร์ทเนอร์อย่างรอบคอบ' },
+    health:{ tips:{ jia:'ดูแลตับและเส้นเอ็น นอนเร็ว ยืดเหยียด ลดมัน เพิ่มผักเขียว' } }
+  }
+};
+
+/* ===== Bahasa Melayu ===== */
+I18N['ms'] = {
+  brand:{ subtitle:'5xLiving · Bazi Pantas' },
+  nav:{ langLabel:'Bahasa' },
+  lang:{ 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
+  app:{ title:'Bazi Cina · Kalkulator Pantas' },
+  form:{
+    nameLabel:'Nama (pilihan)', namePlaceholder:'Nama anda (untuk peribadi)',
+    genderLabel:'Jantina', gender:{ hidden:'Tidak mahu sebut', male:'Lelaki', female:'Perempuan' },
+    calendarLabel:'Kalendar', calendar:{ gregorian:'Gregory', lunar:'Lunar' },
+    birthdateLabel:'Tarikh lahir', birthtimeLabel:'Masa lahir', timeUnknown:'Masa lahir tidak diketahui'
+  },
+  btn:{ generate:'Jana Bazi', loading:'Mengira…' },
+  result:{ title:'Carta Bazi Anda' },
+  pillar:{ year:'Tiang Tahun', month:'Tiang Bulan', day:'Tiang Hari', hour:'Tiang Jam' },
+  table:{ row:{ stem:'Batang Langit', branch:'Dahan Bumi', fiveElem:'Lima Unsur', nayin:'Na Yin' } },
+  energy:{ title:'Tenaga Lima Unsur' },
+  elem:{ wood:'Kayu', fire:'Api', earth:'Tanah', metal:'Logam', water:'Air', month:' bulan', fiveElements:'lima unsur' },
+  pro:{ title:'🧙‍♂️ Pembantu Xinlian · Analisis Profesional', welcome:'Hai! Laporan terperinci telah dijana. Tanyakan apa-apa.' },
+  chat:{ send:'Hantar', placeholder:'Taip soalan…', toggle:'Tanya' },
+  vip:{
+    title:'🌙 Segmen VIP',
+    group:{ astrology:'🗝 Ruang Mingli (Ahli)', spiritual:'🌙 Ruang Xinlian (Ahli)' },
+    astrology:{
+      match:'Arah cinta & perkahwinan',
+      career:'Kerjaya & potensi usahawan',
+      wealth:'Kedudukan wang & masa pelaburan',
+      pet:'Nasib haiwan peliharaan & ikatan'
+    },
+    spiritual:{
+      record:'Rekod rohani: foto, mimpi, suara, doa',
+      courses:'Kursus: Bazi / Tarot / Astrologi / Numerologi',
+      family:'Memorial keluarga: memperingati & meneruskan',
+      practice:'Amalan tenaga mingguan / ritual'
+    },
+    login:{ title:'💎 Ciri Log Masuk VIP' },
+    services:{ header:'Perkhidmatan Ahli' },
+    upgrade:'💎 Naik taraf VIP (Bulanan)',
+    back:'← Kembali ke Kedai',
+    priceNote:'$9.9 / bulan (Mingli + Xinlian + Kursus)'
+  },
+  auth:{
+    header:'Log masuk / Daftar', login:'Log masuk', reset:'🔑 Tetap semula kata laluan', register:'Daftar',
+    freeTrialNote:'Daftar disertakan satu percubaan percuma',
+    emailPlaceholder:'Emel',
+    passwordPlaceholder:'Kata laluan (min 8 aksara, huruf/simbol/nombor)'
+  },
+  footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+  err:{ fillBirthdate:'Sila isi tarikh lahir', invalidDate:'Tarikh tidak sah. Guna YYYY-MM-DD', generateFail:'Gagal menjana' },
+  ui:{ unknown:'Tidak diketahui', timeUnknown:'Masa tidak diketahui', hourSuffix:'{hh}:{mm}', birthSummary:'Lahir: {y}-{m}-{d} {timeText}', balance:'Antara lima unsur, {strongest} paling kuat dan {weakest} paling lemah.' },
+  badge:{ noHour:'Tiada tiang jam' },
+  chatDyn:{ autoReply:'Diterima: {q}. Poin penting ada dalam laporan.' },
+  reportTitles:{ overview:'📊 Gambaran', fiveElements:'🌿 Lima Unsur', tenGods:'⚡ Sepuluh Dewa', useful:'🔑 Unsur Berguna', relationship:'💕 Hubungan', career:'💼 Kerjaya', wealth:'💰 Rezeki', health:'🌡️ Kesihatan', nearTerm:'🔮 Jangka Dekat', actions:'📝 Tindakan' },
+  reportLabels:{
+    dayMaster:'Day Master', elementCount:'Kiraan unsur', elementStrength:'Kekuatan unsur',
+    missingElements:'Unsur kurang', tenGods:'Sepuluh Dewa', usefulSpirit:'Unsur berguna',
+    supportElements:'Unsur sokong', restrainElements:'Unsur menahan',
+    traits:'Sifat', marriageAdvice:'Nasihat perkahwinan', relationshipTips:'Cara serasi',
+    suitableCareers:'Bidang sesuai', careerAdvice:'Nasihat kerjaya', favorableDirections:'Arah baik',
+    wealthCharacteristics:'Ciri rezeki', wealthDirections:'Arah rezeki', financialAdvice:'Nasihat kewangan',
+    healthCharacteristics:'Ciri tubuh', healthTips:'Perhatian', wellnessAdvice:'Penjagaan',
+    overallFortune:'Rezeki keseluruhan', favorableTiming:'Masa baik', cautions:'Perhatian'
+  },
+  wealth:{ stable:'Pendapatan stabil & pelaburan berkala', opportunity:'Banyak durian runtuh – kawal risiko', steady:'Stabil; kepakaran & reputasi memacu' },
+  fortune:{ steady:'Fasa penstabilan', upward:'Meningkat; baik untuk promosi/ekspresi', focus:'Fokus & sistemkan', study:'Belajar dahulu', foundation:'Bina asas' },
+  report:{
+    dayMaster:{ jia:'Day Master Kayu Jia: lembut namun tegas; tumbuh, merancang, meneroka.' },
+    marriage:{ experienced:'Matang dan stabil; beri ruang & rasa selamat.' },
+    career:{ leadership:'Pimpin dengan jelas; tentukan rentak; pilih rakan kongsi bijak.' },
+    health:{ tips:{ jia:'Fokus hati & tendon; tidur awal, regangan, kurang minyak, tambah sayur.' } }
+  }
+};
   function pickDict(lang){
     if (I18N[lang]) return I18N[lang];
     if (I18N['en']) return I18N['en'];
@@ -1226,6 +1958,105 @@ a:focus{
 })();
 </script>
 <script>
+/* === zh-CN === */
+ensure('zh-CN', {
+  report:{
+    dayMaster:{ jia:'日主为甲木：外柔内刚，主生长、规划与开创。' },
+    marriage:{ experienced:'婚姻建议：以成熟稳重为主，给彼此空间感与安全感。' },
+    career:{ leadership:'事业建议：发挥主导力，清晰目标与节奏，慎选合作。' },
+    health:{ tips:{ jia:'肝胆与筋骨为重点；早睡早起、舒展筋络、少油重绿。' } }
+  }
+});
+
+/* === zh-TW === */
+ensure('zh-TW', {
+  report:{
+    dayMaster:{ jia:'日主為甲木：外柔內剛，重視成長、規劃與開創。' },
+    marriage:{ experienced:'婚姻建議：以成熟穩重為主，給彼此空間與安全感。' },
+    career:{ leadership:'事業建議：發揮主導力，目標清楚、步調穩健，慎選合作。' },
+    health:{ tips:{ jia:'肝膽與筋骨為重點；早睡早起、伸展筋絡、少油多蔬。' } }
+  }
+});
+
+/* === English === */
+ensure('en', {
+  report:{
+    dayMaster:{ jia:'Day Master Jia Wood: gentle but firm; growth, planning, pioneering.' },
+    marriage:{ experienced:'Marriage tip: be steady and mature; give space and safety.' },
+    career:{ leadership:'Career tip: lead with clarity; set pace and choose partners wisely.' },
+    health:{ tips:{ jia:'Focus on liver/tendons; sleep early, stretch, lighter oils, more greens.' } }
+  }
+});
+
+/* === 日本語 === */
+ensure('ja', {
+  report:{
+    dayMaster:{ jia:'日主 甲木：柔らかくも芯が強い。成長・計画・開拓。' },
+    marriage:{ experienced:'婚姻アドバイス：落ち着き重視。相手の自由と安心を確保。' },
+    career:{ leadership:'キャリア：主導性を発揮。目標とペースを明確に、協業は慎重に。' },
+    health:{ tips:{ jia:'肝胆・腱をケア。早寝早起き、ストレッチ、油を控え野菜を増やす。' } }
+  }
+});
+
+/* === ภาษาไทย === */
+ensure('th', {
+  report:{
+    dayMaster:{ jia:'ดวงวันเกิด ธาตุไม้เจี่ย: อ่อนโยนแต่มั่นคง เน้นเติบโต วางแผน เริ่มสิ่งใหม่' },
+    marriage:{ experienced:'แต่งงาน: วุฒิภาวะ สำคัญ เปิดพื้นที่และความปลอดภัยให้กัน' },
+    career:{ leadership:'การงาน: นำอย่างชัดเจน กำหนดจังหวะ เลือกพาร์ทเนอร์อย่างรอบคอบ' },
+    health:{ tips:{ jia:'ดูแลตับและเส้นเอ็น เข้านอนเร็ว ยืดเหยียด ลดมัน เพิ่มผักเขียว' } }
+  }
+});
+
+/* === Bahasa Melayu === */
+ensure('ms', {
+  report:{
+    dayMaster:{ jia:'Day Master Kayu Jia: lembut namun tegas; tumbuh, merancang, meneroka.' },
+    marriage:{ experienced:'Perkahwinan: matang dan stabil; beri ruang dan rasa selamat.' },
+    career:{ leadership:'Kerjaya: pimpin dengan jelas; tetapkan rentak & pilih rakan kongsi bijak.' },
+    health:{ tips:{ jia:'Fokus hati & tendon; tidur awal, regangan, kurang minyak, tambah sayur.' } }
+});
+</script>
+<section id="pro-report" class="i18n-text">
+  <h3>🧙‍♂️ 心怜管家 · 专业命理分析</h3>
+
+  <h4>📊 命盘总览</h4>
+  <p>日主命理：report.dayMaster.jia</p>
+  <p>五行个数：木 50%｜火 25%｜土 13%｜金 13%｜水 0%</p>
+
+  <h4>🌿 五行分析</h4>
+  <p>五行中木最强，水最弱。</p>
+
+  <h4>⚡ 十神配置</h4>
+  <p>（年柱/月柱/日柱/时柱）十神配置：偏财 / 比肩 / 比肩 / 七杀</p>
+
+  <h4>🔑 喜用神</h4>
+  <p>喜用神：水、土</p>
+
+  <h4>💕 感情婚姻</h4>
+  <p>感情特质：感情较为主动，喜欢掌握主导权，但要注意给对方空间</p>
+  <p>婚姻建议：report.marriage.experienced</p>
+
+  <h4>💼 事业发展</h4>
+  <p>适合行业：管理岗位、创业开拓、建筑工程</p>
+  <p>发展建议：report.career.leadership</p>
+
+  <h4>🌡️ 健康养生</h4>
+  <p>注意事项：report.health.tips.jia</p>
+</section>
+
+<script>
+  // call after page load and after language switch
+  renderTokens();
+</script>
+<script>
+function renderFiveElements(data){
+  // data = { wood:50, fire:25, earth:13, metal:13, water:0 }
+  const line = `木 ${data.wood}%｜火 ${data.fire}%｜土 ${data.earth}%｜金 ${data.metal}%｜水 ${data.water}%`;
+  document.querySelector('#fiveLine')?.replaceChildren(document.createTextNode(line));
+}
+</script>  
+<script>
 /* === NOW + BIRTH DEFAULTS (SGT) === */
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -1298,6 +2129,6 @@ a:focus{
     tickNow();
   };
 })();
-</script>  
+</script>
 </body>
 </html>
