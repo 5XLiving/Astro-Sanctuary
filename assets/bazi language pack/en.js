@@ -1,4 +1,5 @@
 <script>
+// /assets/bazi/language-pack/en.js  
 window.I18N = window.I18N || {};
 window.I18N['en'] = {
   brand:{ subtitle:'5xLiving · Bazi Brief' },
