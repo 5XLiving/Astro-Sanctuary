@@ -1,6 +1,6 @@
 <script>
-// /assets/bazi/language-pack/ms.js
 window.I18N = window.I18N || {};
+
 window.I18N['ms'] = {
   brand: { subtitle: '5xLiving · Ringkasan Bazi' },
   nav:   { langLabel: 'Bahasa' },
