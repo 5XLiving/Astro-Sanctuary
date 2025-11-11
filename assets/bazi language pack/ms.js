@@ -1,4 +1,5 @@
-<Script>
+<script>
+window.I18N = window.I18N || {};
 I18N['ms'] = {
   brand:{ subtitle:'5xLiving · Ringkasan Bazi' },
   nav:{ langLabel:'Bahasa' },
