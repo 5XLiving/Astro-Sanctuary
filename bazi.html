@@ -605,50 +605,66 @@ a:focus{
 </main>
   
 <script>window.API_BASE='https://throbbing-lab-1440.hello5xliving.workers.dev';</script>
-<script>
+<script type="module">
+window.I18N = window.I18N || {};
+
+const loaded = new Set();
+
 async function loadLangPack(lang) {
   const map = {
-    'en': 'assets/bazi/language-pack/en.js',
-    'ja': 'assets/bazi/language-pack/ja.js',
-    'th': 'assets/bazi/language-pack/th.js',
-    'ms': 'assets/bazi/language-pack/ms.js',
     'zh-CN': 'assets/bazi/language-pack/zh-CN.js',
-    'zh-TW': 'assets/bazi/language-pack/zh-TW.js'
+    'zh-TW': 'assets/bazi/language-pack/zh-TW.js',
+    'en'   : 'assets/bazi/language-pack/en.js',
+    'ja'   : 'assets/bazi/language-pack/ja.js',
+    'th'   : 'assets/bazi/language-pack/th.js',
+    'ms'   : 'assets/bazi/language-pack/ms.js'
   };
 
   const url = map[lang];
-  if (!url) return console.warn('No language pack for', lang);
+  if (!url) {
+    console.warn('No language pack for', lang);
+    return;
+  }
 
-  // prevent reloading if already loaded
-  if (window.I18N && window.I18N[lang]) {
+  // already loaded once?
+  if (loaded.has(lang) || (window.I18N && window.I18N[lang])) {
     setLang(lang);
     return;
   }
 
   try {
-    const res = await import(`./${url}`);
-    console.log('Loaded language pack:', lang);
+    // cache-bust during dev to avoid stale file; remove '?v=...' in prod
+    await import(/* @vite-ignore */ `./${url}?v=${Date.now()}`);
+    loaded.add(lang);                // side-effect file populated I18N[lang]
     setLang(lang);
+    console.log('Loaded language pack:', lang);
   } catch (e) {
     console.error('Failed to load language pack:', e);
   }
 }
 
-/* When user selects language */
+/* Wire the selector */
 document.addEventListener('DOMContentLoaded', () => {
   const selector = document.querySelector('#langSelect');
-  if (!selector) return;
-  selector.addEventListener('change', e => {
-    const lang = e.target.value;
-    localStorage.setItem('5x_lang', lang);
-    loadLangPack(lang);
-  });
-
-  // auto-load previous language
+  if (selector) {
+    selector.addEventListener('change', e => {
+      const lang = e.target.value;
+      localStorage.setItem('5x_lang', lang);
+      loadLangPack(lang);
+    });
+  }
   const saved = localStorage.getItem('5x_lang') || 'zh-CN';
   loadLangPack(saved);
 });
-</script>  
+
+/* If you don't already have this, a tiny placeholder */
+window.setLang = function setLang(lang) {
+  // your existing re-render logic here (translate data-i18n, rerender report, etc.)
+  window.CUR_LANG = lang;
+  // Example (if you have a renderI18n function):
+  // renderI18n(lang);
+};
+</script>
 <script>
 (() => {
   'use strict';
