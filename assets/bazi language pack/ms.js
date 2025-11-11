@@ -1,4 +1,4 @@
-<script>
+// /assets/bazi/language-pack/ms.js
 window.I18N = window.I18N || {};
 
 window.I18N['ms'] = {
@@ -207,5 +207,6 @@ window.I18N['ms'] = {
   'report.health.tips.xin':'Pengudaraan baik; elak asap/debu.',
   'report.health.tips.ren':'Kekalkan hidrasi; jaga kesihatan buah pinggang.',
   'report.health.tips.gui':'Minum mencukupi; elak kerja berlebihan.'
-  };
-</script>  
+};
+
+export {};
