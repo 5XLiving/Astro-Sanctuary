@@ -1,6 +1,6 @@
 <script>
-// /assets/bazi/language-pack/th.js
 window.I18N = window.I18N || {};
+
 window.I18N['th'] = {
   brand: { subtitle: '5xLiving · บทสรุปปาจื้อ' },
   nav:   { langLabel: 'ภาษา' },
