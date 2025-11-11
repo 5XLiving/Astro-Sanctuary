@@ -605,61 +605,55 @@ a:focus{
 </main>
   
 <script>window.API_BASE='https://throbbing-lab-1440.hello5xliving.workers.dev';</script>
-<script>
-/* --- Globals --- */
+<script type="module" data-lang-base="/assets/bazi/language-pack/">
+const BASE = document.currentScript?.dataset.langBase || '/assets/bazi/language-pack/';
 window.I18N = window.I18N || {};
 const loaded = new Set();
 
-/* --- Must exist somewhere in your code --- */
-function setLang(code) {
-  // your existing render routine that uses I18N[code] to update UI
+function setLang(code){
   window.CUR_LANG = code;
-  // e.g., rerender();
+  // TODO: your rerender() call here
 }
 
-/* --- Dynamic loader --- */
-async function loadLangPack(lang) {
-  const map = {
-    'zh-CN': 'assets/bazi/language-pack/zh-CN.js',
-    'zh-TW': 'assets/bazi/language-pack/zh-TW.js',
-    'en'   : 'assets/bazi/language-pack/en.js',
-    'ja'   : 'assets/bazi/language-pack/ja.js',
-    'th'   : 'assets/bazi/language-pack/th.js',
-    'ms'   : 'assets/bazi/language-pack/ms.js'
-  };
+async function loadLangPack(lang){
+  const filename = ({
+    'zh-CN':'zh-CN.js','zh-TW':'zh-TW.js',
+    'en':'en.js','ja':'ja.js','th':'th.js','ms':'ms.js'
+  })[lang];
 
-  const url = map[lang];
-  if (!url) { console.warn('No pack for', lang); return; }
+  if(!filename){ console.warn('No map for', lang); return; }
 
-  // already loaded once this session
   if (loaded.has(lang) || (window.I18N && window.I18N[lang])) {
-    setLang(lang);
-    return;
+    setLang(lang); return;
   }
 
+  // Build a safe absolute URL from BASE
+  const u = new URL(filename, window.location.origin + BASE);
   try {
-    // ✅ dev cache-bust; remove ?v=... for production if you want normal caching
-    await import(/* @vite-ignore */ `./${url}?v=${Date.now()}`);
-    loaded.add(lang);            // side-effect file should set I18N[lang]
+    // Optional preflight to give clearer 404 logs
+    const head = await fetch(u.toString(), { method: 'HEAD', cache: 'no-store' });
+    if (!head.ok) throw new Error(`HTTP ${head.status} for ${u}`);
+
+    // Cache-bust in dev; you can remove ?v=... in prod
+    await import(/* @vite-ignore */ `${u.toString()}?v=${Date.now()}`);
+    if (!window.I18N[lang]) throw new Error(`Pack loaded but I18N['${lang}'] missing`);
+    loaded.add(lang);
     setLang(lang);
     console.log('Loaded language pack:', lang);
-  } catch (e) {
-    console.error('Failed to load language pack:', lang, e);
+  } catch (e){
+    console.error('[i18n] Failed to load', lang, 'from', u.toString(), e);
   }
 }
 
-/* --- Wire up the <select> --- */
+// Wire up <select>
 document.addEventListener('DOMContentLoaded', () => {
   const sel = document.querySelector('#langSelect');
   if (!sel) return;
-
-  sel.addEventListener('change', (e) => {
+  sel.addEventListener('change', e => {
     const lang = e.target.value;
     localStorage.setItem('5x_lang', lang);
     loadLangPack(lang);
   });
-
-  // initial load
   const saved = localStorage.getItem('5x_lang') || 'zh-CN';
   sel.value = saved;
   loadLangPack(saved);
