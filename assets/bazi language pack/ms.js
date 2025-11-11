@@ -1,9 +1,20 @@
 <script>
 window.I18N = window.I18N || {};
 I18N['ms'] = {
-  brand:{ subtitle:'5xLiving · Ringkasan Bazi' },
-  nav:{ langLabel:'Bahasa' },
-  lang:{ 'zh-CN':'Cina Ringkas','zh-TW':'Cina Tradisional','en':'Bahasa Inggeris','ja':'Bahasa Jepun','th':'Bahasa Thai','ms':'Bahasa Melayu' },
+// /assets/bazi/language-pack/ms.js
+window.I18N = window.I18N || {};
+
+window.I18N['ms'] = {
+  brand: { subtitle: '5xLiving · Ringkasan Bazi' },
+  nav:   { langLabel: 'Bahasa' },
+  lang:  {
+    'zh-CN': 'Cina Ringkas',
+    'zh-TW': 'Cina Tradisional',
+    'en':    'Bahasa Inggeris',
+    'ja':    'Bahasa Jepun',
+    'th':    'Bahasa Thai',
+    'ms':    'Bahasa Melayu'
+  },
 
   app:{ title:'Bazi · Carta Pantas' },
 
