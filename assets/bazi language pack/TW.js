@@ -1,6 +1,6 @@
 <script>
-// /assets/bazi/language-pack/zh-TW.js
 window.I18N = window.I18N || {};
+
 window.I18N['zh-TW'] = {
   brand:{ subtitle:'5xLiving · 八字簡評' },
   nav:{ langLabel:'語言' },
