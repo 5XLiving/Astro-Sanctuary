@@ -617,28 +617,30 @@ function setLang(code){
   if (typeof applyI18n === 'function') applyI18n();
   if (typeof buildProReport === 'function' && window.lastCtx) buildProReport(window.lastCtx);
 }
-window.setLang = setLang; // expose for other scripts if needed
+window.setLang = setLang; // (optional) expose globally
 
+// ⬇️ REPLACE your old loadLangPack with THIS version
 async function loadLangPack(lang){
   const filename = ({
     'zh-CN':'zh-CN.js','zh-TW':'zh-TW.js',
     'en':'en.js','ja':'ja.js','th':'th.js','ms':'ms.js'
   })[lang];
-
-  if(!filename){ console.warn('No map for', lang); return; }
+  if(!filename) return;
 
   if (loaded.has(lang) || (window.I18N && window.I18N[lang])) {
     setLang(lang); return;
   }
 
-  // Build a safe absolute URL from BASE
   const u = new URL(filename, window.location.origin + BASE);
   try {
-    // Optional preflight to give clearer 404 logs
-    const head = await fetch(u.toString(), { method: 'HEAD', cache: 'no-store' });
-    if (!head.ok) throw new Error(`HTTP ${head.status} for ${u}`);
+    // Try HEAD, but ignore failures and continue to import
+    try {
+      const head = await fetch(u.toString(), { method: 'HEAD', cache: 'no-store' });
+      if (!head.ok) console.warn(`[i18n] HEAD ${head.status} for ${u}`);
+    } catch (e) {
+      console.warn('[i18n] HEAD skipped:', e);
+    }
 
-    // Cache-bust in dev; you can remove ?v=... in prod
     await import(/* @vite-ignore */ `${u.toString()}?v=${Date.now()}`);
     if (!window.I18N[lang]) throw new Error(`Pack loaded but I18N['${lang}'] missing`);
     loaded.add(lang);
