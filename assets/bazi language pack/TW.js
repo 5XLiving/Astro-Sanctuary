@@ -1,4 +1,4 @@
-<script>
+// /assets/bazi/language-pack/TW.js
 window.I18N = window.I18N || {};
 
 window.I18N['zh-TW'] = {
