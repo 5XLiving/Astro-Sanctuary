@@ -1,10 +1,10 @@
-<script>
+// /assets/bazi/language-pack/th.js
 window.I18N = window.I18N || {};
 
 window.I18N['th'] = {
-  brand: { subtitle: '5xLiving · บทสรุปปาจื้อ' },
-  nav:   { langLabel: 'ภาษา' },
-  lang:  {
+  brand:{ subtitle:'5xLiving · บทสรุปปาจื้อ' },
+  nav:{ langLabel:'ภาษา' },
+  lang:{
     'zh-CN':'ภาษาจีนตัวย่อ',
     'zh-TW':'ภาษาจีนตัวเต็ม',
     'en':'ภาษาอังกฤษ',
@@ -208,4 +208,5 @@ window.I18N['th'] = {
   'report.health.tips.ren':'รักษาสมดุลน้ำ ดูแลไต',
   'report.health.tips.gui':'ดื่มน้ำพอเพียง เลี่ยงงานหักโหม'
 };
-</script>  
+
+export {};
