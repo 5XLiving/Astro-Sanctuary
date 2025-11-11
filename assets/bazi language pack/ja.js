@@ -1,4 +1,4 @@
-<script>
+// /assets/bazi/language-pack/ja.js
 window.I18N = window.I18N || {};
 
 window.I18N['ja'] = {
@@ -201,4 +201,5 @@ window.I18N['ja'] = {
   'report.health.tips.ren':'水分バランスを保ち、腎のケアを。',
   'report.health.tips.gui':'十分な水分。過労は避ける。'
 };
-</scripit>  
+
+export {};
