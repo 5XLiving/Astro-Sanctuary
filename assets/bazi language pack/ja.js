@@ -1,6 +1,6 @@
 <script>
 window.I18N = window.I18N || {};
-I18N['ja'] = {
+window.I18N['ja'] = {
   brand:{ subtitle:'5xLiving · 四柱推命クイック' },
   nav:{ langLabel:'言語' },
   lang:{ 'zh-CN':'簡体中国語','zh-TW':'繁体中国語','en':'英語','ja':'日本語','th':'タイ語','ms':'マレー語' },
