@@ -1,9 +1,18 @@
 <script>
+// /assets/bazi/language-pack/th.js
 window.I18N = window.I18N || {};
-I18N['th'] = {
-  brand:{ subtitle:'5xLiving · บทสรุปปาจื้อ' },
-  nav:{ langLabel:'ภาษา' },
-  lang:{ 'zh-CN':'ภาษาจีนตัวย่อ','zh-TW':'ภาษาจีนตัวเต็ม','en':'ภาษาอังกฤษ','ja':'ภาษาญี่ปุ่น','th':'ภาษาไทย','ms':'ภาษามลายู' },
+
+window.I18N['th'] = {
+  brand: { subtitle: '5xLiving · บทสรุปปาจื้อ' },
+  nav:   { langLabel: 'ภาษา' },
+  lang:  {
+    'zh-CN':'ภาษาจีนตัวย่อ',
+    'zh-TW':'ภาษาจีนตัวเต็ม',
+    'en':'ภาษาอังกฤษ',
+    'ja':'ภาษาญี่ปุ่น',
+    'th':'ภาษาไทย',
+    'ms':'ภาษามลายู'
+  },
 
   app:{ title:'ดวงจีน Bazi · คำนวณด่วน' },
 
