@@ -3,10 +3,6 @@ window.I18N = window.I18N || {};
 I18N['en'] = {
   brand:{ subtitle:'5xLiving · Bazi Brief' },
   nav:{ langLabel:'Language' },
-  
-I18N['en'] = {
-  brand:{ subtitle:'5xLiving · Bazi Brief' },
-  nav:{ langLabel:'Language' },
   lang:{ 'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese','en':'English','ja':'Japanese','th':'Thai','ms':'Bahasa Melayu' },
 
   app:{ title:'Bazi · Quick Chart' },
