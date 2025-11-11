@@ -1,4 +1,94 @@
 <script>
+I18N['ja'] = {
+  brand:{ subtitle:'5xLiving · 四柱推命クイック' },
+  nav:{ langLabel:'言語' },
+  lang:{ 'zh-CN':'簡体中国語','zh-TW':'繁体中国語','en':'英語','ja':'日本語','th':'タイ語','ms':'マレー語' },
+
+  app:{ title:'四柱推命（八字）· クイック排盤' },
+
+  form:{
+    nameLabel:'名前（任意）',
+    namePlaceholder:'お名前（個別表示のため）',
+    genderLabel:'性別',
+    gender:{ hidden:'未公開', male:'男性', female:'女性' },
+    calendarLabel:'暦法',
+    calendar:{ gregorian:'グレゴリオ暦', lunar:'旧暦' },
+    birthdateLabel:'生年月日',
+    birthtimeLabel:'出生時刻',
+    timeUnknown:'時刻不明'
+  },
+
+  btn:{ generate:'命式を生成', loading:'計算中...' },
+
+  result:{ title:'あなたの命式（八字）' },
+
+  pillar:{ year:'年柱', month:'月柱', day:'日柱', hour:'時柱' },
+
+  table:{ row:{ stem:'天干', branch:'地支', fiveElem:'五行', nayin:'納音' } },
+
+  energy:{ title:'五行エネルギー分析' },
+
+  elem:{ wood:'木', fire:'火', earth:'土', metal:'金', water:'水', month:'月', fiveElements:'五行' },
+
+  pro:{
+    title:'🧙‍♂️ 心怜バトラー · 専門鑑定レポート',
+    welcome:'こんにちは。詳細レポートを作成しました。気になる点を遠慮なくどうぞ。'
+  },
+
+  chat:{ send:'送信', placeholder:'ご質問を入力してください...', toggle:'質問' },
+
+  vip:{
+    title:'🌙 VIP セグメント',
+    group:{ astrology:'🗝 命理スペース（限定）', spiritual:'🌙 心怜スペース（限定）' },
+    astrology:{
+      match:'恋愛・結婚の傾向',
+      career:'キャリア：発展/起業のポテンシャル',
+      wealth:'財運：財位分析とタイミング',
+      pet:'ペット命理：性格と相性'
+    },
+    spiritual:{
+      record:'スピリチュアル記録：写真・夢・音声・祈り',
+      courses:'講座：八字 / タロット / 占星 / 数秘',
+      family:'家族メモリアル：追悼と継承',
+      practice:'週間エナジー練習 / 神仏ワーク'
+    },
+    login:{ title:'💎 VIP にサインイン' },
+    services:{ header:'会員サービス' },
+    upgrade:'💎 VIP へアップグレード（月額）',
+    back:'← ストアへ戻る',
+    priceNote:'月額 $9.9（命理+心怜+講座）'
+  },
+
+  auth:{
+    header:'ログイン / 新規登録',
+    login:'ログイン',
+    reset:'🔑 パスワード再設定',
+    register:'アカウント作成',
+    freeTrialNote:'登録で無料体験を1回進呈',
+    emailPlaceholder:'メールアドレス',
+    passwordPlaceholder:'パスワード（8文字以上・英数記号混在）'
+  },
+
+  footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+
+  err:{
+    fillBirthdate:'生年月日を入力してください',
+    invalidDate:'日付形式が無効です（YYYY-MM-DD）',
+    generateFail:'作成に失敗しました。時間をおいて再度お試しください'
+  },
+
+  ui:{
+    unknown:'不明',
+    timeUnknown:'時刻不明',
+    hourSuffix:'{hh}:{mm}',
+    birthSummary:'生年月日: {y}年{m}月{d}日 {timeText}',
+    balance:'五行では{strongest}が最強、{weakest}が最弱。'
+  },
+
+  badge:{ noHour:'時柱を含まず' },
+
+  chatDyn:{ autoReply:'了解：{q}。該当セクションに要点をまとめます。' },
+
   elemNames:{ 木:'木', 火:'火', 土:'土', 金:'金', 水:'水' },
 
   report:{
@@ -109,136 +199,4 @@
   'report.health.tips.ren':'水分バランスを保ち、腎のケアを。',
   'report.health.tips.gui':'十分な水分。過労は避ける。'
 };
-</script>
-
-<script>
-// jp.js — Bazi language pack (Japanese)
-// Registers: registerBaziPack('ja', { render(payload), answer(q) })
-(function () {
-  const $ = (id) => document.getElementById(id);
-
-  // i18n helper with fallback to zh-CN
-  function t(key) {
-    const deepGet = (o, p) => String(p).split('.').reduce((a, k) => (a && a[k] != null ? a[k] : undefined), o);
-    const ja = (window.I18N && window.I18N.ja) || {};
-    const cn = (window.I18N && window.I18N['zh-CN']) || {};
-    let v = deepGet(ja, key);
-    if (v != null) return v;
-    if (key.startsWith('report.')) {
-      const k2 = key.slice(7);
-      v = deepGet(ja, k2);
-      if (v != null) return v;
-      v = deepGet(cn, k2);
-      if (v != null) return v;
-    }
-    v = deepGet(cn, key);
-    return v != null ? v : key;
-  }
-
-  function setText(id, val) {
-    const el = $(id);
-    if (el) el.textContent = val;
-  }
-  function show(el) {
-    if (el) el.style.display = '';
-  }
-
-  function setBars(percentMap) {
-    const keys = ['木', '火', '土', '金', '水'];
-    keys.forEach((k) => {
-      const p = Math.max(0, Math.min(100, Number(percentMap[k] ?? 0)));
-      const bar = document.getElementById('bar-' + k);
-      const pct = document.getElementById('pct-' + k);
-      if (bar) bar.style.width = p + '%';
-      if (pct) pct.textContent = p + '%';
-    });
-    const entries = keys.map((k) => [k, Number(percentMap[k] || 0)]).sort((a, b) => b[1] - a[1]);
-    const strongest = entries[0][0];
-    const weakest = entries[entries.length - 1][0];
-    const box = document.getElementById('bazi-elements-balance');
-    if (box)
-      box.textContent = (t('ui.balance') || '最強 {strongest}、最弱 {weakest}。')
-        .replace('{strongest}', strongest)
-        .replace('{weakest}', weakest);
-  }
-
-  function renderBirthLine(birthdate, birthtime, timeUnknown) {
-    const timeText = timeUnknown
-      ? t('ui.timeUnknown') || '時刻不明'
-      : (t('ui.hourSuffix') || '{hh}:{mm}')
-          .replace('{hh}', String((birthtime || '00:00').split(':')[0] || '00'))
-          .replace('{mm}', String((birthtime || '00:00').split(':')[1] || '00'));
-    const line = (t('ui.birthSummary') || '出生：{y}-{m}-{d} {timeText}')
-      .replace('{y}', birthdate.slice(0, 4))
-      .replace('{m}', birthdate.slice(5, 7))
-      .replace('{d}', birthdate.slice(8, 10))
-      .replace('{timeText}', timeText);
-    const bd = document.getElementById('bazi-date');
-    if (bd) bd.textContent = line;
-  }
-
-  async function render(payload) {
-    const { birthdate, birthtime, timeUnknown } = payload || {};
-    const result = document.getElementById('result');
-    show(result);
-
-    // Pillars header cards
-    const wrap = document.getElementById('bazi-pillars');
-    if (wrap) {
-      wrap.innerHTML = `
-        <div class="pillar"><div class="tit">${t('pillar.year')}</div><div class="gz" id="gz-year">--</div></div>
-        <div class="pillar"><div class="tit">${t('pillar.month')}</div><div class="gz" id="gz-month">--</div></div>
-        <div class="pillar"><div class="tit">${t('pillar.day')}</div><div class="gz" id="gz-day">--</div></div>
-        <div class="pillar"><div class="tit">${t('pillar.hour')}</div><div class="gz" id="gz-hour">${timeUnknown ? (t('badge.noHour') || '時柱なし') : '--'}</div></div>
-      `;
-    }
-
-    renderBirthLine(birthdate, birthtime, timeUnknown);
-
-    // Deterministic demo bars (until your API fills real values)
-    const seed = (birthdate + (birthtime || '00:00')).replace(/\D/g, '');
-    const nums = [0, 0, 0, 0, 0];
-    for (let i = 0; i < seed.length; i++) nums[i % 5] += Number(seed[i] || 0);
-    const sum = nums.reduce((a, b) => a + b, 0) || 1;
-    const pct = nums.map((n) => Math.round((n * 100) / sum));
-    let drift = 100 - pct.reduce((a, b) => a + b, 0);
-    while (drift !== 0) {
-      pct[drift > 0 ? 0 : 4] += drift > 0 ? 1 : -1;
-      drift = 100 - pct.reduce((a, b) => a + b, 0);
-    }
-    setBars({ 木: pct[0], 火: pct[1], 土: pct[2], 金: pct[3], 水: pct[4] });
-
-    // Table placeholders (kept as dashes until API integration)
-    setText('year-stem', '—'); setText('month-stem', '—'); setText('day-stem', '—'); setText('hour-stem', timeUnknown ? '—' : '—');
-    setText('year-branch', '—'); setText('month-branch', '—'); setText('day-branch', '—'); setText('hour-branch', timeUnknown ? '—' : '—');
-    setText('year-element', '—'); setText('month-element', '—'); setText('day-element', '—'); setText('hour-element', timeUnknown ? '—' : '—');
-    setText('year-nayin', '—'); setText('month-nayin', '—'); setText('day-nayin', '—'); setText('hour-nayin', timeUnknown ? '—' : '—');
-
-    // Butler section (visible; message in Japanese)
-    const pro = document.getElementById('butlerProfessional');
-    if (pro) pro.style.display = 'block';
-    const rpt = document.getElementById('professionalReport');
-    if (rpt) {
-      rpt.innerHTML = `
-        <div class="butler-section">
-          <h4>${t('reportTitles.overview') || '総合'}</h4>
-          <div class="muted">${t('report.generating') || 'プロ分析レポートを生成中…'}</div>
-          ${timeUnknown ? `<div class="badge-warn">${t('report.hourUnknownTip') || ''}</div>` : ``}
-        </div>
-      `;
-    }
-  }
-
-  function answer(q) {
-    const tmpl =
-      (window.I18N &&
-        window.I18N.ja &&
-        window.I18N.ja.chatDyn &&
-        window.I18N.ja.chatDyn.autoReply) ||
-      '了解しました：{q}。後ほどレポート各章に要点をまとめます。';
-    return tmpl.replace('{q}', q || '');
-  }
-
-  window.registerBaziPack('ja', { render, answer });
-})();
 </scripit>  
