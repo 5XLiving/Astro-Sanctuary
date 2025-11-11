@@ -612,12 +612,30 @@ a:focus{
   let CUR = 'zh-CN';
 
   window.ensure = (code, dict) => { I18N[code] = dict; };
-  window.setLang = (code) => { CUR = I18N[code] ? code : CUR; renderTokens(); };
+  window.setLang = (code) => {
+    CUR = I18N[code] ? code : CUR;
+    window.renderTokens(); // explicit global call
+  };
 
   function get(obj, path) {
-    return path.split('.').reduce((o,k)=> (o && o[k]!=null ? o[k] : undefined), obj);
+    if (path == null || path === '') return obj;
+    const keys = String(path).split('.');
+    let cur = obj;
+    for (const raw of keys) {
+      if (cur == null) return undefined;
+      const key = /^\d+$/.test(raw) ? Number(raw) : raw;
+      if (Object(cur) !== cur || !(key in cur)) return undefined;
+      cur = cur[key];
+    }
+    return cur;
   }
-  window.t = (key, fallback='') => get(I18N[CUR], key) ?? get(I18N['zh-CN']||{}, key) ?? fallback || key;
+
+  // safer t(): try current lang, then zh-CN, then explicit fallback, then key
+  window.t = (key, fallback = '') =>
+    get((window.I18N && I18N[CUR]) ?? undefined, key)
+    ?? get((window.I18N && I18N['zh-CN']) ?? undefined, key)
+    ?? (fallback ?? '')
+    ?? key;
 
   // Replace inline tokens like "report.dayMaster.jia" inside elements
   window.renderTokens = (root=document) => {
@@ -626,8 +644,12 @@ a:focus{
       el.innerHTML = el.innerHTML.replace(/\breport\.[\w.]+/g, (m)=> t(m, m));
     }
   };
+
+  // initial pass so preset tokens render immediately
+  window.renderTokens();
 })();
-</script>    
+</script>
+
 <script id="bazi-app">
 (() => {
   'use strict';
