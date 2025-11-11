@@ -1,4 +1,5 @@
 <script>
+window.I18N = window.I18N || {};
 I18N['th'] = {
   brand:{ subtitle:'5xLiving · บทสรุปปาจื้อ' },
   nav:{ langLabel:'ภาษา' },
