@@ -201,4 +201,5 @@ window.I18N['zh-TW'] = {
   'report.health.tips.ren':'保持水分平衡，注意腎臟保養。',
   'report.health.tips.gui':'適量飲水，避免過度勞累。'
 };
-</script>
+
+export {};
