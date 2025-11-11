@@ -1,4 +1,94 @@
 <Script>
+I18N['ms'] = {
+  brand:{ subtitle:'5xLiving · Ringkasan Bazi' },
+  nav:{ langLabel:'Bahasa' },
+  lang:{ 'zh-CN':'Cina Ringkas','zh-TW':'Cina Tradisional','en':'Bahasa Inggeris','ja':'Bahasa Jepun','th':'Bahasa Thai','ms':'Bahasa Melayu' },
+
+  app:{ title:'Bazi · Carta Pantas' },
+
+  form:{
+    nameLabel:'Nama (pilihan)',
+    namePlaceholder:'Nama anda (untuk pemperibadian)',
+    genderLabel:'Jantina',
+    gender:{ hidden:'Tidak dinyatakan', male:'Lelaki', female:'Perempuan' },
+    calendarLabel:'Kalendar',
+    calendar:{ gregorian:'Masihi', lunar:'Lunar' },
+    birthdateLabel:'Tarikh lahir',
+    birthtimeLabel:'Masa lahir',
+    timeUnknown:'Masa tidak diketahui'
+  },
+
+  btn:{ generate:'Jana Bazi', loading:'Mengira...' },
+
+  result:{ title:'Carta Bazi Anda' },
+
+  pillar:{ year:'Tiang Tahun', month:'Tiang Bulan', day:'Tiang Hari', hour:'Tiang Jam' },
+
+  table:{ row:{ stem:'Heavenly Stem', branch:'Earthly Branch', fiveElem:'Lima Unsur', nayin:'Na Yin' } },
+
+  energy:{ title:'Analisis Tenaga Lima Unsur' },
+
+  elem:{ wood:'Kayu', fire:'Api', earth:'Tanah', metal:'Logam', water:'Air', month:'Bulan', fiveElements:'Lima Unsur' },
+
+  pro:{
+    title:'🧙‍♂️ Xinlian Butler · Analisis Takdir Profesional',
+    welcome:'Helo! Laporan terperinci telah dijana. Ada soalan khusus? Tanyakan bila-bila masa.'
+  },
+
+  chat:{ send:'Hantar', placeholder:'Taip soalan anda...', toggle:'Tanya' },
+
+  vip:{
+    title:'🌙 Segmen VIP',
+    group:{ astrology:'🗝 Ruang Mingli · Eksklusif', spiritual:'🌙 Ruang Xinlian · Eksklusif' },
+    astrology:{
+      match:'Hubungan: cinta & hala tuju perkahwinan',
+      career:'Kerjaya: pembangunan & potensi usahawan',
+      wealth:'Kekayaan: analisis “wealth spot” & masa',
+      pet:'Nasib haiwan peliharaan: perangai & keserasian'
+    },
+    spiritual:{
+      record:'Rekod spiritual: foto, mimpi, suara, doa',
+      courses:'Kursus: Bazi / Tarot / Astrologi / Numerologi',
+      family:'Memorial keluarga: peringatan & legasi',
+      practice:'Amalan tenaga mingguan / tugasan ritual'
+    },
+    login:{ title:'💎 Log masuk VIP' },
+    services:{ header:'Perkhidmatan Ahli' },
+    upgrade:'💎 Naik taraf ke VIP (bulanan)',
+    back:'← Kembali ke Kedai',
+    priceNote:'$9.9 / bulan (Mingli + Xinlian + Kursus)'
+  },
+
+  auth:{
+    header:'Log Masuk / Daftar',
+    login:'Log Masuk',
+    reset:'🔑 Tetap Semula Kata Laluan',
+    register:'Daftar Akaun',
+    freeTrialNote:'Daftar untuk satu percubaan percuma',
+    emailPlaceholder:'Emel',
+    passwordPlaceholder:'Kata laluan (≥8 aksara, huruf besar/kecil, nombor, simbol)'
+  },
+
+  footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+
+  err:{
+    fillBirthdate:'Sila masukkan tarikh lahir',
+    invalidDate:'Format tarikh tidak sah. Guna YYYY-MM-DD',
+    generateFail:'Gagal menjana. Cuba lagi kemudian'
+  },
+
+  ui:{
+    unknown:'Tidak diketahui',
+    timeUnknown:'Masa tidak diketahui',
+    hourSuffix:'{hh}:{mm}',
+    birthSummary:'Tarikh lahir: {y}-{m}-{d} {timeText}',
+    balance:'Dalam Lima Unsur, {strongest} paling kuat; {weakest} paling lemah.'
+  },
+
+  badge:{ noHour:'Tiang jam tidak diambil kira' },
+
+  chatDyn:{ autoReply:'Diterima: {q}. Poin utama akan muncul dalam seksyen laporan berkaitan.' },
+
   elemNames:{ 木:'Kayu', 火:'Api', 土:'Tanah', 金:'Logam', 水:'Air' },
 
   report:{
@@ -109,135 +199,4 @@
   'report.health.tips.ren':'Kekalkan hidrasi; jaga kesihatan buah pinggang.',
   'report.health.tips.gui':'Minum mencukupi; elak kerja berlebihan.'
   };
-</script>  
-<script>
-// ms.js — Bazi language pack (Bahasa Melayu)
-// Registers: registerBaziPack('ms', { render(payload), answer(q) })
-(function () {
-  const $ = (id) => document.getElementById(id);
-
-  // i18n helper with fallback to zh-CN
-  function t(key) {
-    const deepGet = (o, p) => String(p).split('.').reduce((a, k) => (a && a[k] != null ? a[k] : undefined), o);
-    const ms = (window.I18N && window.I18N.ms) || {};
-    const cn = (window.I18N && window.I18N['zh-CN']) || {};
-    let v = deepGet(ms, key);
-    if (v != null) return v;
-    if (key.startsWith('report.')) {
-      const k2 = key.slice(7);
-      v = deepGet(ms, k2);
-      if (v != null) return v;
-      v = deepGet(cn, k2);
-      if (v != null) return v;
-    }
-    v = deepGet(cn, key);
-    return v != null ? v : key;
-  }
-
-  function setText(id, val) {
-    const el = $(id);
-    if (el) el.textContent = val;
-  }
-  function show(el) {
-    if (el) el.style.display = '';
-  }
-
-  function setBars(percentMap) {
-    const keys = ['木', '火', '土', '金', '水'];
-    keys.forEach((k) => {
-      const p = Math.max(0, Math.min(100, Number(percentMap[k] ?? 0)));
-      const bar = document.getElementById('bar-' + k);
-      const pct = document.getElementById('pct-' + k);
-      if (bar) bar.style.width = p + '%';
-      if (pct) pct.textContent = p + '%';
-    });
-    const entries = keys.map((k) => [k, Number(percentMap[k] || 0)]).sort((a, b) => b[1] - a[1]);
-    const strongest = entries[0][0];
-    const weakest = entries[entries.length - 1][0];
-    const box = document.getElementById('bazi-elements-balance');
-    if (box)
-      box.textContent = (t('ui.balance') || 'Terkuat {strongest}, terlemah {weakest}.')
-        .replace('{strongest}', strongest)
-        .replace('{weakest}', weakest);
-  }
-
-  function renderBirthLine(birthdate, birthtime, timeUnknown) {
-    const timeText = timeUnknown
-      ? t('ui.timeUnknown') || 'Masa tidak pasti'
-      : (t('ui.hourSuffix') || '{hh}:{mm}')
-          .replace('{hh}', String((birthtime || '00:00').split(':')[0] || '00'))
-          .replace('{mm}', String((birthtime || '00:00').split(':')[1] || '00'));
-    const line = (t('ui.birthSummary') || 'Lahir: {y}-{m}-{d} {timeText}')
-      .replace('{y}', birthdate.slice(0, 4))
-      .replace('{m}', birthdate.slice(5, 7))
-      .replace('{d}', birthdate.slice(8, 10))
-      .replace('{timeText}', timeText);
-    const bd = document.getElementById('bazi-date');
-    if (bd) bd.textContent = line;
-  }
-
-  async function render(payload) {
-    const { birthdate, birthtime, timeUnknown } = payload || {};
-    const result = document.getElementById('result');
-    show(result);
-
-    // Pillars header cards
-    const wrap = document.getElementById('bazi-pillars');
-    if (wrap) {
-      wrap.innerHTML = `
-        <div class="pillar"><div class="tit">${t('pillar.year')}</div><div class="gz" id="gz-year">--</div></div>
-        <div class="pillar"><div class="tit">${t('pillar.month')}</div><div class="gz" id="gz-month">--</div></div>
-        <div class="pillar"><div class="tit">${t('pillar.day')}</div><div class="gz" id="gz-day">--</div></div>
-        <div class="pillar"><div class="tit">${t('pillar.hour')}</div><div class="gz" id="gz-hour">${timeUnknown ? (t('badge.noHour') || 'Tiang jam tidak digunakan') : '--'}</div></div>
-      `;
-    }
-
-    renderBirthLine(birthdate, birthtime, timeUnknown);
-
-    // Deterministic demo bars (replace with real API values when wired)
-    const seed = (birthdate + (birthtime || '00:00')).replace(/\D/g, '');
-    const nums = [0, 0, 0, 0, 0];
-    for (let i = 0; i < seed.length; i++) nums[i % 5] += Number(seed[i] || 0);
-    const sum = nums.reduce((a, b) => a + b, 0) || 1;
-    const pct = nums.map((n) => Math.round((n * 100) / sum));
-    let drift = 100 - pct.reduce((a, b) => a + b, 0);
-    while (drift !== 0) {
-      pct[drift > 0 ? 0 : 4] += drift > 0 ? 1 : -1;
-      drift = 100 - pct.reduce((a, b) => a + b, 0);
-    }
-    setBars({ 木: pct[0], 火: pct[1], 土: pct[2], 金: pct[3], 水: pct[4] });
-
-    // Table placeholders (until API integration)
-    setText('year-stem', '—'); setText('month-stem', '—'); setText('day-stem', '—'); setText('hour-stem', timeUnknown ? '—' : '—');
-    setText('year-branch', '—'); setText('month-branch', '—'); setText('day-branch', '—'); setText('hour-branch', timeUnknown ? '—' : '—');
-    setText('year-element', '—'); setText('month-element', '—'); setText('day-element', '—'); setText('hour-element', timeUnknown ? '—' : '—');
-    setText('year-nayin', '—'); setText('month-nayin', '—'); setText('day-nayin', '—'); setText('hour-nayin', timeUnknown ? '—' : '—');
-
-    // Butler section
-    const pro = document.getElementById('butlerProfessional');
-    if (pro) pro.style.display = 'block';
-    const rpt = document.getElementById('professionalReport');
-    if (rpt) {
-      rpt.innerHTML = `
-        <div class="butler-section">
-          <h4>${t('reportTitles.overview') || 'Gambaran Umum'}</h4>
-          <div class="muted">${t('report.generating') || 'Menjana laporan terperinci…'}</div>
-          ${timeUnknown ? `<div class="badge-warn">${t('report.hourUnknownTip') || ''}</div>` : ``}
-        </div>
-      `;
-    }
-  }
-
-  function answer(q) {
-    const tmpl =
-      (window.I18N &&
-        window.I18N.ms &&
-        window.I18N.ms.chatDyn &&
-        window.I18N.ms.chatDyn.autoReply) ||
-      'Soalan diterima: {q}. Saya akan ringkaskan jawapannya dalam bahagian laporan berkaitan.';
-    return tmpl.replace('{q}', q || '');
-  }
-
-  window.registerBaziPack('ms', { render, answer });
-})();
 </script>  
