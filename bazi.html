@@ -605,11 +605,19 @@ a:focus{
 </main>
   
 <script>window.API_BASE='https://throbbing-lab-1440.hello5xliving.workers.dev';</script>
-<script type="module">
+<script>
+/* --- Globals --- */
 window.I18N = window.I18N || {};
-
 const loaded = new Set();
 
+/* --- Must exist somewhere in your code --- */
+function setLang(code) {
+  // your existing render routine that uses I18N[code] to update UI
+  window.CUR_LANG = code;
+  // e.g., rerender();
+}
+
+/* --- Dynamic loader --- */
 async function loadLangPack(lang) {
   const map = {
     'zh-CN': 'assets/bazi/language-pack/zh-CN.js',
@@ -621,49 +629,41 @@ async function loadLangPack(lang) {
   };
 
   const url = map[lang];
-  if (!url) {
-    console.warn('No language pack for', lang);
-    return;
-  }
+  if (!url) { console.warn('No pack for', lang); return; }
 
-  // already loaded once?
+  // already loaded once this session
   if (loaded.has(lang) || (window.I18N && window.I18N[lang])) {
     setLang(lang);
     return;
   }
 
   try {
-    // cache-bust during dev to avoid stale file; remove '?v=...' in prod
+    // ✅ dev cache-bust; remove ?v=... for production if you want normal caching
     await import(/* @vite-ignore */ `./${url}?v=${Date.now()}`);
-    loaded.add(lang);                // side-effect file populated I18N[lang]
+    loaded.add(lang);            // side-effect file should set I18N[lang]
     setLang(lang);
     console.log('Loaded language pack:', lang);
   } catch (e) {
-    console.error('Failed to load language pack:', e);
+    console.error('Failed to load language pack:', lang, e);
   }
 }
 
-/* Wire the selector */
+/* --- Wire up the <select> --- */
 document.addEventListener('DOMContentLoaded', () => {
-  const selector = document.querySelector('#langSelect');
-  if (selector) {
-    selector.addEventListener('change', e => {
-      const lang = e.target.value;
-      localStorage.setItem('5x_lang', lang);
-      loadLangPack(lang);
-    });
-  }
+  const sel = document.querySelector('#langSelect');
+  if (!sel) return;
+
+  sel.addEventListener('change', (e) => {
+    const lang = e.target.value;
+    localStorage.setItem('5x_lang', lang);
+    loadLangPack(lang);
+  });
+
+  // initial load
   const saved = localStorage.getItem('5x_lang') || 'zh-CN';
+  sel.value = saved;
   loadLangPack(saved);
 });
-
-/* If you don't already have this, a tiny placeholder */
-window.setLang = function setLang(lang) {
-  // your existing re-render logic here (translate data-i18n, rerender report, etc.)
-  window.CUR_LANG = lang;
-  // Example (if you have a renderI18n function):
-  // renderI18n(lang);
-};
 </script>
 <script>
 (() => {
