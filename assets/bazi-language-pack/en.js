@@ -1,3 +1,4 @@
+
 // /assets/bazi/language-pack/en.js
 window.I18N = window.I18N || {};
 
@@ -200,45 +201,6 @@ window.I18N['en'] = {
   'report.health.tips.xin':'Airy rooms; avoid smoke/dust.',
   'report.health.tips.ren':'Stay hydrated; mind kidney health.',
   'report.health.tips.gui':'Drink adequately; avoid overwork.'
-},
-
-    /* Ten Gods mapping from Chinese labels -> English */
-  tenMap:{
-    '比肩':'Peer',
-    '劫财':'Rob Wealth',
-    '食神':'Eating God',
-    '伤官':'Hurting Officer',
-    '偏财':'Indirect Wealth',
-    '正财':'Direct Wealth',
-    '七杀':'Seven Killings',
-    '正官':'Officer',
-    '偏印':'Indirect Seal',
-    '正印':'Direct Seal'
-  },
-
-  /* Directions & element/month phrases used by your renderer */
-  dirMap:{ '东':'East','南':'South','西':'West','北':'North' },
-  monthOf:{ wood:'Wood month', fire:'Fire month', earth:'Earth month', metal:'Metal month', water:'Water month' },
-
-  /* One-line formats used in your Overview/Ten Gods blocks */
-  fmt:{
-    elemCounts:'Element Counts: Wood {w}%｜Fire {f}%｜Earth {e}%｜Metal {m}%｜Water {wa}%',
-    elemStrengths:'Element Strengths: Wood{w}%, Fire{f}%, Earth{e}%, Metal{m}%, Water{wa}%',
-    missing:'Missing Elements: {list}',
-    strongestWeakest:'Among the Five Elements, {strongest} is strongest; {weakest} is weakest.',
-    tenGodsLine:'(Year/Month/Day/Hour) Ten Gods: {y} / {m} / {d} / {h}'
-  },
-
-  /* English copies for lines that were showing up in Chinese */
-  reportText:{
-    relTraits:'Delicate and gentle in feelings; needs steady emotional support (avoid over-dependence).',
-    getAlong:'Build self-confidence and state your needs clearly.',
-    industries:'Education & culture, creative/design, consulting.',
-    wealthAdvice:'Spend within your means with clear planning; avoid unnecessary expenses.',
-    healthConstitution:'Liver function and emotion regulation deserve attention.',
-    timing:'During {elemMonth} ({tag}).'
-  }
-});
+};
 
 export {};
-
