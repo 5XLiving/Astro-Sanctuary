@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -606,68 +607,65 @@ a:focus{
   
 <script>window.API_BASE='https://throbbing-lab-1440.hello5xliving.workers.dev';</script>
 <script type="module" data-lang-base="/assets/bazi-language-pack/">
-/* === I18N PACK LOADER (single source of truth) === */
-const ATTR_BASE = (document.currentScript && document.currentScript.getAttribute('data-lang-base')) || '/assets/bazi-language-pack/';
-const BASE = ATTR_BASE.endsWith('/') ? ATTR_BASE : (ATTR_BASE + '/');
-
+const BASE = document.currentScript?.dataset.langBase || '/assets/bazi-language-pack/';
 window.I18N = window.I18N || {};
 const loaded = new Set();
 
-/* single setLang + applyI18n hook */
-function applyI18n(){ /* defined later by main script; just a stub here */ }
 function setLang(code){
   window.state = window.state || {};
   window.state.lang = code;
-  try { localStorage.setItem('5x_lang', code); } catch {}
-  if (typeof window.applyI18n === 'function') window.applyI18n();
-  if (typeof window.buildProReport === 'function' && window.lastCtx) window.buildProReport(window.lastCtx);
+  try{ localStorage.setItem('5x_lang', code); }catch{}
+  if (typeof applyI18n === 'function') applyI18n();
+  if (typeof buildProReport === 'function' && window.lastCtx) buildProReport(window.lastCtx);
 }
-window.setLang = setLang;
+window.setLang = setLang; // (optional) expose globally
 
-/* pack loader */
+// ⬇️ REPLACE your old loadLangPack with THIS version
 async function loadLangPack(lang){
-  const filename = ({'zh-CN':'zh-CN.js','zh-TW':'zh-TW.js','en':'en.js','ja':'ja.js','th':'th.js','ms':'ms.js'})[lang];
-  if (!filename) return;
+  const filename = ({
+    'zh-CN':'zh-CN.js','zh-TW':'zh-TW.js',
+    'en':'en.js','ja':'ja.js','th':'th.js','ms':'ms.js'
+  })[lang];
+  if(!filename) return;
 
-  if (loaded.has(lang) || (window.I18N && window.I18N[lang])) { setLang(lang); return; }
+  if (loaded.has(lang) || (window.I18N && window.I18N[lang])) {
+    setLang(lang); return;
+  }
 
-  const url = new URL(filename, window.location.origin + BASE);
+  const u = new URL(filename, window.location.origin + BASE);
   try {
-    // Optional HEAD – don’t block on errors
+    // Try HEAD, but ignore failures and continue to import
     try {
-      const head = await fetch(url.toString(), { method: 'HEAD', cache: 'no-store' });
-      if (!head.ok) console.warn(`[i18n] HEAD ${head.status} for ${url}`);
+      const head = await fetch(u.toString(), { method: 'HEAD', cache: 'no-store' });
+      if (!head.ok) console.warn(`[i18n] HEAD ${head.status} for ${u}`);
     } catch (e) {
       console.warn('[i18n] HEAD skipped:', e);
     }
 
-    await import(/* @vite-ignore */ `${url.toString()}?v=${Date.now()}`);
+    await import(/* @vite-ignore */ `${u.toString()}?v=${Date.now()}`);
     if (!window.I18N[lang]) throw new Error(`Pack loaded but I18N['${lang}'] missing`);
     loaded.add(lang);
     setLang(lang);
     console.log('Loaded language pack:', lang);
-  } catch (e) {
-    console.error('[i18n] Failed to load', lang, 'from', url.toString(), e);
+  } catch (e){
+    console.error('[i18n] Failed to load', lang, 'from', u.toString(), e);
   }
 }
-window.loadLangPack = loadLangPack;
 
-/* wire <select id="langSelect"> + boot default */
+// Wire up <select>
 document.addEventListener('DOMContentLoaded', () => {
   const sel = document.querySelector('#langSelect');
+  if (!sel) return;
+  sel.addEventListener('change', e => {
+    const lang = e.target.value;
+    localStorage.setItem('5x_lang', lang);
+    loadLangPack(lang);
+  });
   const saved = localStorage.getItem('5x_lang') || 'zh-CN';
-  if (sel) {
-    sel.value = saved;
-    sel.addEventListener('change', e => {
-      const lang = e.target.value;
-      localStorage.setItem('5x_lang', lang);
-      loadLangPack(lang);
-    });
-  }
+  sel.value = saved;
   loadLangPack(saved);
 });
 </script>
-  
 <script>
 (() => {
   'use strict';
@@ -987,16 +985,14 @@ function applyI18n(){
   }
 }
 
-  /* ===== QUICK NORMALIZER: map known Chinese sentences -> i18n keys ===== */
-const CN2KEY = {
-  '感情细腻温柔，需要稳定的情感支持，但不要过度依赖对方':'rel.traits.gentle_support_not_depend',
-  '建立自信，明确表达自己的需求':'rel.tips.confident_clear_needs',
-  '量入为出，做好规划，避免不必要开支':'wealth.advice.spend_within_means',
-  '肝脏功能与情绪调节':'health.constitution.liver_emotion',
-  '调节情绪，避免眼疲劳':'health.caution.eye_fatigue'
-};
-function normKey(s){ return CN2KEY[s] || s; }
-
+// (optional) language switch helper
+function setLang(lang){
+  if (!I18N || !I18N[lang]) return;
+  if (typeof state !== 'object' || !state) window.state = {};
+  state.lang = lang;
+  try { localStorage.setItem('lang', lang); } catch(_) {}
+  applyI18n();
+}
   /* =========================
    * UI UTILS
    * ========================= */
@@ -1256,16 +1252,16 @@ function buildProReport(ctx){
 
     <div class="butler-section">
       <h4>${t('reportTitles.useful')}</h4>
-      <div>${t('reportLabels.usefulSpirit')}：${computeUseful(dayStem, pcts).map(t).join('、')}</div>
-      <div>${t('reportLabels.supportElements')}：${supportElems(dayStem).map(t).join('、') || '—'}</div>
-      <div>${t('reportLabels.restrainElements')}：${restrainElems(dayStem).map(t).join('、') || '—'}</div>
+      <div>${t('reportLabels.usefulSpirit')}：${useful.join('、')}</div>
+      <div>${t('reportLabels.supportElements')}：${supportElems(dayStem).join('、') || '—'}</div>
+      <div>${t('reportLabels.restrainElements')}：${restrainElems(dayStem).join('、') || '—'}</div>
     </div>
 
     <div class="butler-section">
       <h4>${t('reportTitles.relationship')}</h4>
-      <div>${t('reportLabels.traits')}：${t(normKey(relation.traits))}</div>
+      <div>${t('reportLabels.traits')}：${relation.traits}</div>
       <div>${t('reportLabels.marriageAdvice')}：${BaziAnalysis.marriageAdvice(tenGods)}</div>
-      <div>${t('reportLabels.relationshipTips')}：${t(normKey(relation.tips))}</div>
+      <div>${t('reportLabels.relationshipTips')}：${relation.tips}</div>
     </div>
 
     <div class="butler-section">
@@ -1277,85 +1273,66 @@ function buildProReport(ctx){
 
     <div class="butler-section">
       <h4>${t('reportTitles.wealth')}</h4>
-      <div>${t('reportLabels.wealthCharacteristics')}：${t(wealthTrait(tenGods))}</div>
+      <div>${t('reportLabels.wealthCharacteristics')}：${wealthTrait(tenGods)}</div>
       <div>${t('reportLabels.wealthDirections')}：${wealthDirs}</div>
-      <div>${t('reportLabels.financialAdvice')}：${t(financeAdvice(tenGods))}</div>
+      <div>${t('reportLabels.financialAdvice')}：${BaziAnalysis.financeAdvice(tenGods)}</div>
     </div>
 
     <div class="butler-section">
       <h4>${t('reportTitles.health')}</h4>
-      <div>${t('reportLabels.healthCharacteristics')}：${t(normKey(BaziAnalysis.health(dayStem)))}</div>
+      <div>${t('reportLabels.healthCharacteristics')}：${BaziAnalysis.health(dayStem)}</div>
       <div>${t('reportLabels.healthTips')}：${t('report.health.tips.'+stemToPinyin(dayStem))}</div>
-      <div>${t('reportLabels.wellnessAdvice')}：${t('wellness.default')}</div>
+      <div>${t('reportLabels.wellnessAdvice')}：${t('report.wellness.default') || '规律作息、适量运动、情绪稳定、少熬夜'}</div>
     </div>
 
     <div class="butler-section">
       <h4>${t('reportTitles.nearTerm')}</h4>
-      <div>${t('reportLabels.overallFortune')}：${t(nearTermOverall(strongest, weakest))}</div>
-      <div>${t('reportLabels.favorableTiming')}：
-        ${strongest ? `逢${mapName[strongest]}${t('elem.month')}（${t('sameQi')}）` : '—'}
-        ${weakest ? `，或${mapName[weakest]}${t('elem.month')}（${t('complement')}）` : ''}
-        ${t('layout')}
-      </div>
-      <div>${t('reportLabels.cautions')}：${t('cautions.default')}</div>
+      <div>${t('reportLabels.overallFortune')}：${nearTermOverall(strongest, weakest)}</div>
+      <div>${t('reportLabels.favorableTiming')}：${strongest?`逢${mapName[strongest]}${t('elem.month') || '月'}（${t('report.sameQi') || '同气'}）`:'—'}${weakest?`，或${mapName[weakest]}${t('elem.month') || '月'}（${t('report.complement') || '补缺'}）`:''}${t('report.layout') || '布局'}</div>
+      <div>${t('reportLabels.cautions')}：${t('report.cautions.default') || '避开情绪决策，控制支出'}</div>
     </div>
 
     <div class="butler-section">
       <h4>${t('reportTitles.actions')}</h4>
       <ul class="action-list">
-        <li>${t('action.weekly')} ${weakest ? mapName[weakest] : t('elem.fiveElements')}${t('action.energy')}</li>
-        <li>${t('action.career')} ${career.advice}</li>
-        <li>${t('action.career2')}</li>
-        <li>${t('action.relationship')}</li>
-        <li>${t('action.wealth')}</li>
+        <li>${t('report.action.weekly') || '每周至少一次'}${weakest?mapName[weakest]:t('elem.fiveElements') || '五行'}${t('report.action.energy') || '元素的"补能"行动（环境、食物、颜色、方向）。'}</li>
+        <li>${t('report.action.career') || '职业：依据"'}${career.advice||'—'}${t('report.action.career2') || '"细化下月行动清单（学习/项目/人脉）。'}</li>
+        <li>${t('report.action.relationship') || '感情：本周安排一次高质量沟通（30分钟），聚焦彼此需求。'}</li>
+        <li>${t('report.action.wealth') || '财富：设立"风险阈值"，偏财机会严格止盈。'}</li>
       </ul>
     </div>
   `;
   const box = $('professionalReport'); if (box) box.innerHTML = html;
 
-function pctTxt(e){ return Math.round(pcts[e]||0)+'%'; }
-function wealthTrait(ten){
-  if (ten.includes('正财')) return 'wealth.characteristics.stable';
-  if (ten.includes('偏财')) return 'wealth.characteristics.opportunity';
-  return 'wealth.characteristics.steady';
-}
-
-function financeAdvice(ten){
-  if (ten.includes('偏财')) return 'wealth.advice.opportunity';
-  if (ten.includes('正财')) return 'wealth.advice.stable';
-  return 'wealth.advice.spend_within_means';
-}
-
-// ✅ return fortune.* keys (NOT report.fortune.*)
-function nearTermOverall(strong, weak){
-  if (!strong || strong === weak) return 'fortune.steady';
-  if (strong === '木' || strong === '火') return 'fortune.upward';
-  if (strong === '金') return 'fortune.focus';
-  if (strong === '水') return 'fortune.study';
-  return 'fortune.foundation';
-}
-  
-function supportElems(dm){
-  const map = { 甲:['水','木'], 乙:['水','木'], 丙:['木','火'], 丁:['木','火'],
-                戊:['火','土'], 己:['火','土'], 庚:['土','金'], 辛:['土','金'],
-                壬:['金','水'], 癸:['金','水'] };
-  const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
-  return (map[dm]||[]).map(key);
-}
-
-function restrainElems(dm){
-  const map = { 甲:['金'], 乙:['金'], 丙:['水'], 丁:['水'], 戊:['木'], 己:['木'],
-                庚:['火'], 辛:['火'], 壬:['土'], 癸:['土'] };
-  const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
-  return (map[dm]||[]).map(key);
-}
-
-function computeUseful(dm, p){
-  const arr = Object.entries({木:p.木||0,火:p.火||0,土:p.土||0,金:p.金||0,水:p.水||0})
-                    .sort((a,b)=>a[1]-b[1]).slice(0,2).map(([k])=>k);
-  const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
-  return arr.map(key);
-}
+  function pctTxt(e){ return Math.round(pcts[e]||0)+'%'; }
+  function wealthTrait(ten){
+    if(ten.includes('正财')) return t('report.wealth.stable') || '以稳定收入为主，适合积累式理财';
+    if(ten.includes('偏财')) return t('report.wealth.opportunity') || '偏财机会多，注意节制风险';
+    return t('report.wealth.steady') || '财运平稳，重在技能与口碑带动收入';
+  }
+  function nearTermOverall(strong,weak){
+    if(!strong) return t('report.fortune.steady') || '平稳调整期';
+    if(strong===weak) return t('report.fortune.steady') || '平稳调整期';
+    if(strong==='木'||strong==='火') return t('report.fortune.upward') || '势头向上，利推广/表达';
+    if(strong==='金') return t('report.fortune.focus') || '收敛聚焦，利制度与执行';
+    if(strong==='水') return t('report.fortune.study') || '学习调研期，先蓄后发';
+    return t('report.fortune.foundation') || '打基础、稳节奏为主';
+  }
+  function supportElems(dm){
+    const map={甲:['水','木'],乙:['水','木'],丙:['木','火'],丁:['木','火'],戊:['火','土'],己:['火','土'],庚:['土','金'],辛:['土','金'],壬:['金','水'],癸:['金','水']};
+    const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+    return (map[dm]||[]).map(x=>names[x]);
+  }
+  function restrainElems(dm){
+    const map={甲:['金'],乙:['金'],丙:['水'],丁:['水'],戊:['木'],己:['木'],庚:['火'],辛:['火'],壬:['土'],癸:['土']};
+    const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+    return (map[dm]||[]).map(x=>names[x]);
+  }
+  function computeUseful(dm,p){
+    const names={木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+    return Object.entries({木:p.木||0,火:p.火||0,土:p.土||0,金:p.金||0,水:p.水||0})
+      .sort((a,b)=>a[1]-b[1]).slice(0,2).map(([k])=>names[k]);
+  }
 }
 
   /* =========================
