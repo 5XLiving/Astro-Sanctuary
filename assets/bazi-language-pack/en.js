@@ -114,6 +114,32 @@ window.I18N['en'] = {
     actions:'📝 Action Checklist'
   },
 
+  tenGodsNames: {
+  biJian: "Friend (Bi-Jian)",
+  jieCai: "Rob Wealth (Jie-Cai)",
+  shiShen: "Eating God (Shi-Shen)",
+  shangGuan: "Hurting Officer (Shang-Guan)",
+  zhengCai: "Direct Wealth",
+  pianCai: "Indirect Wealth",
+  zhengGuan: "Direct Officer",
+  qiSha: "Seven Killings",
+  zhengYin: "Direct Resource",
+  pianYin: "Indirect Resource"
+},
+
+  tenGodsHints: {
+  biJian: "Peer / Ally; same element as Day Master, same polarity.",
+  jieCai: "Rival / Competitor; same element, opposite polarity.",
+  shiShen: "Creative output, enjoyment, softer expression.",
+  shangGuan: "Sharp output, critique, breakthroughs.",
+  zhengCai: "Earned income, budgeting, pragmatism.",
+  pianCai: "Windfall, sales, opportunity-driven wealth.",
+  zhengGuan: "Rules, responsibility, reputation.",
+  qiSha: "Drive, pressure, risk, decisive action.",
+  zhengYin: "Learning, credentials, support.",
+  pianYin: "Intuition, alternative knowledge, adaptability."
+},
+
   reportLabels:{
     dayMaster:'Day Master',
     strength:'Day Master Strength',
