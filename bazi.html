@@ -1158,6 +1158,40 @@ function normKey(s){ return CN2KEY[s] || s; }
     }
   };
 
+  // --- tiny helpers used by Pro Report ---
+function normKey(v){
+  if (typeof v !== 'string') return v;
+  return (v.includes('.') && t(v) !== v) ? t(v) : v;
+}
+function fillTpl(key, kv){
+  let s = t(key);
+  if (!s || typeof s !== 'string') return '';
+  Object.entries(kv || {}).forEach(([k,v])=>{
+    s = s.replaceAll(`{${k}}`, String(v ?? ''));
+  });
+  return s;
+}
+// 克/生链 (for five-element placeholders)
+const controlChain = { '木':'土', '土':'水', '水':'火', '火':'金', '金':'木' };
+const motherOf     = { '木':'水', '火':'木', '土':'火', '金':'土', '水':'金' };
+
+// (optional) short fallback lines for Ten Gods
+function tenGodsAdviceList(arr){
+  const m = {
+    '比肩':'Self-reliant; avoid stubbornness.',
+    '劫财':'Shares resources; curb impulse spends.',
+    '食神':'Creative output; keep rhythm & health.',
+    '伤官':'Expressive/critical; mind your tone.',
+    '正财':'Stable income focus; budget first.',
+    '偏财':'Opportunistic gains; set risk limits.',
+    '正官':'Rules/structure; keep flexibility.',
+    '七杀':'Decisive drive; avoid recklessness.',
+    '正印':'Learning/support; avoid over-protection.',
+    '偏印':'Insightful/unique; don’t over-detach.'
+  };
+  return arr.map(cn => t(tenGodTipKey(cn)) || m[cn] || String(cn));
+}
+
   /* =========================
    * RENDERERS
    * ========================= */
@@ -1321,100 +1355,13 @@ function buildProReport(ctx){
   const career = BaziAnalysis.career(dayStem, tenGods);
   const wealthDirs = i18nDirs(BaziAnalysis.wealthDirs(dayStem));
   const useful = computeUseful(dayStem, pcts);
+  const htmlParts = [];
 
   const tip = unknown ? `
     <div class="ai-box">
       <div class="ai-box-h">${t('report.tipTitle')}</div>
       <div class="ai-box-c">${t('report.hourUnknownTip')}</div>
     </div>` : '';
-
-  const html = `
-    ${tip}
-    <div class="butler-section">
-      <h4>${t('reportTitles.overview')}</h4>
-      <div>${t('reportLabels.dayMaster')}：${t('report.dayMaster.'+stemToPinyin(dayStem)) || dayStem}</div>
-      <div>${t('reportLabels.elementCount')}：${['木','火','土','金','水'].map(k => mapName[k] + ' ' + pctTxt(k)).join('｜')}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.fiveElements')}</h4>
-      <div>${elemLine}</div>
-      <div>${t('reportLabels.elementStrength')}：${Object.entries(pcts).map(([k,v])=>mapName[k]+Math.round(v)+'%').join('，')}</div>
-      <div>${t('reportLabels.missingElements')}：${Object.entries(pcts).filter(([_,v])=>v===0).map(([k])=>mapName[k]).join('、') || '—'}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.tenGods')}</h4>
-      <div>
-        （${t('pillar.year')}/${t('pillar.month')}/${t('pillar.day')}/${t('pillar.hour')}）
-        ${t('reportLabels.tenGods') || '十神'}：
-        ${tenGods.map(s => {
-            const label = t(TG_KEY[s] || s);
-            const tip = t(tenGodTipKey(s)) || '';
-            // add native title tooltip; safe even if empty
-            return `<span title="${tip}">${label}</span>`;
-          }).join(' / ')}
-       </div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.useful')}</h4>
-      <div>${t('reportLabels.usefulSpirit')}：${computeUseful(dayStem, pcts).map(t).join('、')}</div>
-      <div>${t('reportLabels.supportElements')}：${supportElems(dayStem).map(t).join('、') || '—'}</div>
-      <div>${t('reportLabels.restrainElements')}：${restrainElems(dayStem).map(t).join('、') || '—'}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.relationship')}</h4>
-      <div>${t('reportLabels.traits')}：${t(normKey(relation.traits))}</div>
-      <div>${t('reportLabels.marriageAdvice')}：${BaziAnalysis.marriageAdvice(tenGods)}</div>
-      <div>${t('reportLabels.relationshipTips')}：${t(normKey(relation.tips))}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.career')}</h4>
-      <div>${t('reportLabels.suitableCareers')}：${career.suitable}</div>
-      <div>${t('reportLabels.careerAdvice')}：${career.advice}</div>
-      <div>${t('reportLabels.favorableDirections')}：${wealthDirs}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.wealth')}</h4>
-      <div>${t('reportLabels.wealthCharacteristics')}：${t(wealthTrait(tenGods))}</div>
-      <div>${t('reportLabels.wealthDirections')}：${wealthDirs}</div>
-      <div>${t('reportLabels.financialAdvice')}：${t(financeAdvice(tenGods))}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.health')}</h4>
-      <div>${t('reportLabels.healthCharacteristics')}：${t(normKey(BaziAnalysis.health(dayStem)))}</div>
-      <div>${t('reportLabels.healthTips')}：${t('report.health.tips.'+stemToPinyin(dayStem))}</div>
-      <div>${t('reportLabels.wellnessAdvice')}：${t('wellness.default')}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.nearTerm')}</h4>
-      <div>${t('reportLabels.overallFortune')}：${t(nearTermOverall(strongest, weakest))}</div>
-      <div>${t('reportLabels.favorableTiming')}：
-        ${strongest ? `逢${mapName[strongest]}${t('elem.month')}（${t('sameQi')}）` : '—'}
-        ${weakest ? `，或${mapName[weakest]}${t('elem.month')}（${t('complement')}）` : ''}
-        ${t('layout')}
-      </div>
-      <div>${t('reportLabels.cautions')}：${t('cautions.default')}</div>
-    </div>
-
-    <div class="butler-section">
-      <h4>${t('reportTitles.actions')}</h4>
-      <ul class="action-list">
-        <li>${t('action.weekly')} ${weakest ? mapName[weakest] : t('elem.fiveElements')}${t('action.energy')}</li>
-        <li>${t('action.career')} ${career.advice}</li>
-        <li>${t('action.career2')}</li>
-        <li>${t('action.relationship')}</li>
-        <li>${t('action.wealth')}</li>
-      </ul>
-    </div>
-  `;
-const box = $('professionalReport'); if (box) box.innerHTML = html;
 
 // --- Overview (rule-based placeholders) ---
 const sym_overview = t('report.dayMaster.'+stemToPinyin(dayStem)) || dayStem;
@@ -1504,9 +1451,26 @@ function computeUseful(dm, p){
                     .sort((a,b)=>a[1]-b[1]).slice(0,2).map(([k])=>k);
   const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
   return arr.map(key);
-}
+ }
 }
 
+const box = $('professionalReport');
+if (box) box.innerHTML = htmlParts.join('');
+const lang = (window.state && window.state.lang) || 'zh-CN';
+const base = { pcts, dayStem, tenGods, unknown, strongest, weakest };
+
+injectAI('overview',     'sym-overview','ana-overview', base, {lang});
+injectAI('five',         'sym-five',    'ana-five',     base, {lang});
+injectAI('ten',          'sym-ten',     'ana-ten',      base, {lang});
+// If you add symbolise/analysis spans for these, you can also call:
+// injectAI('useful','sym-useful','ana-useful', base,{lang});
+// injectAI('relationship','sym-rel','ana-rel', base,{lang});
+// injectAI('career','sym-career','ana-career', base,{lang});
+// injectAI('wealth','sym-wealth','ana-wealth', base,{lang});
+// injectAI('health','sym-health','ana-health', base,{lang});
+// injectAI('near','sym-near','ana-near', base,{lang});
+// injectAI('actions','sym-actions','ana-actions', base,{lang});  
+  
   /* =========================
    * MAIN GENERATE
    * ========================= */
