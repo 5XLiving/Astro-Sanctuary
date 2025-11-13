@@ -15,6 +15,13 @@ window.I18N['th'] = {
 
   app:{ title:'ดวงจีน Bazi · คำนวณด่วน' },
 
+  ensure('th', {
+  reportLabels: {
+    symbolise: 'ความหมายเชิงสัญลักษณ์',
+    analysis: 'ข้อแนะนำเชิงปฏิบัติ',
+  }
+});
+
   form:{
     nameLabel:'ชื่อ (ไม่บังคับ)',
     namePlaceholder:'ชื่อของคุณ (เพื่อการแสดงผลเฉพาะบุคคล)',
