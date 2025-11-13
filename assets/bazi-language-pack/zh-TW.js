@@ -8,6 +8,13 @@ window.I18N['zh-TW'] = {
 
   app:{ title:'八字命理 · 快速排盤' },
 
+  ensure('zh-TW', {
+  reportLabels: {
+    symbolise: '象徵涵義',
+    analysis: '對策建議',
+  }
+});
+
   form:{
     nameLabel:'姓名（可選）',
     namePlaceholder:'你的稱呼（用於個性化）',
