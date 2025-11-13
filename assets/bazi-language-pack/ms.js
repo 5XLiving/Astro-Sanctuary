@@ -15,6 +15,13 @@ window.I18N['ms'] = {
 
   app:{ title:'Bazi · Carta Pantas' },
 
+  ensure('ms', {
+  reportLabels: {
+    symbolise: 'Makna Simbolik',
+    analysis: 'Saran Tindakan',
+  }
+});
+
   form:{
     nameLabel:'Nama (pilihan)',
     namePlaceholder:'Nama anda (untuk pemperibadian)',
