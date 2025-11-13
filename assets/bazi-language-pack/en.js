@@ -1,3 +1,5 @@
+
+
 // /assets/bazi/language-pack/en.js
 window.I18N = window.I18N || {};
 
@@ -7,6 +9,13 @@ window.I18N['en'] = {
   lang:{ 'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese','en':'English','ja':'Japanese','th':'Thai','ms':'Bahasa Melayu' },
 
   app:{ title:'Bazi · Quick Chart' },
+
+  ensure('en', {
+  reportLabels: {
+    symbolise: 'Symbolism',
+    analysis: 'Actionable Advice',
+  }
+});
 
   form:{
     nameLabel:'Name (optional)',
@@ -113,31 +122,31 @@ window.I18N['en'] = {
     actions:'📝 Action Checklist'
   },
 
-  tenGodsNames:{
-    biJian:"Friend (Bi-Jian)",
-    jieCai:"Rob Wealth (Jie-Cai)",
-    shiShen:"Eating God (Shi-Shen)",
-    shangGuan:"Hurting Officer (Shang-Guan)",
-    zhengCai:"Direct Wealth",
-    pianCai:"Indirect Wealth",
-    zhengGuan:"Direct Officer",
-    qiSha:"Seven Killings",
-    zhengYin:"Direct Resource",
-    pianYin:"Indirect Resource"
-  },
+  tenGodsNames: {
+  biJian: "Friend (Bi-Jian)",
+  jieCai: "Rob Wealth (Jie-Cai)",
+  shiShen: "Eating God (Shi-Shen)",
+  shangGuan: "Hurting Officer (Shang-Guan)",
+  zhengCai: "Direct Wealth",
+  pianCai: "Indirect Wealth",
+  zhengGuan: "Direct Officer",
+  qiSha: "Seven Killings",
+  zhengYin: "Direct Resource",
+  pianYin: "Indirect Resource"
+},
 
-  tenGodsHints:{
-    biJian:"Peer / Ally; same element as Day Master, same polarity.",
-    jieCai:"Rival / Competitor; same element, opposite polarity.",
-    shiShen:"Creative output, enjoyment, softer expression.",
-    shangGuan:"Sharp output, critique, breakthroughs.",
-    zhengCai:"Earned income, budgeting, pragmatism.",
-    pianCai:"Windfall, sales, opportunity-driven wealth.",
-    zhengGuan:"Rules, responsibility, reputation.",
-    qiSha:"Drive, pressure, risk, decisive action.",
-    zhengYin:"Learning, credentials, support.",
-    pianYin:"Intuition, alternative knowledge, adaptability."
-  },
+  tenGodsHints: {
+  biJian: "Peer / Ally; same element as Day Master, same polarity.",
+  jieCai: "Rival / Competitor; same element, opposite polarity.",
+  shiShen: "Creative output, enjoyment, softer expression.",
+  shangGuan: "Sharp output, critique, breakthroughs.",
+  zhengCai: "Earned income, budgeting, pragmatism.",
+  pianCai: "Windfall, sales, opportunity-driven wealth.",
+  zhengGuan: "Rules, responsibility, reputation.",
+  qiSha: "Drive, pressure, risk, decisive action.",
+  zhengYin: "Learning, credentials, support.",
+  pianYin: "Intuition, alternative knowledge, adaptability."
+},
 
   reportLabels:{
     dayMaster:'Day Master',
@@ -163,10 +172,7 @@ window.I18N['en'] = {
     overallFortune:'Overall Fortune',
     favorableTiming:'Favorable Timing',
     cautions:'Cautions',
-    tenGods:'Ten Gods',
-    /* ➜ your new labels */
-    symbolise:'Symbolism',
-    analysis:'Actionable Advice'
+    tenGods:'Ten Gods'
   },
 
   wellness:{ default:'Regular routine, moderate exercise, emotional stability, less late nights' },
