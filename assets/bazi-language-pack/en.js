@@ -9,6 +9,13 @@ window.I18N['en'] = {
 
   app:{ title:'Bazi · Quick Chart' },
 
+  ensure('en', {
+  reportLabels: {
+    symbolise: 'Symbolism',
+    analysis: 'Actionable Advice',
+  }
+});
+
   form:{
     nameLabel:'Name (optional)',
     namePlaceholder:'Your name (for personalization)',
