@@ -692,6 +692,9 @@ window.ensure = (code, dict) => {
   I18N[code] = Object.assign({}, I18N[code] || {}, dict);
 };
 
+ensure('en',  { reportLabels:{ symbolise:'Symbolises', analysis:'Analysis & Actions' }});
+ensure('zh-CN',{ reportLabels:{ symbolise:'象征 / 表现', analysis:'分析 / 行动' }});  
+
 // --- Default pack (zh-CN) ---
 I18N['zh-CN'] = {
   brand:{ subtitle:'5xLiving · 八字简评' },
@@ -1251,6 +1254,55 @@ function tenGodTipKey(cn){
   return base || '';
 }
 
+// -------- util: quick hash for caching per chart --------
+function _hashObj(obj){
+  const s = JSON.stringify(obj);
+  let h = 5381; for(let i=0;i<s.length;i++){ h = ((h<<5)+h) ^ s.charCodeAt(i); }
+  return (h>>>0).toString(36);
+}
+
+// -------- AI call with cache & fallback --------
+async function aiExplain(section, ctx, {lang, refresh=false, temperature=0.7, seed=null}={}){
+  const key = `ai:insight:${section}:${lang}:${_hashObj(ctx)}`;
+  if (!refresh){
+    try{ const cached = JSON.parse(localStorage.getItem(key)||''); if (cached) return cached; }catch{}
+  }
+
+  const url = `${(window.API_BASE||'').replace(/\/$/,'')}/bazi/insight`;
+  const payload = { section, lang, temperature, seed, ctx };
+
+  try{
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
+    const json = await res.json(); // {symbolise, analysis}
+    if (json && (json.symbolise || json.analysis)){
+      try{ localStorage.setItem(key, JSON.stringify(json)); }catch{}
+      return json;
+    }
+    throw new Error('Empty AI payload');
+  }catch(e){
+    console.warn('[aiExplain] fallback due to', e);
+    return null; // let caller use rule-based fallback
+  }
+}
+
+// -------- inject AI text into DOM targets --------
+async function injectAI(section, symId, anaId, ctx, opts){
+  const out = await aiExplain(section, ctx, opts);
+  const $sym = document.getElementById(symId);
+  const $ana = document.getElementById(anaId);
+  if (out){
+    if ($sym && out.symbolise) $sym.textContent = out.symbolise;
+    if ($ana && out.analysis)  $ana.textContent = out.analysis;
+  } else {
+    // keep the existing (rule-based) text already rendered
+  }
+}  
+
   /* =========================
    * PRO REPORT (10 sections)
    * ========================= */
@@ -1362,7 +1414,53 @@ function buildProReport(ctx){
       </ul>
     </div>
   `;
-  const box = $('professionalReport'); if (box) box.innerHTML = html;
+const box = $('professionalReport'); if (box) box.innerHTML = html;
+
+// --- Overview (rule-based placeholders) ---
+const sym_overview = t('report.dayMaster.'+stemToPinyin(dayStem)) || dayStem;
+const ana_overview = t('report.career.steady');
+
+htmlParts.push(`
+  <div class="butler-section">
+    <h4>${t('reportTitles.overview')}</h4>
+    <div>${t('reportLabels.dayMaster')}：${t('report.dayMaster.'+stemToPinyin(dayStem)) || dayStem}</div>
+    <div>${t('reportLabels.elementCount')}：${['木','火','土','金','水'].map(k => mapName[k] + ' ' + pctTxt(k)).join('｜')}</div>
+    <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-overview">${sym_overview}</span></div>
+    <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-overview">${ana_overview}</span></div>
+  </div>
+`);
+
+// --- Five Elements (placeholders) ---
+const sym_five = fillTpl('symboliseTpl.five', { strongest: strongest?mapName[strongest]:'-', weakest: weakest?mapName[weakest]:'-' });
+const ana_five = fillTpl('analysisTpl.five', {
+  strongest: strongest?mapName[strongest]:'-',
+  control:   strongest?mapName[controlChain[strongest]]:'-',
+  weakest:   weakest?mapName[weakest]:'-',
+  mother:    weakest?mapName[motherOf[weakest]]:'-'
+});
+
+htmlParts.push(`
+  <div class="butler-section">
+    <h4>${t('reportTitles.fiveElements')}</h4>
+    <div>${elemLine}</div>
+    <div>${t('reportLabels.elementStrength')}：${Object.entries(pcts).map(([k,v])=>mapName[k]+Math.round(v)+'%').join('，')}</div>
+    <div>${t('reportLabels.missingElements')}：${Object.entries(pcts).filter(([_,v])=>v===0).map(([k])=>mapName[k]).join('、') || '—'}</div>
+    <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-five">${sym_five}</span></div>
+    <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-five">${ana_five}</span></div>
+  </div>
+`);
+
+// --- Ten Gods (placeholders) ---
+const tenNames = tenGods.map(s => `<span title="${t(tenGodTipKey(s))||''}">${t(TG_KEY[s]||s)}</span>`).join(' / ');
+const tenAdvice = tenGodsAdviceList(tenGods).join('； ');
+htmlParts.push(`
+  <div class="butler-section">
+    <h4>${t('reportTitles.tenGods')}</h4>
+    <div>（${t('pillar.year')}/${t('pillar.month')}/${t('pillar.day')}/${t('pillar.hour')}）${t('reportLabels.tenGods')}：${tenNames}</div>
+    <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-ten">${tenNames.replace(/<[^>]*>/g,'')}</span></div>
+    <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-ten">${tenAdvice || ''}</span></div>
+  </div>
+`);  
 
 function pctTxt(e){ return Math.round(pcts[e]||0)+'%'; }
 function wealthTrait(ten){
