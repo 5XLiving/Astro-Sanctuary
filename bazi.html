@@ -1338,11 +1338,13 @@ async function injectAI(section, symId, anaId, ctx, opts){
 }  
 
 /* =========================
- * PRO REPORT (10 sections)
+ * PRO REPORT (all sections)
  * ========================= */
 function buildProReport(ctx){
   lastCtx = ctx;
   const {pcts = {}, dayStem = '', tenGods = [], unknown=false} = ctx || {};
+
+  // --- locals ---
   const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
   const sortedElems = Object.entries({木:pcts.木||0,火:pcts.火||0,土:pcts.土||0,金:pcts.金||0,水:pcts.水||0}).sort((a,b)=>b[1]-a[1]);
   const strongest = sortedElems[0]?.[0];
@@ -1351,11 +1353,11 @@ function buildProReport(ctx){
     .replace('{strongest}', strongest ? mapName[strongest] : '-')
     .replace('{weakest}',   weakest   ? mapName[weakest]   : '-');
 
-  const relation  = BaziAnalysis.relation(dayStem);
-  const career    = BaziAnalysis.career(dayStem, tenGods);
-  const wealthDirs= i18nDirs(BaziAnalysis.wealthDirs(dayStem));
-  const useful    = computeUseful(dayStem, pcts);
-  const htmlParts = [];
+  const relation   = BaziAnalysis.relation(dayStem);
+  const career     = BaziAnalysis.career(dayStem, tenGods);
+  const wealthDirs = i18nDirs(BaziAnalysis.wealthDirs(dayStem));
+  const usefulEls  = computeUseful(dayStem, pcts); // returns ['elem.xxx','elem.yyy']
+  const htmlParts  = [];
 
   const tip = unknown ? `
     <div class="ai-box">
@@ -1363,10 +1365,9 @@ function buildProReport(ctx){
       <div class="ai-box-c">${t('report.hourUnknownTip')}</div>
     </div>` : '';
 
-  // --- Overview (placeholders) ---
+  // ---------- Overview ----------
   const sym_overview = t('report.dayMaster.'+stemToPinyin(dayStem)) || dayStem;
   const ana_overview = t('report.career.steady');
-
   htmlParts.push(`
     ${tip}
     <div class="butler-section">
@@ -1378,7 +1379,7 @@ function buildProReport(ctx){
     </div>
   `);
 
-  // --- Five Elements (placeholders) ---
+  // ---------- Five Elements ----------
   const sym_five = fillTpl('symboliseTpl.five', { strongest: strongest?mapName[strongest]:'-', weakest: weakest?mapName[weakest]:'-' });
   const ana_five = fillTpl('analysisTpl.five', {
     strongest: strongest?mapName[strongest]:'-',
@@ -1386,7 +1387,6 @@ function buildProReport(ctx){
     weakest:   weakest?mapName[weakest]:'-',
     mother:    weakest?mapName[motherOf[weakest]]:'-'
   });
-
   htmlParts.push(`
     <div class="butler-section">
       <h4>${t('reportTitles.fiveElements')}</h4>
@@ -1398,7 +1398,7 @@ function buildProReport(ctx){
     </div>
   `);
 
-  // --- Ten Gods (placeholders) ---
+  // ---------- Ten Gods ----------
   const tenNames  = tenGods.map(s => `<span title="${t(tenGodTipKey(s))||''}">${t(TG_KEY[s]||s)}</span>`).join(' / ');
   const tenAdvice = tenGodsAdviceList(tenGods).join('； ');
   htmlParts.push(`
@@ -1410,7 +1410,102 @@ function buildProReport(ctx){
     </div>
   `);
 
-  // --- helpers (hoisted) ---
+  // ---------- Useful Spirit ----------
+  htmlParts.push(`
+    <div class="butler-section">
+      <h4>${t('reportTitles.useful')}</h4>
+      <div>${t('reportLabels.usefulSpirit')}：${usefulEls.map(t).join('、')}</div>
+      <div>${t('reportLabels.supportElements')}：${supportElems(dayStem).map(t).join('、') || '—'}</div>
+      <div>${t('reportLabels.restrainElements')}：${restrainElems(dayStem).map(t).join('、') || '—'}</div>
+      <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-useful">${usefulEls.map(t).join('、')}</span></div>
+      <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-useful">${t('useful.defaultAdvice')||''}</span></div>
+    </div>
+  `);
+
+  // ---------- Relationship ----------
+  htmlParts.push(`
+    <div class="butler-section">
+      <h4>${t('reportTitles.relationship')}</h4>
+      <div>${t('reportLabels.traits')}：${t(normKey(relation.traits))}</div>
+      <div>${t('reportLabels.marriageAdvice')}：${BaziAnalysis.marriageAdvice(tenGods)}</div>
+      <div>${t('reportLabels.relationshipTips')}：${t(normKey(relation.tips))}</div>
+      <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-rel">${t(normKey(relation.traits))}</span></div>
+      <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-rel">${t(normKey(relation.tips))}</span></div>
+    </div>
+  `);
+
+  // ---------- Career ----------
+  htmlParts.push(`
+    <div class="butler-section">
+      <h4>${t('reportTitles.career')}</h4>
+      <div>${t('reportLabels.suitableCareers')}：${career.suitable}</div>
+      <div>${t('reportLabels.careerAdvice')}：${career.advice}</div>
+      <div>${t('reportLabels.favorableDirections')}：${wealthDirs}</div>
+      <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-career">${career.suitable}</span></div>
+      <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-career">${career.advice}</span></div>
+    </div>
+  `);
+
+  // ---------- Wealth ----------
+  htmlParts.push(`
+    <div class="butler-section">
+      <h4>${t('reportTitles.wealth')}</h4>
+      <div>${t('reportLabels.wealthCharacteristics')}：${t(wealthTrait(tenGods))}</div>
+      <div>${t('reportLabels.wealthDirections')}：${wealthDirs}</div>
+      <div>${t('reportLabels.financialAdvice')}：${t(financeAdvice(tenGods))}</div>
+      <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-wealth">${t(wealthTrait(tenGods))}</span></div>
+      <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-wealth">${t(financeAdvice(tenGods))}</span></div>
+    </div>
+  `);
+
+  // ---------- Health ----------
+  const healthChar = t(normKey(BaziAnalysis.health(dayStem)));
+  htmlParts.push(`
+    <div class="butler-section">
+      <h4>${t('reportTitles.health')}</h4>
+      <div>${t('reportLabels.healthCharacteristics')}：${healthChar}</div>
+      <div>${t('reportLabels.healthTips')}：${t('report.health.tips.'+stemToPinyin(dayStem))}</div>
+      <div>${t('reportLabels.wellnessAdvice')}：${t('wellness.default')}</div>
+      <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-health">${healthChar}</span></div>
+      <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-health">${t('wellness.default')}</span></div>
+    </div>
+  `);
+
+  // ---------- Near Term ----------
+  const nearKey = nearTermOverall(strongest, weakest);
+  const nearHuman = t(nearKey);
+  htmlParts.push(`
+    <div class="butler-section">
+      <h4>${t('reportTitles.nearTerm')}</h4>
+      <div>${t('reportLabels.overallFortune')}：${nearHuman}</div>
+      <div>${t('reportLabels.favorableTiming')}：
+        ${strongest ? `逢${mapName[strongest]}${t('elem.month')}（${t('sameQi')}）` : '—'}
+        ${weakest ? `，或${mapName[weakest]}${t('elem.month')}（${t('complement')}）` : ''}
+        ${t('layout')}
+      </div>
+      <div>${t('reportLabels.cautions')}：${t('cautions.default')}</div>
+      <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-near">${nearHuman}</span></div>
+      <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-near">${t('cautions.default')}</span></div>
+    </div>
+  `);
+
+  // ---------- Actions ----------
+  htmlParts.push(`
+    <div class="butler-section">
+      <h4>${t('reportTitles.actions')}</h4>
+      <ul class="action-list">
+        <li>${t('action.weekly')} ${weakest ? mapName[weakest] : t('elem.fiveElements')}${t('action.energy')}</li>
+        <li>${t('action.career')} ${career.advice}</li>
+        <li>${t('action.career2')}</li>
+        <li>${t('action.relationship')}</li>
+        <li>${t('action.wealth')}</li>
+      </ul>
+      <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-actions">${t('action.weekly')} ${weakest ? mapName[weakest] : t('elem.fiveElements')}</span></div>
+      <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-actions">${t('action.career2')}</span></div>
+    </div>
+  `);
+
+  // ---------- helpers (scoped) ----------
   function pctTxt(e){ return Math.round(pcts[e]||0)+'%'; }
   function wealthTrait(ten){
     if (ten.includes('正财')) return 'wealth.characteristics.stable';
@@ -1449,17 +1544,24 @@ function buildProReport(ctx){
     return arr.map(key);
   }
 
-  // 🔚 render inside the function
+  // ---------- render ----------
   const box = $('professionalReport');
   if (box) box.innerHTML = htmlParts.join('');
 
-  // 🔁 AI overrides after render
+  // ---------- AI overrides ----------
   const lang = (window.state && window.state.lang) || 'zh-CN';
   const base = { pcts, dayStem, tenGods, unknown, strongest, weakest };
   injectAI('overview','sym-overview','ana-overview', base, {lang});
   injectAI('five','sym-five','ana-five', base, {lang});
   injectAI('ten','sym-ten','ana-ten', base, {lang});
-} // end buildProReport  
+  injectAI('useful','sym-useful','ana-useful', base, {lang});
+  injectAI('relationship','sym-rel','ana-rel', base, {lang});
+  injectAI('career','sym-career','ana-career', base, {lang});
+  injectAI('wealth','sym-wealth','ana-wealth', base, {lang});
+  injectAI('health','sym-health','ana-health', base, {lang});
+  injectAI('near','sym-near','ana-near', base, {lang});
+  injectAI('actions','sym-actions','ana-actions', base, {lang});
+} // end buildProReport
   
   /* =========================
    * MAIN GENERATE
