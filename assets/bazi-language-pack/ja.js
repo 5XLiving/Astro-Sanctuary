@@ -8,6 +8,13 @@ window.I18N['ja'] = {
 
   app:{ title:'四柱推命（八字）· クイック排盤' },
 
+  ensure('ja', {
+  reportLabels: {
+    symbolise: '象徴的な意味',
+    analysis: '実践アドバイス',
+  }
+});
+
   form:{
     nameLabel:'名前（任意）',
     namePlaceholder:'お名前（個別表示のため）',
