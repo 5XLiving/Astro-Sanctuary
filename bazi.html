@@ -1337,24 +1337,24 @@ async function injectAI(section, symId, anaId, ctx, opts){
   }
 }  
 
-  /* =========================
-   * PRO REPORT (10 sections)
-   * ========================= */
+/* =========================
+ * PRO REPORT (10 sections)
+ * ========================= */
 function buildProReport(ctx){
   lastCtx = ctx;
   const {pcts = {}, dayStem = '', tenGods = [], unknown=false} = ctx || {};
   const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
   const sortedElems = Object.entries({木:pcts.木||0,火:pcts.火||0,土:pcts.土||0,金:pcts.金||0,水:pcts.水||0}).sort((a,b)=>b[1]-a[1]);
   const strongest = sortedElems[0]?.[0];
-  const weakest = sortedElems.at(-1)?.[0] || strongest;
-  const elemLine = (t('ui.balance') || '{strongest} 最旺，{weakest} 偏弱。')
+  const weakest   = sortedElems.at(-1)?.[0] || strongest;
+  const elemLine  = (t('ui.balance') || '{strongest} 最旺，{weakest} 偏弱。')
     .replace('{strongest}', strongest ? mapName[strongest] : '-')
-    .replace('{weakest}', weakest ? mapName[weakest] : '-');
+    .replace('{weakest}',   weakest   ? mapName[weakest]   : '-');
 
-  const relation = BaziAnalysis.relation(dayStem);
-  const career = BaziAnalysis.career(dayStem, tenGods);
-  const wealthDirs = i18nDirs(BaziAnalysis.wealthDirs(dayStem));
-  const useful = computeUseful(dayStem, pcts);
+  const relation  = BaziAnalysis.relation(dayStem);
+  const career    = BaziAnalysis.career(dayStem, tenGods);
+  const wealthDirs= i18nDirs(BaziAnalysis.wealthDirs(dayStem));
+  const useful    = computeUseful(dayStem, pcts);
   const htmlParts = [];
 
   const tip = unknown ? `
@@ -1363,113 +1363,103 @@ function buildProReport(ctx){
       <div class="ai-box-c">${t('report.hourUnknownTip')}</div>
     </div>` : '';
 
-// --- Overview (rule-based placeholders) ---
-const sym_overview = t('report.dayMaster.'+stemToPinyin(dayStem)) || dayStem;
-const ana_overview = t('report.career.steady');
+  // --- Overview (placeholders) ---
+  const sym_overview = t('report.dayMaster.'+stemToPinyin(dayStem)) || dayStem;
+  const ana_overview = t('report.career.steady');
 
-htmlParts.push(`
-  <div class="butler-section">
-    <h4>${t('reportTitles.overview')}</h4>
-    <div>${t('reportLabels.dayMaster')}：${t('report.dayMaster.'+stemToPinyin(dayStem)) || dayStem}</div>
-    <div>${t('reportLabels.elementCount')}：${['木','火','土','金','水'].map(k => mapName[k] + ' ' + pctTxt(k)).join('｜')}</div>
-    <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-overview">${sym_overview}</span></div>
-    <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-overview">${ana_overview}</span></div>
-  </div>
-`);
+  htmlParts.push(`
+    ${tip}
+    <div class="butler-section">
+      <h4>${t('reportTitles.overview')}</h4>
+      <div>${t('reportLabels.dayMaster')}：${t('report.dayMaster.'+stemToPinyin(dayStem)) || dayStem}</div>
+      <div>${t('reportLabels.elementCount')}：${['木','火','土','金','水'].map(k => mapName[k] + ' ' + pctTxt(k)).join('｜')}</div>
+      <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-overview">${sym_overview}</span></div>
+      <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-overview">${ana_overview}</span></div>
+    </div>
+  `);
 
-// --- Five Elements (placeholders) ---
-const sym_five = fillTpl('symboliseTpl.five', { strongest: strongest?mapName[strongest]:'-', weakest: weakest?mapName[weakest]:'-' });
-const ana_five = fillTpl('analysisTpl.five', {
-  strongest: strongest?mapName[strongest]:'-',
-  control:   strongest?mapName[controlChain[strongest]]:'-',
-  weakest:   weakest?mapName[weakest]:'-',
-  mother:    weakest?mapName[motherOf[weakest]]:'-'
-});
+  // --- Five Elements (placeholders) ---
+  const sym_five = fillTpl('symboliseTpl.five', { strongest: strongest?mapName[strongest]:'-', weakest: weakest?mapName[weakest]:'-' });
+  const ana_five = fillTpl('analysisTpl.five', {
+    strongest: strongest?mapName[strongest]:'-',
+    control:   strongest?mapName[controlChain[strongest]]:'-',
+    weakest:   weakest?mapName[weakest]:'-',
+    mother:    weakest?mapName[motherOf[weakest]]:'-'
+  });
 
-htmlParts.push(`
-  <div class="butler-section">
-    <h4>${t('reportTitles.fiveElements')}</h4>
-    <div>${elemLine}</div>
-    <div>${t('reportLabels.elementStrength')}：${Object.entries(pcts).map(([k,v])=>mapName[k]+Math.round(v)+'%').join('，')}</div>
-    <div>${t('reportLabels.missingElements')}：${Object.entries(pcts).filter(([_,v])=>v===0).map(([k])=>mapName[k]).join('、') || '—'}</div>
-    <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-five">${sym_five}</span></div>
-    <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-five">${ana_five}</span></div>
-  </div>
-`);
+  htmlParts.push(`
+    <div class="butler-section">
+      <h4>${t('reportTitles.fiveElements')}</h4>
+      <div>${elemLine}</div>
+      <div>${t('reportLabels.elementStrength')}：${Object.entries(pcts).map(([k,v])=>mapName[k]+Math.round(v)+'%').join('，')}</div>
+      <div>${t('reportLabels.missingElements')}：${Object.entries(pcts).filter(([_,v])=>v===0).map(([k])=>mapName[k]).join('、') || '—'}</div>
+      <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-five">${sym_five}</span></div>
+      <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-five">${ana_five}</span></div>
+    </div>
+  `);
 
-// --- Ten Gods (placeholders) ---
-const tenNames = tenGods.map(s => `<span title="${t(tenGodTipKey(s))||''}">${t(TG_KEY[s]||s)}</span>`).join(' / ');
-const tenAdvice = tenGodsAdviceList(tenGods).join('； ');
-htmlParts.push(`
-  <div class="butler-section">
-    <h4>${t('reportTitles.tenGods')}</h4>
-    <div>（${t('pillar.year')}/${t('pillar.month')}/${t('pillar.day')}/${t('pillar.hour')}）${t('reportLabels.tenGods')}：${tenNames}</div>
-    <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-ten">${tenNames.replace(/<[^>]*>/g,'')}</span></div>
-    <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-ten">${tenAdvice || ''}</span></div>
-  </div>
-`);  
+  // --- Ten Gods (placeholders) ---
+  const tenNames  = tenGods.map(s => `<span title="${t(tenGodTipKey(s))||''}">${t(TG_KEY[s]||s)}</span>`).join(' / ');
+  const tenAdvice = tenGodsAdviceList(tenGods).join('； ');
+  htmlParts.push(`
+    <div class="butler-section">
+      <h4>${t('reportTitles.tenGods')}</h4>
+      <div>（${t('pillar.year')}/${t('pillar.month')}/${t('pillar.day')}/${t('pillar.hour')}）${t('reportLabels.tenGods')}：${tenNames}</div>
+      <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-ten">${tenNames.replace(/<[^>]*>/g,'')}</span></div>
+      <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-ten">${tenAdvice || ''}</span></div>
+    </div>
+  `);
 
-function pctTxt(e){ return Math.round(pcts[e]||0)+'%'; }
-function wealthTrait(ten){
-  if (ten.includes('正财')) return 'wealth.characteristics.stable';
-  if (ten.includes('偏财')) return 'wealth.characteristics.opportunity';
-  return 'wealth.characteristics.steady';
-}
+  // --- helpers (hoisted) ---
+  function pctTxt(e){ return Math.round(pcts[e]||0)+'%'; }
+  function wealthTrait(ten){
+    if (ten.includes('正财')) return 'wealth.characteristics.stable';
+    if (ten.includes('偏财')) return 'wealth.characteristics.opportunity';
+    return 'wealth.characteristics.steady';
+  }
+  function financeAdvice(ten){
+    if (ten.includes('偏财')) return 'wealth.advice.opportunity';
+    if (ten.includes('正财')) return 'wealth.advice.stable';
+    return 'wealth.advice.spend_within_means';
+  }
+  function nearTermOverall(strong, weak){
+    if (!strong || strong === weak) return 'fortune.steady';
+    if (strong === '木' || strong === '火') return 'fortune.upward';
+    if (strong === '金') return 'fortune.focus';
+    if (strong === '水') return 'fortune.study';
+    return 'fortune.foundation';
+  }
+  function supportElems(dm){
+    const map = { 甲:['水','木'], 乙:['水','木'], 丙:['木','火'], 丁:['木','火'],
+                  戊:['火','土'], 己:['火','土'], 庚:['土','金'], 辛:['土','金'],
+                  壬:['金','水'], 癸:['金','水'] };
+    const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
+    return (map[dm]||[]).map(key);
+  }
+  function restrainElems(dm){
+    const map = { 甲:['金'], 乙:['金'], 丙:['水'], 丁:['水'], 戊:['木'], 己:['木'],
+                  庚:['火'], 辛:['火'], 壬:['土'], 癸:['土'] };
+    const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
+    return (map[dm]||[]).map(key);
+  }
+  function computeUseful(dm, p){
+    const arr = Object.entries({木:p.木||0,火:p.火||0,土:p.土||0,金:p.金||0,水:p.水||0})
+                      .sort((a,b)=>a[1]-b[1]).slice(0,2).map(([k])=>k);
+    const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
+    return arr.map(key);
+  }
 
-function financeAdvice(ten){
-  if (ten.includes('偏财')) return 'wealth.advice.opportunity';
-  if (ten.includes('正财')) return 'wealth.advice.stable';
-  return 'wealth.advice.spend_within_means';
-}
+  // 🔚 render inside the function
+  const box = $('professionalReport');
+  if (box) box.innerHTML = htmlParts.join('');
 
-// ✅ return fortune.* keys (NOT report.fortune.*)
-function nearTermOverall(strong, weak){
-  if (!strong || strong === weak) return 'fortune.steady';
-  if (strong === '木' || strong === '火') return 'fortune.upward';
-  if (strong === '金') return 'fortune.focus';
-  if (strong === '水') return 'fortune.study';
-  return 'fortune.foundation';
-}
-  
-function supportElems(dm){
-  const map = { 甲:['水','木'], 乙:['水','木'], 丙:['木','火'], 丁:['木','火'],
-                戊:['火','土'], 己:['火','土'], 庚:['土','金'], 辛:['土','金'],
-                壬:['金','水'], 癸:['金','水'] };
-  const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
-  return (map[dm]||[]).map(key);
-}
-
-function restrainElems(dm){
-  const map = { 甲:['金'], 乙:['金'], 丙:['水'], 丁:['水'], 戊:['木'], 己:['木'],
-                庚:['火'], 辛:['火'], 壬:['土'], 癸:['土'] };
-  const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
-  return (map[dm]||[]).map(key);
-}
-
-function computeUseful(dm, p){
-  const arr = Object.entries({木:p.木||0,火:p.火||0,土:p.土||0,金:p.金||0,水:p.水||0})
-                    .sort((a,b)=>a[1]-b[1]).slice(0,2).map(([k])=>k);
-  const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
-  return arr.map(key);
- }
-}
-
-const box = $('professionalReport');
-if (box) box.innerHTML = htmlParts.join('');
-const lang = (window.state && window.state.lang) || 'zh-CN';
-const base = { pcts, dayStem, tenGods, unknown, strongest, weakest };
-
-injectAI('overview',     'sym-overview','ana-overview', base, {lang});
-injectAI('five',         'sym-five',    'ana-five',     base, {lang});
-injectAI('ten',          'sym-ten',     'ana-ten',      base, {lang});
-// If you add symbolise/analysis spans for these, you can also call:
-// injectAI('useful','sym-useful','ana-useful', base,{lang});
-// injectAI('relationship','sym-rel','ana-rel', base,{lang});
-// injectAI('career','sym-career','ana-career', base,{lang});
-// injectAI('wealth','sym-wealth','ana-wealth', base,{lang});
-// injectAI('health','sym-health','ana-health', base,{lang});
-// injectAI('near','sym-near','ana-near', base,{lang});
-// injectAI('actions','sym-actions','ana-actions', base,{lang});  
+  // 🔁 AI overrides after render
+  const lang = (window.state && window.state.lang) || 'zh-CN';
+  const base = { pcts, dayStem, tenGods, unknown, strongest, weakest };
+  injectAI('overview','sym-overview','ana-overview', base, {lang});
+  injectAI('five','sym-five','ana-five', base, {lang});
+  injectAI('ten','sym-ten','ana-ten', base, {lang});
+} // end buildProReport  
   
   /* =========================
    * MAIN GENERATE
