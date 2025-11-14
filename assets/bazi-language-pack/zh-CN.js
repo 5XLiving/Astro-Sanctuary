@@ -9,11 +9,6 @@
     lang:{ 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
 
     app:{ title:'八字命理 · 快速排盘' },
-    reportLabels: {
-    symbolise: '象征意义',
-    analysis: '对策建议',
-  }
-});
 
     form:{
       nameLabel:'姓名（可选）',
