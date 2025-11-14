@@ -10,6 +10,24 @@
 
     app:{ title:'八字命理 · 快速排盘' },
 
+ensure('zh-CN', {
+  reportLabels: {
+    symbolise: '象征含义',
+    analysis: '对策建议',
+  }
+});
+
+ensure('zh-CN', {
+  action:{
+    weekly:'每周',
+    energy:'能量练习',
+    career:'职业策略：稳步推进、聚焦产出',
+    career2:'稳定输出与复盘（计划→执行→检讨→精进）',
+    relationship:'关系经营：真诚沟通、建立界限、及时回应',
+    wealth:'财富：预算/现金流、技能变现、风险控制'
+  }
+});
+
     form:{
       nameLabel:'姓名（可选）',
       namePlaceholder:'你的称呼（用于个性化）',
