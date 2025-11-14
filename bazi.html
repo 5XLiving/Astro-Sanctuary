@@ -671,33 +671,47 @@ async function loadLangPack(lang){
       if (!head.ok) console.warn(`[i18n] HEAD ${head.status} for ${url}`);
     } catch (e) { /* ignore */ }
 
-    await import(/* @vite-ignore */ `${url.toString()}?v=${Date.now()}`);
-    if (!window.I18N[lang]) throw new Error(`Pack loaded but I18N['${lang}'] missing`);
-    loaded.add(lang);
-    setLang(lang);
-    console.log('Loaded language pack:', lang);
-  } catch (e) {
-    console.error('[i18n] Failed to load', lang, 'from', url.toString(), e);
-  }
+   await import(`${url.toString()}?v=${Date.now()}`);
+   if (!window.I18N[lang]) throw new Error(`Pack loaded but I18N['${lang}'] missing`);
+   loaded.add(lang);
+   setLang(lang);
+   console.log('Loaded language pack:', lang);
+   return true;                     // <-- add this
+ } catch (e) {
+   console.error('[i18n] Failed to load', lang, 'from', url.toString(), e);
+   return false;                    // <-- add this
+ }
 }
 window.loadLangPack = loadLangPack;
 
 /* wire <select id="langSelect"> + boot default */
 document.addEventListener('DOMContentLoaded', () => {
-  const sel = document.querySelector('#langSelect');
-  const saved = _currentLang;
+  const sel = document.getElementById('langSelect');
+  const saved =
+    (typeof window._currentLang === 'string' && window._currentLang) ||
+    (function () { try { return localStorage.getItem('5x_lang'); } catch { return null; } })() ||
+    'zh-CN';
+
   if (sel) {
     sel.value = saved;
-    sel.addEventListener('change', e => {
+    sel.addEventListener('change', (e) => {
       const lang = e.target.value;
       try { localStorage.setItem('5x_lang', lang); } catch {}
-      loadLangPack(lang);
+      if (typeof window.onLangChange === 'function') {
+        window.onLangChange(lang);     // preferred: handles rebuild + i18n apply
+      } else if (typeof window.loadLangPack === 'function') {
+        window.loadLangPack(lang);     // fallback if onLangChange not present
+      }
     });
   }
-  loadLangPack(saved);
+
+  // initial boot
+  if (typeof window.loadLangPack === 'function') {
+    window.loadLangPack(saved);
+  } else if (typeof window.onLangChange === 'function') {
+    window.onLangChange(saved);
+  }
 });
-</script>
-  
 <script>
 (() => {
   'use strict';
