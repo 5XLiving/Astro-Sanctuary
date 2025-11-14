@@ -1400,7 +1400,7 @@ async function injectAI(section, symId, anaId, ctx, opts){
   const markDown = (ms = 3 * 60 * 1000) => { // 3 minutes
     try { localStorage.setItem(LS_KEY, String(now() + ms)); } catch {}
   };
-  const clearDown = () => { try { localStorage.removeItem(LS_KEY)); } catch {} };
+  const clearDown = () => { try { localStorage.removeItem(LS_KEY); } catch {} }; // <-- FIXED: removed extra ")"
 
   const _aiExplain = window.aiExplain;
 
@@ -1413,10 +1413,12 @@ async function injectAI(section, symId, anaId, ctx, opts){
     try {
       const out = await _aiExplain(section, ctx, opts);
       if (out && (out.symbolise || out.analysis)) { clearDown(); return out; }
-      markDown(); if (!warnedOnce) { console.warn('[aiExplain] empty payload; breaker 3m.'); warnedOnce = true; }
+      markDown();
+      if (!warnedOnce) { console.warn('[aiExplain] empty payload; breaker 3m.'); warnedOnce = true; }
       return null;
     } catch (e) {
-      markDown(); if (!warnedOnce) { console.warn('[aiExplain] error → breaker 3m', e); warnedOnce = true; }
+      markDown();
+      if (!warnedOnce) { console.warn('[aiExplain] error → breaker 3m', e); warnedOnce = true; }
       return null;
     }
   };
@@ -1444,14 +1446,24 @@ async function injectAI(section, symId, anaId, ctx, opts){
   window.onLangChange = async function (code) {
     if (switching) return; switching = true;
     try {
-      const ok = await loadLangPack(code);
-      if (typeof applyI18n === 'function') applyI18n(code);
+      // Ensure loadLangPack returns boolean success
+      const ok = await (typeof loadLangPack === 'function' ? loadLangPack(code) : false);
+      if (ok && typeof applyI18n === 'function') applyI18n(code);
+
       document.documentElement.setAttribute('lang', code);
+
+      // Rebuild report safely (clear container to avoid duplicates)
       if (window.lastCtx && typeof window.buildProReport === 'function') {
         const y = window.scrollY;
-        await Promise.resolve();
-        requestAnimationFrame(() => { try { buildProReport(lastCtx); window.scrollTo(0, y); } catch {} });
+        const root = document.getElementById('reportRoot'); // <-- change if your container id differs
+        if (root) root.innerHTML = '';
+        requestAnimationFrame(() => {
+          try { buildProReport(lastCtx); window.scrollTo(0, y); } catch {}
+        });
       }
+
+      // Let AI layer retry after lang swap (quiet)
+      if (typeof window.forceAiInsightRetry === 'function') window.forceAiInsightRetry();
     } finally { switching = false; }
   };
 })(); // <-- IIFE CLOSED
