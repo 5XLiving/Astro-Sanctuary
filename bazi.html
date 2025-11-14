@@ -607,6 +607,22 @@ a:focus{
 </main>
   
 <script>window.API_BASE='https://throbbing-lab-1440.hello5xliving.workers.dev';</script>
+<script>
+/* Refresh Pro Report whenever i18n applies */
+(function () {
+  const prev = window.applyI18n;
+  window.applyI18n = function () {
+    if (typeof prev === 'function') prev();
+    try {
+      if (window.buildProReport && window.lastCtx) {
+        window.buildProReport(window.lastCtx);
+      }
+    } catch (e) {
+      console.warn('[i18n→report] rebuild failed:', e);
+    }
+  };
+})();
+</script>  
 <script type="module" data-lang-base="/assets/bazi-language-pack/">
 /* === I18N PACK LOADER (single source of truth) === */
 const ATTR_BASE = (document.currentScript && document.currentScript.getAttribute('data-lang-base')) || '/assets/bazi-language-pack/';
@@ -679,7 +695,8 @@ document.addEventListener('DOMContentLoaded', () => {
    * ========================= */
   const SG_TZ = 'Asia/Singapore';
   const $ = id => document.getElementById(id);
-  const state = { lang: localStorage.getItem('5x_lang') || 'zh-CN' };
+  const state = (window.state = window.state || {});
+  state.lang = state.lang || localStorage.getItem('5x_lang') || 'zh-CN';
   let lastCtx = null;
 
 /* =========================
@@ -931,7 +948,7 @@ function deepGet(obj, path){
 }
 
 function t(key){
-  const lang = (typeof state === 'object' && state && state.lang) ? state.lang : 'zh-CN';
+  const lang = (window.state && window.state.lang) || 'zh-CN';
   const langDict = (I18N && I18N[lang]) || {};
   const baseDict = (I18N && I18N['zh-CN']) || {};
 
@@ -968,6 +985,7 @@ function t(key){
 function applyI18n(){
   const lang = (typeof state === 'object' && state && state.lang) ? state.lang : 'zh-CN';
   document.documentElement.lang = lang;
+  window.applyI18n = applyI18n;
 
   // text nodes
   document.querySelectorAll('[data-i18n]').forEach(el=>{
@@ -1691,9 +1709,18 @@ function buildProReport(ctx){
  * BOOTSTRAP EVENTS
  * ========================= */
 function onLangChange(e){
-  state.lang = (e.target?.value) || 'zh-CN';
-  try { localStorage.setItem('5x_lang', state.lang); } catch {}
-  applyI18n();
+  const lang = (e.target?.value) || 'zh-CN';
+  try { localStorage.setItem('5x_lang', lang); } catch {}
+  // Ensure the pack is present, then apply + rerender
+  if (typeof window.loadLangPack === 'function') {
+    window.loadLangPack(lang); // this will call window.setLang → window.applyI18n
+  } else {
+    // fallback if loader not present
+    window.state = window.state || {};
+    window.state.lang = lang;
+    if (typeof window.applyI18n === 'function') window.applyI18n();
+    if (typeof window.buildProReport === 'function' && window.lastCtx) window.buildProReport(window.lastCtx);
+  }
 }
 
 function boot(){
@@ -1841,11 +1868,11 @@ if (document.readyState === 'loading') {
   tickNow(); setInterval(tickNow, 60_000);
 
   // When language changes, keep the clock format in sync (don’t touch inputs)
-  const _applyI18n = window.applyI18n;
-  window.applyI18n = function () {
-    if (typeof _applyI18n === 'function') _applyI18n();
-    tickNow();
-  };
+const _applyI18n = window.applyI18n;
+window.applyI18n = function () {
+  if (typeof _applyI18n === 'function') _applyI18n();
+  tickNow();
+};
 })();
 </script>
 </body>
