@@ -159,7 +159,7 @@ window.I18N['ja'] = {
     wealth:'資産：リスク閾値を設定し、投機は厳格に利確。'
     sameQi:'同気',
     complement:'補完',
-    layout:'レイアウト',
+    layout:'レイアウト'
   },    
 
   fortune:{
