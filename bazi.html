@@ -976,6 +976,12 @@ function deepGet(obj, path){
   return String(path).split('.').reduce((o,k)=> (o && o[k] != null) ? o[k] : undefined, obj);
 }
 
+// --- i18n getter ---
+function t(path, lang = (window.state && window.state.lang) || 'zh-CN') {
+  const pack = (window.I18N && window.I18N[lang]) || {};
+  return path.split('.').reduce((o, k) => (o && o[k] != null ? o[k] : null), pack) || path;
+}  
+  
 function t(key){
   const lang = (window.state && window.state.lang) || 'zh-CN';
   const langDict = (I18N && I18N[lang]) || {};
@@ -1352,11 +1358,18 @@ function _hashObj(obj){
 // 1) Quiet inject (already closed)
 async function injectAI(section, symId, anaId, ctx, opts){
   const out = await aiExplain(section, ctx, opts);
+  if (!out) return;
+
+  const lang = (window.state && window.state.lang) || 'zh-CN';
   const $sym = document.getElementById(symId);
   const $ana = document.getElementById(anaId);
-  if (!out) return;                        // keep rule-based text
-  if ($sym && out.symbolise) $sym.textContent = out.symbolise;
-  if ($ana && out.analysis)  $ana.textContent = out.analysis;
+
+  if ($sym && out.symbolise) {
+    $sym.textContent = `${t('reportLabels.symbolise', lang)}：${out.symbolise}`;
+  }
+  if ($ana && out.analysis) {
+    $ana.textContent = `${t('reportLabels.analysis', lang)}：${out.analysis}`;
+  }
 }
 
 // 2) SINGLE source of truth for AI (keep ONLY this IIFE)
@@ -1530,7 +1543,8 @@ async function injectAI(section, symId, anaId, ctx, opts){
  * PRO REPORT (all sections)
  * ========================= */
 function buildProReport(ctx){
-  lastCtx = ctx;
+  window.lastCtx = ctx;
+  const lang = (window.state && window.state.lang) || 'zh-CN';
   const {pcts = {}, dayStem = '', tenGods = [], unknown=false} = ctx || {};
 
   // --- locals ---
@@ -1557,6 +1571,7 @@ function buildProReport(ctx){
   // ---------- Overview ----------
   const sym_overview = t('report.dayMaster.'+stemToPinyin(dayStem)) || dayStem;
   const ana_overview = t('report.career.steady');
+  setLabeledText('sym-overview','ana-overview', symOverview, anaOverview, lang);
   htmlParts.push(`
     ${tip}
     <div class="butler-section">
@@ -1576,6 +1591,7 @@ function buildProReport(ctx){
     weakest:   weakest?mapName[weakest]:'-',
     mother:    weakest?mapName[motherOf[weakest]]:'-'
   });
+  setLabeledText('sym-five','ana-five', symFive, anaFive, lang);
   htmlParts.push(`
     <div class="butler-section">
       <h4>${t('reportTitles.fiveElements')}</h4>
@@ -1695,6 +1711,16 @@ function buildProReport(ctx){
   `);
 
   // ---------- helpers (scoped) ----------
+function t(path, lang = (window.state && window.state.lang) || 'zh-CN') {
+  const pack = (window.I18N && window.I18N[lang]) || {};
+  return path.split('.').reduce((o,k)=> (o && o[k]!=null ? o[k] : null), pack) || path;
+}
+function setLabeledText(symId, anaId, symText, anaText, lang){
+  const $sym = document.getElementById(symId);
+  const $ana = document.getElementById(anaId);
+  if ($sym) $sym.textContent = `${t('reportLabels.symbolise', lang)}：${symText}`;
+  if ($ana) $ana.textContent = `${t('reportLabels.analysis', lang)}：${anaText}`;
+}
   function pctTxt(e){ return Math.round(pcts[e]||0)+'%'; }
   function wealthTrait(ten){
     if (ten.includes('正财')) return 'wealth.characteristics.stable';
