@@ -22,6 +22,17 @@ window.I18N['ms'] = {
   }
 });
 
+ensure('ms', {
+  action:{
+    weekly:'Mingguan',
+    energy:'Latihan tenaga',
+    career:'Strategi kerjaya: maju secara beransur-ansur, fokus pada output',
+    career2:'Output konsisten & semakan (rancang→laksana→semak→baik pulih)',
+    relationship:'Hubungan: komunikasi jujur, tetapkan sempadan, respons tepat pada masanya',
+    wealth:'Kewangan: bajet/aliran tunai, pemonetan kemahiran, kawal risiko'
+  }
+});
+
   form:{
     nameLabel:'Nama (pilihan)',
     namePlaceholder:'Nama anda (untuk pemperibadian)',
