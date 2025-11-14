@@ -1346,47 +1346,88 @@ function _hashObj(obj){
   return (h>>>0).toString(36);
 }
 
-// -------- AI call with cache & fallback --------
-async function aiExplain(section, ctx, {lang, refresh=false, temperature=0.7, seed=null}={}){
-  const key = `ai:insight:${section}:${lang}:${_hashObj(ctx)}`;
-  if (!refresh){
-    try{ const cached = JSON.parse(localStorage.getItem(key)||''); if (cached) return cached; }catch{}
-  }
-
-  const url = `${(window.API_BASE||'').replace(/\/$/,'')}/bazi/insight`;
-  const payload = { section, lang, temperature, seed, ctx };
-
-  try{
-    const res = await fetch(url, {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify(payload)
-    });
-    if(!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json(); // {symbolise, analysis}
-    if (json && (json.symbolise || json.analysis)){
-      try{ localStorage.setItem(key, JSON.stringify(json)); }catch{}
-      return json;
-    }
-    throw new Error('Empty AI payload');
-  }catch(e){
-    console.warn('[aiExplain] fallback due to', e);
-    return null; // let caller use rule-based fallback
-  }
-if (Date.now() >= (parseInt(localStorage.getItem('ai:insight:downUntil')||'0',10)||0)) {
-  // API considered healthy → allow injectAI calls
-  injectAI('overview','sym-overview','ana-overview', base, {lang});
-  injectAI('five','sym-five','ana-five', base, {lang});
-  injectAI('ten','sym-ten','ana-ten', base, {lang});
-  injectAI('useful','sym-useful','ana-useful', base, {lang});
-  injectAI('relationship','sym-rel','ana-rel', base, {lang});
-  injectAI('career','sym-career','ana-career', base, {lang});
-  injectAI('wealth','sym-wealth','ana-wealth', base, {lang});
-  injectAI('health','sym-health','ana-health', base, {lang});
-  injectAI('near','sym-near','ana-near', base, {lang});
-  injectAI('actions','sym-actions','ana-actions', base, {lang});
- }
+// 1) Quiet inject (already closed)
+async function injectAI(section, symId, anaId, ctx, opts){
+  const out = await aiExplain(section, ctx, opts);
+  const $sym = document.getElementById(symId);
+  const $ana = document.getElementById(anaId);
+  if (!out) return;                        // keep rule-based text
+  if ($sym && out.symbolise) $sym.textContent = out.symbolise;
+  if ($ana && out.analysis)  $ana.textContent = out.analysis;
 }
+
+// 2) SINGLE source of truth for AI (keep ONLY this IIFE)
+(function () {
+  const LS_DOWN = 'ai:insight:downUntil';
+  const now = () => Date.now();
+  const getDownUntil = () => { try { return parseInt(localStorage.getItem(LS_DOWN)||'0',10)||0; } catch { return 0; } };
+  const markDown = (ms = 180000) => { try { localStorage.setItem(LS_DOWN, String(now()+ms)); } catch {} };
+  const clearDown = () => { try { localStorage.removeItem(LS_DOWN); } catch {} };
+
+  async function fetchJSON(url, init={}, timeoutMs=15000){
+    const ctrl = new AbortController(); const t=setTimeout(()=>ctrl.abort(), timeoutMs);
+    try{
+      const res = await fetch(url, {...init, signal: ctrl.signal});
+      if(!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    } finally { clearTimeout(t); }
+  }
+
+  function _hashObj(obj){
+    try{ const s = JSON.stringify(obj); let h=0; for(let i=0;i<s.length;i++){ h=((h<<5)-h)+s.charCodeAt(i); h|=0; } return h.toString(36); }
+    catch{ return '0'; }
+  }
+
+  // ---- AI function
+  window.aiExplain = async function aiExplain(section, ctx, {lang, refresh=false, temperature=0.7, seed=null}={}){
+    if (now() < getDownUntil()) return null;
+
+    const key = `ai:insight:${section}:${lang}:${_hashObj(ctx)}`;
+    if (!refresh){
+      try{ const cached = JSON.parse(localStorage.getItem(key)||''); if (cached) return cached; }catch{}
+    }
+
+    const base = (window.API_BASE||'').replace(/\/$/,'');
+    if (!base){ markDown(60000); return null; }
+
+    try{
+      const json = await fetchJSON(`${base}/bazi/insight`, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ section, lang, temperature, seed, ctx })
+      });
+
+      if (json && (json.symbolise || json.analysis)){
+        try{ localStorage.setItem(key, JSON.stringify(json)); }catch{}
+        clearDown();
+        return json;
+      }
+      console.warn('[aiExplain] empty payload'); markDown(); return null;
+    }catch(e){
+      console.warn('[aiExplain] error → fallback', e); markDown(); return null;
+    }
+  };
+
+  // ---- Runner (call this after rule-based render)
+  window.runAiForAllSections = async function(baseCtx, lang){
+    if (now() < getDownUntil()) return;
+    const sections = [
+      ['overview','sym-overview','ana-overview'],
+      ['five','sym-five','ana-five'],
+      ['ten','sym-ten','ana-ten'],
+      ['useful','sym-useful','ana-useful'],
+      ['relationship','sym-rel','ana-rel'],
+      ['career','sym-career','ana-career'],
+      ['wealth','sym-wealth','ana-wealth'],
+      ['health','sym-health','ana-health'],
+      ['near','sym-near','ana-near'],
+      ['actions','sym-actions','ana-actions'],
+    ];
+    for (const [sec, symId, anaId] of sections){
+      try { await injectAI(sec, symId, anaId, baseCtx, {lang}); } catch {}
+    }
+  };
+})();
 
 // -------- inject AI text into DOM targets --------
 async function injectAI(section, symId, anaId, ctx, opts){
