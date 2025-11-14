@@ -59,6 +59,3 @@ steady:'安定した財運。スキルと評判が収入を牽引'
 'report.health.tips.ren':'水分補給。腎のケアを。',
 'report.health.tips.gui':'十分な水分を。過労を避ける。'
 };
-
-
-export {};
