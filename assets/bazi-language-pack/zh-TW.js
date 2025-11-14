@@ -15,6 +15,17 @@ window.I18N['zh-TW'] = {
   }
 });
 
+ensure('zh-TW', {
+  action:{
+    weekly:'每週',
+    energy:'能量練習',
+    career:'職涯策略：穩步推進、聚焦產出',
+    career2:'穩定輸出與複盤（計畫→執行→檢討→精進）',
+    relationship:'關係經營：真誠溝通、建立界線、及時回應',
+    wealth:'財富：預算/現金流、技能變現、風險控管'
+  }
+});
+
   form:{
     nameLabel:'姓名（可選）',
     namePlaceholder:'你的稱呼（用於個性化）',
