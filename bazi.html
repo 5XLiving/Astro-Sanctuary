@@ -1370,26 +1370,8 @@ async function injectAI(section, symId, anaId, ctx, opts){
   if (out){
     if ($sym && out.symbolise) $sym.textContent = out.symbolise;
     if ($ana && out.analysis)  $ana.textContent = out.analysis;
-  } else {
-    // keep the existing (rule-based) text already rendered
   }
-} // <-- IMPORTANT: close injectAI here
-
-  /* ==== Quiet & resilient AI layer patch ==== */
-(function () {
-  const LS_KEY = 'ai:insight:downUntil';
-  let warnedOnce = false;
-
-  function now() { return Date.now(); }
-  function downUntil() {
-    try { return parseInt(localStorage.getItem(LS_KEY) || '0', 10) || 0; } catch { return 0; }
-  }
-  function markDown(ms = 3 * 60 * 1000) { // 3 minutes
-    try { localStorage.setItem(LS_KEY, String(now() + ms)); } catch {}
-  }
-  function clearDown() {
-    try { localStorage.removeItem(LS_KEY); } catch {}
-  }
+} // <-- injectAI CLOSED
 
 /* Place this AFTER aiExplain/injectAI and BEFORE buildProReport */
 (function () {
@@ -1406,60 +1388,61 @@ async function injectAI(section, symId, anaId, ctx, opts){
   const markDown = (ms = 3 * 60 * 1000) => { // 3 minutes
     try { localStorage.setItem(LS_KEY, String(now() + ms)); } catch {}
   };
-  const clearDown = () => { try { localStorage.removeItem(LS_KEY); } catch {} };
+  const clearDown = () => { try { localStorage.removeItem(LS_KEY)); } catch {} };
 
   const _aiExplain = window.aiExplain;
-  const _injectAI  = window.injectAI;
 
-  // Wrap aiExplain: no throws, circuit breaker, quiet logs
+  // Wrap aiExplain: circuit breaker + quiet fallback
   window.aiExplain = async function (section, ctx, opts) {
     if (now() < downUntil()) {
-      if (!warnedOnce) {
-        console.warn('[aiExplain] temporarily disabled (breaker). Using rule-based text.');
-        warnedOnce = true;
-      }
+      if (!warnedOnce) { console.warn('[aiExplain] breaker active; using rule-based text.'); warnedOnce = true; }
       return null;
     }
     try {
       const out = await _aiExplain(section, ctx, opts);
-      if (out && (out.symbolise || out.analysis)) {
-        clearDown();
-        return out;
-      }
-      markDown();
-      if (!warnedOnce) {
-        console.warn('[aiExplain] empty payload from API. Falling back; breaker enabled for 3 min.');
-        warnedOnce = true;
-      }
+      if (out && (out.symbolise || out.analysis)) { clearDown(); return out; }
+      markDown(); if (!warnedOnce) { console.warn('[aiExplain] empty payload; breaker 3m.'); warnedOnce = true; }
       return null;
     } catch (e) {
-      markDown();
-      if (!warnedOnce) {
-        console.warn('[aiExplain] error', e, '→ fallback; breaker enabled for 3 min.');
-        warnedOnce = true;
-      }
+      markDown(); if (!warnedOnce) { console.warn('[aiExplain] error → breaker 3m', e); warnedOnce = true; }
       return null;
     }
   };
 
-  // Wrap injectAI: never overwrites rule-based if AI null/empty
+  // Never overwrite rule-based if AI returns null/empty
+  const _injectAI = window.injectAI;
   window.injectAI = async function (section, symId, anaId, ctx, opts) {
     try {
       const out = await window.aiExplain(section, ctx, opts);
-      if (!out) return; // keep existing rule-based text silently
+      if (!out) return;
       const $sym = document.getElementById(symId);
       const $ana = document.getElementById(anaId);
       if ($sym && out.symbolise) $sym.textContent = out.symbolise;
       if ($ana && out.analysis)  $ana.textContent = out.analysis;
-    } catch {
-      /* swallow — keep rule-based */
-    }
+    } catch { /* keep rule-based */ }
   };
 
-  // Optional helper to retry immediately from console
-  window.forceAiInsightRetry = function () { clearDown(); warnedOnce = false; };
-})(); // <-- IMPORTANT: close IIFE
+  // Optional: console helper
+  window.forceAiInsightRetry = function () { try { localStorage.removeItem(LS_KEY); } catch {} warnedOnce = false; };
+})(); // <-- IIFE CLOSED
 
+// Tiny language-switch → safe report refresh
+(function () {
+  let switching = false;
+  window.onLangChange = async function (code) {
+    if (switching) return; switching = true;
+    try {
+      const ok = await loadLangPack(code);
+      if (typeof applyI18n === 'function') applyI18n(code);
+      document.documentElement.setAttribute('lang', code);
+      if (window.lastCtx && typeof window.buildProReport === 'function') {
+        const y = window.scrollY;
+        await Promise.resolve();
+        requestAnimationFrame(() => { try { buildProReport(lastCtx); window.scrollTo(0, y); } catch {} });
+      }
+    } finally { switching = false; }
+  };
+})(); // <-- IIFE CLOSED
 
 /* =========================
  * PRO REPORT (all sections)
