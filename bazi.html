@@ -630,15 +630,29 @@ const BASE = ATTR_BASE.endsWith('/') ? ATTR_BASE : (ATTR_BASE + '/');
 
 window.I18N = window.I18N || {};
 const loaded = new Set();
+let _currentLang = localStorage.getItem('5x_lang') || 'zh-CN';   // <-- add memo
 
-/* single setLang + applyI18n hook */
-function applyI18n(){ /* defined later by main script; just a stub here */ }
+// NOTE: do NOT attach a stub applyI18n() to window; main script should define window.applyI18n
+
 function setLang(code){
+  if (code === _currentLang) return;                               // <-- guard
+  _currentLang = code;
   window.state = window.state || {};
   window.state.lang = code;
   try { localStorage.setItem('5x_lang', code); } catch {}
+
+  // 1) re-apply static i18n labels if your main script exposes this
   if (typeof window.applyI18n === 'function') window.applyI18n();
-  if (typeof window.buildProReport === 'function' && window.lastCtx) window.buildProReport(window.lastCtx);
+
+  // 2) rebuild the report from the last context (clean container first)
+  if (window.lastCtx && typeof window.buildProReport === 'function') {
+    const $root = document.getElementById('reportRoot');           // <-- your report container id
+    if ($root) $root.innerHTML = '';                               // <-- clear previous DOM
+    window.buildProReport(window.lastCtx);                         // <-- rebuild (rule-based)
+
+    // 3) optional: let AI layer retry quietly after lang change
+    if (typeof window.forceAiInsightRetry === 'function') window.forceAiInsightRetry();
+  }
 }
 window.setLang = setLang;
 
@@ -651,13 +665,11 @@ async function loadLangPack(lang){
 
   const url = new URL(filename, window.location.origin + BASE);
   try {
-    // Optional HEAD – don’t block on errors
+    // HEAD is optional; skip failures
     try {
       const head = await fetch(url.toString(), { method: 'HEAD', cache: 'no-store' });
       if (!head.ok) console.warn(`[i18n] HEAD ${head.status} for ${url}`);
-    } catch (e) {
-      console.warn('[i18n] HEAD skipped:', e);
-    }
+    } catch (e) { /* ignore */ }
 
     await import(/* @vite-ignore */ `${url.toString()}?v=${Date.now()}`);
     if (!window.I18N[lang]) throw new Error(`Pack loaded but I18N['${lang}'] missing`);
@@ -673,12 +685,12 @@ window.loadLangPack = loadLangPack;
 /* wire <select id="langSelect"> + boot default */
 document.addEventListener('DOMContentLoaded', () => {
   const sel = document.querySelector('#langSelect');
-  const saved = localStorage.getItem('5x_lang') || 'zh-CN';
+  const saved = _currentLang;
   if (sel) {
     sel.value = saved;
     sel.addEventListener('change', e => {
       const lang = e.target.value;
-      localStorage.setItem('5x_lang', lang);
+      try { localStorage.setItem('5x_lang', lang); } catch {}
       loadLangPack(lang);
     });
   }
