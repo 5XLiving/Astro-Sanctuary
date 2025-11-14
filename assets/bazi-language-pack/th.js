@@ -35,6 +35,3 @@ window.I18N = window.I18N || {};
 'report.health.tips.ren':'ดื่มน้ำให้พอ ใส่ใจไต',
 'report.health.tips.gui':'ดื่มน้ำพอเหมาะ เลี่ยงหักโหม'
 };
-
-
-export {};
