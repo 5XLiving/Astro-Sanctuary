@@ -81,6 +81,3 @@ steady:'Kewangan stabil; pendapatan didorong kemahiran & reputasi'
 'report.health.tips.ren':'Seimbangkan air; jaga buah pinggang.',
 'report.health.tips.gui':'Minum mencukupi; elak kerja berlebihan.'
 };
-
-
-export {};
