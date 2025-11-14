@@ -157,11 +157,10 @@ window.I18N['ja'] = {
     career2:'（講座・ポートフォリオ・ネットワークに落とし込む）',
     relationship:'恋愛：今週30分の質の高い対話を1回。互いのニーズに集中。',
     wealth:'資産：リスク閾値を設定し、投機は厳格に利確。'
-  },
-
-  sameQi:'同気',
-  complement:'補完',
-  layout:'レイアウト',
+    sameQi:'同気',
+    complement:'補完',
+    layout:'レイアウト',
+  },    
 
   fortune:{
     steady:'安定調整期',
