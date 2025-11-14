@@ -17,6 +17,17 @@ window.I18N['en'] = {
   }
 });
 
+ensure('en', {
+  action:{
+    weekly:'Weekly',
+    energy:'Energy practice',
+    career:'Career strategy: steady progress & focused output',
+    career2:'Consistent output & review (plan → do → review → improve)',
+    relationship:'Relationship: honest talk, boundaries, timely response',
+    wealth:'Wealth: budgeting, cashflow, skill monetization, risk control'
+  }
+});
+
   form:{
     nameLabel:'Name (optional)',
     namePlaceholder:'Your name (for personalization)',
