@@ -170,6 +170,10 @@ window.I18N['zh-TW'] = {
     steady:'財運平穩，重在技能與口碑帶動收入'
   },
 
+  // inside reportLabels:
+  symbolise:'象徵涵義',
+  analysis:'對策建議',
+
   'report.dayMaster.jia':'甲木命：積極進取，具開拓精神，精力旺盛。',
   'report.dayMaster.yi':'乙木命：性格柔順，樂於行善，富同情心。',
   'report.dayMaster.bing':'丙火命：熱情豪爽，自信好勝，善於表達。',
