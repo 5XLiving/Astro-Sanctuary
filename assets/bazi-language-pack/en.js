@@ -1,209 +1,902 @@
-// /assets/bazi-language-pack/en.js
-window.I18N = window.I18N || {};
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bazi · Quick Chart</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
 
-window.I18N['en'] = {
-  brand:{ subtitle:'5xLiving · Bazi Brief' },
-  nav:{ langLabel:'Language' },
-  lang:{ 'zh-CN':'Simplified Chinese','zh-TW':'Traditional Chinese','en':'English','ja':'Japanese','th':'Thai','ms':'Bahasa Melayu' },
+  <style>
+/* ---- same visual style as CN version ---- */
+:root{
+  --bg:#0b0f14; --bg-accent:#0e1520; --card:#11161dcc; --surface:#0f1624; --line:#1f2a36;
+  --text:#e8edf3; --muted:#98a7b7; --brand:#d4af37; --gold:#d4af37; --gold2:#f2d27a; --accent:#58b9ff;
+  --radius:14px; --radius-sm:10px; --radius-lg:18px; --shadow:0 8px 30px rgba(0,0,0,.35); --shadow-sm:0 4px 14px rgba(0,0,0,.28);
+  --container:1100px; --gap:12px; --pad:18px; --focus:0 0 0 2px rgba(212,175,55,0.2);
+  --bp-s:520px; --bp-m:760px; --bp-l:900px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; padding:0; color:var(--text);
+  background: radial-gradient(1200px 600px at 70% -10%, #16202b 10%, transparent 60%) no-repeat,
+             linear-gradient(180deg, #0b0f14, #0b0f14);
+  font-family:Inter,system-ui,-apple-system,"Noto Sans SC","Segoe UI",Roboto,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+body::before{
+  content:""; position:fixed; inset:0; z-index:-2;
+  background:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" opacity="0.05"><rect width="100" height="100" fill="%23d4af37"/></svg>') center/cover no-repeat;
+  filter:brightness(0.45) saturate(0.9) blur(2px);
+}
+.container{max-width:var(--container); margin:0 auto; padding:24px 16px 80px}
+.site-header{position:sticky; top:0; z-index:10; background:rgba(11,15,20,.8); border-bottom:1px solid #0f1622; backdrop-filter:saturate(140%) blur(12px)}
+.head-inner{display:flex; align-items:center; justify-content:space-between; gap:14px; padding:14px 16px}
+.brand{display:flex; align-items:center; gap:10px; text-decoration:none; color:var(--text)}
+.brand-badge{display:inline-grid; place-items:center; width:34px; height:34px; border-radius:8px; background:linear-gradient(180deg,#0e1520,#0b1018); border:1px solid #2a3546; box-shadow:var(--shadow-sm); font-weight:800; color:#ffe084}
+.title{font-family:"Noto Serif SC",serif; font-weight:700; letter-spacing:0.02em; font-size:1.1rem}
+.now{font-size:.9rem; color:var(--muted)}
 
-  app:{ title:'Bazi · Quick Chart' },
+.section{margin-top:18px}
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); backdrop-filter:blur(10px); padding:var(--pad); margin:16px 0}
+.h2{font-size:1.2rem; margin:0 0 12px 0; font-weight:800; color:#ffe084; display:flex; gap:8px; align-items:center}
+.h2::before{content:""; width:4px; height:18px; background:var(--brand); border-radius:2px}
+.row{display:grid; gap:var(--gap); grid-template-columns:1fr}
+@media (min-width:760px){ .row.cols-3{grid-template-columns:1fr 1fr 1fr} .row.cols-2{grid-template-columns:1fr 1fr} }
+input,select{width:100%; border-radius:12px; border:1px solid #243244; background:var(--bg-accent); color:var(--text); padding:12px 12px; font-size:15px; outline:0}
+input::placeholder{color:#6f8092}
+input:focus,select:focus{box-shadow:var(--focus); border-color:#3a4c63}
+.btn{display:inline-grid; place-items:center; padding:12px 16px; border-radius:12px; border:1px solid #e6c76e; background:linear-gradient(180deg,#fff9e6,#e6c76e); color:#191919; font-weight:800; cursor:pointer; transition:transform .2s ease, box-shadow .2s ease}
+.btn:hover{transform:translateY(-1px); box-shadow:0 10px 22px rgba(230,199,110,.5)}
+.btn[disabled]{opacity:.6; cursor:not-allowed}
+.btn.ghost{background:transparent; color:var(--gold2); border:1px solid rgba(212,175,55,.45); box-shadow:none}
+.btn.block{display:block; width:100%}
+.pillars{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px}
+.pillar{background:var(--surface); border:1px solid #253245; border-radius:12px; padding:14px 10px; text-align:center}
+.pillar .tit{color:#9aa3b2; font-size:0.85rem; margin-bottom:6px}
+.pillar .gz{font-size:1.5rem; font-weight:800; color:var(--gold2)}
+@media (max-width:520px){ .pillars{grid-template-columns:repeat(2,1fr)} }
+.bazi-table{width:100%; border-collapse:collapse; margin-top:12px; background:var(--surface); border-radius:8px; overflow:hidden}
+.bazi-table th,.bazi-table td{padding:10px 12px; border:1px solid #253245; text-align:center; vertical-align:middle}
+.bazi-table th{background:rgba(212,175,55,.1); color:var(--gold2)}
+.bazi-table-wrap{overflow:auto}
+@media (max-width:420px){ .bazi-table th,.bazi-table td{padding:8px 10px} }
+.bar{height:10px; background:#0d1420; border:1px solid #233146; border-radius:999px; overflow:hidden; margin:6px 0}
+.bar i{display:block; height:100%; background:linear-gradient(90deg,#ffe084,#f2d27a); width:0%; transition:width 0.5s ease}
+.bar-row{display:grid; grid-template-columns:80px 1fr 60px; gap:10px; align-items:center}
+.error-message{background:rgba(255,90,95,.1); border:1px solid #ff5a5f; border-radius:8px; padding:10px; display:none; margin-top:10px}
+.muted{color:var(--muted)}
+.time-row{display:flex; align-items:center; gap:10px}
+.time-row .time-unknown{display:flex; align-items:center; gap:6px; white-space:nowrap}
+.time-row input[type="time"]{width:auto !important; flex:0 0 160px; min-width:140px}
+.gen-wrap{display:flex; align-items:flex-end; justify-content:flex-end}
+#genBtn{width:auto !important}
+.analysis-grid{display:grid; gap:16px; margin-top:20px}
+.analysis-card{background:var(--surface); border:1px solid #253245; border-radius:12px; padding:16px}
+.analysis-card h3{color:var(--gold2); margin:0 0 12px 0; font-size:1.1rem}
+.analysis-content{line-height:1.6}
+.columns{display:grid; gap:12px; grid-template-columns:1fr}
+@media (min-width:900px){ .columns{grid-template-columns:1fr 1fr} }
+.list-block{border:1px solid #263448; background:var(--bg-accent); border-radius:12px; padding:16px}
+.list-block ul{margin:0.2rem 0 0 0; padding-left:1.1rem}
+.group-title{font-size:1.05rem; color:#ffe084; margin:6px 0 14px}
+.astro-auth{max-width:980px; margin:28px auto; padding:20px 18px; background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01)); border:1px solid rgba(212,175,55,.22); border-radius:14px; box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.auth-grid{display:grid; gap:18px; grid-template-columns:1.2fr .8fr}
+@media (max-width:860px){ .auth-grid{grid-template-columns:1fr} }
+.panel{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01)); border:1px solid rgba(212,175,55,.22); border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.panel .head{padding:16px 18px; border-bottom:1px solid rgba(212,175,55,.22); color:var(--gold); font-weight:700; letter-spacing:0.3px}
+.panel .body{padding:18px}
+.spacer{height:12px}
 
-  form:{
-    nameLabel:'Name (optional)',
-    namePlaceholder:'Your name (for personalization)',
-    genderLabel:'Gender',
-    gender:{ hidden:'Prefer not to say', male:'Male', female:'Female' },
-    calendarLabel:'Calendar',
-    calendar:{ gregorian:'Gregorian', lunar:'Lunar' },
-    birthdateLabel:'Birth date',
-    birthtimeLabel:'Birth time',
-    timeUnknown:'Time unknown'
-  },
+/* Butler / Pro report */
+.butler-professional{display:none; margin-top:20px; background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px}
+.butler-header{display:flex; align-items:center; gap:10px; margin-bottom:20px; color:var(--gold2); font-size:1.2rem; font-weight:700}
+.butler-content{line-height:1.8; max-height:600px; overflow-y:auto; padding:15px; background:var(--surface); border-radius:10px; border:1px solid #253245}
+.butler-section{margin-bottom:25px; padding-bottom:15px; border-bottom:1px solid #253245}
+.butler-section h4{color:var(--gold2); margin-bottom:10px; font-size:1.05rem}
 
-  btn:{ generate:'Generate Bazi', loading:'Calculating…' },
+/* floating chat */
+.chat-float{position:fixed; bottom:20px; right:20px; width:350px; height:500px; background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); backdrop-filter:blur(10px); z-index:1000; display:none; flex-direction:column}
+.chat-float-header{padding:12px 16px; border-bottom:1px solid var(--line); background:rgba(212,175,55,.1); color:var(--gold2); font-weight:700; display:flex; justify-content:space-between; align-items:center; cursor:move}
+.chat-float-close{background:none; border:none; color:var(--gold2); font-size:1.2rem; cursor:pointer; padding:4px; border-radius:4px}
+.chat-float-close:hover{background:rgba(212,175,55,.2)}
+.chat-float-body{flex:1; display:flex; flex-direction:column; padding:0}
+.chat-float-messages{flex:1; overflow-y:auto; padding:12px; background:var(--surface); font-size:0.9rem}
+.chat-float-input-area{padding:12px; border-top:1px solid var(--line); background:var(--bg-accent)}
+.chat-toggle-btn{position:fixed; bottom:20px; right:20px; width:60px; height:60px; border-radius:50%; background:linear-gradient(180deg,#fff9e6,#e6c76e); border:1px solid #e6c76e; color:#191919; font-size:1.5rem; cursor:pointer; box-shadow:0 4px 12px rgba(230,199,110,.3); z-index:1001; display:flex; align-items:center; justify-content:center}
+.chat-toggle-btn:hover{transform:scale(1.05); box-shadow:0 6px 20px rgba(230,199,110,.5)}
+@media (max-width:768px){
+  .chat-float{width:300px; height:400px; bottom:10px; right:10px}
+  .chat-toggle-btn{width:50px; height:50px; bottom:10px; right:10px}
+}
 
-  result:{ title:'Your Bazi Chart' },
+/* form focus simplification */
+input:focus,select:focus,textarea:focus{outline:none!important; box-shadow:none!important; border-color:#243244!important}
+button:focus,.btn:focus,a:focus{outline:none!important; box-shadow:none!important}
+*{-webkit-tap-highlight-color:transparent}
 
-  pillar:{ year:'Year', month:'Month', day:'Day', hour:'Hour' },
+footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; margin-top:40px}
+@media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important} }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="head-inner container">
+      <a class="brand" href="https://astro.5xliving.com/" target="_self">
+        <span class="brand-badge">5X</span>
+        <span class="title">5xLiving · Bazi Brief</span>
+      </a>
+      <span id="nowBox" class="now"></span>
+    </div>
+  </header>
 
-  table:{ row:{ stem:'Heavenly Stem', branch:'Earthly Branch', fiveElem:'Five Elements', nayin:'Na Yin' } },
+  <main class="container">
+    <!-- Input card -->
+    <section class="card">
+      <div class="h2">Bazi · Quick Chart</div>
+      <div class="row cols-3">
+        <div>
+          <label class="muted">Name (optional)</label>
+          <input id="name" placeholder="Your name (for personalization)" />
+        </div>
+        <div>
+          <label class="muted">Gender</label>
+          <select id="gender">
+            <option value="">Prefer not to say</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted">Calendar</label>
+          <select id="calendar">
+            <option value="gregorian">Gregorian</option>
+            <option value="lunar">Lunar (not yet supported)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row cols-3" style="margin-top:10px">
+        <div>
+          <label class="muted">Birth date</label>
+          <input type="date" id="birthdate" />
+        </div>
+        <div>
+          <label class="muted">Birth time</label>
+          <div class="time-row">
+            <input type="time" id="birthtime" />
+            <label class="muted time-unknown">
+              <input type="checkbox" id="timeUnknown" />
+              <span>Time unknown</span>
+            </label>
+          </div>
+        </div>
+        <div class="gen-wrap">
+          <button class="btn" id="genBtn" type="button">
+            <span id="genBtnText">Generate Bazi</span>
+            <span id="genBtnLoading" style="display:none">Calculating...</span>
+          </button>
+        </div>
+      </div>
+      <div id="error" class="error-message"></div>
+    </section>
 
-  energy:{ title:'Five-Element Energy Analysis' },
+    <!-- Result: pillars & elements -->
+    <section id="result" style="display:none;">
+      <div class="card">
+        <div class="h2">Your Bazi Chart</div>
+        <div class="pillars" id="bazi-pillars"></div>
+        <div class="muted" id="bazi-date" style="margin-top:6px"></div>
+        <table class="bazi-table">
+          <thead>
+          <tr>
+            <th></th>
+            <th>Year Pillar</th>
+            <th>Month Pillar</th>
+            <th>Day Pillar</th>
+            <th>Hour Pillar</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr>
+            <td>Heavenly Stem</td>
+            <td id="year-stem">-</td><td id="month-stem">-</td><td id="day-stem">-</td><td id="hour-stem">-</td>
+          </tr>
+          <tr>
+            <td>Earthly Branch</td>
+            <td id="year-branch">-</td><td id="month-branch">-</td><td id="day-branch">-</td><td id="hour-branch">-</td>
+          </tr>
+          <tr>
+            <td>Five Elements</td>
+            <td id="year-element">-</td><td id="month-element">-</td><td id="day-element">-</td><td id="hour-element">-</td>
+          </tr>
+          <tr>
+            <td>Na Yin</td>
+            <td id="year-nayin">-</td><td id="month-nayin">-</td><td id="day-nayin">-</td><td id="hour-nayin">-</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
 
-  elem:{ wood:'Wood', fire:'Fire', earth:'Earth', metal:'Metal', water:'Water', month:'Month', fiveElements:'Five Elements' },
+      <div class="card">
+        <div class="h2">Five-Element Energy Analysis</div>
+        <div class="bar-row"><span>Wood</span><div class="bar"><i id="bar-wood"></i></div><span id="pct-wood">0%</span></div>
+        <div class="bar-row"><span>Fire</span><div class="bar"><i id="bar-fire"></i></div><span id="pct-fire">0%</span></div>
+        <div class="bar-row"><span>Earth</span><div class="bar"><i id="bar-earth"></i></div><span id="pct-earth">0%</span></div>
+        <div class="bar-row"><span>Metal</span><div class="bar"><i id="bar-metal"></i></div><span id="pct-metal">0%</span></div>
+        <div class="bar-row"><span>Water</span><div class="bar"><i id="bar-water"></i></div><span id="pct-water">0%</span></div>
+        <div id="bazi-elements-balance" class="muted" style="margin-top:8px"></div>
+      </div>
+    </section>
 
-  pro:{
-    title:'🧙‍♂️ Xinlian Butler · Professional Analysis',
-    welcome:'Hi! I’ve prepared a detailed analysis. Ask me anything specific anytime.'
-  },
+    <!-- Pro report -->
+    <section id="butlerProfessional" class="butler-professional">
+      <div class="butler-header">
+        <span>🧙‍♂️ Xinlian Butler · Professional Destiny Analysis</span>
+      </div>
+      <div class="butler-content" id="professionalReport"></div>
+    </section>
 
-  chat:{ send:'Send', placeholder:'Type your question…', toggle:'Ask' },
+    <!-- Floating chat -->
+    <button class="chat-toggle-btn" id="chatToggle">Ask</button>
+    <div class="chat-float" id="chatFloat">
+      <div class="chat-float-header">
+        <span>🧙‍♂️ Xinlian Butler · Q&amp;A</span>
+        <button class="chat-float-close" id="chatClose">×</button>
+      </div>
+      <div class="chat-float-body">
+        <div class="chat-float-messages" id="chatMessages">
+          <div class="ss-msg">
+            Hi, I’m your destiny consultant. I’ve generated a report based on your chart.
+            Ask any specific question about love, career, wealth, or timing.
+          </div>
+        </div>
+        <div class="chat-float-input-area">
+          <div style="display:flex;gap:8px;">
+            <input type="text" id="chatInput" placeholder="Type your question..." style="flex:1; padding:10px; border-radius:8px; border:1px solid #253245; background:#0e1520; color:#e8edf3;">
+            <button class="btn" id="chatSend" style="padding:8px 16px;">Send</button>
+          </div>
+        </div>
+      </div>
+    </div>
 
-  vip:{
-    title:'🌙 VIP Zone',
-    group:{ astrology:'🗝 Astro Space', spiritual:'🌙 Soul Space' },
-    astrology:{
-      match:'Relationships: love & marriage rhythm',
-      career:'Career: development & entrepreneurship potential',
-      wealth:'Wealth: wealth spots & timing',
-      pet:'Pet destiny: companion’s nature & bond'
-    },
-    spiritual:{
-      record:'Spiritual records: photos, dreams, audio, wishes',
-      courses:'Courses: Bazi / Tarot / Astrology / Numerology',
-      family:'Family memorial: remembrance & legacy',
-      practice:'Weekly energy practice / ritual tasks'
-    },
-    login:{ title:'💎 Log in to VIP' },
-    services:{ header:'Member Services' },
-    upgrade:'💎 Upgrade to VIP (monthly)',
-    back:'← Back to Astro Shop',
-    priceNote:'$9.9 / month (Astro Space + Soul Space + all courses)'
-  },
+    <!-- VIP segment -->
+    <section class="card section">
+      <h2 class="group-title">🌙 VIP Segment</h2>
+      <div class="columns">
+        <div class="list-block">
+          <div class="group-title">🗝 Mingli Space · Exclusive</div>
+          <ul>
+            <li>Relationships: love affinity &amp; marriage trend</li>
+            <li>Career: development &amp; entrepreneurship potential</li>
+            <li>Wealth: wealth spot analysis &amp; timing</li>
+            <li>Pet destiny: temperament &amp; affinity of companion animals</li>
+          </ul>
+        </div>
+        <div class="list-block">
+          <div class="group-title">🌙 Xinlian Space · Exclusive</div>
+          <ul>
+            <li>Spiritual records: photos, dreams, voice notes, prayers</li>
+            <li>Courses: Bazi / Tarot / Astrology / Numerology</li>
+            <li>Family memorial system: remembrance &amp; legacy</li>
+            <li>Weekly energy practice &amp; deity-style ritual tasks</li>
+          </ul>
+        </div>
+      </div>
 
-  auth:{
-    header:'Account Login / Register',
-    login:'Log in',
-    reset:'🔑 Reset Password',
-    register:'Create Account',
-    freeTrialNote:'Sign up to receive one free trial',
-    emailPlaceholder:'Email',
-    passwordPlaceholder:'Password (8+ chars, with upper/lowercase & symbols)'
-  },
+      <div class="group-title" style="margin-top:14px">💎 VIP Login</div>
+      <section class="astro-auth">
+        <div class="auth-grid">
+          <div class="panel">
+            <div class="head">Account Login / Register</div>
+            <div class="body">
+              <div class="row" id="authFields">
+                <input id="email" name="email" type="email" inputmode="email" autocomplete="username" placeholder="Email">
+                <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Password (≥8 chars, mixed case, numbers, symbols)">
+              </div>
+              <div class="spacer"></div>
+              <form id="loginForm" class="row one">
+                <button class="btn block" id="loginBtn" type="submit">Log in</button>
+              </form>
+              <div class="spacer"></div>
+              <div class="row one">
+                <button class="btn ghost block" id="resetBtn" type="button">🔑 Reset password</button>
+              </div>
+              <div class="spacer"></div>
+              <form class="row one" id="registerForm">
+                <button class="btn block" id="registerBtn" type="submit">Create account</button>
+                <div class="muted">Sign up to receive one free reading trial.</div>
+                <div class="spacer"></div>
+                <div class="error-message" id="authError" style="display:none"></div>
+              </form>
+            </div>
+          </div>
 
-  footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+          <div class="panel">
+            <div class="head">Member Services</div>
+            <div class="body">
+              <div class="row one">
+                <a class="btn block" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener noreferrer">
+                  💎 Upgrade to VIP (monthly)
+                </a>
+              </div>
+              <div class="row one">
+                <a class="btn ghost block" href="https://yourshopifyshop.myshopify.com" target="_blank" rel="noopener noreferrer">
+                  ← Back to Astro Store
+                </a>
+              </div>
+              <div class="muted">$9.9 / month · Mingli Space + Xinlian Space + spiritual courses</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
 
-  err:{
-    fillBirthdate:'Please enter your birth date',
-    invalidDate:'Invalid date format. Use YYYY-MM-DD',
-    generateFail:'Generation failed. Please try again later'
-  },
+    <footer>© 5XLiving • Astro Sanctuary</footer>
+  </main>
 
-  ui:{
-    unknown:'Unknown',
-    timeUnknown:'Time unknown',
-    hourSuffix:'{hh}:{mm}',
-    birthSummary:'Birth: {y}-{m}-{d} {timeText}',
-    balance:'Among the five elements, {strongest} is strongest and {weakest} is weakest.'
-  },
+  <script>
+  // If you hook to your worker, set it here (optional)
+  window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
 
-  badge:{ noHour:'Hour pillar not included' },
+  (function(){
+    'use strict';
+    const SG_TZ = 'Asia/Singapore';
+    const $ = id => document.getElementById(id);
+    const state = window.state = window.state || {};
+    state.lang = 'en';
 
-  chatDyn:{ autoReply:'Got it: {q}. Key points will appear in the corresponding report sections.' },
+    /* ===== time in header (SG) ===== */
+    function updateNowBox(){
+      try{
+        const now = new Date();
+        const fmt = new Intl.DateTimeFormat('en-SG',{
+          timeZone:SG_TZ,
+          year:'numeric',month:'short',day:'2-digit',
+          hour:'2-digit',minute:'2-digit'
+        });
+        const box = $('nowBox');
+        if(box) box.textContent = fmt.format(now) + ' · SGT';
+      }catch(e){}
+    }
+    updateNowBox();
+    setInterval(updateNowBox, 60000);
 
-  /* Use Chinese ideograms as keys because your engine outputs stems/branches in zh.
-     Values are English labels for display. */
-  elemNames:{ '木':'Wood', '火':'Fire', '土':'Earth', '金':'Metal', '水':'Water' },
+    /* ===== Bazi calculator (same logic as CN) ===== */
+    class BaziCalculator {
+      constructor(){
+        this.HEAVENLY_STEMS=['Jia','Yi','Bing','Ding','Wu','Ji','Geng','Xin','Ren','Gui']; // for display we keep EN pinyin
+        this.STEMS_CN=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸']; // internal CN for mapping
+        this.EARTHLY_BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+        this.NAYIN=[
+          'Metal in the Sea','Fire in the Furnace','Wood in the Forest','Earth by the Road',
+          'Metal on the Sword Edge','Fire on the Mountain','Water under the Stream','Earth on the City Wall',
+          'Metal of White Wax','Wood of Willow Tree','Water in the Spring','Earth on the Roof',
+          'Thunder Fire','Wood of Pine & Cypress','Flowing Water','Sand & Pebble Metal',
+          'Fire at the Foot of Mountain','Flatland Wood','Wall Earth','Gold Foil Metal',
+          'Lamp Fire','River in Heaven','Post-Station Earth','Jewellery Metal',
+          'Mulberry Wood','Great River Water','Sand Earth','Heavenly Fire',
+          'Pomegranate Wood','Ocean Water'
+        ];
+      }
+      stemCn(index){ return this.STEMS_CN[(index+10)%10]; }
+      yearPillar(year){
+        const s=(year-4)%10, b=(year-4)%12;
+        return {stemCn:this.stemCn(s), stem:this.HEAVENLY_STEMS[(s+10)%10], branch:this.EARTHLY_BRANCHES[(b+12)%12]};
+      }
+      solarMonthIndex(y,m,d){
+        const mmdd=m*100+d;
+        const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
+        let idx=11; for(const [thr,val] of gates){ if(mmdd>=thr) idx=val; }
+        const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
+        return {index:idx, branch:branchBy[idx]};
+      }
+      monthPillar(year,month,day){
+        const {index,branch}=this.solarMonthIndex(year,month,day);
+        const yStemIdx=(this.yearPillar(year).stemCn && this.STEMS_CN.indexOf(this.yearPillar(year).stemCn)) || 0;
+        const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
+        const stemIdx=(startMap[yStemIdx]+(index-1))%10;
+        return {stemCn:this.stemCn(stemIdx), stem:this.HEAVENLY_STEMS[stemIdx], branch};
+      }
+      dayPillar(year,month,day){
+        const baseUTC=Date.UTC(1900,0,31), targetUTC=Date.UTC(year,month-1,day);
+        const dayDiff=Math.floor((targetUTC-baseUTC)/86400000);
+        const stemIdx=(0+dayDiff)%10, branchIdx=(4+dayDiff)%12;
+        return {stemCn:this.stemCn(stemIdx), stem:this.HEAVENLY_STEMS[(stemIdx+10)%10],branch:this.EARTHLY_BRANCHES[(branchIdx+12)%12]};
+      }
+      hourPillar(dayStemCn,hour){
+        const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
+        const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};
+        const dayIdx=this.STEMS_CN.indexOf(dayStemCn);
+        const hourIndex=Math.floor((hour+1)/2)%12;
+        const stemIdx=(startMap[dayIdx]+hourIndex)%10;
+        return {stemCn:this.stemCn(stemIdx), stem:this.HEAVENLY_STEMS[stemIdx], branch:branchMap[hour]};
+      }
+      stemElem(cn){
+        return ({'甲':'Wood','乙':'Wood','丙':'Fire','丁':'Fire','戊':'Earth','己':'Earth',
+                 '庚':'Metal','辛':'Metal','壬':'Water','癸':'Water'})[cn]||'-';
+      }
+      branchElem(b){
+        return ({'子':'Water','丑':'Earth','寅':'Wood','卯':'Wood','辰':'Earth','巳':'Fire',
+                 '午':'Fire','未':'Earth','申':'Metal','酉':'Metal','戌':'Earth','亥':'Water'})[b]||'-';
+      }
+      nayin(stemCn,branch){
+        const si=this.STEMS_CN.indexOf(stemCn), bi=this.EARTHLY_BRANCHES.indexOf(branch);
+        return this.NAYIN[(si*2+bi)%this.NAYIN.length];
+      }
+    }
 
-  report:{
-    hourUnknownTip:'⚠️ Note: Birth hour unknown — some parts are reference only.',
-    tipTitle:'Note',
-    generating:'Generating professional analysis…',
-    failed:'Report generation failed. Please try again later.'
-  },
+    /* ===== Simple analysis helpers (English only) ===== */
+    const DayMasterText = {
+      '甲':'Jia Wood: pioneering, energetic, likes to open new paths.',
+      '乙':'Yi Wood: gentle, kind, supportive, values harmony.',
+      '丙':'Bing Fire: passionate, expressive, bright and visible.',
+      '丁':'Ding Fire: warm, steady, protective, values loyalty.',
+      '戊':'Wu Earth: stable, reliable, likes to build long-term results.',
+      '己':'Ji Earth: careful, considerate, service-minded, detail-oriented.',
+      '庚':'Geng Metal: bold, decisive, straightforward, action-driven.',
+      '辛':'Xin Metal: refined, precise, values quality and standards.',
+      '壬':'Ren Water: free, flexible, adaptable, loves movement and variety.',
+      '癸':'Gui Water: sensitive, thoughtful, deep inner world.'
+    };
+    const RelationText = {
+      '甲':{
+        traits:'You tend to be more active and leading in love, but partners still need space.',
+        tips:'Practice listening and slow down decisions in relationships.'
+      },
+      '乙':{
+        traits:'You are gentle and supportive, easily giving a lot to the partner.',
+        tips:'Keep healthy boundaries and communicate your needs clearly.'
+      },
+      '丙':{
+        traits:'You love warmth and passion, but emotions can be intense.',
+        tips:'Cool down before reacting; avoid sharp words in arguments.'
+      },
+      '丁':{
+        traits:'Quiet but loyal, you remember every detail of care.',
+        tips:'Express affection more directly so your partner can feel it.'
+      },
+      '戊':{
+        traits:'Very responsible in love, you think about stability and future.',
+        tips:'Romance and softness are also important—schedule quality time.'
+      },
+      '己':{
+        traits:'You worry a lot about loved ones and sometimes overthink.',
+        tips:'Trust the bond and don’t take all pressure on yourself.'
+      },
+      '庚':{
+        traits:'Direct and clear, you dislike games and gray zones.',
+        tips:'Be gentle when speaking truths; pace decisions with your partner.'
+      },
+      '辛':{
+        traits:'You have high standards and easily sense small changes.',
+        tips:'Accept that no one is perfect, including yourself.'
+      },
+      '壬':{
+        traits:'You need freshness and freedom even inside a relationship.',
+        tips:'Create shared adventures so you don’t seek excitement outside.'
+      },
+      '癸':{
+        traits:'Very sensitive to atmosphere, you feel small shifts quickly.',
+        tips:'Learn emotional grounding before talking about conflicts.'
+      }
+    };
 
-  reportTitles:{
-    overview:'📊 Overview',
-    fiveElements:'🌿 Five Elements',
-    tenGods:'⚡ Ten Gods',
-    useful:'🔑 Useful Spirits',
-    relationship:'💕 Relationships & Marriage',
-    career:'💼 Career Development',
-    wealth:'💰 Wealth Analysis',
-    health:'🌡️ Health & Wellness',
-    nearTerm:'🔮 Near-term Fortune',
-    actions:'📝 Action List'
-  },
+    function strongestWeakest(counts){
+      const order=['Wood','Fire','Earth','Metal','Water'];
+      let max = -1, min = 1e9, maxKey='Wood', minKey='Wood';
+      order.forEach(k=>{
+        const v = counts[k]||0;
+        if(v>max){ max=v; maxKey=k; }
+        if(v<min){ min=v; minKey=k; }
+      });
+      return {strongest:maxKey, weakest:minKey};
+    }
 
-  reportLabels:{
-    dayMaster:'Day Master',
-    strength:'Day Master Strength',
-    usefulSpirit:'Useful Spirit',
-    elementCount:'Element Count',
-    elementStrength:'Element Strength',
-    supportElements:'Supporting Elements',
-    restrainElements:'Draining/Controlling Elements',
-    missingElements:'Missing Elements',
-    traits:'Relationship Traits',
-    marriageAdvice:'Marriage Advice',
-    relationshipTips:'How to Get Along',
-    suitableCareers:'Suitable Industries',
-    careerAdvice:'Career Advice',
-    favorableDirections:'Favorable Directions',
-    wealthCharacteristics:'Wealth Traits',
-    wealthDirections:'Wealth Directions',
-    financialAdvice:'Financial Advice',
-    healthCharacteristics:'Constitution Traits',
-    healthTips:'Cautions',
-    wellnessAdvice:'Wellness Advice',
-    overallFortune:'Overall Fortune',
-    favorableTiming:'Favorable Timing',
-    cautions:'Cautions',
-    tenGods:'Ten Gods'
-  },
+    /* ===== Pro report builder (local, English) ===== */
+    function buildProReport(ctx){
+      const box = $('professionalReport');
+      if(!box || !ctx) return;
+      const dmStemCn = ctx.day.stemCn;
+      const rel = RelationText[dmStemCn] || {
+        traits:'You value sincerity and mutual support in relationships.',
+        tips:'Keep communication open and honest.'
+      };
+      const dmLine = DayMasterText[dmStemCn] || 'Your Day Master personality is balanced and adaptable.';
+      const {strongest, weakest} = strongestWeakest(ctx.elements);
 
-  wellness:{ default:'Regular routine, moderate exercise, emotional stability, less late nights.' },
-  cautions:{ default:'Avoid emotional decisions; control spending.' },
+      const parts = [];
 
-  action:{
-    weekly:'At least once per week',
-    energy:'Element “recharge” actions (space / food / color / direction).',
-    career:'Career: based on positioning & goals, detail next month’s actions (learning / projects / networking).',
-    career2:'Can be broken down into courses, portfolio, and outreach.',
-    relationship:'Relationships: schedule one quality talk this week (30 min) focused on both sides’ needs.',
-    wealth:'Wealth: set a risk threshold; take strict profit on windfalls.'
-  },
+      parts.push(`
+        <div class="butler-section">
+          <h4>1. Overview · Day Master</h4>
+          <p><strong>Day Master:</strong> ${ctx.day.stemEn} (${dmStemCn})</p>
+          <p>${dmLine}</p>
+        </div>
+      `);
 
-  sameQi:'Same Qi',
-  complement:'Complement',
-  layout:'Layout',
+      parts.push(`
+        <div class="butler-section">
+          <h4>2. Five Elements Balance</h4>
+          <p>
+            Wood: ${ctx.elements.Wood}% · Fire: ${ctx.elements.Fire}% ·
+            Earth: ${ctx.elements.Earth}% · Metal: ${ctx.elements.Metal}% · Water: ${ctx.elements.Water}%.
+          </p>
+          <p>
+            <strong>Strongest element:</strong> ${strongest}.
+            <br/>
+            <strong>Weakest element:</strong> ${weakest}.
+          </p>
+          <p>
+            In practice: lean on your strongest element when you need confidence,
+            and intentionally grow the weakest element through environment, habits,
+            and people around you.
+          </p>
+        </div>
+      `);
 
-  fortune:{
-    steady:'Stabilizing phase',
-    upward:'Momentum rising — good for promotion/expression',
-    focus:'Narrow focus — good for systems & execution',
-    study:'Study/research first — store energy, then act',
-    foundation:'Lay foundations and keep a steady tempo'
-  },
+      parts.push(`
+        <div class="butler-section">
+          <h4>3. Relationships & Marriage</h4>
+          <p><strong>Love traits:</strong> ${rel.traits}</p>
+          <p><strong>Advice:</strong> ${rel.tips}</p>
+          <p>
+            Generally, when your emotions are stable and your schedule is not overloaded,
+            relationships grow more smoothly. Avoid making big relationship decisions
+            during times of strong stress or financial pressure.
+          </p>
+        </div>
+      `);
 
-  wealth:{
-    stable:'Prioritize stable income; suitable for accumulative investing',
-    opportunity:'More windfall opportunities — restrain risk',
-    steady:'Steady wealth; income driven by skills & reputation'
-  },
+      parts.push(`
+        <div class="butler-section">
+          <h4>4. Career & Work Direction</h4>
+          <p>
+            <strong>Career note:</strong> This chart favours patient, skill-based growth.
+            Building long-term expertise and reputation is more important than short, dramatic jumps.
+          </p>
+          <p>
+            Try to align your work with your Day Master nature. If you are Wood or Fire heavy,
+            you do well in dynamic, people-oriented roles. If you are Metal or Water heavy,
+            you do better with analytical, technical, or research-style work.
+          </p>
+        </div>
+      `);
 
-  // inside reportLabels:
-  symbolise:'Symbolism',
-  analysis:'Actionable Advice',
+      parts.push(`
+        <div class="butler-section">
+          <h4>5. Wealth & Practical Advice</h4>
+          <p>
+            This quick reading focuses on <strong>cash-flow awareness</strong>:
+            keep a simple system: monthly budget, small emergency fund, and a clear boundary
+            for “risk money” (speculation, trading, side bets).
+          </p>
+          <p>
+            Your best wealth pattern is to stabilize first (skills, core income),
+            then slowly add side income streams that fit your nature instead of forcing
+            something that feels off.
+          </p>
+        </div>
+      `);
 
-  'report.dayMaster.jia':'Jia Wood: proactive, pioneering, energetic.',
-  'report.dayMaster.yi':'Yi Wood: gentle, charitable, empathetic.',
-  'report.dayMaster.bing':'Bing Fire: passionate, confident, expressive.',
-  'report.dayMaster.ding':'Ding Fire: steady, faithful, conscientious.',
-  'report.dayMaster.wu':'Wu Earth: proactive and easily devoted to work.',
-  'report.dayMaster.ji':'Ji Earth: calm and cautious; skillful with hands.',
-  'report.dayMaster.geng':'Geng Metal: decisive, bold, action-oriented.',
-  'report.dayMaster.xin':'Xin Metal: composed, sincere, serious.',
-  'report.dayMaster.ren':'Ren Water: broad-minded, quick, values freedom.',
-  'report.dayMaster.gui':'Gui Water: resilient and persistent.',
+      parts.push(`
+        <div class="butler-section">
+          <h4>6. Short-Term Action Checklist</h4>
+          <ul>
+            <li>Pick one realistic 30-day goal (career, money, or health) and write it down.</li>
+            <li>Design one weekly ritual (review, journaling, or planning) to reflect on this goal.</li>
+            <li>Protect your strongest element with the right environment (colors, activities, people).</li>
+            <li>Gently build your weakest element with small, repeatable habits.</li>
+          </ul>
+        </div>
+      `);
 
-  'report.marriage.stable':'Marriage tends to be stable; suitable for long-term bonds.',
-  'report.marriage.experienced':'Possibly more relationship experiences; find a truly suitable partner.',
-  'report.marriage.default':'Marriage needs joint, consistent effort from both parties.',
+      box.innerHTML = parts.join('\n');
+      const sec = $('butlerProfessional');
+      if(sec) sec.style.display = 'block';
+    }
 
-  'report.career.leadership':'Suited for management or entrepreneurship; leadership potential.',
-  'report.career.business':'Suited for business/finance; strong wealth performance.',
-  'report.career.creative':'Suited for creative/artistic/technical roles.',
-  'report.career.steady':'Progress steadily; cultivate depth in your specialty.',
+    /* ===== Generate Bazi flow ===== */
+    const calc = new BaziCalculator();
 
-  'report.health.tips.jia':'Regular liver checks; protect eyesight.',
-  'report.health.tips.yi':'Regulate emotions; avoid eye strain.',
-  'report.health.tips.bing':'Control emotions; avoid staying up late.',
-  'report.health.tips.ding':'Ensure enough sleep; avoid excessive tension.',
-  'report.health.tips.wu':'Regular diet; avoid overeating.',
-  'report.health.tips.ji':'Mind food hygiene; avoid damp environments.',
-  'report.health.tips.geng':'Keep warm; avoid overly dry environments.',
-  'report.health.tips.xin':'Keep air flowing; avoid smoke and dust.',
-  'report.health.tips.ren':'Maintain hydration; support kidney health.',
-  'report.health.tips.gui':'Drink appropriately; avoid overwork.'
-};
+    function showError(msg){
+      const e = $('error');
+      if(!e) return;
+      e.textContent = msg;
+      e.style.display = 'block';
+    }
+    function clearError(){
+      const e = $('error');
+      if(e){ e.textContent=''; e.style.display='none'; }
+    }
+
+    function onGenerate(){
+      clearError();
+      const btn = $('genBtn');
+      const textSpan = $('genBtnText');
+      const loadSpan = $('genBtnLoading');
+      const birthdate = $('birthdate').value;
+      const timeStr = $('birthtime').value;
+      const timeUnknown = $('timeUnknown').checked;
+
+      if(!birthdate){
+        showError('Please enter your birth date.');
+        return;
+      }
+      const m = birthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if(!m){
+        showError('Invalid date format. Use YYYY-MM-DD.');
+        return;
+      }
+      const year = parseInt(m[1],10), month=parseInt(m[2],10), day=parseInt(m[3],10);
+
+      let hour = null, minute = null;
+      if(!timeUnknown && timeStr){
+        const tm = timeStr.match(/^(\d{2}):(\d{2})$/);
+        if(tm){
+          hour = parseInt(tm[1],10);
+          minute = parseInt(tm[2],10);
+        }
+      }
+
+      if(btn){ btn.disabled=true; }
+      if(textSpan) textSpan.style.display='none';
+      if(loadSpan) loadSpan.style.display='inline';
+
+      try{
+        const yearP = calc.yearPillar(year);
+        const monthP = calc.monthPillar(year,month,day);
+        const dayP = calc.dayPillar(year,month,day);
+        const hasHour = hour!==null && !isNaN(hour);
+        const hourP = hasHour ? calc.hourPillar(dayP.stemCn,hour) : null;
+
+        const pillarsBox = $('bazi-pillars');
+        if(pillarsBox){
+          pillarsBox.innerHTML = '';
+          const arr = [
+            {label:'Year', p:yearP},
+            {label:'Month',p:monthP},
+            {label:'Day',p:dayP},
+            {label:'Hour',p:hourP}
+          ];
+          arr.forEach(item=>{
+            const div = document.createElement('div');
+            div.className='pillar';
+            if(item.p){
+              div.innerHTML = `
+                <div class="tit">${item.label}</div>
+                <div class="gz">${item.p.stemCn}${item.p.branch}</div>
+                <div class="muted">${item.p.stem} · ${item.p.branch}</div>
+              `;
+            }else{
+              div.innerHTML = `
+                <div class="tit">${item.label}</div>
+                <div class="gz">—</div>
+                <div class="muted">N/A</div>
+              `;
+            }
+            pillarsBox.appendChild(div);
+          });
+        }
+
+        // Table fields
+        function setText(id,val){ const el=$(id); if(el) el.textContent = val==null?'-':val; }
+        setText('year-stem',yearP.stemCn);
+        setText('month-stem',monthP.stemCn);
+        setText('day-stem',dayP.stemCn);
+        setText('hour-stem',hourP?hourP.stemCn:'—');
+
+        setText('year-branch',yearP.branch);
+        setText('month-branch',monthP.branch);
+        setText('day-branch',dayP.branch);
+        setText('hour-branch',hourP?hourP.branch:'—');
+
+        const yearElem = calc.stemElem(yearP.stemCn);
+        const monthElem = calc.stemElem(monthP.stemCn);
+        const dayElem = calc.stemElem(dayP.stemCn);
+        const hourElem = hourP ? calc.stemElem(hourP.stemCn) : '—';
+
+        setText('year-element',yearElem);
+        setText('month-element',monthElem);
+        setText('day-element',dayElem);
+        setText('hour-element',hourElem);
+
+        const yearNa = calc.nayin(yearP.stemCn,yearP.branch);
+        const monthNa = calc.nayin(monthP.stemCn,monthP.branch);
+        const dayNa = calc.nayin(dayP.stemCn,dayP.branch);
+        const hourNa = hourP?calc.nayin(hourP.stemCn,hourP.branch):'—';
+        setText('year-nayin',yearNa);
+        setText('month-nayin',monthNa);
+        setText('day-nayin',dayNa);
+        setText('hour-nayin',hourNa);
+
+        const dateBox = $('bazi-date');
+        if(dateBox){
+          let timePart = timeUnknown ? 'time unknown' : (hour!=null?`${String(hour).padStart(2,'0')}:${String(minute||0).padStart(2,'0')}`:'time unknown');
+          dateBox.textContent = `Birth: ${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')} · ${timePart}`;
+        }
+
+        // Element counts (stem + branch)
+        const counts = {Wood:0,Fire:0,Earth:0,Metal:0,Water:0};
+        function addElem(e){ if(e && counts.hasOwnProperty(e)) counts[e]++; }
+        const all = [yearP,monthP,dayP].concat(hourP? [hourP] : []);
+        all.forEach(p=>{
+          const se = calc.stemElem(p.stemCn);
+          const be = calc.branchElem(p.branch);
+          addElem(se); addElem(be);
+        });
+        const total = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
+        const pct = {};
+        Object.keys(counts).forEach(k=>{
+          pct[k] = Math.round(counts[k]/total*100);
+        });
+
+        function setBar(name,val){
+          const bar = $('bar-'+name.toLowerCase());
+          const txt = $('pct-'+name.toLowerCase());
+          if(bar) bar.style.width = val + '%';
+          if(txt) txt.textContent = val + '%';
+        }
+        setBar('wood',pct.Wood);
+        setBar('fire',pct.Fire);
+        setBar('earth',pct.Earth);
+        setBar('metal',pct.Metal);
+        setBar('water',pct.Water);
+
+        const bw = $('bazi-elements-balance');
+        const {strongest,weakest} = strongestWeakest(pct);
+        if(bw){
+          bw.textContent = `Among the Five Elements, ${strongest} is strongest and ${weakest} is weakest in this chart.`;
+        }
+
+        // Save context and build local report
+        const ctx = {
+          name: $('name').value || '',
+          gender: $('gender').value || '',
+          birth: {year,month,day,hour,minute,timeUnknown},
+          year: {stemCn:yearP.stemCn, stemEn:yearP.stem, branch:yearP.branch, element:yearElem, nayin:yearNa},
+          month:{stemCn:monthP.stemCn, stemEn:monthP.stem, branch:monthP.branch, element:monthElem, nayin:monthNa},
+          day:  {stemCn:dayP.stemCn, stemEn:dayP.stem, branch:dayP.branch, element:dayElem, nayin:dayNa},
+          hour: hourP?{stemCn:hourP.stemCn, stemEn:hourP.stem, branch:hourP.branch, element:hourElem, nayin:hourNa}:null,
+          elements:pct
+        };
+        window.lastCtx = ctx;
+
+        const resSec = $('result');
+        if(resSec) resSec.style.display = 'block';
+        buildProReport(ctx);
+
+      }catch(e){
+        console.error(e);
+        showError('Failed to generate chart. Please try again.');
+      }finally{
+        if(btn){ btn.disabled=false; }
+        if(textSpan) textSpan.style.display='inline';
+        if(loadSpan) loadSpan.style.display='none';
+      }
+    }
+
+    /* ===== Chat behaviour (simple echo; you can replace with API) ===== */
+    function appendChat(role,text){
+      const box = $('chatMessages');
+      if(!box) return;
+      const div = document.createElement('div');
+      div.style.marginBottom = '8px';
+      div.style.whiteSpace = 'pre-wrap';
+      if(role==='user'){
+        div.style.textAlign='right';
+        div.innerHTML = `<strong>You:</strong> ${text}`;
+      }else{
+        div.innerHTML = `<strong>Butler:</strong> ${text}`;
+      }
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function handleChatSend(){
+      const input = $('chatInput');
+      if(!input) return;
+      const q = input.value.trim();
+      if(!q) return;
+      appendChat('user', q);
+      input.value = '';
+
+      const ctx = window.lastCtx;
+      if(!ctx){
+        appendChat('bot','Please generate your Bazi chart first, then ask me about love, career, wealth, or timing.');
+        return;
+      }
+
+      // Simple local reply; you can switch this to call your API_BASE if you want
+      const dm = ctx.day.stemEn || 'Day Master';
+      appendChat(
+        'bot',
+        `I see your Day Master is ${dm}. Based on this chart, your question "${q}" is best handled by:\n\n` +
+        `1) Checking whether this decision supports long-term stability (Earth element),\n` +
+        `2) Matching your nature (for example, Wood prefers growth and flexibility, Metal prefers clarity and rules),\n` +
+        `3) Moving step by step instead of all-in.`
+      );
+    }
+
+    /* ===== Chat toggle & drag ===== */
+    function initChat(){
+      const toggle = $('chatToggle');
+      const panel = $('chatFloat');
+      const closeBtn = $('chatClose');
+      const sendBtn = $('chatSend');
+      const input = $('chatInput');
+      if(!toggle || !panel) return;
+      toggle.addEventListener('click', ()=>{ panel.style.display = panel.style.display==='flex'?'none':'flex'; });
+      if(closeBtn) closeBtn.addEventListener('click', ()=>{ panel.style.display='none'; });
+      if(sendBtn) sendBtn.addEventListener('click', handleChatSend);
+      if(input) input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); handleChatSend(); } });
+
+      const header = panel.querySelector('.chat-float-header');
+      if(header){
+        let dragging=false, startX=0,startY=0,startLeft=0,startTop=0;
+        header.addEventListener('mousedown',e=>{
+          dragging=true;
+          startX=e.clientX; startY=e.clientY;
+          const rect=panel.getBoundingClientRect();
+          startLeft=rect.left; startTop=rect.top;
+          document.body.style.userSelect='none';
+        });
+        window.addEventListener('mousemove',e=>{
+          if(!dragging) return;
+          const dx=e.clientX-startX, dy=e.clientY-startY;
+          panel.style.left = (startLeft+dx)+'px';
+          panel.style.top = (startTop+dy)+'px';
+          panel.style.right = 'auto';
+          panel.style.bottom = 'auto';
+        });
+        window.addEventListener('mouseup',()=>{
+          dragging=false;
+          document.body.style.userSelect='';
+        });
+      }
+    }
+
+    /* ===== Init ===== */
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const btn = $('genBtn');
+      if(btn) btn.addEventListener('click', onGenerate);
+      initChat();
+
+      // simple dummy handlers for auth buttons (no backend wired)
+      const loginForm = $('loginForm');
+      const registerForm = $('registerForm');
+      const resetBtn = $('resetBtn');
+      const authError = $('authError');
+      if(loginForm){
+        loginForm.addEventListener('submit', e=>{
+          e.preventDefault();
+          if(authError){
+            authError.textContent = 'Login API not connected yet. Please wire this form to your backend.';
+            authError.style.display='block';
+          }
+        });
+      }
+      if(registerForm){
+        registerForm.addEventListener('submit', e=>{
+          e.preventDefault();
+          if(authError){
+            authError.textContent = 'Registration API not connected yet. Please wire this form to your backend.';
+            authError.style.display='block';
+          }
+        });
+      }
+      if(resetBtn){
+        resetBtn.addEventListener('click', ()=>{
+          if(authError){
+            authError.textContent = 'Password reset not connected yet. Implement your reset flow here.';
+            authError.style.display='block';
+          }
+        });
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
