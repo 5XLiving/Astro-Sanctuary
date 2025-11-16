@@ -172,6 +172,10 @@ window.I18N['en'] = {
     steady:'Steady wealth; income driven by skills & reputation'
   },
 
+  // inside reportLabels:
+  symbolise:'Symbolism',
+  analysis:'Actionable Advice',
+
   'report.dayMaster.jia':'Jia Wood: proactive, pioneering, energetic.',
   'report.dayMaster.yi':'Yi Wood: gentle, charitable, empathetic.',
   'report.dayMaster.bing':'Bing Fire: passionate, confident, expressive.',
