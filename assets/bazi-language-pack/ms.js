@@ -171,6 +171,10 @@ window.I18N['ms'] = {
     steady:'Kewangan stabil; pendapatan melalui kemahiran & reputasi'
   },
 
+  // inside reportLabels:
+  symbolise:'Makna Simbolik',
+  analysis:'Saran Tindakan',
+
   'report.dayMaster.jia':'Jia Kayu: proaktif, perintis, bertenaga.',
   'report.dayMaster.yi':'Yi Kayu: lembut, suka membantu, empati.',
   'report.dayMaster.bing':'Bing Api: bersemangat, yakin, ekspresif.',
