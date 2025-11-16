@@ -150,10 +150,11 @@ window.I18N['en'] = {
     career2:'Break down to courses, portfolio, and outreach.',
     relationship:'Plan one quality talk this week (30 min) about needs.',
     wealth:'Set a risk threshold; take strict profit on windfalls.',
-    sameQi:'Same Qi',
-    complement:'Complement',
-    layout:'Layout',
   },
+
+  sameQi:'Same Qi',
+  complement:'Complement',
+  layout:'Layout',
 
   fortune:{
     steady:'Stabilizing phase',
