@@ -1043,8 +1043,24 @@ html.push(`
     function onLangSelect(e){
       const lang = (e.target?.value) || 'zh-CN';
       try { localStorage.setItem('5x_lang', lang); } catch {}
-      if (typeof window.loadLangPack === 'function') window.loadLangPack(lang);
-      else { state.lang = lang; applyI18n(); if (window.lastCtx) window.buildProReport(window.lastCtx); }
+
+      // 对应各语言的独立 HTML 页面（按你现在的文件名）
+      const LANG_PAGES = {
+        'zh-CN': 'bazi-zh-CN.html',
+        'zh-TW': 'bazi-zh-TW.html',
+        'en'   : 'assets/bazi-language-pack/bazi-en.html',
+        'ja'   : 'bazi-ja.html',
+        'th'   : 'bazi-th.html',
+        'ms'   : 'bazi-ms.html'
+      };
+
+      const target = LANG_PAGES[lang] || LANG_PAGES['zh-CN'];
+      if (!target) return;
+
+      // 如果已经在该页面就不重复跳
+      if (!window.location.pathname.endsWith(target)) {
+        window.location.href = target;
+      }
     }
 
     function tickNow(){
@@ -1152,40 +1168,6 @@ html.push(`
   if (typeof window.tickNow === 'function') window.tickNow();
   if (!window._clock) window._clock = setInterval(()=>{ try{ window.tickNow(); }catch{} }, 60000);
 })();
-</script>
-<script>
-  (function () {
-    const langSelect = document.getElementById('langSelect');
-    if (!langSelect) return;
-
-    // ① Map language → page URL
-    const LANG_PAGES = {
-      'zh-CN': '/assets/bazi-language-pack/zh-CN.html',
-      'zh-TW': '/assets/bazi-language-pack/zh-TW.html',
-      'en'   : '/assets/bazi-language-pack/en.html',
-      'ja'   : '/assets/bazi-language-pack/ja.html',
-      'th'   : '/assets/bazi-language-pack/th.html',
-      'ms'   : '/assets/bazi-language-pack/ms.html'
-    };
-
-    // ② When user changes language → jump to that page
-    langSelect.addEventListener('change', function (e) {
-      const lang = e.target.value;
-      const target = LANG_PAGES[lang];
-      if (target) {
-        window.location.href = target;
-      }
-    });
-
-    // ③ Optional: auto-select current language based on URL
-    const href = window.location.pathname;
-    for (const [code, url] of Object.entries(LANG_PAGES)) {
-      if (href.endsWith(url.replace(/^.*\//, ''))) { // match by filename
-        langSelect.value = code;
-        break;
-      }
-    }
-  })();
 </script>
 </body>
 </html>
