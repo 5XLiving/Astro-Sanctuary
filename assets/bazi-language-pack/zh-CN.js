@@ -170,6 +170,10 @@ window.I18N['zh-CN'] = {
     steady:'财运平稳，重在技能与口碑带动收入'
   },
 
+  // inside reportLabels:
+  symbolise:'象征含义',
+  analysis:'对策建议',
+
   'report.dayMaster.jia':'甲木命：积极进取，具开拓精神，精力旺盛。',
   'report.dayMaster.yi':'乙木命：性格柔顺，乐于行善，富同情心。',
   'report.dayMaster.bing':'丙火命：热情豪爽，自信好胜，善于表达。',
