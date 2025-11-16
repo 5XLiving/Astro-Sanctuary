@@ -464,57 +464,59 @@ button:focus,.btn:focus,a:focus{outline:none!important; box-shadow:none!importan
 });
 
     // translate helper (single)
-    function deepGet(obj, path){ return String(path).split('.').reduce((o,k)=> (o && o[k]!=null) ? o[k] : undefined, obj); }
-function t(path, lang = (window.state && window.state.lang) || 'zh-CN') {
-    const pack = (window.I18N && window.I18N[lang]) || {};
-    const base = (window.I18N && window.I18N['zh-CN']) || {};
-    
-    // 先找当前语言
-    let v = deepGet(pack, path);
-    if (v != null && v !== '') return v;
+function deepGet(obj, path){
+  return String(path).split('.').reduce(
+    (o,k)=> (o && o[k] != null) ? o[k] : undefined,
+    obj
+  );
+}
 
-    // 再找 zh-CN
-    v = deepGet(base, path);
-    if (v != null && v !== '') return v;
-    
-    // 如果还是没找到，提供友好的默认值而不是显示键名
-    const defaultMessages = {
-        'reportLabels.symbolise': '象征含义',
-        'reportLabels.analysis': '对策建议',
-        'reportLabels.symbolise:': '象征含义：',
-        'reportLabels.analysis:': '对策建议：',
-        'reportLabels.tenGods': '十神配置',
-        'reportLabels.dayMaster': '日主命理',
-        'reportLabels.strength': '日主强弱',
-        'reportLabels.usefulSpirit': '喜用神',
-        'reportLabels.elementCount': '五行个数',
-        'reportLabels.elementStrength': '五行旺衰',
-        'reportLabels.supportElements': '帮扶五行',
-        'reportLabels.restrainElements': '克泄五行',
-        'reportLabels.missingElements': '五行所缺',
-        'reportLabels.traits': '感情特质',
-        'reportLabels.marriageAdvice': '婚姻建议',
-        'reportLabels.relationshipTips': '相处之道',
-        'reportLabels.suitableCareers': '适合行业',
-        'reportLabels.careerAdvice': '发展建议',
-        'reportLabels.favorableDirections': '有利方位',
-        'reportLabels.wealthCharacteristics': '财运特点',
-        'reportLabels.wealthDirections': '求财方向',
-        'reportLabels.financialAdvice': '理财建议',
-        'reportLabels.healthCharacteristics': '体质特点',
-        'reportLabels.healthTips': '注意事项',
-        'reportLabels.wellnessAdvice': '养生建议',
-        'reportLabels.overallFortune': '整体运势',
-        'reportLabels.favorableTiming': '有利时机',
-        'reportLabels.cautions': '注意事项',
-        'report.dayMaster.ji': '己土命：和缓，谨慎，心灵手巧',
-        'report.career.leadership': '适合管理岗位或自主创业，有领导潜力',
-        'report.marriage.experienced': '感情经历可能较多，需要找到真正适合的伴侣',
-        'wealth.steady': '财运平稳，重在技能与口碑带动收入'
-    };
-    
-    // 返回默认消息或简化的键名
-    return defaultMessages[path] || '';
+function t(path, lang = (window.state && window.state.lang) || 'zh-CN') {
+  const pack = (window.I18N && window.I18N[lang])   || {};
+  const base = (window.I18N && window.I18N['zh-CN']) || {};
+
+  // 1️⃣ 先尝试「扁平 key」： 'report.dayMaster.jia'
+  let v = pack[path];
+  if (v != null && v !== '') return v;
+
+  // 2️⃣ 再尝试嵌套对象： pack.report.dayMaster.jia 这种
+  v = deepGet(pack, path);
+  if (v != null && v !== '') return v;
+
+  // 3️⃣ zh-CN 扁平 key
+  v = base[path];
+  if (v != null && v !== '') return v;
+
+  // 4️⃣ zh-CN 嵌套对象
+  v = deepGet(base, path);
+  if (v != null && v !== '') return v;
+
+  // 5️⃣ 默认中文兜底（只放你确定要有的 label）
+  const defaultMessages = {
+    'reportLabels.symbolise': '象征含义',
+    'reportLabels.analysis': '对策建议',
+    'reportLabels.tenGods': '十神配置',
+    'reportLabels.dayMaster': '日主命理',
+    'reportLabels.elementCount': '五行个数',
+    'reportLabels.missingElements': '五行所缺',
+    'reportLabels.suitableCareers': '适合行业',
+    'reportLabels.careerAdvice': '发展建议',
+    'reportLabels.favorableDirections': '有利方位',
+    'reportLabels.healthCharacteristics': '体质特点',
+    'reportLabels.healthTips': '注意事项',
+    'reportLabels.wellnessAdvice': '养生建议',
+    'reportLabels.overallFortune': '整体运势',
+    'reportLabels.favorableTiming': '有利时机',
+    'reportLabels.cautions': '注意事项',
+
+    // 这些是你刚刚遇到问题的几条，顺手兜底一次
+    'report.dayMaster.jia': '甲木命：有积极性的开拓精神，精力旺盛',
+    'report.career.steady': '稳扎稳打，在专业领域深耕发展',
+    'report.marriage.experienced': '感情经历可能较多，需要找到真正适合的伴侣',
+    'wealth.steady': '财运平稳，重在技能与口碑带动收入',
+  };
+
+  return defaultMessages[path] || '';
 }
     window.t = t;
 
