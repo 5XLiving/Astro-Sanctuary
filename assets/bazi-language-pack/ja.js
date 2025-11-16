@@ -170,6 +170,10 @@ window.I18N['ja'] = {
     steady:'堅実な財運。技能と評判が収入を牽引'
   },
 
+  // inside reportLabels:
+  symbolise:'象意',
+  analysis:'対策提案',
+
   'report.dayMaster.jia':'甲木：積極的で開拓的。精力旺盛。',
   'report.dayMaster.yi':'乙木：柔和で思いやりがあり、慈善的。',
   'report.dayMaster.bing':'丙火：情熱的で自信家。表現力が高い。',
