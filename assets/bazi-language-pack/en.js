@@ -20,7 +20,7 @@ window.I18N['en'] = {
     timeUnknown:'Time unknown'
   },
 
-  btn:{ generate:'Generate Bazi', loading:'Calculating...' },
+  btn:{ generate:'Generate Bazi', loading:'Calculating…' },
 
   result:{ title:'Your Bazi Chart' },
 
@@ -33,18 +33,18 @@ window.I18N['en'] = {
   elem:{ wood:'Wood', fire:'Fire', earth:'Earth', metal:'Metal', water:'Water', month:'Month', fiveElements:'Five Elements' },
 
   pro:{
-    title:'🧙‍♂️ Xinlian Butler · Professional Report',
+    title:'🧙‍♂️ Xinlian Butler · Professional Analysis',
     welcome:'Hi! I’ve prepared a detailed analysis. Ask me anything specific anytime.'
   },
 
   chat:{ send:'Send', placeholder:'Type your question…', toggle:'Ask' },
 
   vip:{
-    title:'🌙 VIP Segment',
+    title:'🌙 VIP Zone',
     group:{ astrology:'🗝 Astro Space', spiritual:'🌙 Soul Space' },
     astrology:{
-      match:'Relationship: love & marriage timing',
-      career:'Career: development & entrepreneurship',
+      match:'Relationships: love & marriage rhythm',
+      career:'Career: development & entrepreneurship potential',
       wealth:'Wealth: wealth spots & timing',
       pet:'Pet destiny: companion’s nature & bond'
     },
@@ -58,7 +58,7 @@ window.I18N['en'] = {
     services:{ header:'Member Services' },
     upgrade:'💎 Upgrade to VIP (monthly)',
     back:'← Back to Astro Shop',
-    priceNote:'$9.9 / month (Astro + Soul + Courses)'
+    priceNote:'$9.9 / month (Astro Space + Soul Space + all courses)'
   },
 
   auth:{
@@ -66,15 +66,15 @@ window.I18N['en'] = {
     login:'Log in',
     reset:'🔑 Reset Password',
     register:'Create Account',
-    freeTrialNote:'Sign up to receive one free try',
+    freeTrialNote:'Sign up to receive one free trial',
     emailPlaceholder:'Email',
-    passwordPlaceholder:'Password (8+ chars, mixed case & symbols)'
+    passwordPlaceholder:'Password (8+ chars, with upper/lowercase & symbols)'
   },
 
   footer:{ copy:'© 5XLiving • Astro Sanctuary' },
 
   err:{
-    fillBirthdate:'Please enter birth date',
+    fillBirthdate:'Please enter your birth date',
     invalidDate:'Invalid date format. Use YYYY-MM-DD',
     generateFail:'Generation failed. Please try again later'
   },
@@ -84,20 +84,22 @@ window.I18N['en'] = {
     timeUnknown:'Time unknown',
     hourSuffix:'{hh}:{mm}',
     birthSummary:'Birth: {y}-{m}-{d} {timeText}',
-    balance:'Strongest {strongest}, weakest {weakest}.'
+    balance:'Among the five elements, {strongest} is strongest and {weakest} is weakest.'
   },
 
-  badge:{ noHour:'Hour pillar omitted' },
+  badge:{ noHour:'Hour pillar not included' },
 
-  chatDyn:{ autoReply:'Got it: {q}. Key points appear in the report sections soon.' },
+  chatDyn:{ autoReply:'Got it: {q}. Key points will appear in the corresponding report sections.' },
 
-  elemNames:{ Wood:'Wood', Fire:'Fire', Earth:'Earth', Metal:'Metal', Water:'Water' },
+  /* Use Chinese ideograms as keys because your engine outputs stems/branches in zh.
+     Values are English labels for display. */
+  elemNames:{ '木':'Wood', '火':'Fire', '土':'Earth', '金':'Metal', '水':'Water' },
 
   report:{
-    hourUnknownTip:'⚠️ Hour unknown; some parts are reference only.',
+    hourUnknownTip:'⚠️ Note: Birth hour unknown — some parts are reference only.',
     tipTitle:'Note',
     generating:'Generating professional analysis…',
-    failed:'Report failed. Please try again later.'
+    failed:'Report generation failed. Please try again later.'
   },
 
   reportTitles:{
@@ -105,51 +107,51 @@ window.I18N['en'] = {
     fiveElements:'🌿 Five Elements',
     tenGods:'⚡ Ten Gods',
     useful:'🔑 Useful Spirits',
-    relationship:'💕 Relationship',
-    career:'💼 Career',
-    wealth:'💰 Wealth',
-    health:'🌡️ Health',
+    relationship:'💕 Relationships & Marriage',
+    career:'💼 Career Development',
+    wealth:'💰 Wealth Analysis',
+    health:'🌡️ Health & Wellness',
     nearTerm:'🔮 Near-term Fortune',
     actions:'📝 Action List'
   },
 
   reportLabels:{
     dayMaster:'Day Master',
-    strength:'Strength',
+    strength:'Day Master Strength',
     usefulSpirit:'Useful Spirit',
     elementCount:'Element Count',
     elementStrength:'Element Strength',
     supportElements:'Supporting Elements',
-    restrainElements:'Restraining Elements',
+    restrainElements:'Draining/Controlling Elements',
     missingElements:'Missing Elements',
-    traits:'Traits',
+    traits:'Relationship Traits',
     marriageAdvice:'Marriage Advice',
-    relationshipTips:'Relationship Tips',
-    suitableCareers:'Suitable Careers',
+    relationshipTips:'How to Get Along',
+    suitableCareers:'Suitable Industries',
     careerAdvice:'Career Advice',
     favorableDirections:'Favorable Directions',
     wealthCharacteristics:'Wealth Traits',
     wealthDirections:'Wealth Directions',
     financialAdvice:'Financial Advice',
-    healthCharacteristics:'Constitution',
-    healthTips:'Health Notes',
+    healthCharacteristics:'Constitution Traits',
+    healthTips:'Cautions',
     wellnessAdvice:'Wellness Advice',
     overallFortune:'Overall Fortune',
-    favorableTiming:'Good Timing',
+    favorableTiming:'Favorable Timing',
     cautions:'Cautions',
     tenGods:'Ten Gods'
   },
 
-  wellness:{ default:'Regular routine, moderate exercise, steady emotions, avoid staying up late.' },
+  wellness:{ default:'Regular routine, moderate exercise, emotional stability, less late nights.' },
   cautions:{ default:'Avoid emotional decisions; control spending.' },
 
   action:{
-    weekly:'At least weekly',
-    energy:'“Re-charge” with elements (space, food, color, direction).',
-    career:'Career: detail next month’s actions (learn/projects/network).',
-    career2:'Break down to courses, portfolio, and outreach.',
-    relationship:'Plan one quality talk this week (30 min) about needs.',
-    wealth:'Set a risk threshold; take strict profit on windfalls.',
+    weekly:'At least once per week',
+    energy:'Element “recharge” actions (space / food / color / direction).',
+    career:'Career: based on positioning & goals, detail next month’s actions (learning / projects / networking).',
+    career2:'Can be broken down into courses, portfolio, and outreach.',
+    relationship:'Relationships: schedule one quality talk this week (30 min) focused on both sides’ needs.',
+    wealth:'Wealth: set a risk threshold; take strict profit on windfalls.'
   },
 
   sameQi:'Same Qi',
@@ -158,46 +160,46 @@ window.I18N['en'] = {
 
   fortune:{
     steady:'Stabilizing phase',
-    upward:'Rising momentum; good for promo/expression',
-    focus:'Narrow focus; systems & execution',
-    study:'Study/research; store energy first',
-    foundation:'Lay foundations; keep tempo steady'
+    upward:'Momentum rising — good for promotion/expression',
+    focus:'Narrow focus — good for systems & execution',
+    study:'Study/research first — store energy, then act',
+    foundation:'Lay foundations and keep a steady tempo'
   },
 
   wealth:{
-    stable:'Prioritize stable income; use cumulative investing',
-    opportunity:'More windfalls; restrain risk',
-    steady:'Steady wealth; income via skills & reputation'
+    stable:'Prioritize stable income; suitable for accumulative investing',
+    opportunity:'More windfall opportunities — restrain risk',
+    steady:'Steady wealth; income driven by skills & reputation'
   },
 
   'report.dayMaster.jia':'Jia Wood: proactive, pioneering, energetic.',
-  'report.dayMaster.yi':'Yi Wood: gentle, kind, empathetic.',
+  'report.dayMaster.yi':'Yi Wood: gentle, charitable, empathetic.',
   'report.dayMaster.bing':'Bing Fire: passionate, confident, expressive.',
   'report.dayMaster.ding':'Ding Fire: steady, faithful, conscientious.',
-  'report.dayMaster.wu':'Wu Earth: engaged, enthusiastic about work.',
-  'report.dayMaster.ji':'Ji Earth: careful, skillful with hands.',
+  'report.dayMaster.wu':'Wu Earth: proactive and easily devoted to work.',
+  'report.dayMaster.ji':'Ji Earth: calm and cautious; skillful with hands.',
   'report.dayMaster.geng':'Geng Metal: decisive, bold, action-oriented.',
-  'report.dayMaster.xin':'Xin Metal: calm, sincere, serious.',
+  'report.dayMaster.xin':'Xin Metal: composed, sincere, serious.',
   'report.dayMaster.ren':'Ren Water: broad-minded, quick, values freedom.',
   'report.dayMaster.gui':'Gui Water: resilient and persistent.',
 
-  'report.marriage.stable':'Marriage tends to be stable; suited to long-term bonds.',
-  'report.marriage.experienced':'More experiences possible; find a truly suitable partner.',
-  'report.marriage.default':'Marriage needs joint, consistent care.',
+  'report.marriage.stable':'Marriage tends to be stable; suitable for long-term bonds.',
+  'report.marriage.experienced':'Possibly more relationship experiences; find a truly suitable partner.',
+  'report.marriage.default':'Marriage needs joint, consistent effort from both parties.',
 
   'report.career.leadership':'Suited for management or entrepreneurship; leadership potential.',
   'report.career.business':'Suited for business/finance; strong wealth performance.',
   'report.career.creative':'Suited for creative/artistic/technical roles.',
-  'report.career.steady':'Progress steadily; cultivate a deep specialty.',
+  'report.career.steady':'Progress steadily; cultivate depth in your specialty.',
 
-  'report.health.tips.jia':'Check liver regularly; protect eyesight.',
-  'report.health.tips.yi':'Manage emotions; avoid eye strain.',
+  'report.health.tips.jia':'Regular liver checks; protect eyesight.',
+  'report.health.tips.yi':'Regulate emotions; avoid eye strain.',
   'report.health.tips.bing':'Control emotions; avoid staying up late.',
-  'report.health.tips.ding':'Sleep well; avoid excessive tension.',
+  'report.health.tips.ding':'Ensure enough sleep; avoid excessive tension.',
   'report.health.tips.wu':'Regular diet; avoid overeating.',
-  'report.health.tips.ji':'Mind food hygiene; avoid dampness.',
-  'report.health.tips.geng':'Keep warm; avoid dryness.',
-  'report.health.tips.xin':'Ventilate; avoid smoke/dust.',
-  'report.health.tips.ren':'Hydrate; support kidney health.',
-  'report.health.tips.gui':'Drink moderately; avoid overwork.'
+  'report.health.tips.ji':'Mind food hygiene; avoid damp environments.',
+  'report.health.tips.geng':'Keep warm; avoid overly dry environments.',
+  'report.health.tips.xin':'Keep air flowing; avoid smoke and dust.',
+  'report.health.tips.ren':'Maintain hydration; support kidney health.',
+  'report.health.tips.gui':'Drink appropriately; avoid overwork.'
 };
