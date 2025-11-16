@@ -2216,79 +2216,38 @@ html.push(`
 })();
 </script>
 <script>
-(function () {
-  const LANG_BASE = '/assets/bazi-language-pack/';  // folder that holds en.js, zh-CN.js, etc.
-  const select  = document.getElementById('langSelect');
-  const nowBox  = document.getElementById('nowBox');
+  (function () {
+    const langSelect = document.getElementById('langSelect');
+    if (!langSelect) return;
 
-  // keep track of what we already loaded
-  const loaded = new Set();
-  let currentLang = localStorage.getItem('5x_lang') || 'zh-CN';
-
-  // small label in the black box
-  function updateNowBox(code) {
-    if (!nowBox) return;
-    const short = {
-      'zh-CN': '简',
-      'zh-TW': '繁',
-      'en'   : 'EN',
-      'ja'   : '日',
-      'th'   : 'TH',
-      'ms'   : 'MS'
+    // ① Map language → page URL
+    const LANG_PAGES = {
+      'zh-CN': '/assets/bazi-language-pack/zh-CN.html',
+      'zh-TW': '/assets/bazi-language-pack/zh-TW.html',
+      'en'   : '/assets/bazi-language-pack/en.html',
+      'ja'   : '/assets/bazi-language-pack/ja.html',
+      'th'   : '/assets/bazi-language-pack/th.html',
+      'ms'   : '/assets/bazi-language-pack/ms.html'
     };
-    nowBox.textContent = short[code] || code;
-  }
 
-  // call your translation function (if you already have one)
-  function applyLang(code) {
-    currentLang = code;
-    localStorage.setItem('5x_lang', code);
-    updateNowBox(code);
-
-    if (select && select.value !== code) {
-      select.value = code;
-    }
-
-    // 如果你有全局的 applyI18n，可以在这里调用
-    if (typeof window.applyI18n === 'function') {
-      window.applyI18n(code);
-    }
-  }
-
-  // actually load /assets/bazi-language-pack/<code>.js
-  function loadLangPack(code) {
-    if (loaded.has(code)) {
-      applyLang(code);
-      return;
-    }
-
-    const s = document.createElement('script');
-    s.src = LANG_BASE + code + '.js';  // e.g. /assets/bazi-language-pack/en.js
-    s.async = false;
-    s.onload = function () {
-      loaded.add(code);
-      applyLang(code);
-    };
-    s.onerror = function () {
-      console.error('[i18n] failed to load lang pack:', code, s.src);
-    };
-    document.head.appendChild(s);
-  }
-
-  // change event for the <select>
-  if (select) {
-    select.addEventListener('change', function () {
-      const code = this.value;
-      loadLangPack(code);
+    // ② When user changes language → jump to that page
+    langSelect.addEventListener('change', function (e) {
+      const lang = e.target.value;
+      const target = LANG_PAGES[lang];
+      if (target) {
+        window.location.href = target;
+      }
     });
-  }
 
-  // initial language on page load
-  if (select) {
-    select.value = currentLang;
-  }
-  loadLangPack(currentLang);
-})();
-</script>  
+    // ③ Optional: auto-select current language based on URL
+    const href = window.location.pathname;
+    for (const [code, url] of Object.entries(LANG_PAGES)) {
+      if (href.endsWith(url.replace(/^.*\//, ''))) { // match by filename
+        langSelect.value = code;
+        break;
+      }
+    }
+  })();
+</script>
 </body>
 </html>
