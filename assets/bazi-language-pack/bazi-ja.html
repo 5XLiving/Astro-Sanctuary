@@ -681,177 +681,181 @@ const LANG_PAGES = {
       if(e){ e.textContent=''; e.style.display='none'; }
     }
 
-    function onGenerate(){
-      clearError();
-      const btn = $('genBtn');
-      const textSpan = $('genBtnText');
-      const loadSpan = $('genBtnLoading');
-      const birthdate = $('birthdate').value;
-      const timeStr = $('birthtime').value;
-      const timeUnknown = $('timeUnknown').checked;
+function onGenerate(){
+  clearError();
+  const btn = $('genBtn');
+  const textSpan = $('genBtnText');
+  const loadSpan = $('genBtnLoading');
+  const birthdate = $('birthdate').value;
+  const timeStr = $('birthtime').value;
+  const timeUnknown = $('timeUnknown').checked;
 
-      if(!birthdate){
-        showError('生年月日を入力してください。');
-        return;
-      }
-      const m = birthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if(!m){
-        showError('日付の形式が正しくありません。（YYYY-MM-DD）');
-        return;
-      }
-      const year = parseInt(m[1],10), month=parseInt(m[2],10), day=parseInt(m[3],10);
+  if(!birthdate){
+    showError('生年月日を入力してください。');
+    return;
+  }
+  const m = birthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m){
+    showError('日付の形式が正しくありません。（YYYY-MM-DD）');
+    return;
+  }
+  const year = parseInt(m[1],10), month=parseInt(m[2],10), day=parseInt(m[3],10);
 
-      let hour = null, minute = null;
-      if(!timeUnknown && timeStr){
-        const tm = timeStr.match(/^(\d{2}):(\d{2})$/);
-        if(tm){
-          hour = parseInt(tm[1],10);
-          minute = parseInt(tm[2],10);
-        }
-      }
-
-      if(btn){ btn.disabled=true; }
-      if(textSpan) textSpan.style.display='none';
-      if(loadSpan) loadSpan.style.display='inline';
-
-      try{
-        const yearP = calc.yearPillar(year);
-        const monthP = calc.monthPillar(year,month,day);
-        const dayP = calc.dayPillar(year,month,day);
-        const hasHour = hour!==null && !isNaN(hour);
-        const hourP = hasHour ? calc.hourPillar(dayP.stemCn,hour) : null;
-
-        const pillarsBox = $('bazi-pillars');
-        if(pillarsBox){
-          pillarsBox.innerHTML = '';
-          const arr = [
-            {label:'年柱', p:yearP},
-            {label:'月柱',p:monthP},
-            {label:'日柱',p:dayP},
-            {label:'時柱',p:hourP}
-          ];
-            arr.forEach(item=>{
-                const div = document.createElement('div');
-                div.className='pillar';
-                if (item.p) {
-                  const stemElemJp   = jpElemName(calc.stemElem(item.p.stemCn));   // 木・火・土・金・水
-                  const branchElemJp = jpElemName(calc.branchElem(item.p.branch)); // 木・火・土・金・水
-
-                  div.innerHTML = `
-                    <div class="tit">${item.label}</div>
-                    <div class="gz">${item.p.stemCn}${item.p.branch}</div>
-                    <div class="muted">干：${stemElemJp} ／ 支：${branchElemJp}</div>
-                  `;
-                } else {
-                  div.innerHTML = `
-                    <div class="tit">${item.label}</div>
-                    <div class="gz">—</div>
-                    <div class="muted">N/A</div>
-                  `;
-                }
-                pillarsBox.appendChild(div);
-              });
-        }
-
-        // Table fields
-        function setText(id,val){ const el=$(id); if(el) el.textContent = val==null?'-':val; }
-        // 天干：漢字 + 五行（木・火・土・金・水）
-        setText('year-stem',  `${yearP.stemCn}（${jpElemName(yearElem)}）`);
-        setText('month-stem', `${monthP.stemCn}（${jpElemName(monthElem)}）`);
-        setText('day-stem',   `${dayP.stemCn}（${jpElemName(dayElem)}）`);
-        setText('hour-stem',  hourP ? `${hourP.stemCn}（${jpElemName(hourElem)}）` : '—');
-
-        // 地支：漢字のみ（子・丑・寅…）
-        setText('year-branch',  yearP.branch);
-        setText('month-branch', monthP.branch);
-        setText('day-branch',   dayP.branch);
-        setText('hour-branch',  hourP ? hourP.branch : '—');
-
-        const yearElem = calc.stemElem(yearP.stemCn);
-        const monthElem = calc.stemElem(monthP.stemCn);
-        const dayElem = calc.stemElem(dayP.stemCn);
-        const hourElem = hourP ? calc.stemElem(hourP.stemCn) : '—';
-
-        // element labels we keep in English (Wood/Fire...) for consistency with EN stems
-        setText('year-element',  jpElemName(yearElem));
-        setText('month-element', jpElemName(monthElem));
-        setText('day-element',   jpElemName(dayElem));
-        setText('hour-element',  hourElem === '—' ? '—' : jpElemName(hourElem));
-
-        const yearNa = calc.nayin(yearP.stemCn,yearP.branch);
-        const monthNa = calc.nayin(monthP.stemCn,monthP.branch);
-        const dayNa = calc.nayin(dayP.stemCn,dayP.branch);
-        const hourNa = hourP?calc.nayin(hourP.stemCn,hourP.branch):'—';
-        setText('year-nayin',yearNa);
-        setText('month-nayin',monthNa);
-        setText('day-nayin',dayNa);
-        setText('hour-nayin',hourNa);
-
-        const dateBox = $('bazi-date');
-        if(dateBox){
-          let timePart = timeUnknown ? '時刻不明' : (hour!=null?`${String(hour).padStart(2,'0')}:${String(minute||0).padStart(2,'0')}`:'時刻不明');
-          dateBox.textContent = `出生：${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')} · ${timePart}`;
-        }
-
-        // Element counts (stem + branch)
-        const counts = {Wood:0,Fire:0,Earth:0,Metal:0,Water:0};
-        function addElem(e){ if(e && counts.hasOwnProperty(e)) counts[e]++; }
-        const all = [yearP,monthP,dayP].concat(hourP? [hourP] : []);
-        all.forEach(p=>{
-          const se = calc.stemElem(p.stemCn);
-          const be = calc.branchElem(p.branch);
-          addElem(se); addElem(be);
-        });
-        const total = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
-        const pct = {};
-        Object.keys(counts).forEach(k=>{
-          pct[k] = Math.round(counts[k]/total*100);
-        });
-
-        function setBar(name,val){
-          const bar = $('bar-'+name.toLowerCase());
-          const txt = $('pct-'+name.toLowerCase());
-          if(bar) bar.style.width = val + '%';
-          if(txt) txt.textContent = val + '%';
-        }
-        setBar('wood',pct.Wood);
-        setBar('fire',pct.Fire);
-        setBar('earth',pct.Earth);
-        setBar('metal',pct.Metal);
-        setBar('water',pct.Water);
-
-        const bw = $('bazi-elements-balance');
-        const {strongest,weakest} = strongestWeakest(pct);
-        if(bw){
-          bw.textContent = `この命式では、五行の中で「${jpElemName(strongest)}」が最も強く、「${jpElemName(weakest)}」が最も弱い傾向があります。`;
-        }
-
-        // Save context and build local report
-        const ctx = {
-          name: $('name').value || '',
-          gender: $('gender').value || '',
-          birth: {year,month,day,hour,minute,timeUnknown},
-          year: {stemCn:yearP.stemCn, stemEn:yearP.stem, branch:yearP.branch, element:yearElem, nayin:yearNa},
-          month:{stemCn:monthP.stemCn, stemEn:monthP.stem, branch:monthP.branch, element:monthElem, nayin:monthNa},
-          day:  {stemCn:dayP.stemCn, stemEn:dayP.stem, branch:dayP.branch, element:dayElem, nayin:dayNa},
-          hour: hourP?{stemCn:hourP.stemCn, stemEn:hourP.stem, branch:hourP.branch, element:hourElem, nayin:hourNa}:null,
-          elements:pct
-        };
-        window.lastCtx = ctx;
-
-        const resSec = $('result');
-        if(resSec) resSec.style.display = 'block';
-        buildProReport(ctx);
-
-      }catch(e){
-        console.error(e);
-        showError('命式の作成に失敗しました。もう一度お試しください。');
-      }finally{
-        if(btn){ btn.disabled=false; }
-        if(textSpan) textSpan.style.display='inline';
-        if(loadSpan) loadSpan.style.display='none';
-      }
+  let hour = null, minute = null;
+  if(!timeUnknown && timeStr){
+    const tm = timeStr.match(/^(\d{2}):(\d{2})$/);
+    if(tm){
+      hour = parseInt(tm[1],10);
+      minute = parseInt(tm[2],10);
     }
+  }
+
+  if(btn){ btn.disabled=true; }
+  if(textSpan) textSpan.style.display='none';
+  if(loadSpan) loadSpan.style.display='inline';
+
+  try{
+    const yearP = calc.yearPillar(year);
+    const monthP = calc.monthPillar(year,month,day);
+    const dayP = calc.dayPillar(year,month,day);
+    const hasHour = hour!==null && !isNaN(hour);
+    const hourP = hasHour ? calc.hourPillar(dayP.stemCn,hour) : null;
+
+    // ★ 五行（木火土金水）を先に計算
+    const yearElem  = calc.stemElem(yearP.stemCn);
+    const monthElem = calc.stemElem(monthP.stemCn);
+    const dayElem   = calc.stemElem(dayP.stemCn);
+    const hourElem  = hourP ? calc.stemElem(hourP.stemCn) : '—';
+
+    // 上のカード（4 本柱）
+    const pillarsBox = $('bazi-pillars');
+    if(pillarsBox){
+      pillarsBox.innerHTML = '';
+      const arr = [
+        {label:'年柱', p:yearP},
+        {label:'月柱', p:monthP},
+        {label:'日柱', p:dayP},
+        {label:'時柱', p:hourP}
+      ];
+      arr.forEach(item=>{
+        const div = document.createElement('div');
+        div.className='pillar';
+        if (item.p) {
+          const stemElemJp   = jpElemName(calc.stemElem(item.p.stemCn));   // 木・火・土・金・水
+          const branchElemJp = jpElemName(calc.branchElem(item.p.branch)); // 木・火・土・金・水
+          div.innerHTML = `
+            <div class="tit">${item.label}</div>
+            <div class="gz">${item.p.stemCn}${item.p.branch}</div>
+            <div class="muted">干：${stemElemJp} ／ 支：${branchElemJp}</div>
+          `;
+        } else {
+          div.innerHTML = `
+            <div class="tit">${item.label}</div>
+            <div class="gz">—</div>
+            <div class="muted">N/A</div>
+          `;
+        }
+        pillarsBox.appendChild(div);
+      });
+    }
+
+    // 下の表
+    function setText(id,val){ const el=$(id); if(el) el.textContent = val==null?'-':val; }
+
+    // 天干：漢字 + 五行
+    setText('year-stem',  `${yearP.stemCn}（${jpElemName(yearElem)}）`);
+    setText('month-stem', `${monthP.stemCn}（${jpElemName(monthElem)}）`);
+    setText('day-stem',   `${dayP.stemCn}（${jpElemName(dayElem)}）`);
+    setText('hour-stem',  hourP ? `${hourP.stemCn}（${jpElemName(hourElem)}）` : '—');
+
+    // 地支：漢字のみ
+    setText('year-branch',  yearP.branch);
+    setText('month-branch', monthP.branch);
+    setText('day-branch',   dayP.branch);
+    setText('hour-branch',  hourP ? hourP.branch : '—');
+
+    // 五行行：木火土金水（日本語）
+    setText('year-element',  jpElemName(yearElem));
+    setText('month-element', jpElemName(monthElem));
+    setText('day-element',   jpElemName(dayElem));
+    setText('hour-element',  hourElem === '—' ? '—' : jpElemName(hourElem));
+
+    // 納音
+    const yearNa  = calc.nayin(yearP.stemCn,yearP.branch);
+    const monthNa = calc.nayin(monthP.stemCn,monthP.branch);
+    const dayNa   = calc.nayin(dayP.stemCn,dayP.branch);
+    const hourNa  = hourP?calc.nayin(hourP.stemCn,hourP.branch):'—';
+    setText('year-nayin',yearNa);
+    setText('month-nayin',monthNa);
+    setText('day-nayin',dayNa);
+    setText('hour-nayin',hourNa);
+
+    const dateBox = $('bazi-date');
+    if(dateBox){
+      let timePart = timeUnknown ? '時刻不明'
+        : (hour!=null ? `${String(hour).padStart(2,'0')}:${String(minute||0).padStart(2,'0')}` : '時刻不明');
+      dateBox.textContent = `出生：${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')} · ${timePart}`;
+    }
+
+    // 五行カウント（干＋支）
+    const counts = {Wood:0,Fire:0,Earth:0,Metal:0,Water:0};
+    function addElem(e){ if(e && counts.hasOwnProperty(e)) counts[e]++; }
+    const all = [yearP,monthP,dayP].concat(hourP? [hourP] : []);
+    all.forEach(p=>{
+      const se = calc.stemElem(p.stemCn);
+      const be = calc.branchElem(p.branch);
+      addElem(se); addElem(be);
+    });
+    const total = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
+    const pct = {};
+    Object.keys(counts).forEach(k=>{
+      pct[k] = Math.round(counts[k]/total*100);
+    });
+
+    function setBar(name,val){
+      const bar = $('bar-'+name.toLowerCase());
+      const txt = $('pct-'+name.toLowerCase());
+      if(bar) bar.style.width = val + '%';
+      if(txt) txt.textContent = val + '%';
+    }
+    setBar('wood',pct.Wood);
+    setBar('fire',pct.Fire);
+    setBar('earth',pct.Earth);
+    setBar('metal',pct.Metal);
+    setBar('water',pct.Water);
+
+    const bw = $('bazi-elements-balance');
+    const {strongest,weakest} = strongestWeakest(pct);
+    if(bw){
+      bw.textContent = `この命式では、五行の中で「${jpElemName(strongest)}」が最も強く、「${jpElemName(weakest)}」が最も弱い傾向があります。`;
+    }
+
+    // コンテキスト保存 & プロレポ構築
+    const ctx = {
+      name: $('name').value || '',
+      gender: $('gender').value || '',
+      birth: {year,month,day,hour,minute,timeUnknown},
+      year: {stemCn:yearP.stemCn, stemEn:yearP.stem, branch:yearP.branch, element:yearElem, nayin:yearNa},
+      month:{stemCn:monthP.stemCn, stemEn:monthP.stem, branch:monthP.branch, element:monthElem, nayin:monthNa},
+      day:  {stemCn:dayP.stemCn, stemEn:dayP.stem, branch:dayP.branch, element:dayElem, nayin:dayNa},
+      hour: hourP?{stemCn:hourP.stemCn, stemEn:hourP.stem, branch:hourP.branch, element:hourElem, nayin:hourNa}:null,
+      elements:pct
+    };
+    window.lastCtx = ctx;
+
+    const resSec = $('result');
+    if(resSec) resSec.style.display = 'block';
+    buildProReport(ctx);
+
+  }catch(e){
+    console.error(e);
+    showError('命式の作成に失敗しました。もう一度お試しください。');
+  }finally{
+    if(btn){ btn.disabled=false; }
+    if(textSpan) textSpan.style.display='inline';
+    if(loadSpan) loadSpan.style.display='none';
+  }
+}
 
     /* ===== Chat behaviour (simple echo; you can replace with API) ===== */
     function appendChat(role,text){
