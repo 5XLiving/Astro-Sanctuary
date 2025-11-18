@@ -596,4 +596,430 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
           <p><strong>Advice:</strong> ${rel.tips}</p>
           <p>
             Generally, when your emotions are stable and your schedule is not overloaded,
-            relationships grow more smoothly. Avoid making big relationship decisio
+            relationships grow more smoothly. Avoid making big relationship decisions
+            during times of strong stress or financial pressure.
+          </p>
+        </div>
+      `);
+
+      parts.push(`
+        <div class="butler-section">
+          <h4>4. Career & Work Direction</h4>
+          <p>
+            <strong>Career note:</strong> This chart favours patient, skill-based growth.
+            Building long-term expertise and reputation is more important than short, dramatic jumps.
+          </p>
+          <p>
+            Try to align your work with your Day Master nature. If you are Wood or Fire heavy,
+            you do well in dynamic, people-oriented roles. If you are Metal or Water heavy,
+            you do better with analytical, technical, or research-style work.
+          </p>
+        </div>
+      `);
+
+      parts.push(`
+        <div class="butler-section">
+          <h4>5. Wealth & Practical Advice</h4>
+          <p>
+            This quick reading focuses on <strong>cash-flow awareness</strong>:
+            keep a simple system: monthly budget, small emergency fund, and a clear boundary
+            for “risk money” (speculation, trading, side bets).
+          </p>
+          <p>
+            Your best wealth pattern is to stabilize first (skills, core income),
+            then slowly add side income streams that fit your nature instead of forcing
+            something that feels off.
+          </p>
+        </div>
+      `);
+
+      parts.push(`
+        <div class="butler-section">
+          <h4>6. Short-Term Action Checklist</h4>
+          <ul>
+            <li>Pick one realistic 30-day goal (career, money, or health) and write it down.</li>
+            <li>Design one weekly ritual (review, journaling, or planning) to reflect on this goal.</li>
+            <li>Protect your strongest element with the right environment (colors, activities, people).</li>
+            <li>Gently build your weakest element with small, repeatable habits.</li>
+          </ul>
+        </div>
+      `);
+
+      box.innerHTML = parts.join('\n');
+      const sec = document.getElementById('butlerProfessional');
+      if(sec) sec.style.display = 'block';
+    }
+
+    /* ===== Generate Bazi flow (identical逻辑) ===== */
+    const calc = new BaziCalculator();
+
+    function $(id){ return document.getElementById(id); }
+
+    function showError(msg){
+      const e = $('error');
+      if(!e) return;
+      e.textContent = msg;
+      e.style.display = 'block';
+    }
+    function clearError(){
+      const e = $('error');
+      if(e){ e.textContent=''; e.style.display='none'; }
+    }
+
+    function onGenerate(){
+      clearError();
+      const btn = $('genBtn');
+      const textSpan = $('genBtnText');
+      const loadSpan = $('genBtnLoading');
+      const birthdate = $('birthdate').value;
+      const timeStr = $('birthtime').value;
+      const timeUnknown = $('timeUnknown').checked;
+
+      if(!birthdate){
+        showError('Please enter your birth date.');
+        return;
+      }
+      const m = birthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if(!m){
+        showError('Invalid date format. Use YYYY-MM-DD.');
+        return;
+      }
+      const year = parseInt(m[1],10), month=parseInt(m[2],10), day=parseInt(m[3],10);
+
+      let hour = null, minute = null;
+      if(!timeUnknown && timeStr){
+        const tm = timeStr.match(/^(\d{2}):(\d{2})$/);
+        if(tm){
+          hour = parseInt(tm[1],10);
+          minute = parseInt(tm[2],10);
+        }
+      }
+
+      if(btn){ btn.disabled=true; }
+      if(textSpan) textSpan.style.display='none';
+      if(loadSpan) loadSpan.style.display='inline';
+
+      try{
+        const yearP = calc.yearPillar(year);
+        const monthP = calc.monthPillar(year,month,day);
+        const dayP = calc.dayPillar(year,month,day);
+        const hasHour = hour!==null && !isNaN(hour);
+        const hourP = hasHour ? calc.hourPillar(dayP.stemCn,hour) : null;
+
+        const pillarsBox = $('bazi-pillars');
+        if(pillarsBox){
+          pillarsBox.innerHTML = '';
+          const arr = [
+            {label:'年', p:yearP},
+            {label:'月',p:monthP},
+            {label:'日',p:dayP},
+            {label:'時',p:hourP}
+          ];
+          arr.forEach(item=>{
+            const div = document.createElement('div');
+            div.className='pillar';
+            if(item.p){
+              const stemFull = calc.stemNameEn(item.p.stemCn);
+              const branchFull = calc.branchNameEn(item.p.branch);
+              div.innerHTML = `
+                <div class="tit">${item.label}柱</div>
+                <div class="gz">${stemFull} · ${branchFull}</div>
+                <div class="muted">${item.p.stemCn}${item.p.branch}</div>
+              `;
+            }else{
+              div.innerHTML = `
+                <div class="tit">${item.label}柱</div>
+                <div class="gz">—</div>
+                <div class="muted">N/A</div>
+              `;
+            }
+            pillarsBox.appendChild(div);
+          });
+        }
+
+        function setText(id,val){ const el=$(id); if(el) el.textContent = val==null?'-':val; }
+        setText('year-stem',  `${calc.stemNameEn(yearP.stemCn)} (${yearP.stemCn})`);
+        setText('month-stem', `${calc.stemNameEn(monthP.stemCn)} (${monthP.stemCn})`);
+        setText('day-stem',   `${calc.stemNameEn(dayP.stemCn)} (${dayP.stemCn})`);
+        setText('hour-stem',  hourP ? `${calc.stemNameEn(hourP.stemCn)} (${hourP.stemCn})` : '—');
+
+        setText('year-branch',  `${calc.branchNameEn(yearP.branch)} (${yearP.branch})`);
+        setText('month-branch', `${calc.branchNameEn(monthP.branch)} (${monthP.branch})`);
+        setText('day-branch',   `${calc.branchNameEn(dayP.branch)} (${dayP.branch})`);
+        setText('hour-branch',  hourP ? `${calc.branchNameEn(hourP.branch)} (${hourP.branch})` : '—');
+
+        const yearElem = calc.stemElem(yearP.stemCn);
+        const monthElem = calc.stemElem(monthP.stemCn);
+        const dayElem = calc.stemElem(dayP.stemCn);
+        const hourElem = hourP ? calc.stemElem(hourP.stemCn) : '—';
+
+        setText('year-element',yearElem);
+        setText('month-element',monthElem);
+        setText('day-element',dayElem);
+        setText('hour-element',hourElem);
+
+        const yearNa = calc.nayin(yearP.stemCn,yearP.branch);
+        const monthNa = calc.nayin(monthP.stemCn,monthP.branch);
+        const dayNa = calc.nayin(dayP.stemCn,dayP.branch);
+        const hourNa = hourP?calc.nayin(hourP.stemCn,hourP.branch):'—';
+        setText('year-nayin',yearNa);
+        setText('month-nayin',monthNa);
+        setText('day-nayin',dayNa);
+        setText('hour-nayin',hourNa);
+
+        const dateBox = $('bazi-date');
+        if(dateBox){
+          let timePart = timeUnknown ? '時間不詳' : (hour!=null?`${String(hour).padStart(2,'0')}:${String(minute||0).padStart(2,'0')}`:'時間不詳');
+          dateBox.textContent = `出生：${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')} · ${timePart}`;
+        }
+
+        const counts = {Wood:0,Fire:0,Earth:0,Metal:0,Water:0};
+        function addElem(e){ if(e && counts.hasOwnProperty(e)) counts[e]++; }
+        const all = [yearP,monthP,dayP].concat(hourP? [hourP] : []);
+        all.forEach(p=>{
+          const se = calc.stemElem(p.stemCn);
+          const be = calc.branchElem(p.branch);
+          addElem(se); addElem(be);
+        });
+        const total = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
+        const pct = {};
+        Object.keys(counts).forEach(k=>{
+          pct[k] = Math.round(counts[k]/total*100);
+        });
+
+        function setBar(name,val){
+          const bar = $('bar-'+name.toLowerCase());
+          const txt = $('pct-'+name.toLowerCase());
+          if(bar) bar.style.width = val + '%';
+          if(txt) txt.textContent = val + '%';
+        }
+        setBar('wood',pct.Wood);
+        setBar('fire',pct.Fire);
+        setBar('earth',pct.Earth);
+        setBar('metal',pct.Metal);
+        setBar('water',pct.Water);
+
+        const bw = $('bazi-elements-balance');
+        const {strongest,weakest} = strongestWeakest(pct);
+        if(bw){
+          bw.textContent = `Among the Five Elements, ${strongest} is strongest and ${weakest} is weakest in this chart.`;
+        }
+
+        const ctx = {
+          name: $('name').value || '',
+          gender: $('gender').value || '',
+          birth: {year,month,day,hour,minute,timeUnknown},
+          year: {stemCn:yearP.stemCn, stemEn:yearP.stem, branch:yearP.branch, element:yearElem, nayin:yearNa},
+          month:{stemCn:monthP.stemCn, stemEn:monthP.stem, branch:monthP.branch, element:monthElem, nayin:monthNa},
+          day:  {stemCn:dayP.stemCn, stemEn:dayP.stem, branch:dayP.branch, element:dayElem, nayin:dayNa},
+          hour: hourP?{stemCn:hourP.stemCn, stemEn:hourP.stem, branch:hourP.branch, element:hourElem, nayin:hourNa}:null,
+          elements:pct
+        };
+        window.lastCtx = ctx;
+
+        const resSec = $('result');
+        if(resSec) resSec.style.display = 'block';
+        buildProReport(ctx);
+
+      }catch(e){
+        console.error(e);
+        showError('Failed to generate chart. Please try again.');
+      }finally{
+        if(btn){ btn.disabled=false; }
+        if(textSpan) textSpan.style.display='inline';
+        if(loadSpan) loadSpan.style.display='none';
+      }
+    }
+
+    /* ===== Chat behaviour (same结构) ===== */
+    function appendChat(role,text){
+      const box = $('chatMessages');
+      if(!box) return;
+      const div = document.createElement('div');
+      div.style.marginBottom = '8px';
+      div.style.whiteSpace = 'pre-wrap';
+      if(role==='user'){
+        div.style.textAlign='right';
+        div.innerHTML = `<strong>你:</strong> ${text}`;
+      }else{
+        div.innerHTML = `<strong>Butler:</strong> ${text}`;
+      }
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+    }
+
+    async function handleChatSend(){
+      const input = $('chatInput');
+      if(!input) return;
+      const q = input.value.trim();
+      if(!q) return;
+      appendChat('user', q);
+      input.value = '';
+
+      const ctx = window.lastCtx;
+      if(!ctx){
+        appendChat('bot','請先生成你的八字命盤，再就感情、事業、財富或時間節奏提問。');
+        return;
+      }
+
+      const dm = ctx.day.stemEn || 'Day Master';
+      appendChat(
+        'bot',
+        `I see your Day Master is ${dm}. Based on this chart, your question "${q}" is best handled by:\n\n` +
+        `1) Checking whether this decision supports long-term stability (Earth element),\n` +
+        `2) Matching your nature (for example, Wood prefers growth and flexibility, Metal prefers clarity and rules),\n` +
+        `3) Moving step by step instead of all-in.`
+      );
+    }
+
+    /* ===== Chat toggle & drag ===== */
+    function initChat(){
+      const toggle = $('chatToggle');
+      const panel = $('chatFloat');
+      const closeBtn = $('chatClose');
+      const sendBtn = $('chatSend');
+      const input = $('chatInput');
+      if(!toggle || !panel) return;
+      toggle.addEventListener('click', ()=>{ panel.style.display = panel.style.display==='flex'?'none':'flex'; });
+      if(closeBtn) closeBtn.addEventListener('click', ()=>{ panel.style.display='none'; });
+      if(sendBtn) sendBtn.addEventListener('click', handleChatSend);
+      if(input) input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); handleChatSend(); } });
+
+      const header = panel.querySelector('.chat-float-header');
+      if(header){
+        let dragging=false, startX=0,startY=0,startLeft=0,startTop=0;
+        header.addEventListener('mousedown',e=>{
+          dragging=true;
+          startX=e.clientX; startY=e.clientY;
+          const rect=panel.getBoundingClientRect();
+          startLeft=rect.left; startTop=rect.top;
+          document.body.style.userSelect='none';
+        });
+        window.addEventListener('mousemove',e=>{
+          if(!dragging) return;
+          const dx=e.clientX-startX, dy=e.clientY-startY;
+          panel.style.left = (startLeft+dx)+'px';
+          panel.style.top = (startTop+dy)+'px';
+          panel.style.right = 'auto';
+          panel.style.bottom = 'auto';
+        });
+        window.addEventListener('mouseup',()=>{
+          dragging=false;
+          document.body.style.userSelect='';
+        });
+      }
+    }
+
+    /* ===== Init ===== */
+    document.addEventListener('DOMContentLoaded', ()=>{
+      const btn = $('genBtn');
+      if(btn) btn.addEventListener('click', onGenerate);
+      initChat();
+
+      const langSelect = $('langSelect');
+      if (langSelect) {
+        langSelect.value = CURRENT_LANG;
+        langSelect.addEventListener('change', e => {
+          const code = e.target.value;
+          const url = LANG_PAGES[code];
+          if (url) window.location.href = url;
+        });
+      }
+
+      const loginForm = $('loginForm');
+      const registerForm = $('registerForm');
+      const resetBtn = $('resetBtn');
+      const authError = $('authError');
+      if(loginForm){
+        loginForm.addEventListener('submit', e=>{
+          e.preventDefault();
+          if(authError){
+            authError.textContent = 'Login API not connected yet. Please wire this form to your backend.';
+            authError.style.display='block';
+          }
+        });
+      }
+      if(registerForm){
+        registerForm.addEventListener('submit', e=>{
+          e.preventDefault();
+          if(authError){
+            authError.textContent = 'Registration API not connected yet. Please wire this form to your backend.';
+            authError.style.display='block';
+          }
+        });
+      }
+      if(resetBtn){
+        resetBtn.addEventListener('click', ()=>{
+          if(authError){
+            authError.textContent = 'Password reset not connected yet. Implement your reset flow here.';
+            authError.style.display='block';
+          }
+        });
+      }
+    });
+  })();
+  </script>
+
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const TZ = 'Asia/Singapore';
+  const localeMap = { 'zh-CN':'zh-CN','zh-TW':'zh-TW','en':'en-US','ja':'ja-JP','th':'th-TH','ms':'ms' };
+  const getLocale = () => (localeMap[(window.state && window.state.lang) || 'en'] || 'en-US');
+
+  window.applyI18n = (function(prev){
+    return function(){
+      if (typeof prev === 'function') prev();
+      if (typeof window.tickNow === 'function') window.tickNow();
+    };
+  })(window.applyI18n);
+
+  if (typeof window.tickNow !== 'function') {
+    window.tickNow = function tickNow(){
+      const box = $('nowBox'); if (!box) return;
+      const fmt = new Intl.DateTimeFormat(getLocale(), {
+        weekday:'short', year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit', hour12:false, timeZone: TZ
+      });
+      box.textContent = fmt.format(new Date()) + ' (SGT)';
+    };
+  }
+
+  function initBirthDefaults() {
+    const bd = $('birthdate'); const bt = $('birthtime'); const unk = $('timeUnknown');
+    const nowSG = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }));
+
+    if (bd && !bd.value){
+      const y=nowSG.getFullYear(), m=String(nowSG.getMonth()+1).padStart(2,'0'), d=String(nowSG.getDate()).padStart(2,'0');
+      bd.value = `${y}-${m}-${d}`;
+    }
+
+    if (bt){
+      const hh=String(nowSG.getHours()).padStart(2,'0'), mm=String(nowSG.getMinutes()).padStart(2,'0');
+      if (!bt.value) bt.value = `${hh}:${mm}`;
+      const setUnknownState = ()=>{ const isUnknown = !!(unk && unk.checked); bt.disabled = isUnknown; if (isUnknown) bt.value = ''; };
+      setUnknownState();
+      if (unk && !unk._wired){
+        unk._wired = true;
+        unk.addEventListener('change', ()=>{
+          if (unk.checked){
+            bt.disabled = true; bt.value = '';
+          } else {
+            bt.disabled = false;
+            if (!bt.value){
+              const n = new Date(new Date().toLocaleString('en-US',{timeZone:TZ}));
+              bt.value = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+            }
+          }
+        });
+      }
+    }
+  }
+
+  initBirthDefaults();
+  if (typeof window.tickNow === 'function') window.tickNow();
+  if (!window._clock) window._clock = setInterval(()=>{ try{ window.tickNow(); }catch{} }, 60000);
+})();
+</script>
+</body>
+</html>
