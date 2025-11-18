@@ -339,7 +339,14 @@ window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
 (function(){
   'use strict';
   const SG_TZ = 'Asia/Singapore';
-  const $ = id => document.getElementById(id);
+  const $  = id => document.getElementById(id);
+  window.$ = window.$ || $;
+
+  function setText(id, value){
+    const el = $(id);
+    if (el) el.textContent = value;
+  }
+
   const state = window.state = window.state || {};
   state.lang = 'th';
 
@@ -354,27 +361,13 @@ window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
     'ms':    '/assets/bazi-language-pack/bazi-ms.html'
   };
 
-  function updateNowBox(){
-    try{
-      const now = new Date();
-      const fmt = new Intl.DateTimeFormat('en-SG',{
-        timeZone:SG_TZ,
-        year:'numeric',month:'short',day:'2-digit',
-        hour:'2-digit',minute:'2-digit'
-      });
-      const box = $('nowBox');
-      if(box) box.textContent = fmt.format(now) + ' · SGT';
-    }catch(e){}
-  }
-  updateNowBox();
-  setInterval(updateNowBox, 60000);
-
+  /* ========= Bazi Calculator ========= */
   class BaziCalculator{
     constructor(){
-      this.HEAVENLY_STEMS=['Jia','Yi','Bing','Ding','Wu','Ji','Geng','Xin','Ren','Gui'];
-      this.STEMS_CN=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
-      this.EARTHLY_BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-      this.NAYIN=[
+      this.HEAVENLY_STEMS   = ['Jia','Yi','Bing','Ding','Wu','Ji','Geng','Xin','Ren','Gui'];
+      this.STEMS_CN         = ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+      this.EARTHLY_BRANCHES = ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+      this.NAYIN = [
         'Metal in the Sea','Fire in the Furnace','Wood in the Forest','Earth by the Road',
         'Metal on the Sword Edge','Fire on the Mountain','Water under the Stream','Earth on the City Wall',
         'Metal of White Wax','Wood of Willow Tree','Water in the Spring','Earth on the Roof',
@@ -387,44 +380,82 @@ window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
     }
     stemCn(index){ return this.STEMS_CN[(index+10)%10]; }
     yearPillar(year){
-      const s=(year-4)%10, b=(year-4)%12;
-      return {stemCn:this.stemCn(s), stem:this.HEAVENLY_STEMS[(s+10)%10], branch:this.EARTHLY_BRANCHES[(b+12)%12]};
+      const s = (year-4)%10, b = (year-4)%12;
+      return {
+        stemCn : this.stemCn(s),
+        stem   : this.HEAVENLY_STEMS[(s+10)%10],
+        branch : this.EARTHLY_BRANCHES[(b+12)%12]
+      };
     }
     solarMonthIndex(y,m,d){
-      const mmdd=m*100+d;
-      const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
-      let idx=11; for(const [thr,val] of gates){ if(mmdd>=thr) idx=val; }
-      const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
-      return {index:idx, branch:branchBy[idx]};
+      const mmdd = m*100 + d;
+      const gates = [
+        [106,12],[204,1],[306,2],[405,3],[506,4],[606,5],
+        [707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]
+      ];
+      let idx = 11;
+      for(const [thr,val] of gates){
+        if(mmdd >= thr) idx = val;
+      }
+      const branchBy = {
+        1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',
+        7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'
+      };
+      return { index: idx, branch: branchBy[idx] };
     }
     monthPillar(year,month,day){
-      const {index,branch}=this.solarMonthIndex(year,month,day);
-      const yStemIdx=(this.yearPillar(year).stemCn && this.STEMS_CN.indexOf(this.yearPillar(year).stemCn)) || 0;
-      const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
-      const stemIdx=(startMap[yStemIdx]+(index-1))%10;
-      return {stemCn:this.stemCn(stemIdx), stem:this.HEAVENLY_STEMS[stemIdx], branch};
+      const {index,branch} = this.solarMonthIndex(year,month,day);
+      const yStemCn = this.yearPillar(year).stemCn;
+      const yStemIdx = this.STEMS_CN.indexOf(yStemCn);
+      const startMap = {0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
+      const stemIdx = (startMap[yStemIdx] + (index-1)) % 10;
+      return {
+        stemCn : this.stemCn(stemIdx),
+        stem   : this.HEAVENLY_STEMS[stemIdx],
+        branch
+      };
     }
     dayPillar(year,month,day){
-      const baseUTC=Date.UTC(1900,0,31), targetUTC=Date.UTC(year,month-1,day);
-      const dayDiff=Math.floor((targetUTC-baseUTC)/86400000);
-      const stemIdx=(0+dayDiff)%10, branchIdx=(4+dayDiff)%12;
-      return {stemCn:this.stemCn(stemIdx), stem:this.HEAVENLY_STEMS[(stemIdx+10)%10],branch:this.EARTHLY_BRANCHES[(branchIdx+12)%12]};
+      const baseUTC   = Date.UTC(1900,0,31);
+      const targetUTC = Date.UTC(year,month-1,day);
+      const dayDiff   = Math.floor((targetUTC-baseUTC)/86400000);
+      const stemIdx   = (0 + dayDiff) % 10;
+      const branchIdx = (4 + dayDiff) % 12;
+      return {
+        stemCn : this.stemCn(stemIdx),
+        stem   : this.HEAVENLY_STEMS[(stemIdx+10)%10],
+        branch : this.EARTHLY_BRANCHES[(branchIdx+12)%12]
+      };
     }
     hourPillar(dayStemCn,hour){
-      const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
-      const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};
-      const dayIdx=this.STEMS_CN.indexOf(dayStemCn);
-      const hourIndex=Math.floor((hour+1)/2)%12;
-      const stemIdx=(startMap[dayIdx]+hourIndex)%10;
-      return {stemCn:this.stemCn(stemIdx), stem:this.HEAVENLY_STEMS[stemIdx], branch:branchMap[hour]};
+      const branchMap = {
+        23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',
+        7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',
+        15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'
+      };
+      const startMap = {0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};
+      const dayIdx = this.STEMS_CN.indexOf(dayStemCn);
+      const hourIndex = Math.floor((hour+1)/2)%12;
+      const stemIdx = (startMap[dayIdx] + hourIndex) % 10;
+      return {
+        stemCn : this.stemCn(stemIdx),
+        stem   : this.HEAVENLY_STEMS[stemIdx],
+        branch : branchMap[hour]
+      };
     }
     stemElem(cn){
-      return ({'甲':'Wood','乙':'Wood','丙':'Fire','丁':'Fire','戊':'Earth','己':'Earth',
-               '庚':'Metal','辛':'Metal','壬':'Water','癸':'Water'})[cn]||'-';
+      return ({
+        '甲':'Wood','乙':'Wood','丙':'Fire','丁':'Fire',
+        '戊':'Earth','己':'Earth','庚':'Metal','辛':'Metal',
+        '壬':'Water','癸':'Water'
+      })[cn] || '-';
     }
     branchElem(b){
-      return ({'子':'Water','丑':'Earth','寅':'Wood','卯':'Wood','辰':'Earth','巳':'Fire',
-               '午':'Fire','未':'Earth','申':'Metal','酉':'Metal','戌':'Earth','亥':'Water'})[b]||'-';
+      return ({
+        '子':'Water','丑':'Earth','寅':'Wood','卯':'Wood',
+        '辰':'Earth','巳':'Fire','午':'Fire','未':'Earth',
+        '申':'Metal','酉':'Metal','戌':'Earth','亥':'Water'
+      })[b] || '-';
     }
     stemNameEn(stemCn){
       const idx = this.STEMS_CN.indexOf(stemCn);
@@ -435,27 +466,20 @@ window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
     }
     branchNameEn(b){
       const map = {
-        '子':'Zi (Rat)',
-        '丑':'Chou (Ox)',
-        '寅':'Yin (Tiger)',
-        '卯':'Mao (Rabbit)',
-        '辰':'Chen (Dragon)',
-        '巳':'Si (Snake)',
-        '午':'Wu (Horse)',
-        '未':'Wei (Goat)',
-        '申':'Shen (Monkey)',
-        '酉':'You (Rooster)',
-        '戌':'Xu (Dog)',
-        '亥':'Hai (Pig)'
+        '子':'Zi (Rat)','丑':'Chou (Ox)','寅':'Yin (Tiger)','卯':'Mao (Rabbit)',
+        '辰':'Chen (Dragon)','巳':'Si (Snake)','午':'Wu (Horse)','未':'Wei (Goat)',
+        '申':'Shen (Monkey)','酉':'You (Rooster)','戌':'Xu (Dog)','亥':'Hai (Pig)'
       };
       return map[b] || b;
     }
     nayin(stemCn,branch){
-      const si=this.STEMS_CN.indexOf(stemCn), bi=this.EARTHLY_BRANCHES.indexOf(branch);
+      const si = this.STEMS_CN.indexOf(stemCn);
+      const bi = this.EARTHLY_BRANCHES.indexOf(branch);
       return this.NAYIN[(si*2+bi)%this.NAYIN.length];
     }
   }
 
+  /* ========= Quick personality texts (English) ========= */
   const DayMasterText = {
     '甲':'Jia Wood: pioneering, energetic, likes to open new paths.',
     '乙':'Yi Wood: gentle, kind, supportive, values harmony.',
@@ -468,9 +492,10 @@ window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
     '壬':'Ren Water: free, flexible, adaptable, loves movement and variety.',
     '癸':'Gui Water: sensitive, thoughtful, deep inner world.'
   };
+
   const RelationText = {
     '甲':{
-      traits:'You tend to be more active and leading in love, but partners still need space.',
+      traits:'You tend to be more active and leading in love.',
       tips:'Practice listening and slow down decisions in relationships.'
     },
     '乙':{
@@ -478,7 +503,7 @@ window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
       tips:'Keep healthy boundaries and communicate your needs clearly.'
     },
     '丙':{
-      traits:'You love warmth and passion, but emotions can be intense.',
+      traits:'You love warmth and passion, emotions can be intense.',
       tips:'Cool down before reacting; avoid sharp words in arguments.'
     },
     '丁':{
@@ -511,22 +536,30 @@ window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
     }
   };
 
+  const ELEM_LABEL_TH = {
+    Wood: 'ไม้',
+    Fire: 'ไฟ',
+    Earth:'ดิน',
+    Metal:'โลหะ',
+    Water:'น้ำ'
+  };
+
   function strongestWeakest(counts){
-    const order=['Wood','Fire','Earth','Metal','Water'];
-    let max = -1, min = 1e9, maxKey='Wood', minKey='Wood';
+    const order = ['Wood','Fire','Earth','Metal','Water'];
+    let max=-1, min=1e9, maxKey='Wood', minKey='Wood';
     order.forEach(k=>{
-      const v = counts[k]||0;
+      const v = counts[k] || 0;
       if(v>max){ max=v; maxKey=k; }
       if(v<min){ min=v; minKey=k; }
     });
-    return {strongest:maxKey, weakest:minKey};
+    return { strongest:maxKey, weakest:minKey };
   }
 
   function buildProReport(ctx){
     const box = $('professionalReport');
     if(!box || !ctx) return;
     const dmStemCn = ctx.day.stemCn;
-    const rel = RelationText[dmStemCn] || {
+    const rel   = RelationText[dmStemCn] || {
       traits:'You value sincerity and mutual support in relationships.',
       tips:'Keep communication open and honest.'
     };
@@ -551,14 +584,12 @@ window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
           Earth: ${ctx.elements.Earth}% · Metal: ${ctx.elements.Metal}% · Water: ${ctx.elements.Water}%.
         </p>
         <p>
-          <strong>Strongest element:</strong> ${strongest}.
-          <br/>
-          <strong>Weakest element:</strong> ${weakest}.
+          <strong>Strongest element:</strong> ${strongest}<br/>
+          <strong>Weakest element:</strong> ${weakest}
         </p>
         <p>
           In practice: lean on your strongest element when you need confidence,
-          and intentionally grow the weakest element through environment, habits,
-          and people around you.
+          and slowly strengthen the weakest element through habits and environment.
         </p>
       </div>
     `);
@@ -569,52 +600,49 @@ window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
         <p><strong>Love traits:</strong> ${rel.traits}</p>
         <p><strong>Advice:</strong> ${rel.tips}</p>
         <p>
-          Generally, when your emotions are stable and your schedule is not overloaded,
-          relationships grow more smoothly. Avoid making big relationship decisions
-          during times of strong stress or financial pressure.
+          Try not to make big relationship decisions when stress or money pressure is very high.
+          When your mind is calmer, your choices will be clearer.
         </p>
       </div>
     `);
 
     parts.push(`
       <div class="butler-section">
-        <h4>4. Career & Work Direction</h4>
+        <h4>4. Career Direction</h4>
         <p>
-          <strong>Career note:</strong> This chart favours patient, skill-based growth.
-          Building long-term expertise and reputation is more important than short, dramatic jumps.
+          This chart suits gradual, skill-based growth more than sudden jumps.
+          Building a stable base of expertise and reputation will pay off over time.
         </p>
         <p>
-          Try to align your work with your Day Master nature. If you are Wood or Fire heavy,
-          you do well in dynamic, people-oriented roles. If you are Metal or Water heavy,
-          you do better with analytical, technical, or research-style work.
-        </p>
-      </div>
-    `);
-
-    parts.push(`
-      <div class="butler-section">
-        <h4>5. Wealth & Practical Advice</h4>
-        <p>
-          This quick reading focuses on <strong>cash-flow awareness</strong>:
-          keep a simple system: monthly budget, small emergency fund, and a clear boundary
-          for “risk money” (speculation, trading, side bets).
-        </p>
-        <p>
-          Your best wealth pattern is to stabilize first (skills, core income),
-          then slowly add side income streams that fit your nature instead of forcing
-          something that feels off.
+          Wood/Fire-heavy charts usually like dynamic, people-focused roles.
+          Metal/Water-heavy charts are often stronger in analytical, technical,
+          or planning roles.
         </p>
       </div>
     `);
 
     parts.push(`
       <div class="butler-section">
-        <h4>6. Short-Term Action Checklist</h4>
+        <h4>5. Wealth Rhythm</h4>
+        <p>
+          Focus on simple cash-flow awareness: a monthly budget, a small emergency fund,
+          and a clear line for “risk money” that you can afford to lose.
+        </p>
+        <p>
+          First stabilize main income, then add side incomes that really fit your nature
+          instead of forcing something that drains you.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>6. 30-Day Action Ideas</h4>
         <ul>
-          <li>Pick one realistic 30-day goal (career, money, or health) and write it down.</li>
-          <li>Design one weekly ritual (review, journaling, or planning) to reflect on this goal.</li>
-          <li>Protect your strongest element with the right environment (colors, activities, people).</li>
-          <li>Gently build your weakest element with small, repeatable habits.</li>
+          <li>Set one realistic 30-day goal (career, money, or health) and write it down.</li>
+          <li>Have a fixed weekly check-in to review your progress.</li>
+          <li>Use colors, environments, and activities to boost your strongest element.</li>
+          <li>Build your weakest element with small, consistent habits.</li>
         </ul>
       </div>
     `);
@@ -624,6 +652,8 @@ window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
     if(sec) sec.style.display = 'block';
   }
 
+  const calc = new BaziCalculator();
+
   function showError(msg){
     const e = $('error');
     if(!e) return;
@@ -632,133 +662,312 @@ window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
   }
   function clearError(){
     const e = $('error');
-    if(e){ e.textContent=''; e.style.display='none'; }
+    if(e){
+      e.textContent = '';
+      e.style.display = 'none';
+    }
   }
 
   function onGenerate(){
     clearError();
-    const btn = $('genBtn');
+    const btn      = $('genBtn');
     const textSpan = $('genBtnText');
     const loadSpan = $('genBtnLoading');
-    const birthdate = $('birthdate').value;
-    const timeStr = $('birthtime').value;
+    const birthdate   = $('birthdate').value;
+    const timeStr     = $('birthtime').value;
     const timeUnknown = $('timeUnknown').checked;
 
     if(!birthdate){
-      showError('Please enter your birth date.');
+      showError('กรุณาเลือกวันเดือนปีเกิด');
       return;
     }
     const m = birthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if(!m){
-      showError('Invalid date format. Use YYYY-MM-DD.');
+      showError('รูปแบบวันที่ไม่ถูกต้อง (ใช้ YYYY-MM-DD)');
       return;
     }
-    const year = parseInt(m[1],10), month=parseInt(m[2],10), day=parseInt(m[3],10);
+    const year  = parseInt(m[1],10);
+    const month = parseInt(m[2],10);
+    const day   = parseInt(m[3],10);
 
     let hour = null, minute = null;
     if(!timeUnknown && timeStr){
       const tm = timeStr.match(/^(\d{2}):(\d{2})$/);
       if(tm){
-        hour = parseInt(tm[1],10);
+        hour   = parseInt(tm[1],10);
         minute = parseInt(tm[2],10);
       }
     }
 
-    if(btn){ btn.disabled=true; }
-    if(textSpan) textSpan.style.display='none';
-    if(loadSpan) loadSpan.style.display='inline';
+    if(btn)      btn.disabled = true;
+    if(textSpan) textSpan.style.display = 'none';
+    if(loadSpan) loadSpan.style.display = 'inline';
 
     try{
-      const yearP = new BaziCalculator().yearPillar(year);
+      const yearP  = calc.yearPillar(year);
+      const monthP = calc.monthPillar(year,month,day);
+      const dayP   = calc.dayPillar(year,month,day);
+      const hasHour = hour!==null && !isNaN(hour);
+      const hourP  = hasHour ? calc.hourPillar(dayP.stemCn,hour) : null;
+
+      // 四柱卡片
+      const pillarsBox = $('bazi-pillars');
+      if(pillarsBox){
+        pillarsBox.innerHTML = '';
+        const arr = [
+          {label:'เสาปี',   p:yearP},
+          {label:'เสาเดือน',p:monthP},
+          {label:'เสาวัน',  p:dayP},
+          {label:'เสาชั่วโมง',p:hourP}
+        ];
+        arr.forEach(item=>{
+          const div = document.createElement('div');
+          div.className = 'pillar';
+          if(item.p){
+            div.innerHTML = `
+              <div class="tit">${item.label}</div>
+              <div class="gz">${item.p.stemCn}${item.p.branch}</div>
+              <div class="muted"></div>
+            `;
+          }else{
+            div.innerHTML = `
+              <div class="tit">${item.label}</div>
+              <div class="gz">—</div>
+              <div class="muted">N/A</div>
+            `;
+          }
+          pillarsBox.appendChild(div);
+        });
+      }
+
+      // 天干
+      setText('year-stem',  yearP.stemCn);
+      setText('month-stem', monthP.stemCn);
+      setText('day-stem',   dayP.stemCn);
+      setText('hour-stem',  hourP ? hourP.stemCn : '—');
+
+      // 地支
+      setText('year-branch',  yearP.branch);
+      setText('month-branch', monthP.branch);
+      setText('day-branch',   dayP.branch);
+      setText('hour-branch',  hourP ? hourP.branch : '—');
+
+      // 五行
+      const yearElem  = calc.stemElem(yearP.stemCn);
+      const monthElem = calc.stemElem(monthP.stemCn);
+      const dayElem   = calc.stemElem(dayP.stemCn);
+      const hourElem  = hourP ? calc.stemElem(hourP.stemCn) : '—';
+
+      const ELEM_TH = {
+        Wood:'ไม้', Fire:'ไฟ', Earth:'ดิน', Metal:'โลหะ', Water:'น้ำ'
+      };
+
+      setText('year-element',  ELEM_TH[yearElem]  || yearElem);
+      setText('month-element', ELEM_TH[monthElem] || monthElem);
+      setText('day-element',   ELEM_TH[dayElem]   || dayElem);
+      setText('hour-element',  hourElem==='—' ? '—' : (ELEM_TH[hourElem] || hourElem));
+
+      // 納音
+      const yearNa  = calc.nayin(yearP.stemCn,yearP.branch);
+      const monthNa = calc.nayin(monthP.stemCn,monthP.branch);
+      const dayNa   = calc.nayin(dayP.stemCn,dayP.branch);
+      const hourNa  = hourP ? calc.nayin(hourP.stemCn,hourP.branch) : '—';
+
+      setText('year-nayin',  yearNa);
+      setText('month-nayin', monthNa);
+      setText('day-nayin',   dayNa);
+      setText('hour-nayin',  hourNa);
+
+      // 顯示出生資訊
+      const dateBox = $('bazi-date');
+      if(dateBox){
+        let timePart;
+        if(timeUnknown){
+          timePart = 'ไม่ทราบเวลา';
+        }else if(hour!=null){
+          timePart = `${String(hour).padStart(2,'0')}:${String(minute||0).padStart(2,'0')}`;
+        }else{
+          timePart = 'ไม่ทราบเวลา';
+        }
+        dateBox.textContent =
+          `วันเกิด: ${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')} ${timePart}`;
+      }
+
+      // 五行統計
+      const counts = {Wood:0,Fire:0,Earth:0,Metal:0,Water:0};
+      function addElem(e){ if(e && counts.hasOwnProperty(e)) counts[e]++; }
+
+      const allPillars = [yearP,monthP,dayP].concat(hourP ? [hourP] : []);
+      allPillars.forEach(p=>{
+        const se = calc.stemElem(p.stemCn);
+        const be = calc.branchElem(p.branch);
+        addElem(se); addElem(be);
+      });
+
+      const total = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
+      const pct = {};
+      Object.keys(counts).forEach(k=>{
+        pct[k] = Math.round(counts[k]/total*100);
+      });
+
+      function setBar(name,val){
+        const bar = $('bar-'+name.toLowerCase());
+        const txt = $('pct-'+name.toLowerCase());
+        if(bar) bar.style.width = val + '%';
+        if(txt) txt.textContent = val + '%';
+      }
+      setBar('wood',  pct.Wood);
+      setBar('fire',  pct.Fire);
+      setBar('earth', pct.Earth);
+      setBar('metal', pct.Metal);
+      setBar('water', pct.Water);
+
+      const bw = $('bazi-elements-balance');
+      const {strongest,weakest} = strongestWeakest(pct);
+      if(bw){
+        const sTh = ELEM_LABEL_TH[strongest] || strongest;
+        const wTh = ELEM_LABEL_TH[weakest]   || weakest;
+        bw.textContent =
+          `ในดวงนี้ ธาตุ「${sTh}」เด่นที่สุด และธาตุ「${wTh}」อ่อนที่สุด`;
+      }
+
+      const ctx = {
+        name: $('name').value || '',
+        gender: $('gender').value || '',
+        birth: {year,month,day,hour,minute,timeUnknown},
+        year : {stemCn:yearP.stemCn, stemEn:yearP.stem,   branch:yearP.branch,   element:yearElem,  nayin:yearNa},
+        month: {stemCn:monthP.stemCn,stemEn:monthP.stem,  branch:monthP.branch,  element:monthElem, nayin:monthNa},
+        day  : {stemCn:dayP.stemCn,  stemEn:dayP.stem,    branch:dayP.branch,    element:dayElem,   nayin:dayNa},
+        hour : hourP ? {
+          stemCn:hourP.stemCn, stemEn:hourP.stem,
+          branch:hourP.branch, element:hourElem, nayin:hourNa
+        } : null,
+        elements: pct
+      };
+      window.lastCtx = ctx;
+
+      const resSec = $('result');
+      if(resSec) resSec.style.display = 'block';
+      buildProReport(ctx);
+
     }catch(e){
       console.error(e);
-      showError('Failed to generate chart. Please try again.');
+      showError('ระบบเกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง');
     }finally{
-      if(btn){ btn.disabled=false; }
-      if(textSpan) textSpan.style.display='inline';
-      if(loadSpan) loadSpan.style.display='none';
+      if(btn)      btn.disabled = false;
+      if(textSpan) textSpan.style.display = 'inline';
+      if(loadSpan) loadSpan.style.display = 'none';
     }
   }
 
-  // 为简洁，这里略掉后面重复逻辑，你可以直接复制 en.html 的 JS 部分，
-  // 只改上面的 state.lang = 'th' 和 CURRENT_LANG = 'th' 以及 LANG_PAGES 常量。
+  /* ========= Floating Chat ========= */
+  function appendChat(role,text){
+    const box = $('chatMessages');
+    if(!box) return;
+    const div = document.createElement('div');
+    div.style.marginBottom = '8px';
+    div.style.whiteSpace   = 'pre-wrap';
+    if(role === 'user'){
+      div.style.textAlign = 'right';
+      div.innerHTML = `<strong>คุณ:</strong> ${text}`;
+    }else{
+      div.innerHTML = `<strong>Butler:</strong> ${text}`;
+    }
+    box.appendChild(div);
+    box.scrollTop = box.scrollHeight;
+  }
 
+  async function handleChatSend(){
+    const input = $('chatInput');
+    if(!input) return;
+    const q = input.value.trim();
+    if(!q) return;
+    appendChat('user', q);
+    input.value = '';
+
+    const ctx = window.lastCtx;
+    if(!ctx){
+      appendChat('bot','กรุณาผูกดวงก่อน แล้วค่อยถามคำถามเจาะจงนะคะ');
+      return;
+    }
+
+    const dm = ctx.day.stemCn || '日主';
+    appendChat(
+      'bot',
+      `ดวงหลักของคุณคือ「${dm}」 เวลาตัดสินใจเรื่องใหญ่ ๆ ลองระวัง 3 เรื่องนี้:\n\n`+
+      `1) เช็คก่อนว่าตอนนี้ร่างกายและอารมณ์พร้อมไหม อย่าตัดสินใจตอนเครียดจัด\n`+
+      `2) เลือกทางที่เข้ากับนิสัยและจังหวะชีวิตของตัวเอง ไม่ฝืนตามคนอื่น\n`+
+      `3) แบ่งเป้าหมายใหญ่เป็นขั้นเล็ก ๆ ทำทีละช่วง จะไม่รู้สึกท้อจนหยุดไปกลางทาง`
+    );
+  }
+
+  function initChat(){
+    const toggle  = $('chatToggle');
+    const panel   = $('chatFloat');
+    const closeBtn= $('chatClose');
+    const sendBtn = $('chatSend');
+    const input   = $('chatInput');
+    if(!toggle || !panel) return;
+
+    toggle.addEventListener('click', ()=>{
+      panel.style.display = (panel.style.display === 'flex') ? 'none' : 'flex';
+    });
+    if(closeBtn) closeBtn.addEventListener('click', ()=>{ panel.style.display='none'; });
+    if(sendBtn)  sendBtn.addEventListener('click', handleChatSend);
+    if(input){
+      input.addEventListener('keydown', e=>{
+        if(e.key === 'Enter'){
+          e.preventDefault();
+          handleChatSend();
+        }
+      });
+    }
+
+    // 拖曳聊天視窗
+    const header = panel.querySelector('.chat-float-header');
+    if(header){
+      let dragging=false, startX=0, startY=0, startLeft=0, startTop=0;
+      header.addEventListener('mousedown', e=>{
+        dragging = true;
+        startX = e.clientX;
+        startY = e.clientY;
+        const rect = panel.getBoundingClientRect();
+        startLeft = rect.left;
+        startTop  = rect.top;
+        document.body.style.userSelect = 'none';
+      });
+      window.addEventListener('mousemove', e=>{
+        if(!dragging) return;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        panel.style.left   = (startLeft+dx) + 'px';
+        panel.style.top    = (startTop+dy)  + 'px';
+        panel.style.right  = 'auto';
+        panel.style.bottom = 'auto';
+      });
+      window.addEventListener('mouseup', ()=>{
+        dragging = false;
+        document.body.style.userSelect = '';
+      });
+    }
+  }
+
+  /* ========= Init ========= */
   document.addEventListener('DOMContentLoaded', ()=>{
     const btn = $('genBtn');
     if(btn) btn.addEventListener('click', onGenerate);
+    initChat();
 
     const langSelect = $('langSelect');
     if (langSelect) {
       langSelect.value = CURRENT_LANG;
       langSelect.addEventListener('change', e => {
         const code = e.target.value;
-        const url = LANG_PAGES[code];
+        const url  = LANG_PAGES[code];
         if (url) window.location.href = url;
       });
     }
   });
-})();
-</script>
-
-<script>
-(function () {
-  const $ = (id) => document.getElementById(id);
-  const TZ = 'Asia/Singapore';
-  const localeMap = { 'zh-CN':'zh-CN','zh-TW':'zh-TW','en':'en-US','ja':'ja-JP','th':'th-TH','ms':'ms' };
-  const getLocale = () => (localeMap[(window.state && window.state.lang) || 'en'] || 'en-US');
-
-  window.applyI18n = (function(prev){
-    return function(){
-      if (typeof prev === 'function') prev();
-      if (typeof window.tickNow === 'function') window.tickNow();
-    };
-  })(window.applyI18n);
-
-  if (typeof window.tickNow !== 'function') {
-    window.tickNow = function tickNow(){
-      const box = $('nowBox'); if (!box) return;
-      const fmt = new Intl.DateTimeFormat(getLocale(), {
-        weekday:'short', year:'numeric', month:'2-digit', day:'2-digit',
-        hour:'2-digit', minute:'2-digit', hour12:false, timeZone: TZ
-      });
-      box.textContent = fmt.format(new Date()) + ' (SGT)';
-    };
-  }
-
-  function initBirthDefaults() {
-    const bd = $('birthdate'); const bt = $('birthtime'); const unk = $('timeUnknown');
-    const nowSG = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }));
-
-    if (bd && !bd.value){
-      const y=nowSG.getFullYear(), m=String(nowSG.getMonth()+1).padStart(2,'0'), d=String(nowSG.getDate()).padStart(2,'0');
-      bd.value = `${y}-${m}-${d}`;
-    }
-
-    if (bt){
-      const hh=String(nowSG.getHours()).padStart(2,'0'), mm=String(nowSG.getMinutes()).padStart(2,'0');
-      if (!bt.value) bt.value = `${hh}:${mm}`;
-      const setUnknownState = ()=>{ const isUnknown = !!(unk && unk.checked); bt.disabled = isUnknown; if (isUnknown) bt.value = ''; };
-      setUnknownState();
-      if (unk && !unk._wired){
-        unk._wired = true;
-        unk.addEventListener('change', ()=>{
-          if (unk.checked){
-            bt.disabled = true; bt.value = '';
-          } else {
-            bt.disabled = false;
-            if (!bt.value){
-              const n = new Date(new Date().toLocaleString('en-US',{timeZone:TZ}));
-              bt.value = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
-            }
-          }
-        });
-      }
-    }
-  }
-
-  initBirthDefaults();
-  if (typeof window.tickNow === 'function') window.tickNow();
-  if (!window._clock) window._clock = setInterval(()=>{ try{ window.tickNow(); }catch{} }, 60000);
 })();
 </script>
 </body>
