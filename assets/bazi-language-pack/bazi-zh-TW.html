@@ -545,103 +545,253 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
       return {strongest:maxKey, weakest:minKey};
     }
 
+    /* ===== Pro report builder (TW) ===== */
     function buildProReport(ctx){
-      const box = document.getElementById('professionalReport');
+      const box = $('professionalReport');
       if(!box || !ctx) return;
+
       const dmStemCn = ctx.day.stemCn;
       const rel = RelationText[dmStemCn] || {
-        traits:'感情裡重視真誠與互相支持。',
-        tips:'保持開放溝通，比沈默猜測更有力量。'
+        traits:'你在感情中很重視真心與彼此支持。',
+        tips:'保持開放、坦誠的溝通，不用硬撐，也不要用謊言勉強維持關係。'
       };
-      const dmLine = DayMasterText[dmStemCn] || '你的日主個性相對平衡，具備彈性與適應力。';
-      const {strongest, weakest} = strongestWeakest(ctx.elements);
+      const dmLine = DayMasterText[dmStemCn] || '你的日主個性整體算是平衡，也具備不錯的適應力。';
 
-      const strongZh = ELEM_LABEL_TW[strongest] || strongest;
-      const weakZh   = ELEM_LABEL_TW[weakest]   || weakest;
+      const elemCounts = ctx.elements || {};
+      const elemSummary = strongestWeakest(elemCounts);
+      const strongestElem = elemSummary.strongest;
+      const weakestElem = elemSummary.weakest;
+
+      const dayElem = ctx.day.element || ''; // 木 / 火 / 土 / 金 / 水 或 Wood / Fire / Earth / Metal / Water
+
+      // — Health focus by Day Master element —
+      let healthFocus = '整體身心能量的平衡';
+      let healthAdvice = '重視睡眠、規律飲食，盡量避免長期壓力堆積。';
+      switch(dayElem){
+        case '木':
+        case 'Wood':
+          healthFocus = '肝臟、神經系統與眼睛';
+          healthAdvice = '避免長期壓抑憤怒，盡量早睡，多接近大自然幫自己放鬆。';
+          break;
+        case '火':
+        case 'Fire':
+          healthFocus = '心臟、血壓與血液循環';
+          healthAdvice = '少喝過量含咖啡因飲品，學習放鬆技巧，也留意情緒突然暴衝的時候。';
+          break;
+        case '土':
+        case 'Earth':
+          healthFocus = '消化系統、脾胃';
+          healthAdvice = '盡量定時用餐，少油少甜，留意自己是否在「情緒化進食」。';
+          break;
+        case '金':
+        case 'Metal':
+          healthFocus = '肺部、皮膚與呼吸系統';
+          healthAdvice = '注意周圍空氣品質，遠離菸害，也試著用溝通代替把情緒悶在心裡。';
+          break;
+        case '水':
+        case 'Water':
+          healthFocus = '腎臟、膀胱與體內水分平衡';
+          healthAdvice = '補充足夠水分，避免過度受寒，同時照顧好腰椎與下背。';
+          break;
+      }
+
+      // — Near-term luck suggestion by strongest element —
+      let nearTermFocus = '未來 3–6 個月，適合先把生活基礎整理穩定。';
+      let nearTermAdvice = '把重心放在穩定與打底，避免在情緒不穩時做出太大的決定。';
+      switch(strongestElem){
+        case 'Wood':
+          nearTermFocus = '這段時間適合學習、新專案，還有拓展人脈。';
+          nearTermAdvice = '替自己規畫一個中期專案，每週穩定推進，比一次衝刺更有效。';
+          break;
+        case 'Fire':
+          nearTermFocus = '這段時間適合曝光、發表作品與對外溝通。';
+          nearTermAdvice = '善用你的高能量去簡報、談合作或推廣，但做決定前先讓情緒冷卻一下。';
+          break;
+        case 'Earth':
+          nearTermFocus = '這段時間適合整理生活結構、財務與工作規畫。';
+          nearTermAdvice = '做一份實際可行的財務計畫，逐步處理債務，同時穩固本業基礎。';
+          break;
+        case 'Metal':
+          nearTermFocus = '這段時間適合做系統、規則、備案，以及降低風險。';
+          nearTermAdvice = '整理合約與重要文件，檢視保險與長期規畫，讓未來更有安全感。';
+          break;
+        case 'Water':
+          nearTermFocus = '這段時間適合移動、換角度思考與嘗試新方向。';
+          nearTermAdvice = '可以探索不同機會，但請選定一到兩個真正的主軸，不要讓精力被切得太碎。';
+          break;
+      }
 
       const parts = [];
 
+      // 1. Overview
       parts.push(`
         <div class="butler-section">
-          <h4>一、日主性格總覽</h4>
-          <p><strong>日主：</strong>${ctx.day.stemCn}（${ctx.day.stemEn}）</p>
+          <h4>1. 整體概覽 · Day Master</h4>
+          <p><strong>Day Master：</strong> ${ctx.day.stemEn} (${dmStemCn})</p>
           <p>${dmLine}</p>
         </div>
       `);
 
+      // 2. Five Elements
       parts.push(`
         <div class="butler-section">
-          <h4>二、五行能量分佈</h4>
+          <h4>2. 五行能量平衡</h4>
           <p>
-            木：${ctx.elements.Wood}%　火：${ctx.elements.Fire}%　
-            土：${ctx.elements.Earth}%　金：${ctx.elements.Metal}%　
-            水：${ctx.elements.Water}%。
+            木：${elemCounts.Kayu || elemCounts.Wood || 0}% ·
+            火：${elemCounts.Api || elemCounts.Fire || 0}% ·
+            土：${elemCounts.Tanah || elemCounts.Earth || 0}% ·
+            金：${elemCounts.Logam || elemCounts.Metal || 0}% ·
+            水：${elemCounts.Air || elemCounts.Water || 0}%。
           </p>
           <p>
-            <strong>此盤最強五行：</strong>${strongZh}<br/>
-            <strong>此盤最弱五行：</strong>${weakZh}
+            <strong>最強的五行：</strong> ${strongestElem}。<br/>
+            <strong>最弱的五行：</strong> ${weakestElem}。
           </p>
           <p>
-            實務上，可以把最強的五行，當成你做決定時的「優勢資源」， 
-            而最弱的五行，則是需要透過環境、習慣與人際來慢慢補強的方向。
+            在實際生活中，當你需要信心時，可以先站在「最強的五行」上；
+            而「最弱的五行」則是你可以刻意培養的成長區域，透過環境、日常習慣
+            以及身邊的人慢慢調整。
           </p>
         </div>
       `);
 
+      // 3. Ten Gods (simplified)
       parts.push(`
         <div class="butler-section">
-          <h4>三、感情與婚姻傾向</h4>
-          <p><strong>感情特質：</strong>${rel.traits}</p>
-          <p><strong>修正建議：</strong>${rel.tips}</p>
+          <h4>3.「十神」結構（簡化版）</h4>
           <p>
-            整體來看，只要在情緒穩定、生活壓力不那麼緊繃的時候做關係決定，
-            通常會比在焦慮、財務壓力大的時候，更容易做出對彼此有利的選擇。
+            這個簡化版本沒有逐一以技術方式計算每顆十神（例如：傷官、正財、七殺），
+            但從五行的配置可以看出，你同時帶有
+            <strong>自我表達</strong>、<strong>金錢意識</strong> 和
+            <strong>對他人的責任感</strong> 等能量。
+          </p>
+          <p>
+            整體來說，這個格局提醒你要保持平衡：
+            不要完全為別人犧牲到忘記自己，
+            也不要只顧自己而忽略與重要關係之間的長期連結。
           </p>
         </div>
       `);
 
+      // 4. Useful Elements (喜用神)
       parts.push(`
         <div class="butler-section">
-          <h4>四、事業方向與工作習性</h4>
+          <h4>4. 喜用神方向 · 支持你的能量</h4>
           <p>
-            <strong>事業關鍵：</strong>這張命盤偏向「靠實力與時間累積」， 
-            適合用專業、口碑與穩定輸出來換取長期成果，而不是只追求短期暴衝。
+            在傳統命理裡，喜用神指的是最能幫助日主穩定、發揮的五行。
+            根據這個簡化盤，可以給你一個實際的抓法：
           </p>
-          <p>
-            若木火偏旺，適合在人群、表達、創意相關的領域發揮；
-            若金水偏旺，則更利於分析、技術、策略規劃與幕後運作。
-          </p>
-        </div>
-      `);
-
-      parts.push(`
-        <div class="butler-section">
-          <h4>五、財富節奏與實際建議</h4>
-          <p>
-            這裡強調的是「現金流意識」：有一份簡單清楚的月度預算、小額緊急預備金，
-            以及一個自己能接受的「風險金額上限」，能幫你減少很多焦慮。
-          </p>
-          <p>
-            最理想的財富模式，是先穩定好本業收入與專業，再慢慢擴充一到兩個
-            真正適合自己個性的副業或被動收入，而不是同時開太多戰線。
-          </p>
-        </div>
-      `);
-
-      parts.push(`
-        <div class="butler-section">
-          <h4>六、短期行動清單</h4>
           <ul>
-            <li>選一個 30 天內可完成的小目標（事業、金錢或健康皆可），寫下來並量化。</li>
-            <li>每週固定一個「檢視時段」，回顧本週狀態與下週安排。</li>
-            <li>用顏色、環境佈置與活動，刻意加強你的最強五行，讓自己更有力量。</li>
-            <li>從簡單可重複的小習慣開始，慢慢補足命盤中最弱的那個五行。</li>
+            <li><strong>先保護你最強的五行</strong>（${strongestElem}）——這是你的天生風格與優勢。</li>
+            <li><strong>溫柔地補強最弱的五行</strong>（${weakestElem}）——這裡就是你長期會看到進步的地方。</li>
+          </ul>
+          <p>
+            你可以透過顏色、居住與工作的環境、
+            工作性質，以及選擇相處的人來實踐這件事。
+          </p>
+        </div>
+      `);
+
+      // 5. Relationships
+      parts.push(`
+        <div class="butler-section">
+          <h4>5. 感情 & 婚姻</h4>
+          <p><strong>感情風格：</strong> ${rel.traits}</p>
+          <p><strong>建議：</strong> ${rel.tips}</p>
+          <p>
+            一般來說，當你的情緒比較穩、生活節奏不那麼壓迫時，
+            感情關係會順得多。盡量避免在壓力炸裂、
+            或財務壓力很大時做出關於感情的重大決定。
+          </p>
+        </div>
+      `);
+
+      // 6. Career
+      parts.push(`
+        <div class="butler-section">
+          <h4>6. 工作 & 職涯方向</h4>
+          <p>
+            <strong>職涯提醒：</strong> 這張命盤比較偏向
+            <strong>靠實力與耐心累積</strong> 的類型。
+            建立長期專業度與口碑，比追求短時間的大起大落更適合你。
+          </p>
+          <p>
+            盡量讓工作內容符合你的日主特質：
+            如果木／火較強，你會比較適合需要與人互動、變化多、能說能表現的角色；
+            如果金／水較強，你會在分析、系統、數字或技術／研究相關的領域更有發揮空間。
+          </p>
+        </div>
+      `);
+
+      // 7. Wealth
+      parts.push(`
+        <div class="butler-section">
+          <h4>7. 金錢 & 實際建議</h4>
+          <p>
+            這份快速解讀重點放在 <strong>現金流意識</strong>：
+            建議你有一個簡單的月度預算、小額緊急預備金，
+            再為「風險金」設一條清楚的界線（例如投機、交易、嘗試性的副業）。
+          </p>
+          <p>
+            對你來說，最適合的財富模式是：先穩住基本盤
+            （核心技能與主要收入），再慢慢增加符合你個性、
+            並且可長期經營的收入來源，而不是勉強自己去做完全不像你的事情。
+          </p>
+        </div>
+      `);
+
+      // 8. Health
+      parts.push(`
+        <div class="butler-section">
+          <h4>8. 健康 & 自我照顧</h4>
+          <p>
+            <strong>身體關注重點：</strong> ${healthFocus}
+          </p>
+          <p>
+            <strong>基本建議：</strong> ${healthAdvice}
+          </p>
+          <p>
+            此外，維持一個簡單但規律的日常節奏
+            （固定的睡眠時間、飲食與輕度運動），
+            再加上用安全的方式抒發情緒，例如寫日記、
+            散步或做短時間冥想，都能讓你的整體能量穩定很多。
+          </p>
+        </div>
+      `);
+
+      // 9. Near-term luck
+      parts.push(`
+        <div class="butler-section">
+          <h4>9. 未來 3–6 個月的能量流向</h4>
+          <p>
+            <strong>近期重點：</strong> ${nearTermFocus}
+          </p>
+          <p>
+            <strong>建議：</strong> ${nearTermAdvice}
+          </p>
+          <p>
+            當你覺得特別累，或開始「看不清自己要往哪裡走」時，
+            與其硬把所有專案扛在身上，不如先停下來整理優先順序，
+            決定此刻最重要的一兩件事就好。
+          </p>
+        </div>
+      `);
+
+      // 10. Action checklist
+      parts.push(`
+        <div class="butler-section">
+          <h4>10. 短期行動清單</h4>
+          <ul>
+            <li>在 30 天內，選一個最重要的目標（工作、金錢或健康），並把它寫得具體清楚。</li>
+            <li>每週固定選一天當作「檢視日」，看看自己在這個目標上前進到哪個位置。</li>
+            <li>用顏色、環境、活動與身邊的人，來保護並放大你最強的五行。</li>
+            <li>針對最弱的五行，設計一到兩個小習慣，重點是不急著求快，而是持續做到。</li>
           </ul>
         </div>
       `);
 
       box.innerHTML = parts.join('\n');
-      const sec = document.getElementById('butlerProfessional');
+      const sec = $('butlerProfessional');
       if(sec) sec.style.display = 'block';
     }
 
