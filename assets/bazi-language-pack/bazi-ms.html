@@ -553,16 +553,76 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
     function buildProReport(ctx){
       const box = $('professionalReport');
       if(!box || !ctx) return;
+
       const dmStemCn = ctx.day.stemCn;
       const rel = RelationText[dmStemCn] || {
         traits:'Anda menghargai keikhlasan dan saling menyokong dalam hubungan.',
         tips:'Kekalkan komunikasi terbuka dan jujur.'
       };
       const dmLine = DayMasterText[dmStemCn] || 'Watak Day Master anda seimbang dan mudah menyesuaikan diri.';
-      const {strongest, weakest} = strongestWeakest(ctx.elements);
+
+      const elemCounts = ctx.elements || {};
+      const elemSummary = strongestWeakest(elemCounts);
+      const strongestElem = elemSummary.strongest;
+      const weakestElem = elemSummary.weakest;
+
+      const dayElem = ctx.day.element || ''; // Kayu / Api / Tanah / Logam / Air
+
+      // — Health focus by Day Master element —
+      let healthFocus = 'keseimbangan tenaga keseluruhan';
+      let healthAdvice = 'Jaga tidur, makan teratur, dan elak tekanan berpanjangan.';
+      switch(dayElem){
+        case 'Kayu':
+          healthFocus = 'hati, sistem saraf dan mata';
+          healthAdvice = 'Elak marah terpendam, jaga waktu tidur awal, dan perbanyakkan aktiviti luar yang menenangkan.';
+          break;
+        case 'Api':
+          healthFocus = 'jantung, tekanan darah dan sistem peredaran darah';
+          healthAdvice = 'Elak kafein berlebihan, belajar teknik relaksasi, dan kawal ledakan emosi.';
+          break;
+        case 'Tanah':
+          healthFocus = 'sistem penghadaman, limpa dan perut';
+          healthAdvice = 'Makan ikut waktu, kurangkan makanan berminyak/manis, dan jaga perut daripada “makan emosi”.';
+          break;
+        case 'Logam':
+          healthFocus = 'paru-paru, kulit dan sistem pernafasan';
+          healthAdvice = 'Jaga kualiti udara, elak merokok, dan luahkan perasaan supaya tidak “menahan dalam dada”.';
+          break;
+        case 'Air':
+          healthFocus = 'buah pinggang, pundi kencing dan keseimbangan air dalam badan';
+          healthAdvice = 'Minum air mencukupi, elak kesejukan melampau, dan jaga tulang belakang/pinggang.';
+          break;
+      }
+
+      // — Near-term luck suggestion by strongest element —
+      let nearTermFocus = '3–6 bulan akan datang sesuai untuk mengukuhkan asas hidup anda.';
+      let nearTermAdvice = 'Utamakan kestabilan, jangan buat keputusan besar ketika emosi tidak stabil.';
+      switch(strongestElem){
+        case 'Kayu':
+          nearTermFocus = 'tempoh sesuai untuk pembelajaran, projek baharu dan pengembangan rangkaian.';
+          nearTermAdvice = 'Rancang satu projek jangka sederhana dan konsistenkan usaha setiap minggu.';
+          break;
+        case 'Api':
+          nearTermFocus = 'tempoh sesuai untuk promosi, pemasaran, dan menonjolkan diri.';
+          nearTermAdvice = 'Gunakan tenaga tinggi untuk presentasi, pelancaran, atau rundingan penting – tetapi kawal impuls.';
+          break;
+        case 'Tanah':
+          nearTermFocus = 'tempoh sesuai untuk menyusun semula struktur hidup, kewangan dan kerja.';
+          nearTermAdvice = 'Sediakan pelan kewangan, lunas hutang sedikit demi sedikit, dan kukuhkan asas kerja.';
+          break;
+        case 'Logam':
+          nearTermFocus = 'tempoh sesuai untuk sistem, peraturan, plan B dan perlindungan risiko.';
+          nearTermAdvice = 'Perkemas kontrak, dokumen dan insurans. Buat semakan menyeluruh pada perancangan jangka panjang.';
+          break;
+        case 'Air':
+          nearTermFocus = 'tempoh sesuai untuk bergerak, jelajah idea baharu dan fleksibiliti arah.';
+          nearTermAdvice = 'Teroka peluang, tetapi pilih satu-dua fokus utama supaya tenaga tidak berpecah.';
+          break;
+      }
 
       const parts = [];
 
+      // 1. Overview
       parts.push(`
         <div class="butler-section">
           <h4>1. Gambaran Umum · Day Master</h4>
@@ -571,17 +631,20 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
         </div>
       `);
 
+      // 2. Five Elements
       parts.push(`
         <div class="butler-section">
           <h4>2. Keseimbangan Lima Unsur</h4>
           <p>
-            Kayu: ${ctx.elements.Kayu || ctx.elements.Wood || 0}% · Api: ${ctx.elements.Api || ctx.elements.Fire || 0}% ·
-            Tanah: ${ctx.elements.Tanah || ctx.elements.Earth || 0}% · Logam: ${ctx.elements.Logam || ctx.elements.Metal || 0}% · Air: ${ctx.elements.Air || ctx.elements.Water || 0}%.
+            Kayu: ${elemCounts.Kayu || elemCounts.Wood || 0}% ·
+            Api: ${elemCounts.Api || elemCounts.Fire || 0}% ·
+            Tanah: ${elemCounts.Tanah || elemCounts.Earth || 0}% ·
+            Logam: ${elemCounts.Logam || elemCounts.Metal || 0}% ·
+            Air: ${elemCounts.Air || elemCounts.Water || 0}%.
           </p>
           <p>
-            <strong>Unsur paling kuat:</strong> ${strongest}.
-            <br/>
-            <strong>Unsur paling lemah:</strong> ${weakest}.
+            <strong>Unsur paling kuat:</strong> ${strongestElem}.<br/>
+            <strong>Unsur paling lemah:</strong> ${weakestElem}.
           </p>
           <p>
             Dalam praktik: gunakan unsur yang paling kuat bila anda perlukan keyakinan,
@@ -591,9 +654,47 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
         </div>
       `);
 
+      // 3. Ten Gods (simplified)
       parts.push(`
         <div class="butler-section">
-          <h4>3. Cinta & Perkahwinan</h4>
+          <h4>3. Konfigurasi “Sepuluh Dewa” (十神)</h4>
+          <p>
+            Versi ringkas ini tidak mengira semua 十神 secara teknikal seperti 伤官、正财、七杀
+            satu per satu, tetapi dari pola unsur dapat dilihat bahawa anda mempunyai campuran
+            tenaga <strong>ekspresi diri</strong>, <strong>fokus kewangan</strong> dan
+            <strong>tanggungjawab terhadap orang lain</strong>.
+          </p>
+          <p>
+            Secara umum, corak ini mengingatkan anda untuk seimbangkan:
+            jangan terlalu mengorbankan diri demi orang lain,
+            tetapi juga jangan hanya kejar diri sendiri tanpa memikirkan hubungan jangka panjang.
+          </p>
+        </div>
+      `);
+
+      // 4. Useful Elements (喜用神)
+      parts.push(`
+        <div class="butler-section">
+          <h4>4. Unsur Berfaedah (喜用神) · Arah Sokongan</h4>
+          <p>
+            Dalam bacaan klasik, 喜用神 merujuk kepada unsur yang paling membantu menstabilkan Day Master.
+            Berdasarkan carta ringkas ini, anda digalakkan untuk:
+          </p>
+          <ul>
+            <li><strong>Melindungi unsur terkuat</strong> (${strongestElem}) – ini adalah gaya semula jadi anda.</li>
+            <li><strong>Memupuk unsur paling lemah</strong> (${weakestElem}) – di sinilah banyak peluang pertumbuhan.</li>
+          </ul>
+          <p>
+            Anda boleh manifestasikan ini melalui warna, persekitaran,
+            jenis kerja dan rakan-rakan yang anda pilih untuk bersama.
+          </p>
+        </div>
+      `);
+
+      // 5. Relationships
+      parts.push(`
+        <div class="butler-section">
+          <h4>5. Cinta & Perkahwinan</h4>
           <p><strong>Ciri cinta:</strong> ${rel.traits}</p>
           <p><strong>Nasihat:</strong> ${rel.tips}</p>
           <p>
@@ -604,9 +705,10 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
         </div>
       `);
 
+      // 6. Career
       parts.push(`
         <div class="butler-section">
-          <h4>4. Kerjaya & Arah Kerja</h4>
+          <h4>6. Kerjaya & Arah Kerja</h4>
           <p>
             <strong>Nota kerjaya:</strong> Carta ini cenderung kepada pertumbuhan berasaskan kemahiran dan kesabaran.
             Membangun kepakaran dan reputasi jangka panjang lebih penting daripada lompatan singkat yang dramatik.
@@ -619,9 +721,10 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
         </div>
       `);
 
+      // 7. Wealth
       parts.push(`
         <div class="butler-section">
-          <h4>5. Rezeki & Nasihat Praktikal</h4>
+          <h4>7. Rezeki & Nasihat Praktikal</h4>
           <p>
             Bacaan ringkas ini menekankan <strong>aliran tunai yang sedar</strong>:
             ada bajet bulanan mudah, dana kecemasan kecil, dan had yang jelas untuk
@@ -634,9 +737,45 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
         </div>
       `);
 
+      // 8. Health
       parts.push(`
         <div class="butler-section">
-          <h4>6. Senarai Tindakan Jangka Pendek</h4>
+          <h4>8. Kesihatan & Penjagaan Diri</h4>
+          <p>
+            <strong>Fokus tubuh:</strong> ${healthFocus}.
+          </p>
+          <p>
+            <strong>Cadangan asas:</strong> ${healthAdvice}
+          </p>
+          <p>
+            Selain itu, kekalkan rutin harian yang konsisten (tidur, makan, senaman ringan)
+            dan belajar melepaskan tekanan emosi melalui cara yang sihat (menulis jurnal,
+            berjalan, meditasi ringkas).
+          </p>
+        </div>
+      `);
+
+      // 9. Near-term luck
+      parts.push(`
+        <div class="butler-section">
+          <h4>9. Energi & Aliran 3–6 Bulan Akan Datang</h4>
+          <p>
+            <strong>Fokus tempoh dekat:</strong> ${nearTermFocus}
+          </p>
+          <p>
+            <strong>Nasihat:</strong> ${nearTermAdvice}
+          </p>
+          <p>
+            Bila terasa sangat penat atau “tak jelas”, berhenti seketika untuk
+            susun semula keutamaan, bukannya paksa diri meneruskan semua projek sekaligus.
+          </p>
+        </div>
+      `);
+
+      // 10. Action checklist
+      parts.push(`
+        <div class="butler-section">
+          <h4>10. Senarai Tindakan Jangka Pendek</h4>
           <ul>
             <li>Pilih satu matlamat 30 hari yang realistik (kerjaya, wang atau kesihatan) dan tulis dengan jelas.</li>
             <li>Bina satu ritual mingguan (semakan, jurnal atau perancangan) untuk menilai kemajuan matlamat.</li>
