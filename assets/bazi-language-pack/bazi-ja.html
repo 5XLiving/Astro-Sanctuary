@@ -566,291 +566,200 @@ const LANG_PAGES = {
       }[e] || e;
     }
 
-    /* ===== Pro report builder — Japanese (10 sections) ===== */
-    function buildProReport(ctx){
-      const box = $('professionalReport');
-      if (!box || !ctx) return;
+function buildProReport(ctx){
+  const box = document.getElementById('professionalReport');
+  if(!box || !ctx) return;
 
-      const dmStemCn = ctx.day.stemCn;
+  const dmStemCn = ctx.day.stemCn;
+  const dmEn     = ctx.day.stemEn || '';
+  const dmLine   = DayMasterTextJa[dmStemCn] 
+    || '日主の性質はバランスが良く、状況に応じて柔軟に動ける配置です。';
+  const rel      = RelationTextJa[dmStemCn] || {
+    traits:'恋愛では、誠実さと安心感を大事にするタイプです。',
+    tips:'素直なコミュニケーションと、無理のない距離感を心がけましょう。'
+  };
 
-      // 日主テキスト（各ページ側で DayMasterText / RelationText を用意している前提）
-      const rel = (typeof RelationText !== 'undefined' && RelationText[dmStemCn]) ? RelationText[dmStemCn] : {
-        traits: 'あなたは誠実さと支え合いを大切にするタイプです。',
-        tips:   '感情を飲み込まず、落ち着いて本音を伝えることが鍵になります。'
-      };
-      const dmLine = (typeof DayMasterText !== 'undefined' && DayMasterText[dmStemCn]) ?
-        DayMasterText[dmStemCn] :
-        'あなたの日主はバランスが良く、状況に応じて柔軟に動けるタイプです。';
+  const el = ctx.elements || {};
+  const wood  = el.Wood  ?? el.木 ?? 0;
+  const fire  = el.Fire  ?? el.火 ?? 0;
+  const earth = el.Earth ?? el.土 ?? 0;
+  const metal = el.Metal ?? el.金 ?? 0;
+  const water = el.Water ?? el.水 ?? 0;
 
-      // ------- 五行の値を取り出し（木・火・土・金・水） -------
-      const elem = ctx.elements || {};
-      const valWood  = elem['木']   ?? elem.Wood  ?? elem.Kayu   ?? 0;
-      const valFire  = elem['火']   ?? elem.Fire  ?? elem.Api    ?? 0;
-      const valEarth = elem['土']   ?? elem.Earth ?? elem.Tanah  ?? 0;
-      const valMetal = elem['金']   ?? elem.Metal ?? elem.Logam  ?? 0;
-      const valWater = elem['水']   ?? elem.Water ?? elem.Air    ?? 0;
-
-      // 正規化してローカルで最強/最弱を判定
-      function localStrongestWeakest(counts){
-        const order = ['Wood','Fire','Earth','Metal','Water'];
-        let max = -1, min = 1e9, maxKey = 'Wood', minKey = 'Wood';
-        order.forEach(k => {
-          const v = counts[k] ?? 0;
-          if (v > max){ max = v; maxKey = k; }
-          if (v < min){ min = v; minKey = k; }
-        });
-        return { strongest:maxKey, weakest:minKey };
-      }
-
-      function labelElem(k){
-        const map = {
-          Wood:'木', Fire:'火', Earth:'土', Metal:'金', Water:'水',
-          Kayu:'木', Api:'火', Tanah:'土', Logam:'金', Air:'水',
-          '木':'木','火':'火','土':'土','金':'金','水':'水'
-        };
-        return map[k] || k;
-      }
-
-      function canonElem(k){
-        if (k === '木' || k === 'Kayu'  || k === 'Wood')  return 'Wood';
-        if (k === '火' || k === 'Api'   || k === 'Fire')  return 'Fire';
-        if (k === '土' || k === 'Tanah' || k === 'Earth') return 'Earth';
-        if (k === '金' || k === 'Logam' || k === 'Metal') return 'Metal';
-        if (k === '水' || k === 'Air'   || k === 'Water') return 'Water';
-        return null;
-      }
-
-      const countsNorm = {
-        Wood:  valWood,
-        Fire:  valFire,
-        Earth: valEarth,
-        Metal: valMetal,
-        Water: valWater
-      };
-      const sw = localStrongestWeakest(countsNorm);
-      const strongestCanon = sw.strongest;
-      const weakestCanon   = sw.weakest;
-      const strongestLabel = labelElem(strongestCanon);
-      const weakestLabel   = labelElem(weakestCanon);
-
-      // ------- 日主の五行から健康のポイントを出す -------
-      const dayElemRaw = ctx.day.element || '';  // 例: '木' or 'Wood'
-      const dayCanon   = canonElem(dayElemRaw);
-
-      let healthFocus = '全体的なエネルギーバランス';
-      let healthAdvice = '睡眠リズム・食事・軽い運動を整え、ストレスを溜め過ぎないことが大切です。';
-
-      switch(dayCanon){
-        case 'Wood':
-          healthFocus = '肝・神経系・目';
-          healthAdvice = 'イライラや怒りを溜め込まないこと。早寝を意識し、自然の多い場所でリセットしましょう。';
-          break;
-        case 'Fire':
-          healthFocus = '心臓・血圧・循環器';
-          healthAdvice = 'カフェイン・夜更かし・感情の爆発に注意。深呼吸やリラックス習慣を取り入れてください。';
-          break;
-        case 'Earth':
-          healthFocus = '胃腸・消化器・脾';
-          healthAdvice = '不規則な食事や脂っこい物・甘い物の摂り過ぎに注意。感情で「食べてしまう」癖を観察しましょう。';
-          break;
-        case 'Metal':
-          healthFocus = '肺・皮膚・呼吸器';
-          healthAdvice = '空気の質・喫煙・乾燥に気を付けると良いでしょう。胸の内を溜め込まず、言葉で放していくことも大切です。';
-          break;
-        case 'Water':
-          healthFocus = '腎・膀胱・水分バランス';
-          healthAdvice = '冷え・水分不足・腰回りの負担に注意。適度な水分と下半身の保温を意識してください。';
-          break;
-      }
-
-      // ------- 3〜6ヶ月の流れ（強い五行ベース） -------
-      let nearTermFocus  = '今後3〜6ヶ月は「土台を整える」ことに適した流れです。';
-      let nearTermAdvice = '焦って大きな決断をするより、生活・仕事の基盤を一つずつ整理していきましょう。';
-
-      switch(strongestCanon){
-        case 'Wood':
-          nearTermFocus = '学び・新しい挑戦・人脈づくりに追い風が吹きやすい期間です。';
-          nearTermAdvice = '中長期のプロジェクトを一つ決め、毎週コツコツ進めていくと実りやすいでしょう。';
-          break;
-        case 'Fire':
-          nearTermFocus = '発信・プレゼン・自己表現にスポットライトが当たりやすい時期です。';
-          nearTermAdvice = '表舞台に出るチャンスは活かしつつも、勢いだけの判断や衝動買いには注意しましょう。';
-          break;
-        case 'Earth':
-          nearTermFocus = '仕事・お金・生活習慣などを「整えること」に適した時期です。';
-          nearTermAdvice = '家計・契約・スケジュールを見直し、無理のないペースで安定を作ると良い流れになります。';
-          break;
-        case 'Metal':
-          nearTermFocus = '仕組みづくり・ルール・リスク管理に相性の良い時期です。';
-          nearTermAdvice = '契約・ルール・バックアッププランを整え、一度全体を見直すと安心感が高まります。';
-          break;
-        case 'Water':
-          nearTermFocus = '移動・情報・アイデアの循環が活発になりやすい時期です。';
-          nearTermAdvice = '可能性を広げつつも、「今の自分に本当に必要なもの」を見極めて、焦点を絞ると成果につながります。';
-          break;
-      }
-
-      const parts = [];
-
-      // 1. 全体像
-      parts.push(`
-        <div class="butler-section">
-          <h4>1. 全体像 · 日主 (Day Master)</h4>
-          <p><strong>日主:</strong> ${ctx.day.stemEn} (${dmStemCn})</p>
-          <p>${dmLine}</p>
-        </div>
-      `);
-
-      // 2. 五行バランス
-      parts.push(`
-        <div class="butler-section">
-          <h4>2. 五行バランス</h4>
-          <p>
-            木: ${valWood}% · 火: ${valFire}% · 土: ${valEarth}% · 金: ${valMetal}% · 水: ${valWater}%。
-          </p>
-          <p>
-            <strong>一番強い五行:</strong> ${strongestLabel}<br/>
-            <strong>一番弱い五行:</strong> ${weakestLabel}
-          </p>
-          <p>
-            実生活では、<strong>強い五行</strong>はあなたの「得意なエネルギー」として活かし、
-            <strong>弱い五行</strong>は環境・習慣・人間関係を通して少しずつ補っていくと、
-            全体のバランスが整いやすくなります。
-          </p>
-        </div>
-      `);
-
-      // 3. 十神配置（簡略）
-      parts.push(`
-        <div class="butler-section">
-          <h4>3. 十神配置（簡略）</h4>
-          <p>
-            この簡易版レポートでは、専門的な十神計算（比肩・劫財・食神・傷官・正財・偏財・正官・七殺など）を
-            すべて細かく出してはいませんが、五行の偏りから
-            <strong>自己表現・現実的なお金・人との関わり</strong>のテーマが強く表れています。
-          </p>
-          <p>
-            自分の本音を活かしつつ、相手との境界線を意識して「与え過ぎ」「我慢し過ぎ」にならないことが
-            この命式の大切なポイントと言えます。
-          </p>
-        </div>
-      `);
-
-      // 4. 喜用神・サポート要素
-      parts.push(`
-        <div class="butler-section">
-          <h4>4. 喜用神とサポート要素</h4>
-          <p>
-            伝統的な命理では、日主を安定させてくれる五行を<strong>喜用神</strong>と呼びます。
-            この簡易レポートでは、次のように意識すると良いでしょう。
-          </p>
-          <ul>
-            <li><strong>一番強い五行</strong>（${strongestLabel}）… あなたらしさ・持ち味として大切にする。</li>
-            <li><strong>一番弱い五行</strong>（${weakestLabel}）… 色・場所・仲間・行動習慣で少しずつ補う。</li>
-          </ul>
-          <p>
-            例えば、色・服装・仕事のスタイル・一緒にいる人のタイプなどを通して、
-            五行のバランスを整えていくイメージです。
-          </p>
-        </div>
-      `);
-
-      // 5. 恋愛・結婚
-      parts.push(`
-        <div class="butler-section">
-          <h4>5. 恋愛・結婚</h4>
-          <p><strong>恋愛の傾向:</strong> ${rel.traits}</p>
-          <p><strong>アドバイス:</strong> ${rel.tips}</p>
-          <p>
-            特にストレスが強い時期は、感情で大きな決断をしないことが大切です。
-            気持ちが落ち着いているタイミングで話し合いをすると、
-            関係が安定しやすくなります。
-          </p>
-        </div>
-      `);
-
-      // 6. 仕事・キャリア
-      parts.push(`
-        <div class="butler-section">
-          <h4>6. 仕事・キャリアの方向性</h4>
-          <p>
-            <strong>キャリアのテーマ:</strong>
-            この命式は、派手な一発逆転よりも、スキルと信頼をコツコツ積み上げていくタイプです。
-          </p>
-          <p>
-            日主や五行のバランスから見ると、
-            人との関わりが多い仕事・発信が必要な仕事・分析やリサーチ型の仕事など、
-            自分の強い五行に合ったスタイルを選ぶことで流れが良くなります。
-          </p>
-        </div>
-      `);
-
-      // 7. お金・実務的アドバイス
-      parts.push(`
-        <div class="butler-section">
-          <h4>7. お金・現実面のアドバイス</h4>
-          <p>
-            金運そのものよりも、<strong>キャッシュフローの管理</strong>が重要な命式です。
-            シンプルな月次予算・小さな緊急資金・「リスク用のお金」を分けておくと安心感が増します。
-          </p>
-          <p>
-            まずは本業や安定収入の軸を固め、
-            そのうえで自分の性質に合った副業・投資・新しい収入源を少しずつ増やしていくと良い流れになります。
-          </p>
-        </div>
-      `);
-
-      // 8. 健康・養生
-      parts.push(`
-        <div class="butler-section">
-          <h4>8. 健康・養生のポイント</h4>
-          <p>
-            <strong>意識したい部位・テーマ:</strong> ${healthFocus}
-          </p>
-          <p>
-            <strong>基本アドバイス:</strong> ${healthAdvice}
-          </p>
-          <p>
-            さらに、週に数回の軽い運動やストレッチ、深呼吸・瞑想・日記など、
-            心身を落ち着かせる習慣を取り入れると、五行のバランスが整いやすくなります。
-          </p>
-        </div>
-      `);
-
-      // 9. 近未来（3〜6ヶ月）
-      parts.push(`
-        <div class="butler-section">
-          <h4>9. 近未来の運勢（3〜6ヶ月）</h4>
-          <p>
-            <strong>流れのテーマ:</strong> ${nearTermFocus}
-          </p>
-          <p>
-            <strong>過ごし方のヒント:</strong> ${nearTermAdvice}
-          </p>
-          <p>
-            疲れが強い時は、一度立ち止まって優先順位を整理しなおすこと。
-            「全部やる」よりも、「今いちばん大事なこと」に集中するほど運が味方しやすくなります。
-          </p>
-        </div>
-      `);
-
-      // 10. 行動チェックリスト
-      parts.push(`
-        <div class="butler-section">
-          <h4>10. 行動チェックリスト</h4>
-          <ul>
-            <li>この30日で達成したい現実的な目標を1つだけ決めて、紙やメモに書き出す。</li>
-            <li>週に1回、「振り返りタイム」（レビュー・日記・翌週の計画）を10〜20分だけ作る。</li>
-            <li>自分の強い五行を活かせる色・場所・人間関係・働き方を意識して選ぶ。</li>
-            <li>弱い五行を補う小さな習慣（食事・運動・勉強・環境づくり）を1つずつ増やしていく。</li>
-          </ul>
-        </div>
-      `);
-
-      box.innerHTML = parts.join('\n');
-      const sec = $('butlerProfessional');
-      if (sec) sec.style.display = 'block';
+  function getStrongWeak(){
+    const arr = [
+      {id:'木', label:'木', val:wood},
+      {id:'火', label:'火', val:fire},
+      {id:'土', label:'土', val:earth},
+      {id:'金', label:'金', val:metal},
+      {id:'水', label:'水', val:water}
+    ];
+    let max = arr[0], min = arr[0];
+    for(const item of arr){
+      if(item.val > max.val) max = item;
+      if(item.val < min.val) min = item;
     }
+    return {strongest:max.label, weakest:min.label};
+  }
+
+  const sw = getStrongWeak();
+
+  const parts = [];
+
+  // 1. 命盤総覧
+  parts.push(`
+    <div class="butler-section">
+      <h4>1. 命盤総覧・日主</h4>
+      <p><strong>日主:</strong> ${dmEn}（${dmStemCn}）</p>
+      <p>${dmLine}</p>
+    </div>
+  `);
+
+  // 2. 五行バランス
+  parts.push(`
+    <div class="butler-section">
+      <h4>2. 五行バランス</h4>
+      <p>
+        木：${wood}% ・ 火：${fire}% ・ 土：${earth}% ・ 金：${metal}% ・ 水：${water}% 
+      </p>
+      <p>
+        <strong>最も強い五行：</strong> ${sw.strongest}<br/>
+        <strong>最も弱い五行：</strong> ${sw.weakest}
+      </p>
+      <p>
+        強い五行はあなたの「武器」となり、弱い五行は「意識的に育てるテーマ」です。
+        環境・色・人間関係・行動パターンを通じて、弱い五行を少しずつ補っていくとバランスが整います。
+      </p>
+    </div>
+  `);
+
+  // 3. 十神配置（簡易）
+  parts.push(`
+    <div class="butler-section">
+      <h4>3. 十神の配置（簡易イメージ）</h4>
+      <p>
+        この簡易版レポートでは、詳細な十神（比肩・劫財・食神・傷官・偏財・正財・偏官・正官・偏印・印綬）
+        の計算までは行っていませんが、日主と他の柱の関係から
+        「自分軸・お金・行動力・人間関係」のバランスを整えることが大切だと示しています。
+      </p>
+      <p>
+        実務レベルでは、<strong>得意分野を活かしつつ、苦手分野は人や仕組みに任せる</strong>方針が吉です。
+      </p>
+    </div>
+  `);
+
+  // 4. 喜用神の方向性（ライト版）
+  parts.push(`
+    <div class="butler-section">
+      <h4>4. 喜用神の方向性（ライト版）</h4>
+      <p>
+        本格的な喜用神は専門鑑定が必要ですが、このライト版では
+        「弱い五行を程よく補い、強すぎる五行は整える」という考え方を基本とします。
+      </p>
+      <p>
+        例えば、金が弱い命盤なら「ルール・仕組み・分析・整理整頓」を意識して取り入れることが
+        喜用神的な動きになりやすい、というイメージです。
+      </p>
+      <p>
+        生活の中で「どの五行を増やすとバランスがよくなりそうか」を意識するだけでも、
+        運の流れ方が少しずつ変わっていきます。
+      </p>
+    </div>
+  `);
+
+  // 5. 恋愛・結婚
+  parts.push(`
+    <div class="butler-section">
+      <h4>5. 恋愛・結婚</h4>
+      <p><strong>恋愛の特徴：</strong> ${rel.traits}</p>
+      <p><strong>アドバイス：</strong> ${rel.tips}</p>
+      <p>
+        感情が安定していて、心と時間に余裕がある時期ほど、良いご縁や関係の発展が起こりやすくなります。
+        逆に、仕事やお金のプレッシャーが強い時期は、大きな決断は少し先送りにしても構いません。
+      </p>
+    </div>
+  `);
+
+  // 6. 仕事・キャリア
+  parts.push(`
+    <div class="butler-section">
+      <h4>6. 仕事・キャリア</h4>
+      <p>
+        <strong>キャリアのポイント：</strong>
+        この命盤は、派手な一発逆転よりも、<strong>専門性と信用を積み上げるタイプの成長</strong>に向いています。
+      </p>
+      <p>
+        五行バランスから見て、<strong>「人と関わる仕事」か「分析・技術寄りの仕事」</strong>のどちらに
+        エネルギーが寄っているかを意識すると、自分に合う働き方が見えやすくなります。
+      </p>
+      <p>
+        日主の性質（${dmEn}）を活かし、「自分らしいペース」と「成果の出る型」を作ることが長期的なテーマです。
+      </p>
+    </div>
+  `);
+
+  // 7. お金・財運
+  parts.push(`
+    <div class="butler-section">
+      <h4>7. お金・財運</h4>
+      <p>
+        財運の基本は、<strong>安定収入＋小さなチャレンジ</strong>のバランスです。
+        まずは生活を支える土台（本業・基礎収入）を整え、その上で無理のない範囲で副業・投資などを試すと良いでしょう。
+      </p>
+      <p>
+        「毎月の予算」「小さな緊急資金」「リスクを取っても良い遊びの資金」を分けて考えると、
+        心の不安が減り、チャンスも掴みやすくなります。
+      </p>
+    </div>
+  `);
+
+  // 8. 健康・セルフケア
+  parts.push(`
+    <div class="butler-section">
+      <h4>8. 健康・セルフケア</h4>
+      <p>
+        五行のバランスは、体質やコンディションにも影響を与えます。
+        例えば、水の要素が弱い場合は「腎・泌尿器・冷え」、火が強すぎる場合は「のぼせ・イライラ」など、
+        自律神経のケアがテーマになりやすいといったイメージです。
+      </p>
+      <p>
+        <strong>規則正しい睡眠・軽い運動・感情を溜め込まない習慣</strong>は、どの命盤にも共通する開運ケアです。
+      </p>
+    </div>
+  `);
+
+  // 9. 近未来の流れ（ライト）
+  parts.push(`
+    <div class="butler-section">
+      <h4>9. 近未来の流れ（ライト）</h4>
+      <p>
+        詳細な年運・月運は専門鑑定が必要ですが、この簡易レポートでは、
+        「今は表現・発信を強めやすい時期か」「整理・調整に向く時期か」
+        といった大まかなテーマを意識しておくと良いと示しています。
+      </p>
+      <p>
+        気持ちと現実の両方が整っているタイミングで、新しいチャレンジや大事な決断を選ぶよう意識してみてください。
+      </p>
+    </div>
+  `);
+
+  // 10. 行動チェックリスト
+  parts.push(`
+    <div class="butler-section">
+      <h4>10. 行動チェックリスト</h4>
+      <ul>
+        <li>30日間で達成したい具体的な目標を1つだけ決めて、紙やメモに書き出す。</li>
+        <li>週に1回、「振り返りタイム」を15〜30分だけ確保して、自分の進捗をチェックする。</li>
+        <li>一番強い五行を活かせる環境（色・場所・人間関係・行動）を少しずつ増やす。</li>
+        <li>一番弱い五行を補うための小さな習慣（食事・運動・学び・休息など）を1つだけ追加する。</li>
+      </ul>
+    </div>
+  `);
+
+  box.innerHTML = parts.join('\n');
+  const sec = document.getElementById('butlerProfessional');
+  if (sec) sec.style.display = 'block';
+}
 
     // 下の表
     function setText(id,val){ const el=$(id); if(el) el.textContent = val==null?'-':val; }
