@@ -566,198 +566,290 @@ const LANG_PAGES = {
       }[e] || e;
     }
 
-    /* ===== Pro report builder (local, Japanese) ===== */
+    /* ===== Pro report builder — Japanese (10 sections) ===== */
     function buildProReport(ctx){
       const box = $('professionalReport');
-      if(!box || !ctx) return;
-      const dmStemCn = ctx.day.stemCn;
-      const rel = RelationText[dmStemCn] || {
-        traits:'恋愛においては、誠実さと支え合いを大切にするタイプです。',
-        tips:'本音を我慢しすぎず、素直なコミュニケーションを心がけると関係が安定しやすくなります。'
-      };
-      const dmLine = DayMasterText[dmStemCn] || 'あなたの日主はバランス型で、状況に合わせて柔軟に対応できるタイプです。';
-      const {strongest, weakest} = strongestWeakest(ctx.elements);
+      if (!box || !ctx) return;
 
-      const strongestJp = jpElemName(strongest);
-      const weakestJp = jpElemName(weakest);
-      const dayElemJp = jpElemName(ctx.day.element); // 木・火・土・金・水
+      const dmStemCn = ctx.day.stemCn;
+
+      // 日主テキスト（各ページ側で DayMasterText / RelationText を用意している前提）
+      const rel = (typeof RelationText !== 'undefined' && RelationText[dmStemCn]) ? RelationText[dmStemCn] : {
+        traits: 'あなたは誠実さと支え合いを大切にするタイプです。',
+        tips:   '感情を飲み込まず、落ち着いて本音を伝えることが鍵になります。'
+      };
+      const dmLine = (typeof DayMasterText !== 'undefined' && DayMasterText[dmStemCn]) ?
+        DayMasterText[dmStemCn] :
+        'あなたの日主はバランスが良く、状況に応じて柔軟に動けるタイプです。';
+
+      // ------- 五行の値を取り出し（木・火・土・金・水） -------
+      const elem = ctx.elements || {};
+      const valWood  = elem['木']   ?? elem.Wood  ?? elem.Kayu   ?? 0;
+      const valFire  = elem['火']   ?? elem.Fire  ?? elem.Api    ?? 0;
+      const valEarth = elem['土']   ?? elem.Earth ?? elem.Tanah  ?? 0;
+      const valMetal = elem['金']   ?? elem.Metal ?? elem.Logam  ?? 0;
+      const valWater = elem['水']   ?? elem.Water ?? elem.Air    ?? 0;
+
+      // 正規化してローカルで最強/最弱を判定
+      function localStrongestWeakest(counts){
+        const order = ['Wood','Fire','Earth','Metal','Water'];
+        let max = -1, min = 1e9, maxKey = 'Wood', minKey = 'Wood';
+        order.forEach(k => {
+          const v = counts[k] ?? 0;
+          if (v > max){ max = v; maxKey = k; }
+          if (v < min){ min = v; minKey = k; }
+        });
+        return { strongest:maxKey, weakest:minKey };
+      }
+
+      function labelElem(k){
+        const map = {
+          Wood:'木', Fire:'火', Earth:'土', Metal:'金', Water:'水',
+          Kayu:'木', Api:'火', Tanah:'土', Logam:'金', Air:'水',
+          '木':'木','火':'火','土':'土','金':'金','水':'水'
+        };
+        return map[k] || k;
+      }
+
+      function canonElem(k){
+        if (k === '木' || k === 'Kayu'  || k === 'Wood')  return 'Wood';
+        if (k === '火' || k === 'Api'   || k === 'Fire')  return 'Fire';
+        if (k === '土' || k === 'Tanah' || k === 'Earth') return 'Earth';
+        if (k === '金' || k === 'Logam' || k === 'Metal') return 'Metal';
+        if (k === '水' || k === 'Air'   || k === 'Water') return 'Water';
+        return null;
+      }
+
+      const countsNorm = {
+        Wood:  valWood,
+        Fire:  valFire,
+        Earth: valEarth,
+        Metal: valMetal,
+        Water: valWater
+      };
+      const sw = localStrongestWeakest(countsNorm);
+      const strongestCanon = sw.strongest;
+      const weakestCanon   = sw.weakest;
+      const strongestLabel = labelElem(strongestCanon);
+      const weakestLabel   = labelElem(weakestCanon);
+
+      // ------- 日主の五行から健康のポイントを出す -------
+      const dayElemRaw = ctx.day.element || '';  // 例: '木' or 'Wood'
+      const dayCanon   = canonElem(dayElemRaw);
+
+      let healthFocus = '全体的なエネルギーバランス';
+      let healthAdvice = '睡眠リズム・食事・軽い運動を整え、ストレスを溜め過ぎないことが大切です。';
+
+      switch(dayCanon){
+        case 'Wood':
+          healthFocus = '肝・神経系・目';
+          healthAdvice = 'イライラや怒りを溜め込まないこと。早寝を意識し、自然の多い場所でリセットしましょう。';
+          break;
+        case 'Fire':
+          healthFocus = '心臓・血圧・循環器';
+          healthAdvice = 'カフェイン・夜更かし・感情の爆発に注意。深呼吸やリラックス習慣を取り入れてください。';
+          break;
+        case 'Earth':
+          healthFocus = '胃腸・消化器・脾';
+          healthAdvice = '不規則な食事や脂っこい物・甘い物の摂り過ぎに注意。感情で「食べてしまう」癖を観察しましょう。';
+          break;
+        case 'Metal':
+          healthFocus = '肺・皮膚・呼吸器';
+          healthAdvice = '空気の質・喫煙・乾燥に気を付けると良いでしょう。胸の内を溜め込まず、言葉で放していくことも大切です。';
+          break;
+        case 'Water':
+          healthFocus = '腎・膀胱・水分バランス';
+          healthAdvice = '冷え・水分不足・腰回りの負担に注意。適度な水分と下半身の保温を意識してください。';
+          break;
+      }
+
+      // ------- 3〜6ヶ月の流れ（強い五行ベース） -------
+      let nearTermFocus  = '今後3〜6ヶ月は「土台を整える」ことに適した流れです。';
+      let nearTermAdvice = '焦って大きな決断をするより、生活・仕事の基盤を一つずつ整理していきましょう。';
+
+      switch(strongestCanon){
+        case 'Wood':
+          nearTermFocus = '学び・新しい挑戦・人脈づくりに追い風が吹きやすい期間です。';
+          nearTermAdvice = '中長期のプロジェクトを一つ決め、毎週コツコツ進めていくと実りやすいでしょう。';
+          break;
+        case 'Fire':
+          nearTermFocus = '発信・プレゼン・自己表現にスポットライトが当たりやすい時期です。';
+          nearTermAdvice = '表舞台に出るチャンスは活かしつつも、勢いだけの判断や衝動買いには注意しましょう。';
+          break;
+        case 'Earth':
+          nearTermFocus = '仕事・お金・生活習慣などを「整えること」に適した時期です。';
+          nearTermAdvice = '家計・契約・スケジュールを見直し、無理のないペースで安定を作ると良い流れになります。';
+          break;
+        case 'Metal':
+          nearTermFocus = '仕組みづくり・ルール・リスク管理に相性の良い時期です。';
+          nearTermAdvice = '契約・ルール・バックアッププランを整え、一度全体を見直すと安心感が高まります。';
+          break;
+        case 'Water':
+          nearTermFocus = '移動・情報・アイデアの循環が活発になりやすい時期です。';
+          nearTermAdvice = '可能性を広げつつも、「今の自分に本当に必要なもの」を見極めて、焦点を絞ると成果につながります。';
+          break;
+      }
 
       const parts = [];
 
+      // 1. 全体像
       parts.push(`
         <div class="butler-section">
-          <h4>1. 全体像 · 日主タイプ</h4>
-          <p><strong>日主：</strong> ${dmStemCn}${dayElemJp}タイプ</p>
+          <h4>1. 全体像 · 日主 (Day Master)</h4>
+          <p><strong>日主:</strong> ${ctx.day.stemEn} (${dmStemCn})</p>
           <p>${dmLine}</p>
         </div>
       `);
 
+      // 2. 五行バランス
       parts.push(`
         <div class="butler-section">
           <h4>2. 五行バランス</h4>
           <p>
-            木：${ctx.elements.Wood}% · 火：${ctx.elements.Fire}% ·
-            土：${ctx.elements.Earth}% · 金：${ctx.elements.Metal}% · 水：${ctx.elements.Water}%。
+            木: ${valWood}% · 火: ${valFire}% · 土: ${valEarth}% · 金: ${valMetal}% · 水: ${valWater}%。
           </p>
-              <p>
-                <strong>一番強い五行：</strong>${strongestJp}<br/>
-                <strong>一番弱い五行：</strong>${weakestJp}
-              </p>
           <p>
-            実践面では、「強い五行」は自分の得意分野として大切な場面で活かし、
-            「弱い五行」は環境・習慣・人間関係を通して少しずつ育てていくとバランスが整いやすくなります。
+            <strong>一番強い五行:</strong> ${strongestLabel}<br/>
+            <strong>一番弱い五行:</strong> ${weakestLabel}
+          </p>
+          <p>
+            実生活では、<strong>強い五行</strong>はあなたの「得意なエネルギー」として活かし、
+            <strong>弱い五行</strong>は環境・習慣・人間関係を通して少しずつ補っていくと、
+            全体のバランスが整いやすくなります。
           </p>
         </div>
       `);
 
+      // 3. 十神配置（簡略）
       parts.push(`
         <div class="butler-section">
-          <h4>3. 恋愛 &amp; 結婚の傾向</h4>
-          <p><strong>恋愛の特徴：</strong>${rel.traits}</p>
-          <p><strong>アドバイス：</strong>${rel.tips}</p>
+          <h4>3. 十神配置（簡略）</h4>
           <p>
-            強いストレスやお金の不安が大きい時期は、大きな恋愛の決断を避け、
-            まず心と生活の安定を優先すると良い流れをつくりやすくなります。
+            この簡易版レポートでは、専門的な十神計算（比肩・劫財・食神・傷官・正財・偏財・正官・七殺など）を
+            すべて細かく出してはいませんが、五行の偏りから
+            <strong>自己表現・現実的なお金・人との関わり</strong>のテーマが強く表れています。
+          </p>
+          <p>
+            自分の本音を活かしつつ、相手との境界線を意識して「与え過ぎ」「我慢し過ぎ」にならないことが
+            この命式の大切なポイントと言えます。
           </p>
         </div>
       `);
 
+      // 4. 喜用神・サポート要素
       parts.push(`
         <div class="butler-section">
-          <h4>4. 仕事・キャリアの方向性</h4>
+          <h4>4. 喜用神とサポート要素</h4>
           <p>
-            <strong>キャリアのポイント：</strong>この命式は「コツコツ積み上げ型」の成長と相性が良く、
-            一気に大きく跳ねるよりも、専門性や信頼を少しずつ育てるほど成果が出やすいタイプです。
+            伝統的な命理では、日主を安定させてくれる五行を<strong>喜用神</strong>と呼びます。
+            この簡易レポートでは、次のように意識すると良いでしょう。
           </p>
-          <p>
-            木・火が強い場合は、人と関わる仕事や動きのある現場向き。
-            金・水が強い場合は、分析・技術・リサーチ系の仕事との相性が良くなります。
-          </p>
-        </div>
-      `);
-
-      parts.push(`
-        <div class="butler-section">
-          <h4>5. 金運 &amp; 実務的なヒント</h4>
-          <p>
-            この簡易鑑定では、特に<strong>キャッシュフローの管理</strong>に注目します。
-            「毎月の予算」「小さな緊急資金」「リスクを取ってよいお金（投機・チャレンジ資金）」を
-            ざっくり分けて意識するだけでも、金運の波に振り回されにくくなります。
-          </p>
-          <p>
-            まずは本業・スキル・安定収入を固め、その上で自分の性質に合った副収入や副業を
-            少しずつ増やしていく流れがおすすめです。
-          </p>
-        </div>
-      `);
-
-      parts.push(`
-        <div class="butler-section">
-          <h4>6. 直近 30 日のアクションチェック</h4>
           <ul>
-            <li>この 30 日で達成したい現実的な目標を 1 つ決めて、紙やメモに書き出す。</li>
-            <li>週に 1 回、「振り返りタイム」（日記・レビュー・計画タイム）を固定で入れる。</li>
-            <li>一番強い五行を意識し、それに合う環境（色・アイテム・行動・人間関係）を生活に取り入れる。</li>
-            <li>一番弱い五行は、小さな習慣（たとえば運動・勉強・人との交流など）で少しずつ育てていく。</li>
+            <li><strong>一番強い五行</strong>（${strongestLabel}）… あなたらしさ・持ち味として大切にする。</li>
+            <li><strong>一番弱い五行</strong>（${weakestLabel}）… 色・場所・仲間・行動習慣で少しずつ補う。</li>
+          </ul>
+          <p>
+            例えば、色・服装・仕事のスタイル・一緒にいる人のタイプなどを通して、
+            五行のバランスを整えていくイメージです。
+          </p>
+        </div>
+      `);
+
+      // 5. 恋愛・結婚
+      parts.push(`
+        <div class="butler-section">
+          <h4>5. 恋愛・結婚</h4>
+          <p><strong>恋愛の傾向:</strong> ${rel.traits}</p>
+          <p><strong>アドバイス:</strong> ${rel.tips}</p>
+          <p>
+            特にストレスが強い時期は、感情で大きな決断をしないことが大切です。
+            気持ちが落ち着いているタイミングで話し合いをすると、
+            関係が安定しやすくなります。
+          </p>
+        </div>
+      `);
+
+      // 6. 仕事・キャリア
+      parts.push(`
+        <div class="butler-section">
+          <h4>6. 仕事・キャリアの方向性</h4>
+          <p>
+            <strong>キャリアのテーマ:</strong>
+            この命式は、派手な一発逆転よりも、スキルと信頼をコツコツ積み上げていくタイプです。
+          </p>
+          <p>
+            日主や五行のバランスから見ると、
+            人との関わりが多い仕事・発信が必要な仕事・分析やリサーチ型の仕事など、
+            自分の強い五行に合ったスタイルを選ぶことで流れが良くなります。
+          </p>
+        </div>
+      `);
+
+      // 7. お金・実務的アドバイス
+      parts.push(`
+        <div class="butler-section">
+          <h4>7. お金・現実面のアドバイス</h4>
+          <p>
+            金運そのものよりも、<strong>キャッシュフローの管理</strong>が重要な命式です。
+            シンプルな月次予算・小さな緊急資金・「リスク用のお金」を分けておくと安心感が増します。
+          </p>
+          <p>
+            まずは本業や安定収入の軸を固め、
+            そのうえで自分の性質に合った副業・投資・新しい収入源を少しずつ増やしていくと良い流れになります。
+          </p>
+        </div>
+      `);
+
+      // 8. 健康・養生
+      parts.push(`
+        <div class="butler-section">
+          <h4>8. 健康・養生のポイント</h4>
+          <p>
+            <strong>意識したい部位・テーマ:</strong> ${healthFocus}
+          </p>
+          <p>
+            <strong>基本アドバイス:</strong> ${healthAdvice}
+          </p>
+          <p>
+            さらに、週に数回の軽い運動やストレッチ、深呼吸・瞑想・日記など、
+            心身を落ち着かせる習慣を取り入れると、五行のバランスが整いやすくなります。
+          </p>
+        </div>
+      `);
+
+      // 9. 近未来（3〜6ヶ月）
+      parts.push(`
+        <div class="butler-section">
+          <h4>9. 近未来の運勢（3〜6ヶ月）</h4>
+          <p>
+            <strong>流れのテーマ:</strong> ${nearTermFocus}
+          </p>
+          <p>
+            <strong>過ごし方のヒント:</strong> ${nearTermAdvice}
+          </p>
+          <p>
+            疲れが強い時は、一度立ち止まって優先順位を整理しなおすこと。
+            「全部やる」よりも、「今いちばん大事なこと」に集中するほど運が味方しやすくなります。
+          </p>
+        </div>
+      `);
+
+      // 10. 行動チェックリスト
+      parts.push(`
+        <div class="butler-section">
+          <h4>10. 行動チェックリスト</h4>
+          <ul>
+            <li>この30日で達成したい現実的な目標を1つだけ決めて、紙やメモに書き出す。</li>
+            <li>週に1回、「振り返りタイム」（レビュー・日記・翌週の計画）を10〜20分だけ作る。</li>
+            <li>自分の強い五行を活かせる色・場所・人間関係・働き方を意識して選ぶ。</li>
+            <li>弱い五行を補う小さな習慣（食事・運動・勉強・環境づくり）を1つずつ増やしていく。</li>
           </ul>
         </div>
       `);
 
       box.innerHTML = parts.join('\n');
       const sec = $('butlerProfessional');
-      if(sec) sec.style.display = 'block';
-    }
-
-    /* ===== Generate Bazi flow ===== */
-    const calc = new BaziCalculator();
-
-    function showError(msg){
-      const e = $('error');
-      if(!e) return;
-      e.textContent = msg;
-      e.style.display = 'block';
-    }
-    function clearError(){
-      const e = $('error');
-      if(e){ e.textContent=''; e.style.display='none'; }
-    }
-
-function onGenerate(){
-  clearError();
-  const btn = $('genBtn');
-  const textSpan = $('genBtnText');
-  const loadSpan = $('genBtnLoading');
-  const birthdate = $('birthdate').value;
-  const timeStr = $('birthtime').value;
-  const timeUnknown = $('timeUnknown').checked;
-
-  if(!birthdate){
-    showError('生年月日を入力してください。');
-    return;
-  }
-  const m = birthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if(!m){
-    showError('日付の形式が正しくありません。（YYYY-MM-DD）');
-    return;
-  }
-  const year = parseInt(m[1],10), month=parseInt(m[2],10), day=parseInt(m[3],10);
-
-  let hour = null, minute = null;
-  if(!timeUnknown && timeStr){
-    const tm = timeStr.match(/^(\d{2}):(\d{2})$/);
-    if(tm){
-      hour = parseInt(tm[1],10);
-      minute = parseInt(tm[2],10);
-    }
-  }
-
-  if(btn){ btn.disabled=true; }
-  if(textSpan) textSpan.style.display='none';
-  if(loadSpan) loadSpan.style.display='inline';
-
-  try{
-    const yearP = calc.yearPillar(year);
-    const monthP = calc.monthPillar(year,month,day);
-    const dayP = calc.dayPillar(year,month,day);
-    const hasHour = hour!==null && !isNaN(hour);
-    const hourP = hasHour ? calc.hourPillar(dayP.stemCn,hour) : null;
-
-    // ★ 五行（木火土金水）を先に計算
-    const yearElem  = calc.stemElem(yearP.stemCn);
-    const monthElem = calc.stemElem(monthP.stemCn);
-    const dayElem   = calc.stemElem(dayP.stemCn);
-    const hourElem  = hourP ? calc.stemElem(hourP.stemCn) : '—';
-
-    // 上のカード（4 本柱）
-    const pillarsBox = $('bazi-pillars');
-    if(pillarsBox){
-      pillarsBox.innerHTML = '';
-      const arr = [
-        {label:'年柱', p:yearP},
-        {label:'月柱', p:monthP},
-        {label:'日柱', p:dayP},
-        {label:'時柱', p:hourP}
-      ];
-      arr.forEach(item=>{
-        const div = document.createElement('div');
-        div.className='pillar';
-        if (item.p) {
-          const stemElemJp   = jpElemName(calc.stemElem(item.p.stemCn));   // 木・火・土・金・水
-          const branchElemJp = jpElemName(calc.branchElem(item.p.branch)); // 木・火・土・金・水
-          div.innerHTML = `
-            <div class="tit">${item.label}</div>
-            <div class="gz">${item.p.stemCn}${item.p.branch}</div>
-            <div class="muted">干：${stemElemJp} ／ 支：${branchElemJp}</div>
-          `;
-        } else {
-          div.innerHTML = `
-            <div class="tit">${item.label}</div>
-            <div class="gz">—</div>
-            <div class="muted">N/A</div>
-          `;
-        }
-        pillarsBox.appendChild(div);
-      });
+      if (sec) sec.style.display = 'block';
     }
 
     // 下の表
