@@ -970,6 +970,71 @@ window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
   });
 })();
 </script>
+<script>  
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const TZ = 'Asia/Singapore';
+  const localeMap = { 'zh-CN':'zh-CN','zh-TW':'zh-TW','en':'en-US','ja':'ja-JP','th':'th-TH','ms':'ms' };
+  const getLocale = () => (localeMap[(window.state && window.state.lang) || 'ms'] || 'ms-ms');
+
+  // Chain applyI18n without breaking the version the app set earlier
+  window.applyI18n = (function(prev){
+    return function(){
+      if (typeof prev === 'function') prev();
+      if (typeof window.tickNow === 'function') window.tickNow();
+    };
+  })(window.applyI18n);
+
+  // Define tickNow only if the app hasn't already defined it
+  if (typeof window.tickNow !== 'function') {
+    window.tickNow = function tickNow(){
+      const box = $('nowBox'); if (!box) return;
+      const fmt = new Intl.DateTimeFormat(getLocale(), {
+        weekday:'short', year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit', hour12:false, timeZone: TZ
+      });
+      box.textContent = fmt.format(new Date()) + ' (SGT)';
+    };
+  }
+
+  // One-time birth defaults (kept exactly as behavior you intended)
+  function initBirthDefaults() {
+    const bd = $('birthdate'); const bt = $('birthtime'); const unk = $('timeUnknown');
+    const nowSG = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }));
+
+    if (bd && !bd.value){
+      const y=nowSG.getFullYear(), m=String(nowSG.getMonth()+1).padStart(2,'0'), d=String(nowSG.getDate()).padStart(2,'0');
+      bd.value = `${y}-${m}-${d}`;
+    }
+
+    if (bt){
+      const hh=String(nowSG.getHours()).padStart(2,'0'), mm=String(nowSG.getMinutes()).padStart(2,'0');
+      if (!bt.value) bt.value = `${hh}:${mm}`;
+      const setUnknownState = ()=>{ const isUnknown = !!(unk && unk.checked); bt.disabled = isUnknown; if (isUnknown) bt.value = ''; };
+      setUnknownState();
+      if (unk && !unk._wired){
+        unk._wired = true;
+        unk.addEventListener('change', ()=>{
+          if (unk.checked){
+            bt.disabled = true; bt.value = '';
+          } else {
+            bt.disabled = false;
+            if (!bt.value){
+              const n = new Date(new Date().toLocaleString('en-US',{timeZone:TZ}));
+              bt.value = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+            }
+          }
+        });
+      }
+    }
+  }
+
+  // Initial render + clock; guard against duplicate intervals from the main app
+  initBirthDefaults();
+  if (typeof window.tickNow === 'function') window.tickNow();
+  if (!window._clock) window._clock = setInterval(()=>{ try{ window.tickNow(); }catch{} }, 60000);
+})();
+</script>  
 </body>
 </html>
 
