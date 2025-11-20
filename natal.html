@@ -428,25 +428,57 @@
     const usr = [`Name: ${name||'-'}`,`Birth: ${date} ${time||'12:00'}${at}`,`Sun sign: ${sunName} (element: ${el})`, topic?`Task: ${topic}`:`Task: 事业解读`].join('\n');
 
     try{
-      if(OFFLINE_MODE) throw new Error('OFFLINE_MODE');
-      const res = await fetchWithRetry(ENDPOINTS, { messages:[{role:'system',content:sys},{role:'user',content:usr}] }, { retries:2, timeout:15000, signal:thisCall.signal });
-      if(thisCall.signal.aborted) return;
-      const data = await safeJson(res); const raw = data?.reply || data?.text || data?.choices?.[0]?.message?.content || '';
-      if(!raw) throw new Error('Empty');
-      let html = mdToHtml(raw);
-      if(!isVIP()){
-        const parts = raw.split(/\n##\s+/); const header = parts.shift()||''; const kept = [header, ...(parts.slice(0,2).map(p=>'## '+p))].join('\n\n');
-        html = mdToHtml(kept) + `
-          <div class='ai-lock-overlay' style='position:static;margin-top:8px;padding-top:8px;border-top:1px solid #233145;text-align:center'>
-            <div class='tip' style='color:#ffd88a;font-weight:700;margin-bottom:4px'>${t('vip_tip')}</div>
-            <div class='sub' style='color:#9aa8b9;margin-top:4px'>${t('vip_sub')}</div>
-            <a class='btn' href='https://yourshopifyshop.com/products/monthly-vip' target='_blank' rel='noopener'>${t('btn_unlock')}</a>
-          </div>`;
-      }
-      out && (out.innerHTML = html);
-    }catch(e){ if(e?.name==='AbortError') return; console.warn('[Butler] fallback:', e); out && (out.innerHTML = `<div class='ai-content'><div style='color:#ffd88a;font-weight:700;margin-bottom:6px'>${t('err_network')} / ${t('err_busy')}（本地离线解读）</div>${localButlerFallback(getLang(), sunName, el)}</div>`); }
-    finally{ if(thisCall===aiAbort) aiAbort=null; }
+  if( OFFLINE_MODE ) throw new Error('OFFLINE_MODE');
+
+  const res = await fetchWithRetry(
+    ENDPOINTS,
+    { messages:[{role:'system',content:sys},{role:'user',content:usr}] },
+    { retries:2, timeout:15000, signal:thisCall.signal }
+  );
+  if(thisCall.signal.aborted) return;
+
+  const data = await safeJson(res);
+
+  // ⬇️ 新增：Worker 返回 ok:false 时，当成失败，走 fallback
+  if (data && data.ok === false) {
+    console.warn('[Butler] Worker upstream error:', data.status, data.error || data.msg);
+    throw new Error('Worker-upstream-error');
   }
+
+  const raw =
+    data?.reply ||
+    data?.text ||
+    data?.choices?.[0]?.message?.content ||
+    '';
+
+  if(!raw) throw new Error('Empty');
+
+  let html = mdToHtml(raw);
+  if(!isVIP()){
+    const parts = raw.split(/\n##\s+/);
+    const header = parts.shift() || '';
+    const kept = [header, ...(parts.slice(0,2).map(p=>'## '+p))].join('\n\n');
+    html = mdToHtml(kept) + `
+      <div class='ai-lock-overlay' style='position:static;margin-top:8px;padding-top:8px;border-top:1px solid #233145;text-align:center'>
+        <div class='tip' style='color:#ffd88a;font-weight:700;margin-bottom:4px'>${t('vip_tip')}</div>
+        <div class='sub' style='color:#9aa8b9;margin-top:4px'>${t('vip_sub')}</div>
+        <a class='btn' href='https://yourshopifyshop.com/products/monthly-vip' target='_blank' rel='noopener'>${t('btn_unlock')}</a>
+      </div>`;
+  }
+  out && (out.innerHTML = html);
+}catch(e){
+  if(e?.name==='AbortError') return;
+  console.warn('[Butler] fallback:', e);
+  out && (out.innerHTML =
+    `<div class='ai-content'>
+       <div style='color:#ffd88a;font-weight:700;margin-bottom:6px'>
+         ${t('err_network')} / ${t('err_busy')}（本地离线解读）
+       </div>
+       ${localButlerFallback(getLang(), sunName, el)}
+     </div>`);
+}finally{
+  if(thisCall===aiAbort) aiAbort=null;
+}
 
   /* ========================= 表单/流程 ========================= */
   function readForm(){ const name=(gid('name')?.value||'').trim(); const place=(gid('place')?.value||'').trim(); const date=gid('birthdate')?.value||''; const time=gid('birthtime')?.value||'12:00'; return { name, place, date, time }; }
@@ -495,3 +527,4 @@
 </script>
 </body>
 </html>
+
