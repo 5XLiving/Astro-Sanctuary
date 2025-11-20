@@ -819,6 +819,7 @@
   }
 
   let aiAbort = null;
+  let lastModel = null;
 
   async function runAI(topic = ''){
     ensureAiCard();
@@ -963,19 +964,162 @@
       `<div class='sec'><h3>能量提示</h3><p>${(EL_TIPS[lang]||EL_TIPS['zh-CN'])[sign.el].map(x=>'• '+x).join('<br>')}</p></div>`;
   }
 
-  function generateChart(){
-    const btn=gid('genBtn');
-    if(btn){ btn.disabled=true; setTimeout(()=>btn.disabled=false,800); }
-    const model = readForm();
-    if(!model.date || !model.place){ alert(t('alert_fill')); return; }
-    gid('result').style.display='block';
-    renderHeaderSummary(model);
-    renderOverview(model);
-    renderProNatalReport(model);
-    ensureAiCard();
-    runAI();
+function generateChart(){
+  const btn = gid('genBtn');
+  if(btn){ btn.disabled = true; setTimeout(()=>btn.disabled=false, 800); }
+
+  const model = readForm();
+  if(!model.date || !model.place){
+    alert(t('alert_fill'));
+    return;
   }
 
+  // Remember for language switching
+  lastModel = model;
+
+  gid('result').style.display = 'block';
+  renderHeaderSummary(model);
+
+  // 用 AI 生整份报告（多语言）
+  runNatalReportAI(model)
+    .then(()=>{
+      // 再在报告后面挂心怜管家卡片
+      ensureAiCard();
+      runAI();
+    })
+    .catch(e=>{
+      console.warn('[generateChart] natal AI error:', e);
+      // 失败时仍然给一个最基本的 overview + Butler fallback
+      renderOverview(model);
+      ensureAiCard();
+      runAI();
+    });
+}
+
+  async function runNatalReportAI(model){
+  const wrap = gid('chartReport');
+  if (!wrap) return;
+
+  const lang = getLang();
+  const sun = getSunSign(model.date);
+  const sunName = sun.name[lang] || sun.name['zh-CN'];
+  const el = sun.el;
+
+  // skeleton loading UI
+  wrap.innerHTML = `
+    <div class="sec">
+      <h3 style="margin:0 0 8px;color:#f2d27a">Loading / 生成报告中...</h3>
+      <div style="height:10px;border-radius:6px;
+                  background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);
+                  animation:sh 1.2s infinite"></div>
+    </div>
+  `;
+
+  const langName = getOutputLanguageName(lang);
+  const at = model.place ? (' @ ' + model.place) : '';
+
+  const sys = [
+    `You are an astrology consultant. OUTPUT LANGUAGE: ${langName}.`,
+    'Write in a warm, practical tone. No medical or legal claims.',
+    'Use Markdown headings with this structure:',
+    '## Overview',
+    '## Personality',
+    '## Relationships',
+    '## Career & Life Direction',
+    '## Money & Material Life',
+    '## Health & Rhythm',
+    '## This Week\'s Action List',
+    '## Gentle Reminder',
+    'Each section: 2–4 short paragraphs or bullet points. Focus on concrete, actionable advice.',
+    'This is a simplified natal reading based on Sun sign only. Do not invent other placements (Moon, Rising, houses, etc.).'
+  ].join('\n');
+
+  const usr = [
+    `Name: ${model.name || '-'}`,
+    `Birth: ${model.date} ${model.time || '12:00'}${at}`,
+    `Sun sign: ${sunName} (element: ${el})`,
+    '',
+    'Context:',
+    '- This is a simplified natal chart, we only know the Sun sign & element.',
+    '- Adapt advice to daily life, work, relationships, money, and health.',
+    '- Make the style gentle but clear and efficient.'
+  ].join('\n');
+
+  try{
+    if (OFFLINE_MODE) throw new Error('OFFLINE_MODE');
+
+    const res = await fetchWithRetry(
+      ENDPOINTS,
+      {
+        messages: [
+          { role: 'system', content: sys },
+          { role: 'user',   content: usr }
+        ]
+      },
+      { retries: 2, timeout: 15000 }
+    );
+
+    const data = await safeJson(res);
+
+    // if Worker returns {ok:false,...}, treat as error
+    if (data && data.ok === false){
+      console.warn('[NatalReport] Worker upstream error:', data.status, data.error || data.msg);
+      throw new Error('Worker-upstream-error');
+    }
+
+    const raw =
+      data?.reply ||
+      data?.text ||
+      data?.choices?.[0]?.message?.content ||
+      '';
+
+    if (!raw) throw new Error('Empty');
+
+    // VIP gate: only full markdown for VIP; partial for non-VIP
+    let html;
+    if (!isVIP()) {
+      const parts = raw.split(/\n##\s+/);
+      const header = parts.shift() || '';
+      const kept = [header, ...(parts.slice(0, 2).map(p => '## ' + p))].join('\n\n');
+      html = mdToHtml(kept) + `
+        <div class='ai-lock-overlay'
+             style='position:static;margin-top:8px;padding-top:8px;
+                    border-top:1px solid #233145;text-align:center'>
+          <div class='tip'
+               style='color:#ffd88a;font-weight:700;margin-bottom:4px'>
+            ${t('vip_tip')}
+          </div>
+          <div class='sub'
+               style='color:#9aa8b9;margin-top:4px'>
+            ${t('vip_sub')}
+          </div>
+          <a class='btn'
+             href='https://yourshopifyshop.com/products/monthly-vip'
+             target='_blank' rel='noopener'>
+            ${t('btn_unlock')}
+          </a>
+        </div>`;
+    } else {
+      html = mdToHtml(raw);
+    }
+
+    wrap.innerHTML = html;
+  } catch(e){
+    console.warn('[NatalReport] fallback:', e);
+    const lang = getLang();
+    const tips = (EL_TIPS[lang] || EL_TIPS['zh-CN'])[el] || [];
+    wrap.innerHTML = `
+      <div class="sec">
+        <h3 style="margin:0 0 8px;color:#f2d27a">
+          ${t('err_network')} / ${t('err_busy')}（本地离线解读）
+        </h3>
+        <p>太阳星座：${sunName}</p>
+        <p>${tips.map(x => '• ' + x).join('<br>')}</p>
+      </div>
+    `;
+  }
+}
+  
   /* ========================= 右下角 Chat 悬浮球 ========================= */
   function mountChat(){
     if(gid('ssChatFab')) return;
@@ -1105,17 +1249,33 @@
       });
     }
 
-    if($lang){
-      $lang.addEventListener('change', ()=>{
-        localStorage.setItem('astro_lang', $lang.value);
-        applyI18n();
-        gid('ssChatFab') && (gid('ssChatFab').textContent = t('chat_fab'));
-        const ct = qs('.ss-chat-title');
-        if(ct) ct.textContent = t('butler_chat_title');
-        const ip = gid('ssChatInput');
-        if(ip) ip.placeholder = t('chat_placeholder');
+if($lang){
+  $lang.addEventListener('change', ()=>{
+    localStorage.setItem('astro_lang', $lang.value);
+    applyI18n();
+
+    // 刷新 Chat UI 文案
+    gid('ssChatFab') && (gid('ssChatFab').textContent = t('chat_fab'));
+    const ct = qs('.ss-chat-title');
+    if(ct) ct.textContent = t('butler_chat_title');
+    const ip = gid('ssChatInput');
+    if(ip) ip.placeholder = t('chat_placeholder');
+
+    // 如果已经生成过一次，就用新语言重跑 AI 报告 + Butler
+    if(lastModel){
+      renderHeaderSummary(lastModel);
+      runNatalReportAI(lastModel).then(()=>{
+        ensureAiCard();
+        runAI();
+      }).catch(e=>{
+        console.warn('[lang change] natal AI error:', e);
+        renderOverview(lastModel);
+        ensureAiCard();
+        runAI();
       });
     }
+  });
+}
 
     // 头部时钟
     startNowClock();
@@ -1130,6 +1290,7 @@
 </script>
 </body>
 </html>
+
 
 
 
