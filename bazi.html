@@ -766,16 +766,17 @@ function t(path, lang = (window.state && window.state.lang) || 'zh-CN') {
       return arr.map(key);
     }
 
-/* ===== Pro report builder (CN) ===== */
+/* ===== Pro report builder (CN) · 10 sections ===== */
 window.buildProReport = function buildProReport(ctx){
   const box = $('professionalReport');
   if (!box || !ctx) return;
 
-  // 1. 取出日主、五行百分比
-  const dm = ctx.dayStem || '';
-  const pctsCN = ctx.pcts || {};
+  // ctx 结构：{ pcts, dayStem, tenGods, unknown }
+  const dm = ctx.dayStem || '';                      // 日主天干（甲乙丙丁...）
+  const pctsCN = ctx.pcts || {};                    // {木:%, 火:%, ...}
+  const ten = Array.isArray(ctx.tenGods) ? ctx.tenGods.filter(Boolean) : [];
 
-  // 把「木火土金水」转成英文键，方便内部逻辑
+  // 把「木火土金水」百分比映射成英文键，方便后面 strongest/weakest 判断
   const elem = {
     Wood:  pctsCN['木'] || 0,
     Fire:  pctsCN['火'] || 0,
@@ -796,7 +797,6 @@ window.buildProReport = function buildProReport(ctx){
 
   const { strongest, weakest } = strongestWeakest(elem);
 
-  // 英文 → 中文五行名
   const ELEM_LABEL_CN = {
     Wood:  '木',
     Fire:  '火',
@@ -807,40 +807,31 @@ window.buildProReport = function buildProReport(ctx){
   const strongestLabel = ELEM_LABEL_CN[strongest] || strongest || '-';
   const weakestLabel   = ELEM_LABEL_CN[weakest]   || weakest   || '-';
 
-  // 用你上面定义好的 BaziAnalysis 生成基础文案
-  const dmLine = BaziAnalysis.dayMasterLine(dm)
+  // ==== 文案：全部用你上面已经有的 BaziAnalysis + I18N ====
+  const dmLine   = BaziAnalysis.dayMasterLine(dm)
     || '你的日主个性整体比较平衡，也具有不错的适应力。';
-  const rel = BaziAnalysis.relation(dm);
-  const healthFocus = BaziAnalysis.health(dm);
-  const wealthDirs  = BaziAnalysis.wealthDirs(dm);
+  const rel      = BaziAnalysis.relation(dm);
+  const marriage = BaziAnalysis.marriageAdvice(ten);
+  const career   = BaziAnalysis.career(dm, ten);     // {suitable, advice}
+  const wealthDir= BaziAnalysis.wealthDirs(dm);
+  const healthFo = BaziAnalysis.health(dm);
 
-  // 未来 3–6 个月节奏（按最强五行大致判断）
-  let nearTermFocus  = '未来 3–6 个月适合先把生活与工作的基础打稳。';
-  let nearTermAdvice = '重要决定尽量放在情绪稳定、状态清晰的时候再做。';
+  // 喜用方向（用你上面已经写好的 helper）
+  const supportKeys  = supportElems(dm);             // ['elem.wood', ...]
+  const restrainKeys = restrainElems(dm);
+  const usefulKeys   = computeUseful({               // 传入五行百分比
+    木: pctsCN['木'] || 0,
+    火: pctsCN['火'] || 0,
+    土: pctsCN['土'] || 0,
+    金: pctsCN['金'] || 0,
+    水: pctsCN['水'] || 0,
+  });
 
-  switch (strongest) {
-    case 'Wood':
-      nearTermFocus  = '接下来几个月，有利于学习、新项目，以及拓展人脉。';
-      nearTermAdvice = '为自己规划一个中期项目，每周稳定推进，比一次性爆冲更有持续效果。';
-      break;
-    case 'Fire':
-      nearTermFocus  = '这段时间适合曝光自己、推广作品与主动表达。';
-      nearTermAdvice = '把高能量用在演示、谈判、上线新计划上，同时避免一时冲动的决定。';
-      break;
-    case 'Earth':
-      nearTermFocus  = '目前适合整理结构，包括时间管理、财务布局与工作节奏。';
-      nearTermAdvice = '做一个简单的财务计划，分步减压，并把重心放在打好基本盘。';
-      break;
-    case 'Metal':
-      nearTermFocus  = '适合建立制度、规则、备选方案与风险防护。';
-      nearTermAdvice = '检查合同、文件与保险，为未来 1–2 年的规划做一次系统梳理。';
-      break;
-    case 'Water':
-      nearTermFocus  = '适合移动、尝试新方向与调整思路。';
-      nearTermAdvice = '可以多探索几种可能性，但最后收敛到一两件真正想坚持的事。';
-      break;
-  }
+  const supportText  = supportKeys.map(k=>t(k)).filter(Boolean).join('、') || '-';
+  const restrainText = restrainKeys.map(k=>t(k)).filter(Boolean).join('、') || '-';
+  const usefulText   = usefulKeys.map(k=>t(k)).filter(Boolean).join('、') || '-';
 
+  // 五行条形文字
   const elemLine = `
     木：${Math.round(elem.Wood)}% ·
     火：${Math.round(elem.Fire)}% ·
@@ -849,117 +840,185 @@ window.buildProReport = function buildProReport(ctx){
     水：${Math.round(elem.Water)}%
   `.replace(/\s+/g,' ');
 
+  // 近期运势 by 最强五行
+  let nearTermFocus  = t('fortune.foundation') || '打基础、稳节奏为主';
+  let nearTermAdvice = t('cautions.default')   || '避开情绪决策，控制支出。';
+
+  switch (strongest) {
+    case 'Wood':
+      nearTermFocus  = t('fortune.upward') || '势头向上，利推广/表达';
+      nearTermAdvice = '适合学习新技能、拓展人脉，每周稳定推进一个中期项目。';
+      break;
+    case 'Fire':
+      nearTermFocus  = t('fortune.upward') || '势头向上，利推广/表达';
+      nearTermAdvice = '高能量适合曝光、谈判、上线新计划，同时避免一时冲动。';
+      break;
+    case 'Earth':
+      nearTermFocus  = t('fortune.focus') || '收敛聚焦，利制度与执行';
+      nearTermAdvice = '整理时间与财务结构，把精力集中在最有回报的 1–2 个方向。';
+      break;
+    case 'Metal':
+      nearTermFocus  = t('fortune.focus') || '收敛聚焦，利制度与执行';
+      nearTermAdvice = '适合制定规则、流程、合同与备援方案，为下一阶段打好制度基础。';
+      break;
+    case 'Water':
+      nearTermFocus  = t('fortune.study') || '学习调研期，先蓄后发';
+      nearTermAdvice = '多观察、多比较，先试小步实验，再决定真正要押注的方向。';
+      break;
+  }
+
+  // ==== 10 个标题用 I18N（有就用，没有就用中文兜底） ====
+  const title = {
+    overview:     t('reportTitles.overview')     || '📊 命盘总览',
+    fiveElements: t('reportTitles.fiveElements') || '🌿 五行分析',
+    tenGods:      t('reportTitles.tenGods')      || '⚡ 十神配置',
+    useful:       t('reportTitles.useful')       || '🔑 喜用神',
+    relation:     t('reportTitles.relationship') || '💕 感情婚姻',
+    career:       t('reportTitles.career')       || '💼 事业发展',
+    wealth:       t('reportTitles.wealth')       || '💰 财运分析',
+    health:       t('reportTitles.health')       || '🌡️ 健康养生',
+    nearTerm:     t('reportTitles.nearTerm')     || '🔮 近期运势',
+    actions:      t('reportTitles.actions')      || '📝 行动清单',
+  };
+
   const parts = [];
 
-  // 1. Day Master 概览
+  // 1. 命盘总览
   parts.push(`
     <div class="butler-section">
-      <h4>1. 整体概览 · Day Master</h4>
-      <p><strong>日主：</strong> ${dm || '-'} 日主</p>
+      <h4>1. ${title.overview}</h4>
+      <p><strong>${t('reportLabels.dayMaster') || '日主命理'}：</strong> ${dm || '-'} 日主</p>
       <p>${dmLine}</p>
+      ${ctx.unknown ? `<p>${t('report.report.hourUnknownTip') || '⚠️ 出生时间不详，部分分析仅供参考。'}</p>` : ''}
     </div>
   `);
 
-  // 2. 五行能量
+  // 2. 五行分析
   parts.push(`
     <div class="butler-section">
-      <h4>2. 五行能量平衡</h4>
+      <h4>2. ${title.fiveElements}</h4>
       <p>${elemLine}</p>
       <p>
-        <strong>最强：</strong> ${strongestLabel}
-        &nbsp;&nbsp;
-        <strong>最弱：</strong> ${weakestLabel}
+        <strong>最旺五行：</strong> ${strongestLabel} &nbsp;&nbsp;
+        <strong>相对较弱：</strong> ${weakestLabel}
       </p>
       <p>
-        最强的五行代表你最自然、最顺手的使用方式；
-        最弱的五行是可以慢慢补强的成长区域，不必急着一次到位。
+        最强的五行代表你最自然、最容易发挥的方式；
+        最弱的五行是可以慢慢补强的长期成长区域，不需要急着一次到位。
       </p>
     </div>
   `);
 
-  // 3. 感情 & 相处
+  // 3. 十神配置（这里用简化说明）
   parts.push(`
     <div class="butler-section">
-      <h4>3. 感情 &amp; 相处模式</h4>
+      <h4>3. ${title.tenGods}</h4>
+      <p>
+        这份快速报告没有逐一列出每个十神的技术细节，
+        但整体格局显示，你在<strong>自我表达、资源运用与对他人责任感</strong>之间，
+        需要找到平衡：既不能完全忽略自己，也不适合长期委屈自己。
+      </p>
+      <p>
+        当你感觉特别累或被消耗时，可以问自己：
+        「现在这件事，是为了谁？我有没有把自己的底线讲清楚？」
+      </p>
+    </div>
+  `);
+
+  // 4. 喜用神方向
+  parts.push(`
+    <div class="butler-section">
+      <h4>4. ${title.useful}</h4>
+      <p><strong>帮扶五行：</strong> ${supportText}</p>
+      <p><strong>需要被收敛／平衡的五行：</strong> ${restrainText}</p>
+      <p><strong>当前可优先补强的方向：</strong> ${usefulText || '整体较为平均，可依生活目标灵活调整。'}</p>
+      <p>
+        你可以透过颜色、环境布置、工作内容与相处对象，
+        有意识地强化喜用的五行，例如：
+        选择对应五行的颜色、方位与活动节奏。
+      </p>
+    </div>
+  `);
+
+  // 5. 感情婚姻
+  parts.push(`
+    <div class="butler-section">
+      <h4>5. ${title.relation}</h4>
       <p><strong>感情风格：</strong> ${rel.traits}</p>
-      <p><strong>建议：</strong> ${rel.tips}</p>
+      <p><strong>关系建议：</strong> ${rel.tips}</p>
+      <p><strong>婚姻提示：</strong> ${marriage}</p>
       <p>
-        一般来说，当你的作息与情绪比较稳定时，关系会顺得多。
-        尽量避免在压力爆表或财务很紧的时候，做出关于感情的重大决定。
+        感情对你来说，不只是浪漫，更是长期的「合作关系」：
+        在稳定的生活节奏、清楚的边界与诚实沟通下，关系会顺得多。
       </p>
     </div>
   `);
 
-  // 4. 工作 & 职涯
+  // 6. 事业发展
   parts.push(`
     <div class="butler-section">
-      <h4>4. 工作 &amp; 职涯方向</h4>
+      <h4>6. ${title.career}</h4>
+      <p><strong>适合领域：</strong> ${career.suitable}</p>
+      <p><strong>职涯建议：</strong> ${career.advice}</p>
       <p>
-        这张命盘整体比较适合走<strong>长期累积型</strong>路线：
-        靠专业度、稳定输出与口碑来累积机会，
-        而不是单纯追求一时的暴冲或短期暴利。
-      </p>
-      <p>
-        建议你把心力放在能够长期经营的领域，
-        让别人一想到某个主题，就自然会联想到你。
+        尤其适合以<strong>「长期深耕 + 专业口碑」</strong>的方式前进，
+        让别人一想到某个主题，就会自然联想到你，而不是只靠一两次短暂的机会。
       </p>
     </div>
   `);
 
-  // 5. 金钱 & 实际建议
+  // 7. 财运分析
   parts.push(`
     <div class="butler-section">
-      <h4>5. 金钱 &amp; 实际建议</h4>
+      <h4>7. ${title.wealth}</h4>
+      <p><strong>求财方向（方位参考）：</strong> ${wealthDir || '-'}</p>
       <p>
-        <strong>求财方向（参考）：</strong> ${wealthDirs || '-'}
+        财运的关键不只是「有没有机会」，而是你对现金流和风险的敏感度：
+        建议先稳住主要收入，再为高风险项目设定「损失上限」。
       </p>
       <p>
-        实际操作上，可以先设定一个简单的「基础盘」：
-        每月固定预算、保留小额紧急预备金，再为高风险的部分设上限。
-      </p>
-      <p>
-        对你而言，最可持续的财富路径是：先稳住主要收入，
-        然后慢慢扩展与自己个性相符的副业或额外收入，而不是勉强去做完全不像自己的事。
+        对你来说，最可持续的财富模式，是用专业与信任累积收入，
+        再慢慢发展与你个性相符的副业或额外收入来源。
       </p>
     </div>
   `);
 
-  // 6. 健康 & 自我照顾
+  // 8. 健康养生
   parts.push(`
     <div class="butler-section">
-      <h4>6. 健康 &amp; 自我照顾</h4>
-      <p><strong>身体关注重点：</strong> ${healthFocus}</p>
+      <h4>8. ${title.health}</h4>
+      <p><strong>身体关注重点：</strong> ${healthFo}</p>
       <p>
-        建议你维持一个简单但有节奏的生活：
-        固定睡眠时间、规律饮食、适量活动，再加上可以安全抒发情绪的方式
-        （例如散步、写日记、短时间静心），都能让整体能量更稳定。
+        养生不要复杂，一开始只要做到：规律睡眠、简单运动、饮食不过度，
+        再加上一种可以持续的情绪宣泄方式（写日记、散步、冥想、祈祷等），
+        对你整体的能量都会有很大帮助。
       </p>
     </div>
   `);
 
-  // 7. 未来 3–6 个月
+  // 9. 近期运势（3–6 个月）
   parts.push(`
     <div class="butler-section">
-      <h4>7. 未来 3–6 个月的能量流向</h4>
-      <p><strong>近期重点：</strong> ${nearTermFocus}</p>
+      <h4>9. ${title.nearTerm}</h4>
+      <p><strong>近期主轴：</strong> ${nearTermFocus}</p>
       <p><strong>建议：</strong> ${nearTermAdvice}</p>
       <p>
-        当你感觉特别累、或看不清方向时，
-        与其什么都想抓，不如先收窄到眼前最重要的一两件事，
-        把它们做好，你会比较有安全感与掌控感。
+        当你觉得方向混乱或压力变大时，可以先暂停新计划，
+        把现有事情分级：必要的先做，次要的先放，
+        留一点空间给自己调整节奏，运势会比较顺流。
       </p>
     </div>
   `);
 
-  // 8. 短期行动清单
+  // 10. 行动清单
   parts.push(`
     <div class="butler-section">
-      <h4>8. 短期行动清单</h4>
-      <ul>
-        <li>在 30 天内，只选一个最重要的目标（工作、金钱或健康），并写清楚。</li>
-        <li>每周固定设一小段时间，检视自己在这个目标上的进度。</li>
-        <li>有意识地保护并放大你最强的五行（${strongestLabel}），用颜色、环境和人际圈来支持它。</li>
-        <li>针对最弱的五行（${weakestLabel}），设计一两件很小但能持续做的习惯，不需要求快，求稳定。</li>
+      <h4>10. ${title.actions}</h4>
+      <ul class="action-list">
+        <li>在 30 天内，只选一个最重要的目标（工作 / 钱 / 健康），写清楚并贴在看得到的地方。</li>
+        <li>每周固定选一个时间点，检查自己在这个目标上的实际进度，而不是只看心情。</li>
+        <li>有意识地放大你最强的五行（${strongestLabel}），用颜色、环境和人际圈来支持它。</li>
+        <li>针对最弱的五行（${weakestLabel}），设计 1–2 个可以每天或每周做到的小习惯，不急着求快，只求稳定。</li>
       </ul>
     </div>
   `);
@@ -969,7 +1028,7 @@ window.buildProReport = function buildProReport(ctx){
   const sec = $('butlerProfessional');
   if (sec) sec.style.display = 'block';
 
-  // 让 i18n 以后可以重建这份报告
+  // 让 i18n 重刷时可以重建这份报告
   window.lastCtx = ctx;
 };
     
@@ -1017,7 +1076,6 @@ window.buildProReport = function buildProReport(ctx){
 
         const tg = calc.tenGods(d.stem, stems);
         const ctx = { pcts, dayStem: d.stem, tenGods: tg, unknown };
-        window.lastCtx = ctx;
         window.buildProReport(ctx);
 
         $('result').style.display='block';
