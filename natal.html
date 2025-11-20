@@ -412,74 +412,130 @@
       <p>${tips.map(x=>'• '+x).join('<br>')}</p>`;
   }
 
-  let aiAbort = null;
-  async function runAI(topic=''){
-    ensureAiCard();
-    const out = gid('aiContent');
-    const { name, place, date, time } = readForm();
-    if(!date){ out && (out.innerHTML = `<div class="ai-content" style="color:#98a7b7">${t('alert_fill')}</div>`); return; }
-    if(aiAbort){ aiAbort.abort(); aiAbort=null; }
-    aiAbort = new AbortController(); const thisCall = aiAbort;
-    const lang = getLang(); const sun = getSunSign(date); const sunName = (sun.name[lang]||sun.name['zh-CN']); const el = sun.el;
-    out && (out.innerHTML = `<div class='skeleton'><div style='height:10px;border-radius:6px;background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);animation:sh 1.2s infinite'></div></div>`);
+let aiAbort = null;
 
-    const sys = buildButlerSystemPrompt(lang, topic);
-    const at = place ? (' @ '+place) : '';
-    const usr = [`Name: ${name||'-'}`,`Birth: ${date} ${time||'12:00'}${at}`,`Sun sign: ${sunName} (element: ${el})`, topic?`Task: ${topic}`:`Task: 事业解读`].join('\n');
+async function runAI(topic = '') {
+  ensureAiCard();
+  const out = gid('aiContent');
 
-    try{
-  if( OFFLINE_MODE ) throw new Error('OFFLINE_MODE');
-
-  const res = await fetchWithRetry(
-    ENDPOINTS,
-    { messages:[{role:'system',content:sys},{role:'user',content:usr}] },
-    { retries:2, timeout:15000, signal:thisCall.signal }
-  );
-  if(thisCall.signal.aborted) return;
-
-  const data = await safeJson(res);
-
-  // ⬇️ 新增：Worker 返回 ok:false 时，当成失败，走 fallback
-  if (data && data.ok === false) {
-    console.warn('[Butler] Worker upstream error:', data.status, data.error || data.msg);
-    throw new Error('Worker-upstream-error');
+  const { name, place, date, time } = readForm();
+  if (!date) {
+    if (out) {
+      out.innerHTML = `<div class='ai-content' style='color:#98a7b7'>${t('alert_fill')}</div>`;
+    }
+    return;
   }
 
-  const raw =
-    data?.reply ||
-    data?.text ||
-    data?.choices?.[0]?.message?.content ||
-    '';
+  // 取消上一次请求
+  if (aiAbort) {
+    aiAbort.abort();
+    aiAbort = null;
+  }
+  const controller = new AbortController();
+  aiAbort = controller;
+  const thisCall = controller;
 
-  if(!raw) throw new Error('Empty');
+  const lang = getLang();
+  const sun = getSunSign(date);
+  const sunName = (sun.name[lang] || sun.name['zh-CN']);
+  const el = sun.el;
 
-  let html = mdToHtml(raw);
-  if(!isVIP()){
-    const parts = raw.split(/\n##\s+/);
-    const header = parts.shift() || '';
-    const kept = [header, ...(parts.slice(0,2).map(p=>'## '+p))].join('\n\n');
-    html = mdToHtml(kept) + `
-      <div class='ai-lock-overlay' style='position:static;margin-top:8px;padding-top:8px;border-top:1px solid #233145;text-align:center'>
-        <div class='tip' style='color:#ffd88a;font-weight:700;margin-bottom:4px'>${t('vip_tip')}</div>
-        <div class='sub' style='color:#9aa8b9;margin-top:4px'>${t('vip_sub')}</div>
-        <a class='btn' href='https://yourshopifyshop.com/products/monthly-vip' target='_blank' rel='noopener'>${t('btn_unlock')}</a>
+  if (out) {
+    out.innerHTML = `
+      <div class='skeleton'>
+        <div style='height:10px;border-radius:6px;
+                    background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);
+                    animation:sh 1.2s infinite'></div>
       </div>`;
   }
-  out && (out.innerHTML = html);
-}catch(e){
-  if(e?.name==='AbortError') return;
-  console.warn('[Butler] fallback:', e);
-  out && (out.innerHTML =
-    `<div class='ai-content'>
-       <div style='color:#ffd88a;font-weight:700;margin-bottom:6px'>
-         ${t('err_network')} / ${t('err_busy')}（本地离线解读）
-       </div>
-       ${localButlerFallback(getLang(), sunName, el)}
-     </div>`);
-}finally{
-  if(thisCall===aiAbort) aiAbort=null;
-}
 
+  const sys = buildButlerSystemPrompt(lang, topic);
+  const at = place ? (' @ ' + place) : '';
+  const usr = [
+    `Name: ${name || '-'}`,
+    `Birth: ${date} ${time || '12:00'}${at}`,
+    `Sun sign: ${sunName} (element: ${el})`,
+    topic ? `Task: ${topic}` : `Task: 事业解读`
+  ].join('\n');
+
+  try {
+    if (OFFLINE_MODE) throw new Error('OFFLINE_MODE');
+
+    const res = await fetchWithRetry(
+      ENDPOINTS,
+      { messages: [
+          { role: 'system', content: sys },
+          { role: 'user', content: usr }
+        ]
+      },
+      { retries: 2, timeout: 15000, signal: thisCall.signal }
+    );
+
+    if (thisCall.signal.aborted) return;
+
+    const data = await safeJson(res);
+
+    // Worker 如果传回 { ok:false, ... }，当成错误，让它走 fallback
+    if (data && data.ok === false) {
+      console.warn('[Butler] Worker upstream error:', data.status, data.error || data.msg);
+      throw new Error('Worker-upstream-error');
+    }
+
+    const raw =
+      data?.reply ||
+      data?.text ||
+      data?.choices?.[0]?.message?.content ||
+      '';
+
+    if (!raw) throw new Error('Empty');
+
+    let html = mdToHtml(raw);
+
+    if (!isVIP()) {
+      const parts = raw.split(/\n##\s+/);
+      const header = parts.shift() || '';
+      const kept = [header, ...(parts.slice(0, 2).map(p => '## ' + p))].join('\n\n');
+
+      html = mdToHtml(kept) + `
+        <div class='ai-lock-overlay'
+             style='position:static;margin-top:8px;padding-top:8px;
+                    border-top:1px solid #233145;text-align:center'>
+          <div class='tip'
+               style='color:#ffd88a;font-weight:700;margin-bottom:4px'>
+            ${t('vip_tip')}
+          </div>
+          <div class='sub'
+               style='color:#9aa8b9;margin-top:4px'>
+            ${t('vip_sub')}
+          </div>
+          <a class='btn'
+             href='https://yourshopifyshop.com/products/monthly-vip'
+             target='_blank' rel='noopener'>
+            ${t('btn_unlock')}
+          </a>
+        </div>`;
+    }
+
+    if (out) out.innerHTML = html;
+  } catch (e) {
+    if (e?.name === 'AbortError') return;
+    console.warn('[Butler] fallback:', e);
+
+    if (out) {
+      out.innerHTML = `
+        <div class='ai-content'>
+          <div style='color:#ffd88a;font-weight:700;margin-bottom:6px'>
+            ${t('err_network')} / ${t('err_busy')}（本地离线解读）
+          </div>
+          ${localButlerFallback(getLang(), sunName, el)}
+        </div>`;
+    }
+  } finally {
+    if (thisCall === aiAbort) {
+      aiAbort = null;
+    }
+  }
+}
   /* ========================= 表单/流程 ========================= */
   function readForm(){ const name=(gid('name')?.value||'').trim(); const place=(gid('place')?.value||'').trim(); const date=gid('birthdate')?.value||''; const time=gid('birthtime')?.value||'12:00'; return { name, place, date, time }; }
 
@@ -527,4 +583,5 @@
 </script>
 </body>
 </html>
+
 
