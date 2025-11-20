@@ -778,190 +778,270 @@ function t(path, lang = (window.state && window.state.lang) || 'zh-CN') {
       return arr.map(key);
     }
 
-    window.buildProReport = function buildProReport(ctx){
-      window.lastCtx = ctx;
-      const langCur = state.lang || 'zh-CN';
-      const {pcts = {}, dayStem = '', tenGods = [], unknown=false} = ctx || {};
+/* ===== Pro report builder (CN) ===== */
+function buildProReport(ctx){
+  const box = $('professionalReport');
+  if (!box || !ctx) return;
 
-      const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
-      const sortedElems = Object.entries({木:pcts.木||0,火:pcts.火||0,土:pcts.土||0,金:pcts.金||0,水:pcts.水||0}).sort((a,b)=>b[1]-a[1]);
-      const strongest = sortedElems[0]?.[0];
-      const weakest   = sortedElems.at(-1)?.[0] || strongest;
-      const elemLine  = (t('ui.balance') || '{strongest} 最旺，{weakest} 偏弱。')
-        .replace('{strongest}', strongest ? mapName[strongest] : '-')
-        .replace('{weakest}',   weakest   ? mapName[weakest]   : '-');
+  const dmStemCn = ctx.day.stemCn;
+  const rel = RelationText[dmStemCn] || {
+    traits: '你在感情中很重视真诚与互相支持。',
+    tips: '保持坦诚沟通，比一味讨好更重要。'
+  };
+  const dmLine = DayMasterText[dmStemCn] || '你的日主个性整体比较平衡，也具有不错的适应力。';
 
-      const relation   = BaziAnalysis.relation(dayStem);
-      const career     = BaziAnalysis.career(dayStem, tenGods);
-      const wealthDirs = i18nDirs(BaziAnalysis.wealthDirs(dayStem));
-      const usefulEls  = computeUseful(pcts);
-      const html = [];
+  const elemCounts = ctx.elements || {};
+  const elemSummary = strongestWeakest(elemCounts);
+  const strongestElem = elemSummary.strongest;
+  const weakestElem   = elemSummary.weakest;
 
-      const tip = unknown ? `
-        <div class="ai-box">
-          <div class="ai-box-h">${t('report.tipTitle')}</div>
-          <div class="ai-box-c">${t('report.hourUnknownTip')}</div>
-        </div>` : '';
+  // 五行英文键 → 中文标签
+  const ELEM_LABEL_CN = {
+    Wood:  '木',
+    Fire:  '火',
+    Earth: '土',
+    Metal: '金',
+    Water: '水'
+  };
+  const strongestLabel = ELEM_LABEL_CN[strongestElem] || strongestElem || '-';
+  const weakestLabel   = ELEM_LABEL_CN[weakestElem]   || weakestElem   || '-';
 
-// Overview
-const sym_overview = t('report.dayMaster.'+stemToPinyin(dayStem)) || dayStem;
-const ana_overview = t('report.career.steady');
-html.push(`
-  ${tip}
-  <div class="butler-section">
-    <h4>${t('reportTitles.overview')}</h4>
-    <div>${t('reportLabels.dayMaster')}：${sym_overview}</div>
-    <div>${t('reportLabels.elementCount')}：${['木','火','土','金','水'].map(k => mapName[k] + ' ' + Math.round(pcts[k]||0)+'%').join('｜')}</div>
-    <div><strong>${t('reportLabels.symbolise')}</strong><span id="sym-overview">：${sym_overview}</span></div>
-    <div><strong>${t('reportLabels.analysis')}</strong><span id="ana-overview">：${ana_overview}</span></div>
-  </div>
-`);
+  const dayElem = ctx.day.element || ''; // 可能是「木/火/土/金/水」或 "Wood/Fire/Earth/Metal/Water"
 
-      // Five Elements
-      const sym_five = elemLine;
-      const ana_five = `${strongest?mapName[strongest]:''}强，宜以${strongest?mapName[controlChain[strongest]]:''}为“制”；${weakest?mapName[weakest]:''}弱，可由${weakest?mapName[motherOf[weakest]]:''}生。`;
-      html.push(`
+  // —— 按日主五行给健康重点 ——
+  let healthFocus  = '整体能量的平衡，包括身体与情绪状态';
+  let healthAdvice = '尽量保证规律作息、正常饮食，并避免长期高压。';
+
+  switch (dayElem) {
+    case '木':
+    case 'Wood':
+      healthFocus  = '肝脏、神经系统与眼睛';
+      healthAdvice = '避免长期压抑愤怒，尽量早点休息，多亲近大自然帮助自己放松。';
+      break;
+    case '火':
+    case 'Fire':
+      healthFocus  = '心脏、血压与血液循环';
+      healthAdvice = '减少咖啡因和熬夜，学习放松技巧，留意情绪突然上火的时刻。';
+      break;
+    case '土':
+    case 'Earth':
+      healthFocus  = '脾胃与消化系统';
+      healthAdvice = '饮食定时，少油腻与过甜，观察自己是否在“情绪化进食”。';
+      break;
+    case '金':
+    case 'Metal':
+      healthFocus  = '肺部、皮肤与呼吸系统';
+      healthAdvice = '注意空气质量，避免抽烟或二手烟，并学会适度表达，而不是全部闷在心里。';
+      break;
+    case '水':
+    case 'Water':
+      healthFocus  = '肾脏、膀胱与体内水分循环';
+      healthAdvice = '多喝温水，避免过度受寒，并留意腰部与脊椎的状态。';
+      break;
+  }
+
+  // —— 按「最强五行」给 3–6 个月节奏建议 ——
+  let nearTermFocus  = '未来 3–6 个月适合先把生活与工作的基础打稳。';
+  let nearTermAdvice = '重要决定尽量放在情绪稳定、状态清晰的时候再做。';
+
+  switch (strongestElem) {
+    case 'Wood':
+      nearTermFocus  = '接下来几个月，有利于学习、新项目，以及拓展人脉。';
+      nearTermAdvice = '为自己规划一个中期项目，每周稳定推进，比一次性爆冲更有持续效果。';
+      break;
+    case 'Fire':
+      nearTermFocus  = '这段时间适合曝光自己、推广作品与主动表达。';
+      nearTermAdvice = '把高能量用在演示、谈判、上线新计划上，同时避免一时冲动的决定。';
+      break;
+    case 'Earth':
+      nearTermFocus  = '目前适合整理结构，包括时间管理、财务布局与工作节奏。';
+      nearTermAdvice = '做一个简单的财务计划，分步减压，并把重心放在打好基本盘。';
+      break;
+    case 'Metal':
+      nearTermFocus  = '适合建立制度、规则、备选方案与风险防护。';
+      nearTermAdvice = '检查合同、文件与保险，为未来 1–2 年的规划做一次系统梳理。';
+      break;
+    case 'Water':
+      nearTermFocus  = '适合移动、尝试新方向与调整思路。';
+      nearTermAdvice = '可以多探索几种可能性，但最后收敛到一两件真正想坚持的事。';
+      break;
+  }
+
+  const parts = [];
+
+  // 1. 整体概览
+  parts.push(`
         <div class="butler-section">
-          <h4>${t('reportTitles.fiveElements')}</h4>
-          <div>${elemLine}</div>
-          <div>${t('reportLabels.missingElements')}：${Object.entries(pcts).filter(([_,v])=>v===0).map(([k])=>mapName[k]).join('、') || '—'}</div>
-          <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-five">${sym_five}</span></div>
-          <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-five">${ana_five}</span></div>
+          <h4>1. 整体概览 · Day Master</h4>
+          <p><strong>Day Master：</strong> ${ctx.day.stemEn}（${dmStemCn}）</p>
+          <p>${dmLine}</p>
         </div>
       `);
 
-      // Ten Gods
-      const tenNames  = tenGods.map(s => `<span title="${t(tenGodTipKey(s))||''}">${t(TG_KEY[s]||s)}</span>`).join(' / ');
-      const tenAdvice = tenGodsAdviceList(tenGods).join('； ');
-      html.push(`
+  // 2. 五行能量平衡
+  parts.push(`
         <div class="butler-section">
-          <h4>${t('reportTitles.tenGods')}</h4>
-          <div>${t('reportLabels.tenGods')}：${tenNames}</div>
-          <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-ten">${tenNames.replace(/<[^>]*>/g,'')}</span></div>
-          <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-ten">${tenAdvice || ''}</span></div>
+          <h4>2. 五行能量平衡</h4>
+          <p>
+            木：${elemCounts.Wood  || 0}% ·
+            火：${elemCounts.Fire  || 0}% ·
+            土：${elemCounts.Earth || 0}% ·
+            金：${elemCounts.Metal || 0}% ·
+            水：${elemCounts.Water || 0}%。
+          </p>
+          <p>
+            <strong>最强的五行：</strong> ${strongestLabel}。<br/>
+            <strong>最弱的五行：</strong> ${weakestLabel}。
+          </p>
+          <p>
+            在实际生活中，当你需要信心时，可以先站在「最强的五行」上；
+            而「最弱的五行」则是你可以刻意培养的成长区域，
+            透过环境、日常习惯以及身边的人慢慢调整。
+          </p>
         </div>
       `);
 
-      // Useful Spirit
-      html.push(`
+  // 3. 十神结构（简化版）
+  parts.push(`
         <div class="butler-section">
-          <h4>${t('reportTitles.useful')}</h4>
-          <div>${t('reportLabels.usefulSpirit')}：${usefulEls.map(t).join('、')}</div>
-          <div>${t('reportLabels.supportElements')}：${supportElems(dayStem).map(t).join('、') || '—'}</div>
-          <div>${t('reportLabels.restrainElements')}：${restrainElems(dayStem).map(t).join('、') || '—'}</div>
-          <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-useful">${usefulEls.map(t).join('、')}</span></div>
-          <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-useful">${t('wealth.steady')}</span></div>
+          <h4>3.「十神」结构（简化版）</h4>
+          <p>
+            这个简化版本没有逐一以技术方式计算每一颗十神（例如：伤官、正财、七杀），
+            但从五行的配置可以看出，你同时带有
+            <strong>自我表达</strong>、<strong>金钱意识</strong> 和
+            <strong>对他人的责任感</strong> 等能量。
+          </p>
+          <p>
+            整体来说，这个格局提醒你要保持平衡：
+            不要完全为了别人而牺牲到忘记自己，
+            也不要只顾自己而忽略与重要关系之间的长期连结。
+          </p>
         </div>
       `);
 
-      // Relationship
-      html.push(`
+  // 4. 喜用神方向
+  parts.push(`
         <div class="butler-section">
-          <h4>${t('reportTitles.relationship')}</h4>
-          <div>${t('reportLabels.traits')}：${relation.traits}</div>
-          <div>${t('reportLabels.marriageAdvice')}：${BaziAnalysis.marriageAdvice(tenGods)}</div>
-          <div>${t('reportLabels.relationshipTips')}：${relation.tips}</div>
-          <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-rel">${relation.traits}</span></div>
-          <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-rel">${relation.tips}</span></div>
-        </div>
-      `);
-
-      // Career
-      html.push(`
-        <div class="butler-section">
-          <h4>${t('reportTitles.career')}</h4>
-          <div>${t('reportLabels.suitableCareers')}：${career.suitable}</div>
-          <div>${t('reportLabels.careerAdvice')}：${career.advice}</div>
-          <div>${t('reportLabels.favorableDirections')}：${wealthDirs}</div>
-          <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-career">${career.suitable}</span></div>
-          <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-career">${career.advice}</span></div>
-        </div>
-      `);
-
-      // Wealth
-      const wealthTrait = tenGods.includes('正财') ? t('wealth.stable') : tenGods.includes('偏财') ? t('wealth.opportunity') : t('wealth.steady');
-      const wealthAdvice = tenGods.includes('偏财') ? '适当投资理财，控制风险，见好就收' : tenGods.includes('正财') ? '稳扎稳打，通过专业与稳定收入积累财富' : '量入为出，做好规划，避免不必要开支';
-      html.push(`
-        <div class="butler-section">
-          <h4>${t('reportTitles.wealth')}</h4>
-          <div>${t('reportLabels.wealthCharacteristics')}：${wealthTrait}</div>
-          <div>${t('reportLabels.wealthDirections')}：${wealthDirs}</div>
-          <div>${t('reportLabels.financialAdvice')}：${wealthAdvice}</div>
-          <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-wealth">${wealthTrait}</span></div>
-          <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-wealth">${wealthAdvice}</span></div>
-        </div>
-      `);
-
-      // Health
-      const healthChar = BaziAnalysis.health(dayStem);
-      html.push(`
-        <div class="butler-section">
-          <h4>${t('reportTitles.health')}</h4>
-          <div>${t('reportLabels.healthCharacteristics')}：${healthChar}</div>
-          <div>${t('reportLabels.healthTips')}：${t('report.health.tips.'+stemToPinyin(dayStem))}</div>
-          <div>${t('reportLabels.wellnessAdvice')}：${t('wellness.default')}</div>
-          <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-health">${healthChar}</span></div>
-          <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-health">${t('wellness.default')}</span></div>
-        </div>
-      `);
-
-      // Near term
-      function nearTermOverall(strong){
-        if (!strong) return 'fortune.steady';
-        if (strong === '木' || strong === '火') return 'fortune.upward';
-        if (strong === '金') return 'fortune.focus';
-        if (strong === '水') return 'fortune.study';
-        return 'fortune.foundation';
-      }
-      const nearKey = nearTermOverall(strongest);
-      const nearHuman = t(nearKey);
-      html.push(`
-        <div class="butler-section">
-          <h4>${t('reportTitles.nearTerm')}</h4>
-          <div>${t('reportLabels.overallFortune')}：${nearHuman}</div>
-          <div>${t('reportLabels.favorableTiming')}：
-            ${strongest ? `逢${mapName[strongest]}${t('elem.month')}（同气）` : '—'}
-            ${weakest ? `，或${mapName[weakest]}${t('elem.month')}（补缺）` : ''}
-            布局
-          </div>
-          <div>${t('reportLabels.cautions')}：${t('cautions.default')}</div>
-          <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-near">${nearHuman}</span></div>
-          <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-near">${t('cautions.default')}</span></div>
-        </div>
-      `);
-
-      // Actions
-      html.push(`
-        <div class="butler-section">
-          <h4>${t('reportTitles.actions')}</h4>
-          <ul class="action-list">
-            <li>${t('action.weekly')} ${weakest ? mapName[weakest] : t('elem.fiveElements')} ${t('action.energy')}</li>
-            <li>${t('action.career')} ${career.advice}</li>
-            <li>${t('action.career2')}</li>
-            <li>${t('action.relationship')}</li>
-            <li>${t('action.wealth')}</li>
+          <h4>4. 喜用神方向 · 支持你的能量</h4>
+          <p>
+            在传统命理里，喜用神指的是最能帮助日主稳定、发挥的五行。
+            根据这个简化命盘，可以给你一个实际的抓法：
+          </p>
+          <ul>
+            <li><strong>先保护你最强的五行</strong>（${strongestLabel}）——这是你的天生风格与优势。</li>
+            <li><strong>温柔地补强你最弱的五行</strong>（${weakestLabel}）——这里是你长期会看到进步的地方。</li>
           </ul>
-          <div><strong>${t('reportLabels.symbolise')}：</strong><span id="sym-actions">${t('action.weekly')} ${weakest ? mapName[weakest] : t('elem.fiveElements')}</span></div>
-          <div><strong>${t('reportLabels.analysis')}：</strong><span id="ana-actions">${t('action.career2')}</span></div>
+          <p>
+            你可以透过颜色、居住与工作的环境、工作性质，
+            以及选择相处的人来具体实践这件事。
+          </p>
         </div>
       `);
 
-      const box = $('professionalReport');
-      if (box) box.innerHTML = html.join('');
+  // 5. 感情 & 婚姻
+  parts.push(`
+        <div class="butler-section">
+          <h4>5. 感情 &amp; 婚姻</h4>
+          <p><strong>感情风格：</strong> ${rel.traits}</p>
+          <p><strong>建议：</strong> ${rel.tips}</p>
+          <p>
+            一般来说，当你的情绪比较稳定、生活节奏不那么压迫时，
+            感情关系会顺得多。尽量避免在压力爆表、
+            或财务压力很大的时刻，做出关于感情的重大决定。
+          </p>
+        </div>
+      `);
 
-      const baseCtx = { pcts, dayStem, tenGods, unknown, strongest, weakest };
-      const lang = state.lang || langCur;
-      injectAI('overview','sym-overview','ana-overview', baseCtx, {lang});
-      injectAI('five','sym-five','ana-five', baseCtx, {lang});
-      injectAI('ten','sym-ten','ana-ten', baseCtx, {lang});
-      injectAI('useful','sym-useful','ana-useful', baseCtx, {lang});
-      injectAI('relationship','sym-rel','ana-rel', baseCtx, {lang});
-      injectAI('career','sym-career','ana-career', baseCtx, {lang});
-      injectAI('wealth','sym-wealth','ana-wealth', baseCtx, {lang});
-      injectAI('health','sym-health','ana-health', baseCtx, {lang});
-      injectAI('near','sym-near','ana-near', baseCtx, {lang});
-      injectAI('actions','sym-actions','ana-actions', baseCtx, {lang});
-    };
+  // 6. 工作 & 职涯方向
+  parts.push(`
+        <div class="butler-section">
+          <h4>6. 工作 &amp; 职涯方向</h4>
+          <p>
+            <strong>职涯提醒：</strong>
+            这张命盘比较偏向靠<strong>实力与耐心累积</strong>的类型。
+            建立长期专业度与口碑，比追求短时间的大起大落更适合你。
+          </p>
+          <p>
+            尽量让工作内容符合你的日主特质：
+            如果木／火较强，你会比较适合需要与人互动、变化多、
+            能说能表现的角色；
+            如果金／水较强，你会在分析、系统、数字或技术／研究相关的领域更有发挥空间。
+          </p>
+        </div>
+      `);
+
+  // 7. 金钱 & 实际建议
+  parts.push(`
+        <div class="butler-section">
+          <h4>7. 金钱 &amp; 实际建议</h4>
+          <p>
+            这份快速解读重点放在<strong>现金流意识</strong>：
+            建议你有一个简单的月度预算、小额紧急预备金，
+            再为「风险金」设一条清楚的界线（例如投机、交易、尝试性的副业）。
+          </p>
+          <p>
+            对你来说，最适合的财富模式是：先稳住基本盘
+            （核心技能与主要收入），再慢慢增加符合你个性、
+            并且可以长期经营的收入来源，而不是勉强自己去做完全不像你的事情。
+          </p>
+        </div>
+      `);
+
+  // 8. 健康 & 自我照顾
+  parts.push(`
+        <div class="butler-section">
+          <h4>8. 健康 &amp; 自我照顾</h4>
+          <p>
+            <strong>身体关注重点：</strong> ${healthFocus}
+          </p>
+          <p>
+            <strong>基础建议：</strong> ${healthAdvice}
+          </p>
+          <p>
+            此外，维持一个简单但有节奏的日常安排
+            （固定的睡眠时间、饮食与轻度运动），
+            再加上用安全的方式抒发情绪，例如写日记、散步或短时间冥想，
+            都能让你的整体能量稳定很多。
+          </p>
+        </div>
+      `);
+
+  // 9. 未来 3–6 个月能量流向
+  parts.push(`
+        <div class="butler-section">
+          <h4>9. 未来 3–6 个月的能量流向</h4>
+          <p>
+            <strong>近期重点：</strong> ${nearTermFocus}
+          </p>
+          <p>
+            <strong>建议：</strong> ${nearTermAdvice}
+          </p>
+          <p>
+            当你觉得特别累，或开始「看不清自己要往哪里走」时，
+            与其硬把所有项目都扛在身上，不如先停下来整理优先顺序，
+            只抓住当下最重要的一两件事。
+          </p>
+        </div>
+      `);
+
+  // 10. 短期行动清单
+  parts.push(`
+        <div class="butler-section">
+          <h4>10. 短期行动清单</h4>
+          <ul>
+            <li>在 30 天内，选一个最重要的目标（工作、金钱或健康），并把它写得具体清楚。</li>
+            <li>每周固定选一天当作「检视日」，看看自己在这个目标上前进到什么位置。</li>
+            <li>用颜色、环境、活动与身边的人，来保护并放大你最强的五行（${strongestLabel}）。</li>
+            <li>针对最弱的五行（${weakestLabel}），设计一到两个小习惯，不急着求快，重在持续做到。</li>
+          </ul>
+        </div>
+      `);
+
+  box.innerHTML = parts.join('\n');
+  const sec = $('butlerProfessional');
+  if (sec) sec.style.display = 'block';
+}
+
 
     /* ===== Gen + UI ===== */
     function showErr(msg){ const box=$('error'); if(!box) return; box.textContent=msg||t('err.generateFail'); box.style.display='block'; setTimeout(()=>{ box.style.display='none'; }, 4000); }
