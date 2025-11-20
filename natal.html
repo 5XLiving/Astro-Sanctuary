@@ -414,6 +414,7 @@
   }
 
   let aiAbort = null;
+  let lastModel = null;
   async function runAI(topic=''){
     ensureAiCard();
     const out = gid('aiContent');
@@ -489,9 +490,29 @@
   function renderOverview(model){ const wrap = gid('chartReport'); if(!wrap) return; const sign=getSunSign(model.date); const lang=getLang(); const signName=sign.name[lang]||sign.name['zh-CN']; const disclaimer='＊当前仅展示太阳星座示意；完整盘需使用出生地与精确时刻计算。';
     wrap.innerHTML = `<div class='sec'><h3>概览</h3><p>${esc(model.name||'')}${model.name?' · ':''}${model.date} ${model.time}${model.place?(' @ '+esc(model.place)) : ''}</p><p class='muted' style='opacity:.75'>${disclaimer}</p></div><div class='sec'><h3>太阳星座</h3><p>你的太阳在「${signName}」。</p></div><div class='sec'><h3>能量提示</h3><p>${(EL_TIPS[lang]||EL_TIPS['zh-CN'])[sign.el].map(x=>'• '+x).join('<br>')}</p></div>`; }
 
-  function generateChart(){ const btn=gid('genBtn'); if(btn){ btn.disabled=true; setTimeout(()=>btn.disabled=false,800); }
-    const model = readForm(); if(!model.date || !model.place){ alert(t('alert_fill')); return; }
-    gid('result').style.display='block'; renderHeaderSummary(model); renderOverview(model); renderProNatalReport(model); ensureAiCard(); runAI(); }
+    function generateChart(){
+    const btn = gid('genBtn');
+    if(btn){
+      btn.disabled = true;
+      setTimeout(()=>btn.disabled=false, 800);
+    }
+
+    const model = readForm();
+    if(!model.date || !model.place){
+      alert(t('alert_fill'));
+      return;
+    }
+
+    // 记住这次输入，用来做语言切换时重算
+    lastModel = model;
+
+    gid('result').style.display = 'block';
+    renderHeaderSummary(model);
+    renderOverview(model);
+    renderProNatalReport(model);
+    ensureAiCard();
+    runAI();
+  }
 
   /* ========================= 右下角 Chat 悬浮球 ========================= */
   function mountChat(){ if(gid('ssChatFab')) return; const chatFab=document.createElement('div'); chatFab.className='ss-chat-fab'; chatFab.id='ssChatFab'; chatFab.title=t('butler_chat_title'); const chatPanel=document.createElement('div'); chatPanel.className='ss-chat-panel'; chatPanel.id='ssChatPanel'; chatPanel.setAttribute('role','dialog'); chatPanel.setAttribute('aria-label',t('butler_chat_title')); chatPanel.setAttribute('aria-modal','true'); chatPanel.innerHTML = `<div class='ss-chat-head'><div class='ss-chat-title'>${t('butler_chat_title')}</div><div class='ss-close' id='ssChatClose'>✕</div></div><div class='ss-chat-body' id='ssChatBody' aria-live='polite'></div><div class='ss-chat-input'><input id='ssChatInput' type='text' placeholder='${t('chat_placeholder')}'/><button id='ssChatSend' class='btn'>${t('chat_send')}</button></div>`; document.body.appendChild(chatFab); document.body.appendChild(chatPanel); const $body=gid('ssChatBody'), $input=gid('ssChatInput'), $send=gid('ssChatSend'), $close=gid('ssChatClose'); const openPanel=()=>{ chatPanel.style.display='block'; $input&&$input.focus(); }; const closePanel=()=>{ chatPanel.style.display='none'; }; chatFab.textContent=t('chat_fab'); chatFab.addEventListener('click',openPanel); $close&&$close.addEventListener('click',closePanel); function addMsg(text,me=false){ const div=document.createElement('div'); div.className='ss-msg'+(me?' me':''); div.textContent=text; $body.appendChild(div); $body.scrollTop=$body.scrollHeight; }
@@ -512,9 +533,31 @@
     // 表单 submit：原生校验通过后再生成
     const form = gid('chartForm'); if(form){ form.addEventListener('submit', (e)=>{ e.preventDefault(); if(!form.reportValidity()) return; generateChart(); }); }
 
-    // 语言切换后的文案刷新标题
-    const $lang = gid('langSelect'); if($lang){ $lang.addEventListener('change', ()=>{ qs('[data-i18n="page_title"]').textContent = t('page_title'); gid('ssChatFab') && (gid('ssChatFab').textContent = t('chat_fab')); qs('.ss-chat-title') && (qs('.ss-chat-title').textContent = t('butler_chat_title')); }); }
+// 语言切换：刷新文案 + 如有命盘则重算报告 & Butler
+    const $lang = gid('langSelect');
+    if($lang){
+      $lang.addEventListener('change', ()=>{
+        // 记住语言（下次打开时用）
+        localStorage.setItem('astro_lang', $lang.value);
 
+        // 刷新基础文案
+        const titleNode = qs('[data-i18n="page_title"]');
+        if (titleNode) titleNode.textContent = t('page_title');
+        const fab = gid('ssChatFab');
+        if (fab) fab.textContent = t('chat_fab');
+        const chatTitle = qs('.ss-chat-title');
+        if (chatTitle) chatTitle.textContent = t('butler_chat_title');
+
+        // ✅ 如果之前已经生成过命盘，则用新语言重画报告 + Butler
+        if (lastModel){
+          renderHeaderSummary(lastModel);
+          renderOverview(lastModel);
+          renderProNatalReport(lastModel);
+          ensureAiCard();
+          runAI();   // Butler 会用当前语言重新解读
+        }
+      });
+    }
     // 头部时钟
     startNowClock();
 
@@ -528,4 +571,5 @@
 </script>
 </body>
 </html>
+
 
