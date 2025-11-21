@@ -851,85 +851,200 @@
     box.textContent = `${namePart}${model.date} ${timePart}${placePart}`;
   }
 
-  function renderReport(model){
-    const result = gid('result');
-    const wrap   = gid('chartReport');
-    if(!wrap || !result) return;
+function renderReport(model){
+  const result = gid('result');
+  const wrap   = gid('chartReport');
+  if(!wrap || !result) return;
 
-    const lang = getLang();
-    const sign = getSunSign(model.date);
-    const signName = sign.name[lang] || sign.name['zh-CN'];
-    const element = sign.el;
-    const tips = getElementTips(element, lang);
-    const L = key => t(key);
+  const lang = getLang();
+  const sign = getSunSign(model.date);
+  const signName = sign.name[lang] || sign.name['zh-CN'];
+  const element = sign.el;
+  const tips = getElementTips(element, lang);
+  const L = key => t(key);
 
-    const overviewTitle = esc(L('section_overview'));
-    const sunTitle      = esc(L('section_sun'));
-    const energyTitle   = esc(L('section_energy'));
-    const actionTitle   = esc(L('section_action'));
+  const overviewTitle = esc(L('section_overview'));
+  const sunTitle      = esc(L('section_sun'));
+  const energyTitle   = esc(L('section_energy'));
+  const actionTitle   = esc(L('section_action'));
 
-    const sunLabel = esc(L('sun_label'));
-    const disclaimer = esc(L('disclaimer'));
+  const sunLabel = esc(L('sun_label'));
+  const disclaimer = esc(L('disclaimer'));
 
-    const genderMap = {
-      'zh-CN':{m:'男性',f:'女性',u:'—'},
-      'zh-TW':{m:'男性',f:'女性',u:'—'},
-      'en':{m:'Male',f:'Female',u:'—'},
-      'ja':{m:'男性',f:'女性',u:'—'},
-      'th':{m:'ชาย',f:'หญิง',u:'—'},
-      'ms':{m:'Lelaki',f:'Perempuan',u:'—'}
-    };
-    const gPack = genderMap[lang] || genderMap['zh-CN'];
-    const genderLabel = gPack[model.gender] || gPack.u;
+  // —— 性别文字 —— 
+  const genderMap = {
+    'zh-CN':{m:'男性',f:'女性',u:'—'},
+    'zh-TW':{m:'男性',f:'女性',u:'—'},
+    'en':{m:'Male',f:'Female',u:'—'},
+    'ja':{m:'男性',f:'女性',u:'—'},
+    'th':{m:'ชาย',f:'หญิง',u:'—'},
+    'ms':{m:'Lelaki',f:'Perempuan',u:'—'}
+  };
+  const gPack = genderMap[lang] || genderMap['zh-CN'];
+  const genderLabel = gPack[model.gender] || gPack.u;
 
-    const overviewHtml = `
-      <div class="sec">
-        <h3>${overviewTitle}</h3>
-        <p>${esc(model.name || '')}${model.name?' · ':''}${esc(model.date)} ${esc(model.time || '')}${model.place?(' @ '+esc(model.place)) : ''}</p>
-        <p class="muted" style="opacity:.8">${disclaimer}</p>
-      </div>`;
+  // —— 标题（根据语言切换）——
+  const hPersona = (
+    lang === 'en' ? 'Personality Portrait' :
+    lang === 'ja' ? '性格画像' :
+    lang === 'th' ? 'ภาพรวมบุคลิก' :
+    lang === 'ms' ? 'Potret keperibadian' :
+    '性格画像'
+  );
 
-    const sunHtml = `
-      <div class="sec">
-        <h3>${sunTitle}</h3>
-        <p>${sunLabel} <b>${esc(signName)}</b></p>
-        <p class="muted">${genderLabel !== '—' ? ('Gender / 性别：'+esc(genderLabel)) : ''}</p>
-      </div>`;
+  const hRelation = (
+    lang === 'en' ? 'Relationships & Communication' :
+    lang === 'ja' ? '人間関係とコミュニケーション' :
+    lang === 'th' ? 'ความสัมพันธ์และการสื่อสาร' :
+    lang === 'ms' ? 'Hubungan & komunikasi' :
+    '关系与沟通'
+  );
 
-    const energyHtml = `
-      <div class="sec">
-        <h3>${energyTitle}</h3>
-        <p>${tips.map(line=>'• '+esc(line)).join('<br>')}</p>
-      </div>`;
+  const hCareer = (
+    lang === 'en' ? 'Career & Wealth Direction' :
+    lang === 'ja' ? '仕事と豊かさの方向性' :
+    lang === 'th' ? 'ทิศทางงานและทรัพย์' :
+    lang === 'ms' ? 'Arah kerjaya & kewangan' :
+    '事业与财富走向'
+  );
 
-    const actionHtml = `
-      <div class="sec">
-        <h3>${actionTitle}</h3>
-        <ul>
-          <li>${esc(L('action_1'))}</li>
-          <li>${esc(L('action_2'))}</li>
-          <li>${esc(L('action_3'))}</li>
-        </ul>
-      </div>`;
+  // —— 按元素给比较“大师风”一点的文案 —— 
+  let personaLines = [];
+  let relationLines = [];
+  let careerLines = [];
 
-    wrap.innerHTML = overviewHtml + sunHtml + energyHtml + actionHtml;
-    result.style.display = 'block';
-  }
-
-  function handleGenerate(e){
-    e.preventDefault();
-    const form = gid('chartForm');
-    if(form && !form.reportValidity()) return;
-
-    const model = readForm();
-    if(!model.date || !model.place){
-      alert(t('alert_fill'));
-      return;
+  if (lang === 'zh-CN' || lang === 'zh-TW') {
+    if (element === 'water') {
+      personaLines = [
+        `这是一个以「感受」为起点的命格。太阳在${signName}，意味着你很多决定来自直觉与心里的隐隐感觉，而不是冰冷的逻辑。`,
+        `你天生带着同理心，容易读懂别人没说出口的东西，也因此更需要学会分清「自己的情绪」与「别人的情绪」。`
+      ];
+      relationLines = [
+        `在人际上，你重视安全感和信任，一旦真正认定一个人，会愿意默默守在身边很久。但外界只看到你的温柔，不一定看得见你内心的界线。`,
+        `建议：重要关系中，把「我真正需要什么」说清楚，不要只顾着照顾别人，最后心里累积委屈。`,
+        `一句简单的「其实这件事我会有点难过」比冷战更有力量。`
+      ];
+      careerLines = [
+        `工作上，你适合做「把混乱变成秩序、把抽象变成具体」的角色：例如顾问、陪伴者、创作者、服务导向的工作者。`,
+        `赚钱的关键在于：不要小看自己看人的直觉，你对人性、对氛围的敏感，其实是可以转成专业价值的。`,
+        `当你允许自己收合理的费用、并设定清楚的界线，财运才会稳定，而不是靠情绪起伏在撑。`
+      ];
+    } else if (element === 'fire') {
+      personaLines = [
+        `这是一个以「行动」为起点的命格。你不喜欢原地打转，更擅长在实作中摸索答案。`,
+        `内在有一团火，驱动你去挑战、去开路；但也要学会照顾好自己的体力与情绪界线。`
+      ];
+      relationLines = [
+        `你在关系中不怕表达，只是有时节奏过快，会让比较慢热的人跟不上。`,
+        `练习在关键对话前，多停一口气，先确认对方的准备程度，再丢出自己的真实。`
+      ];
+      careerLines = [
+        `事业上适合扮演「点火的人」——启动项目、带氛围、打头阵。`,
+        `财运来自你敢承担风险、也愿意为目标付出实际行动，而不是只停在想。`
+      ];
+    } else if (element === 'earth') {
+      personaLines = [
+        `这是一个以「现实与结构」为起点的命格。你习惯先评估风险，再踏出一步。`,
+        `你可靠、重视承诺，也因此容易背太多责任在身上。`
+      ];
+      relationLines = [
+        `在关系中，你不会轻易开口说爱，但会用很实际的方式在照顾对方。`,
+        `建议：适度说出你的在意，不要只用「帮忙」来表达爱，否则别人未必能读懂你的用心。`
+      ];
+      careerLines = [
+        `事业上适合稳扎稳打的领域：需要耐心、需要专业累积的工作，你会越做越有价值。`,
+        `财运上，最忌「为了安全感而抓太紧」，学会让钱流动在真正对你重要的事物上，会比单纯存钱更有力量。`
+      ];
+    } else if (element === 'air') {
+      personaLines = [
+        `这是一个以「思考与交流」为起点的命格。你天生就容易收到很多资讯、很多点子。`,
+        `你擅长用语言、文字、概念来连结世界，只是也容易陷在大脑里，忘了照顾身体。`
+      ];
+      relationLines = [
+        `在人际间，你喜欢对话、喜欢跟聪明的人互相碰撞观点。`,
+        `建议：关键时刻，多讲一点内心感受，而不仅是观点，这样关系才会更有温度。`
+      ];
+      careerLines = [
+        `工作上，你适合写作、沟通、企划、教学、顾问等需要「传递资讯」的角色。`,
+        `财运来自你的脑袋与表达能力：当你愿意把脑中的洞见整理成结构化的内容，价值就会被看见。`
+      ];
     }
-    lastModel = model;
-    renderHeaderSummary(model);
-    renderReport(model);
+  } else {
+    // 非中文语言：给相对中性的英文/多语说明
+    personaLines = [
+      `Your Sun in ${signName} suggests that your core way of being is coloured by ${element}-energy.`,
+      `This chart wants you to honour both your instincts and your sensitivity, instead of forcing yourself to fit into someone else’s template.`
+    ];
+    relationLines = [
+      `In relationships, your growth theme is to communicate needs clearly instead of waiting for others to guess.`,
+      `A simple “this is how I feel and this is what I need” said calmly is often more powerful than silence.`
+    ];
+    careerLines = [
+      `In career, you are invited to build a path that reflects your natural strengths, not just what is “safe” on paper.`,
+      `Money tends to flow more steadily when your work is aligned with your values and when you respect your own boundaries.`
+    ];
   }
+
+  const personaHtml = `
+    <div class="sec">
+      <h3>${esc(hPersona)}</h3>
+      <p>${personaLines.map(line => esc(line)).join('<br>')}</p>
+    </div>`;
+
+  const relationHtml = `
+    <div class="sec">
+      <h3>${esc(hRelation)}</h3>
+      <p>${relationLines.map(line => esc(line)).join('<br>')}</p>
+    </div>`;
+
+  const careerHtml = `
+    <div class="sec">
+      <h3>${esc(hCareer)}</h3>
+      <p>${careerLines.map(line => esc(line)).join('<br>')}</p>
+    </div>`;
+
+  const overviewHtml = `
+    <div class="sec">
+      <h3>${overviewTitle}</h3>
+      <p>${esc(model.name || '')}${model.name?' · ':''}${esc(model.date)} ${esc(model.time || '')}${model.place?(' @ '+esc(model.place)) : ''}</p>
+      <p class="muted" style="opacity:.8">${disclaimer}</p>
+    </div>`;
+
+  const sunHtml = `
+    <div class="sec">
+      <h3>${sunTitle}</h3>
+      <p>${sunLabel} <b>${esc(signName)}</b></p>
+      <p class="muted">${genderLabel !== '—' ? ('Gender / 性别：'+esc(genderLabel)) : ''}</p>
+    </div>`;
+
+  const energyHtml = `
+    <div class="sec">
+      <h3>${energyTitle}</h3>
+      <p>${tips.map(line=>'• '+esc(line)).join('<br>')}</p>
+    </div>`;
+
+  const actionHtml = `
+    <div class="sec">
+      <h3>${actionTitle}</h3>
+      <ul>
+        <li>${esc(L('action_1'))}</li>
+        <li>${esc(L('action_2'))}</li>
+        <li>${esc(L('action_3'))}</li>
+      </ul>
+    </div>`;
+
+  // —— 最终组合：结构更像完整报告 —— 
+  wrap.innerHTML =
+    overviewHtml +
+    sunHtml +
+    personaHtml +
+    relationHtml +
+    careerHtml +
+    energyHtml +
+    actionHtml;
+
+  result.style.display = 'block';
+}
 
   /* ========================= IP → 出生地点预填 ========================= */
   async function fillBirthPlaceFromIP(){
@@ -1003,6 +1118,7 @@
 </script>
 </body>
 </html>
+
 
 
 
