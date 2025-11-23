@@ -1023,46 +1023,102 @@ function fillBirthPlaceFromIP() {
     });
 }
   
-  /* ========================= 心怜管家 · 聊天浮窗 ========================= */
-  function initButlerChat(){
-    const fab    = gid('ssChatFab');
-    const panel  = gid('ssChatPanel');
-    const close  = gid('ssChatClose');
-    const input  = gid('ssChatInput');
-    const send   = gid('ssChatSend');
-    const body   = gid('ssChatBody');
+/* ========================= 心怜管家 · 聊天浮窗 ========================= */
+function initButlerChat(){
+  const fab    = gid('ssChatFab');
+  const panel  = gid('ssChatPanel');
+  const close  = gid('ssChatClose');
+  const input  = gid('ssChatInput');
+  const send   = gid('ssChatSend');
+  const body   = gid('ssChatBody');
 
-    if(!fab || !panel || !input || !send || !body) return;
+  if (!fab || !panel || !input || !send || !body) return;
 
-    function showPanel(){
-      panel.style.display = 'block';
-      fab.style.display = 'none';
-      input.focus();
-    }
-    function hidePanel(){
-      panel.style.display = 'none';
-      fab.style.display = 'grid';
-    }
-
-    fab.addEventListener('click', showPanel);
-    close.addEventListener('click', hidePanel);
-
-    function appendMsg(text, isMe){
-      const div = document.createElement('div');
-      div.className = 'ss-msg' + (isMe ? ' me' : '');
-      div.innerHTML = esc(text).replace(/\n/g,'<br>');
-      body.appendChild(div);
-      body.scrollTop = body.scrollHeight;
-    }
-
-    send.addEventListener('click', handleSend);
-    input.addEventListener('keydown', e=>{
-      if(e.key === 'Enter' && !e.shiftKey){
-        e.preventDefault();
-        handleSend();
-      }
-    });
+  function showPanel(){
+    panel.style.display = 'block';
+    fab.style.display = 'grid';
+    input.focus();
   }
+  function hidePanel(){
+    panel.style.display = 'none';
+    fab.style.display = 'grid';
+  }
+
+  fab.addEventListener('click', showPanel);
+  close.addEventListener('click', hidePanel);
+
+  function appendMsg(text, isMe){
+    const div = document.createElement('div');
+    div.className = 'ss-msg' + (isMe ? ' me' : '');
+    div.innerHTML = esc(text).replace(/\n/g, '<br>');
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  // 🧠 这里是真正的发送逻辑（取代以前的 fakeReply）
+  async function handleSend(){
+    const text = input.value.trim();
+    if (!text) return;
+
+    // 1) 把用户讯息贴到聊天窗
+    appendMsg(text, true);
+    input.value = '';
+
+    // 2) 给一点“思考中”的反馈（可选）
+    const thinking = document.createElement('div');
+    thinking.className = 'ss-msg';
+    thinking.textContent = '…thinking';
+    body.appendChild(thinking);
+    body.scrollTop = body.scrollHeight;
+
+    try {
+      // 把星盘上下文带过去（如果有的话）
+      const ctx  = (window.lastModel && window.lastModel.meta) || {};
+      const lang = (typeof getLang === 'function') ? getLang() : 'zh-CN';
+
+      const payload = {
+        user: ctx.name || 'natal_guest',
+        prompt: JSON.stringify({
+          type: 'natal-butler',
+          lang,
+          sign: ctx.signKey || ctx.sunSign || null,
+          question: text
+        })
+      };
+
+      // ⚠️ 替换成你自己的 Cloudflare Worker 域名
+      const base = window.API_BASE || 'https://YOUR-WORKER-SUBDOMAIN.workers.dev';
+
+      const res = await fetch(base + '/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      let reply = '目前连线有点不稳定，你可以稍后再试一次。';
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.reply) reply = data.reply;
+      }
+
+      body.removeChild(thinking);
+      appendMsg(reply, false);
+
+    } catch (e) {
+      // 出错时移除“thinking”，给一个fallback文案
+      if (thinking.parentNode) body.removeChild(thinking);
+      appendMsg('目前连线有点不稳定，你可以稍后再试一次。', false);
+    }
+  }
+
+  send.addEventListener('click', handleSend);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  });
+}
 
   /* ========================= 表单提交处理 ========================= */
   function handleGenerate(evt){
@@ -1127,6 +1183,7 @@ function fillBirthPlaceFromIP() {
 </script>
 </body>
 </html>
+
 
 
 
