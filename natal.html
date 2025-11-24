@@ -258,9 +258,6 @@
     </div>
   </div>
 
-    <footer data-i18n="footer.copy">© 5XLiving • Astro Sanctuary</footer>
-  </main>  
-
 <script>
   // ⚠️ 改成你自己的 Worker 域名（不要加 /api/chat）
   window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
@@ -326,7 +323,6 @@
 
       alert_fill:'请补全「出生日期」与「出生地点」。',
       disclaimer:'＊当前仅示意太阳星座；完整命盘需使用出生地与精确时刻计算。',
-      // action_1/2/3 可以留着，但我们不再用它们作为报告内容
       action_1:'今天为自己预留 25 分钟安静时间，回顾这一年的成长。',
       action_2:'写下 3 件你想在接下来 30 天逐步推进的小目标。',
       action_3:'挑一位重要的人，发一句真诚的感谢或问候。',
@@ -606,7 +602,7 @@
 
       vip_xinlian:'🌙 Ruang Xinlian',
       vip_record:'Rekod jiwa: gambar, mimpi, audio, doa',
-      vip_course:'Kursus: Bazi / Tarot / Astrologi / Numerologi / Human Design',
+      vip_course:'Kursus: Bazi / Tarot / Astrologi / Human Design',
       vip_memorial:'Sistem memorial keluarga',
       vip_tasks:'Latihan tenaga mingguan / tugasan ritual',
       vip_shop:'Diskaun kedai tenaga & azimat khas',
@@ -695,7 +691,7 @@
     setInterval(tick, 1000);
   }
 
-  /* ========================= 星座 & 元素（保留） ========================= */
+  /* ========================= 星座 & 元素 ========================= */
   const SIGN_LIST = [
     { key:'Aries',       start:[3,21], end:[4,19],  el:'fire',
       name:{'zh-CN':'白羊座','zh-TW':'牡羊座','en':'Aries','ja':'牡羊座','th':'เมษ','ms':'Aries'} },
@@ -799,467 +795,331 @@
     return raw.replace(/\/+$/,'');
   }
 
-// ===== 在脚本顶层加两个全局变量（放在 loadNatalSections 之前） =====
-let natalRateCooldownUntil = 0;
-let natalRateMessage = null;
+  // ===== 全局 rate limit 状态，用在本页所有 natal 请求 =====
+  let natalRateCooldownUntil = 0;
+  let natalRateMessage = null;
 
-// ===== 用这个替换原来的 loadNatalSections =====
-async function loadNatalSections(model, sign){
-  const lang = getLang();
-  const base = getApiBase && getApiBase() || window.API_BASE;
-  const titles = getSectionTitles(lang);
+  // ===== 新版 loadNatalSections（只保留这一份） =====
+  async function loadNatalSections(model, sign){
+    const lang = getLang();
+    const base = getApiBase && getApiBase() || window.API_BASE;
+    const titles = getSectionTitles(lang);
 
-  const secSunExtra = gid('secSunExtra');
-  const secPersona  = gid('secPersona');
-  const secRelation = gid('secRelation');
-  const secCareer   = gid('secCareer');
-  const secEnergy   = gid('secEnergy');
-  const secAction   = gid('secAction');
+    const secSunExtra = gid('secSunExtra');
+    const secPersona  = gid('secPersona');
+    const secRelation = gid('secRelation');
+    const secCareer   = gid('secCareer');
+    const secEnergy   = gid('secEnergy');
+    const secAction   = gid('secAction');
 
-  const genericErr = (
-    lang === 'en' ? 'Connection seems unstable, please try again later.' :
-    lang === 'ja' ? '接続が不安定なようです。少し時間をおいて再度お試しください。' :
-    lang === 'th' ? 'การเชื่อมต่อขัดข้อง กรุณาลองใหม่ภายหลัง' :
-    lang === 'ms' ? 'Sambungan tidak stabil, sila cuba lagi kemudian.' :
-    '目前连线有点不稳定，你可以稍后再试一次。'
-  );
+    const genericErr = (
+      lang === 'en' ? 'Connection seems unstable, please try again later.' :
+      lang === 'ja' ? '接続が不安定なようです。少し時間をおいて再度お試しください。' :
+      lang === 'th' ? 'การเชื่อมต่อขัดข้อง กรุณาลองใหม่ภายหลัง' :
+      lang === 'ms' ? 'Sambungan tidak stabil, sila cuba lagi kemudian.' :
+      '目前连线有点不稳定，你可以稍后再试一次。'
+    );
 
-  const baseRateErr = (
-    lang === 'en'
-      ? 'AI service is temporarily rate limited.'
-      : lang === 'ja'
-      ? 'AI リーディングは現在レート制限中です。'
-      : lang === 'th'
-      ? 'ระบบ AI ถูกจำกัดการใช้งานชั่วคราวค่ะ'
-      : lang === 'ms'
-      ? 'Perkhidmatan AI sedang dikenakan had kadar buat sementara waktu.'
-      : 'AI 解读服务目前请求已达上限。'
-  );
+    const baseRateErr = (
+      lang === 'en'
+        ? 'AI service is temporarily rate limited.'
+        : lang === 'ja'
+        ? 'AI リーディングは現在レート制限中です。'
+        : lang === 'th'
+        ? 'ระบบ AI ถูกจำกัดการใช้งานชั่วคราวค่ะ'
+        : lang === 'ms'
+        ? 'Perkhidmatan AI sedang dikenakan had kadar buat sementara waktu.'
+        : 'AI 解读服务目前请求已达上限。'
+    );
 
-  const systemNotReady = (
-    lang === 'en'
-      ? 'System is not fully configured (API_BASE missing).'
-      : '系统尚未完成配置（缺少 API_BASE）。'
-  );
+    const systemNotReady = (
+      lang === 'en'
+        ? 'System is not fully configured (API_BASE missing).'
+        : '系统尚未完成配置（缺少 API_BASE）。'
+    );
 
-  function fillAllWith(msg){
-    if (secPersona) {
-      secPersona.innerHTML =
-        `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(msg)}</p>`;
+    function fillAllWith(msg){
+      if (secPersona) {
+        secPersona.innerHTML =
+          `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(msg)}</p>`;
+      }
+      if (secRelation) {
+        secRelation.innerHTML =
+          `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(msg)}</p>`;
+      }
+      if (secCareer) {
+        secCareer.innerHTML =
+          `<h3>${esc(titles.career)}</h3><p class="muted">${esc(msg)}</p>`;
+      }
+      if (secEnergy) {
+        secEnergy.innerHTML =
+          `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(msg)}</p>`;
+      }
+      if (secAction) {
+        secAction.innerHTML =
+          `<h3>${esc(titles.action)}</h3><p class="muted">${esc(msg)}</p>`;
+      }
     }
-    if (secRelation) {
-      secRelation.innerHTML =
-        `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(msg)}</p>`;
+
+    // 🔒 如果还在冷却时间内，直接复用上一条 rate limit 文案，避免再打 API
+    if (Date.now() < natalRateCooldownUntil && natalRateMessage){
+      fillAllWith(natalRateMessage);
+      return;
     }
-    if (secCareer) {
-      secCareer.innerHTML =
-        `<h3>${esc(titles.career)}</h3><p class="muted">${esc(msg)}</p>`;
+
+    if (!base) {
+      fillAllWith(systemNotReady);
+      return;
     }
-    if (secEnergy) {
-      secEnergy.innerHTML =
-        `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(msg)}</p>`;
-    }
-    if (secAction) {
-      secAction.innerHTML =
-        `<h3>${esc(titles.action)}</h3><p class="muted">${esc(msg)}</p>`;
-    }
-  }
 
-  // 🔒 如果之前已经被告知 rate limit，还在冷却期内，就不要再打 API 了
-  if (Date.now() < natalRateCooldownUntil && natalRateMessage){
-    fillAllWith(natalRateMessage);
-    return;
-  }
-
-  if (!base) {
-    fillAllWith(systemNotReady);
-    return;
-  }
-
-  try{
-    const payload = {
-      user: model.name || 'natal_guest',
-      prompt: JSON.stringify({
-        type:  'natal-main',
-        lang,
-        meta:{
-          name:   model.name || '',
-          date:   model.date,
-          time:   model.time || '',
-          place:  model.place || '',
-          gender: model.gender || 'u',
-          signKey:  sign.key,
-          signCn:   sign.name['zh-CN'] || sign.key,
-          signEn:   sign.name['en']   || sign.key,
-          element:  sign.el
-        }
-      })
-    };
-
-    console.log('[natal] calling worker', base + '/api/chat');
-    const res = await fetch(base + '/api/chat', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    console.log('[natal] worker status', res.status);
-    const data = await res.json().catch(()=>null);
-    console.log('[natal] worker payload', data);
-
-    // ========== 处理 Worker 回传 error / 429 ==========
-    if (data && data.ok === false) {
-      // 先准备一个默认 rate limit 文案
-      let msg = baseRateErr;
-
-      // Worker 里把 OpenAI 原始错误塞进了 data.error（字符串）
-      if (data.status === 429 && data.error) {
-        try{
-          const parsed = typeof data.error === 'string'
-            ? JSON.parse(data.error)
-            : data.error;
-
-          console.log('[natal] Rate limit detected:', parsed);
-
-          // 尝试从 OpenAI message 里抓出 "Please try again in 24m11.519s"
-          if (parsed && parsed.error && typeof parsed.error.message === 'string') {
-            const m = parsed.error.message.match(/Please try again in ([0-9]+)m([0-9.]+)s/i);
-            if (m) {
-              const mins = parseInt(m[1],10) || 0;
-              const secs = Math.round(parseFloat(m[2]) || 0);
-
-              // 在文案后面附上原生提示（只是 echo OpenAI 的字）
-              if (lang === 'en') {
-                msg = `${baseRateErr} Please try again after about ${mins} minute(s).`;
-              } else {
-                // 其他语言就简单一点，不拼时间，免得乱
-                msg = baseRateErr;
-              }
-
-              // 设置冷却时间（稍微比官方说的短一点也没关系，这里给满值）
-              const waitMs = (mins * 60 + secs) * 1000;
-              natalRateCooldownUntil = Date.now() + waitMs;
-              natalRateMessage = msg;
-            } else {
-              // 找不到时间，就用默认 rate 文案 + 短冷却 5 分钟
-              natalRateCooldownUntil = Date.now() + 5 * 60 * 1000;
-              natalRateMessage = msg;
-            }
+    try{
+      const payload = {
+        user: model.name || 'natal_guest',
+        prompt: JSON.stringify({
+          type:  'natal-main',
+          lang,
+          meta:{
+            name:   model.name || '',
+            date:   model.date,
+            time:   model.time || '',
+            place:  model.place || '',
+            gender: model.gender || 'u',
+            signKey:  sign.key,
+            signCn:   sign.name['zh-CN'] || sign.key,
+            signEn:   sign.name['en']   || sign.key,
+            element:  sign.el
           }
-        }catch(e){
-          console.warn('[natal] parse upstream error failed', e);
-          natalRateCooldownUntil = Date.now() + 5 * 60 * 1000;
-          natalRateMessage = msg;
+        })
+      };
+
+      console.log('[natal] calling worker', base + '/api/chat');
+      const res = await fetch(base + '/api/chat', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      console.log('[natal] worker status', res.status);
+      const data = await res.json().catch(()=>null);
+      console.log('[natal] worker payload', data);
+
+      // —— Worker 明确回传 ok:false 的情况（包括上游 429）——
+      if (data && data.ok === false) {
+        let msg = baseRateErr;
+
+        if (data.status === 429 && data.error) {
+          try{
+            const parsed = typeof data.error === 'string'
+              ? JSON.parse(data.error)
+              : data.error;
+
+            console.log('[natal] Rate limit detected:', parsed);
+
+            if (parsed && parsed.error && typeof parsed.error.message === 'string') {
+              const m = parsed.error.message.match(/Please try again in ([0-9]+)m([0-9.]+)s/i);
+              if (m) {
+                const mins = parseInt(m[1],10) || 0;
+                const secs = Math.round(parseFloat(m[2]) || 0);
+
+                if (lang === 'en') {
+                  msg = `${baseRateErr} Please try again after about ${mins} minute(s).`;
+                } else {
+                  msg = baseRateErr;
+                }
+
+                const waitMs = (mins * 60 + secs) * 1000;
+                natalRateCooldownUntil = Date.now() + waitMs;
+                natalRateMessage = msg;
+              } else {
+                natalRateCooldownUntil = Date.now() + 5 * 60 * 1000;
+                natalRateMessage = msg;
+              }
+            }
+          }catch(e){
+            console.warn('[natal] parse upstream error failed', e);
+            natalRateCooldownUntil = Date.now() + 5 * 60 * 1000;
+            natalRateMessage = msg;
+          }
+
+          fillAllWith(natalRateMessage);
+          return;
         }
 
-        fillAllWith(natalRateMessage);
+        // 不是 429，仅 ok:false
+        fillAllWith(data.msg || genericErr);
         return;
       }
 
-      // 不是 429，但 ok:false → 用通用错误
-      fillAllWith(data.msg || genericErr);
-      return;
-    }
+      // —— 正常路径：有 sections 可以用 —— 
+      natalRateCooldownUntil = 0;
+      natalRateMessage = null;
 
-    // ========== 正常路径：真正拿到 AI 文案 ==========
-    natalRateCooldownUntil = 0;
-    natalRateMessage = null;
+      const sections = (data && data.sections) || {};
+      const sunText      = sections.sun || '';
+      const personaText  = sections.persona  || genericErr;
+      const relationText = sections.relation || genericErr;
+      const careerText   = sections.career   || genericErr;
+      const energyText   = sections.energy   || '';
+      const actions      = sections.actions;
 
-    const sections = (data && data.sections) || {};
-    const sunText      = sections.sun || '';
-    const personaText  = sections.persona  || genericErr;
-    const relationText = sections.relation || genericErr;
-    const careerText   = sections.career   || genericErr;
-    const energyText   = sections.energy   || '';
-    const actions      = sections.actions;
-
-    if (secSunExtra && sunText){
-      secSunExtra.innerHTML = esc(sunText).replace(/\n/g,'<br>');
-    }
-
-    if (secPersona){
-      secPersona.innerHTML =
-        `<h3>${esc(titles.persona)}</h3><p>${esc(personaText).replace(/\n/g,'<br>')}</p>`;
-    }
-    if (secRelation){
-      secRelation.innerHTML =
-        `<h3>${esc(titles.relation)}</h3><p>${esc(relationText).replace(/\n/g,'<br>')}</p>`;
-    }
-    if (secCareer){
-      secCareer.innerHTML =
-        `<h3>${esc(titles.career)}</h3><p>${esc(careerText).replace(/\n/g,'<br>')}</p>`;
-    }
-    if (secEnergy){
-      const body = energyText
-        ? `<p>${esc(energyText).replace(/\n/g,'<br>')}</p>`
-        : `<p class="muted">${esc(genericErr)}</p>`;
-      secEnergy.innerHTML = `<h3>${esc(titles.energy)}</h3>${body}`;
-    }
-
-    if (secAction){
-      let listHtml = '';
-      if (Array.isArray(actions) && actions.length){
-        listHtml = '<ul>' +
-          actions.map(a => `<li>${esc(a)}</li>`).join('') +
-          '</ul>';
-      } else if (typeof actions === 'string' && actions.trim()){
-        listHtml = `<p>${esc(actions).replace(/\n/g,'<br>')}</p>`;
-      } else {
-        listHtml = `<p class="muted">${esc(genericErr)}</p>`;
+      if (secSunExtra && sunText){
+        secSunExtra.innerHTML = esc(sunText).replace(/\n/g,'<br>');
       }
-      secAction.innerHTML = `<h3>${esc(titles.action)}</h3>${listHtml}`;
-    }
 
-  }catch(e){
-    console.error('[natal] worker error:', e);
-    fillAllWith(genericErr);
-  }
-}  
-  
-async function loadNatalSections(model, sign) {
-  const lang = getLang();
-  const base = getApiBase();
-  const titles = getSectionTitles(lang);
+      if (secPersona){
+        secPersona.innerHTML =
+          `<h3>${esc(titles.persona)}</h3><p>${esc(personaText).replace(/\n/g,'<br>')}</p>`;
+      }
+      if (secRelation){
+        secRelation.innerHTML =
+          `<h3>${esc(titles.relation)}</h3><p>${esc(relationText).replace(/\n/g,'<br>')}</p>`;
+      }
+      if (secCareer){
+        secCareer.innerHTML =
+          `<h3>${esc(titles.career)}</h3><p>${esc(careerText).replace(/\n/g,'<br>')}</p>`;
+      }
+      if (secEnergy){
+        const body = energyText
+          ? `<p>${esc(energyText).replace(/\n/g,'<br>')}</p>`
+          : `<p class="muted">${esc(genericErr)}</p>`;
+        secEnergy.innerHTML = `<h3>${esc(titles.energy)}</h3>${body}`;
+      }
 
-  const wrap = gid('chartReport');
-  if (!wrap) return;
-  
-  const secSunExtra = wrap.querySelector('#secSunExtra');
-  const secPersona = wrap.querySelector('#secPersona');
-  const secRelation = wrap.querySelector('#secRelation');
-  const secCareer = wrap.querySelector('#secCareer');
-  const secEnergy = wrap.querySelector('#secEnergy');
-  const secAction = wrap.querySelector('#secAction');
-
-  const errMsg = (
-    lang === 'en' ? 'Connection seems unstable, please try again later.' :
-    lang === 'ja' ? '接続が不安定なようです。少し時間をおいて再度お試しください。' :
-    lang === 'th' ? 'การเชื่อมต่อขัดข้อง ลองใหม่อีกครั้งภายหลังนะคะ' :
-    lang === 'ms' ? 'Sambungan tidak stabil, sila cuba lagi kemudian.' :
-    '目前连线有点不稳定，你可以稍后再试一次。'
-  );
-
-  // 专门处理速率限制的错误信息
-  const rateLimitMsg = (
-    lang === 'en' ? 'AI service is temporarily rate limited. Please try again in 7-8 minutes.' :
-    lang === 'ja' ? 'AIサービスが一時的にレート制限されています。7-8分後にもう一度お試しください。' :
-    lang === 'th' ? 'ระบบ AI ถูกจำกัดการใช้งานชั่วคราว กรุณาลองใหม่ใน 7-8 นาที' :
-    lang === 'ms' ? 'Perkhidmatan AI had laju sementara. Sila cuba lagi dalam 7-8 minit.' :
-    'AI 服务暂时达到使用限制，请在 7-8 分钟后重试。'
-  );
-
-  if (!base) {
-    const msg = 'System not fully configured (API_BASE missing).';
-    if (secPersona)  secPersona.innerHTML  = `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(msg)}</p>`;
-    if (secRelation) secRelation.innerHTML = `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(msg)}</p>`;
-    if (secCareer)   secCareer.innerHTML   = `<h3>${esc(titles.career)}</h3><p class="muted">${esc(msg)}</p>`;
-    if (secEnergy)   secEnergy.innerHTML   = `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(msg)}</p>`;
-    if (secAction)   secAction.innerHTML   = `<h3>${esc(titles.action)}</h3><p class="muted">${esc(msg)}</p>`;
-    return;
-  }
-
-  try {
-    const payload = {
-      user: model.name || 'natal_guest',
-      prompt: JSON.stringify({
-        type: 'natal-main',
-        lang,
-        meta: {
-          name: model.name || '',
-          date: model.date,
-          time: model.time || '',
-          place: model.place || '',
-          gender: model.gender || 'u',
-          signKey: sign.key,
-          signCn: sign.name['zh-CN'] || sign.key,
-          signEn: sign.name['en'] || sign.key,
-          element: sign.el
+      if (secAction){
+        let listHtml = '';
+        if (Array.isArray(actions) && actions.length){
+          listHtml = '<ul>' +
+            actions.map(a => `<li>${esc(a)}</li>`).join('') +
+            '</ul>';
+        } else if (typeof actions === 'string' && actions.trim()){
+          listHtml = `<p>${esc(actions).replace(/\n/g,'<br>')}</p>`;
+        } else {
+          listHtml = `<p class="muted">${esc(genericErr)}</p>`;
         }
-      })
+        secAction.innerHTML = `<h3>${esc(titles.action)}</h3>${listHtml}`;
+      }
+
+    }catch(e){
+      console.error('[natal] worker error:', e);
+      fillAllWith(genericErr);
+    }
+  }
+
+  function renderReport(model) {
+    const result = gid('result');
+    const wrap = gid('chartReport');
+    if (!wrap || !result) return;
+
+    const lang = getLang();
+    const sign = getSunSign(model.date);
+    const L = key => t(key);
+
+    const meta = {
+      name: model.name || '',
+      date: model.date,
+      time: model.time || '',
+      place: model.place || '',
+      gender: model.gender || 'u',
+      signKey: sign.key,
+      signCn: sign.name['zh-CN'] || sign.key,
+      signEn: sign.name['en'] || sign.key,
+      element: sign.el
     };
+    model.meta = meta;
+    window.lastModel = model;
+    lastModel = model;
 
-    console.log('[natal] calling worker', base + '/api/chat');
-    const res = await fetch(base + '/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    const overviewTitle = esc(L('section_overview'));
+    const sunTitle = esc(L('section_sun'));
+    const energyTitle = esc(L('section_energy'));
+    const actionTitle = esc(L('section_action'));
+    const sunLabel = esc(L('sun_label'));
+    const disclaimer = esc(L('disclaimer'));
+    const signNameCn = esc(sign.name['zh-CN'] || sign.key);
 
-    console.log('[natal] worker status', res.status);
-    if (!res.ok) throw new Error('bad_status_' + res.status);
+    const genderMap = {
+      'zh-CN': { m: '男性', f: '女性', u: '—' },
+      'zh-TW': { m: '男性', f: '女性', u: '—' },
+      'en': { m: 'Male', f: 'Female', u: '—' },
+      'ja': { m: '男性', f: '女性', u: '—' },
+      'th': { m: 'ชาย', f: 'หญิง', u: '—' },
+      'ms': { m: 'Lelaki', f: 'Perempuan', u: '—' }
+    };
+    const gPack = genderMap[lang] || genderMap['zh-CN'];
+    const genderLabel = gPack[model.gender] || gPack.u;
 
-    const data = await res.json();
-    console.log('[natal] worker payload', data);
+    const titles = getSectionTitles(lang);
+    const loadingText = (
+      lang === 'en' ? 'Loading AI reading…' :
+      lang === 'ja' ? 'AI リーディングを読み込み中…' :
+      lang === 'th' ? 'กำลังโหลดคำทำนายจาก AI…' :
+      lang === 'ms' ? 'Memuat bacaan AI…' :
+      '正在载入 AI 解读…'
+    );
 
-    // 检查是否是速率限制错误
-    if (data && data.status === 429) {
-      console.warn('[natal] Rate limit detected:', data.error);
-      // 显示速率限制特定的错误信息
-      [secPersona, secRelation, secCareer, secEnergy, secAction].forEach(sec => {
-        if (sec) {
-          const title = sec.querySelector('h3')?.textContent || '';
-          sec.innerHTML = `<h3>${esc(title)}</h3><p class="muted">${esc(rateLimitMsg)}</p>`;
-        }
-      });
-      return;
-    }
+    const overviewHtml = `
+      <div class="sec">
+        <h3>${overviewTitle}</h3>
+        <p>${esc(model.name || '')}${model.name ? ' · ' : ''}${esc(model.date)} ${esc(model.time || '')}${model.place ? (' @ ' + esc(model.place)) : ''}</p>
+        <p class="muted" style="opacity:.8">${disclaimer}</p>
+      </div>`;
 
-    const sections = (data && data.sections) || {};
-    const sunText = sections.sun || '';
-    const personaText = sections.persona || errMsg;
-    const relationText = sections.relation || errMsg;
-    const careerText = sections.career || errMsg;
-    const energyText = sections.energy || '';
-    const actions = sections.actions;
+    const sunHtml = `
+      <div class="sec">
+        <h3>${sunTitle}</h3>
+        <p>${sunLabel} <b>${signNameCn}</b></p>
+        <p class="muted">${genderLabel !== '—' ? ('Gender / 性别：' + esc(genderLabel)) : ''}</p>
+        <div id="secSunExtra" class="muted" style="margin-top:6px;"></div>
+      </div>`;
 
-    if (secSunExtra && sunText) {
-      secSunExtra.innerHTML = esc(sunText).replace(/\n/g, '<br>');
-    }
+    const personaHtml = `
+      <div class="sec" id="secPersona">
+        <h3>${esc(titles.persona)}</h3>
+        <p class="muted">${esc(loadingText)}</p>
+      </div>`;
 
-    if (secPersona) {
-      secPersona.innerHTML = `<h3>${esc(titles.persona)}</h3><p>${esc(personaText).replace(/\n/g, '<br>')}</p>`;
-    }
-    if (secRelation) {
-      secRelation.innerHTML = `<h3>${esc(titles.relation)}</h3><p>${esc(relationText).replace(/\n/g, '<br>')}</p>`;
-    }
-    if (secCareer) {
-      secCareer.innerHTML = `<h3>${esc(titles.career)}</h3><p>${esc(careerText).replace(/\n/g, '<br>')}</p>`;
-    }
-    if (secEnergy) {
-      const body = energyText
-        ? `<p>${esc(energyText).replace(/\n/g, '<br>')}</p>`
-        : `<p class="muted">${esc(errMsg)}</p>`;
-      secEnergy.innerHTML = `<h3>${esc(titles.energy)}</h3>${body}`;
-    }
+    const relationHtml = `
+      <div class="sec" id="secRelation">
+        <h3>${esc(titles.relation)}</h3>
+        <p class="muted">${esc(loadingText)}</p>
+      </div>`;
 
-    if (secAction) {
-      let listHtml = '';
-      if (Array.isArray(actions) && actions.length) {
-        listHtml = '<ul>' + actions.map(a => `<li>${esc(a)}</li>`).join('') + '</ul>';
-      } else if (typeof actions === 'string' && actions.trim()) {
-        listHtml = `<p>${esc(actions).replace(/\n/g, '<br>')}</p>`;
-      } else {
-        listHtml = `<p class="muted">${esc(errMsg)}</p>`;
-      }
-      secAction.innerHTML = `<h3>${esc(titles.action)}</h3>${listHtml}`;
-    }
+    const careerHtml = `
+      <div class="sec" id="secCareer">
+        <h3>${esc(titles.career)}</h3>
+        <p class="muted">${esc(loadingText)}</p>
+      </div>`;
 
-function renderReport(model) {
-  const result = gid('result');
-  const wrap = gid('chartReport');  // 这里已经声明了 wrap
-  if (!wrap || !result) return;
+    const energyHtml = `
+      <div class="sec" id="secEnergy">
+        <h3>${energyTitle}</h3>
+        <p class="muted">${esc(loadingText)}</p>
+      </div>`;
 
-  const lang = getLang();
-  const sign = getSunSign(model.date);
-  const L = key => t(key);
+    const actionHtml = `
+      <div class="sec" id="secAction">
+        <h3>${actionTitle}</h3>
+        <p class="muted">${esc(loadingText)}</p>
+      </div>`;
 
-  // 存给 Butler 用
-  const meta = {
-    name: model.name || '',
-    date: model.date,
-    time: model.time || '',
-    place: model.place || '',
-    gender: model.gender || 'u',
-    signKey: sign.key,
-    signCn: sign.name['zh-CN'] || sign.key,
-    signEn: sign.name['en'] || sign.key,
-    element: sign.el
-  };
-  model.meta = meta;
-  window.lastModel = model;
-  lastModel = model;
+    wrap.innerHTML =
+      overviewHtml +
+      sunHtml +
+      personaHtml +
+      relationHtml +
+      careerHtml +
+      energyHtml +
+      actionHtml;
 
-  const overviewTitle = esc(L('section_overview'));
-  const sunTitle = esc(L('section_sun'));
-  const energyTitle = esc(L('section_energy'));
-  const actionTitle = esc(L('section_action'));
-  const sunLabel = esc(L('sun_label'));
-  const disclaimer = esc(L('disclaimer'));
-  const signNameCn = esc(sign.name['zh-CN'] || sign.key);
+    result.style.display = 'block';
 
-  const genderMap = {
-    'zh-CN': { m: '男性', f: '女性', u: '—' },
-    'zh-TW': { m: '男性', f: '女性', u: '—' },
-    'en': { m: 'Male', f: 'Female', u: '—' },
-    'ja': { m: '男性', f: '女性', u: '—' },
-    'th': { m: 'ชาย', f: 'หญิง', u: '—' },
-    'ms': { m: 'Lelaki', f: 'Perempuan', u: '—' }
-  };
-  const gPack = genderMap[lang] || genderMap['zh-CN'];
-  const genderLabel = gPack[model.gender] || gPack.u;
+    // 等 DOM 更新完再打 AI
+    setTimeout(() => {
+      loadNatalSections(model, sign);
+    }, 100);
+  }
 
-  const titles = getSectionTitles(lang);
-  const loadingText = (
-    lang === 'en' ? 'Loading AI reading…' :
-    lang === 'ja' ? 'AI リーディングを読み込み中…' :
-    lang === 'th' ? 'กำลังโหลดคำทำนายจาก AI…' :
-    lang === 'ms' ? 'Memuat bacaan AI…' :
-    '正在载入 AI 解读…'
-  );
-
-  const overviewHtml = `
-    <div class="sec">
-      <h3>${overviewTitle}</h3>
-      <p>${esc(model.name || '')}${model.name ? ' · ' : ''}${esc(model.date)} ${esc(model.time || '')}${model.place ? (' @ ' + esc(model.place)) : ''}</p>
-      <p class="muted" style="opacity:.8">${disclaimer}</p>
-    </div>`;
-
-  const sunHtml = `
-    <div class="sec">
-      <h3>${sunTitle}</h3>
-      <p>${sunLabel} <b>${signNameCn}</b></p>
-      <p class="muted">${genderLabel !== '—' ? ('Gender / 性别：' + esc(genderLabel)) : ''}</p>
-      <div id="secSunExtra" class="muted" style="margin-top:6px;"></div>
-    </div>`;
-
-  const personaHtml = `
-    <div class="sec" id="secPersona">
-      <h3>${esc(titles.persona)}</h3>
-      <p class="muted">${esc(loadingText)}</p>
-    </div>`;
-
-  const relationHtml = `
-    <div class="sec" id="secRelation">
-      <h3>${esc(titles.relation)}</h3>
-      <p class="muted">${esc(loadingText)}</p>
-    </div>`;
-
-  const careerHtml = `
-    <div class="sec" id="secCareer">
-      <h3>${esc(titles.career)}</h3>
-      <p class="muted">${esc(loadingText)}</p>
-    </div>`;
-
-  const energyHtml = `
-    <div class="sec" id="secEnergy">
-      <h3>${energyTitle}</h3>
-      <p class="muted">${esc(loadingText)}</p>
-    </div>`;
-
-  const actionHtml = `
-    <div class="sec" id="secAction">
-      <h3>${actionTitle}</h3>
-      <p class="muted">${esc(loadingText)}</p>
-    </div>`;
-
-  wrap.innerHTML =
-    overviewHtml +
-    sunHtml +
-    personaHtml +
-    relationHtml +
-    careerHtml +
-    energyHtml +
-    actionHtml;
-
-  result.style.display = 'block';
-
-  // 🔮 关键修复：使用 setTimeout 确保 DOM 更新完成后再调用 AI
-  setTimeout(() => {
-    loadNatalSections(model, sign);
-  }, 100);
-}
-
-  /* ========================= 心怜管家 · 聊天浮窗（保留，只改用 meta） ========================= */
+  /* ========================= 心怜管家 · 聊天浮窗 ========================= */
   function initButlerChat(){
     const fab    = gid('ssChatFab');
     const panel  = gid('ssChatPanel');
@@ -1424,35 +1284,3 @@ function renderReport(model) {
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
