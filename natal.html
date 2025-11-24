@@ -799,6 +799,223 @@
     return raw.replace(/\/+$/,'');
   }
 
+// ===== 在脚本顶层加两个全局变量（放在 loadNatalSections 之前） =====
+let natalRateCooldownUntil = 0;
+let natalRateMessage = null;
+
+// ===== 用这个替换原来的 loadNatalSections =====
+async function loadNatalSections(model, sign){
+  const lang = getLang();
+  const base = getApiBase && getApiBase() || window.API_BASE;
+  const titles = getSectionTitles(lang);
+
+  const secSunExtra = gid('secSunExtra');
+  const secPersona  = gid('secPersona');
+  const secRelation = gid('secRelation');
+  const secCareer   = gid('secCareer');
+  const secEnergy   = gid('secEnergy');
+  const secAction   = gid('secAction');
+
+  const genericErr = (
+    lang === 'en' ? 'Connection seems unstable, please try again later.' :
+    lang === 'ja' ? '接続が不安定なようです。少し時間をおいて再度お試しください。' :
+    lang === 'th' ? 'การเชื่อมต่อขัดข้อง กรุณาลองใหม่ภายหลัง' :
+    lang === 'ms' ? 'Sambungan tidak stabil, sila cuba lagi kemudian.' :
+    '目前连线有点不稳定，你可以稍后再试一次。'
+  );
+
+  const baseRateErr = (
+    lang === 'en'
+      ? 'AI service is temporarily rate limited.'
+      : lang === 'ja'
+      ? 'AI リーディングは現在レート制限中です。'
+      : lang === 'th'
+      ? 'ระบบ AI ถูกจำกัดการใช้งานชั่วคราวค่ะ'
+      : lang === 'ms'
+      ? 'Perkhidmatan AI sedang dikenakan had kadar buat sementara waktu.'
+      : 'AI 解读服务目前请求已达上限。'
+  );
+
+  const systemNotReady = (
+    lang === 'en'
+      ? 'System is not fully configured (API_BASE missing).'
+      : '系统尚未完成配置（缺少 API_BASE）。'
+  );
+
+  function fillAllWith(msg){
+    if (secPersona) {
+      secPersona.innerHTML =
+        `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(msg)}</p>`;
+    }
+    if (secRelation) {
+      secRelation.innerHTML =
+        `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(msg)}</p>`;
+    }
+    if (secCareer) {
+      secCareer.innerHTML =
+        `<h3>${esc(titles.career)}</h3><p class="muted">${esc(msg)}</p>`;
+    }
+    if (secEnergy) {
+      secEnergy.innerHTML =
+        `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(msg)}</p>`;
+    }
+    if (secAction) {
+      secAction.innerHTML =
+        `<h3>${esc(titles.action)}</h3><p class="muted">${esc(msg)}</p>`;
+    }
+  }
+
+  // 🔒 如果之前已经被告知 rate limit，还在冷却期内，就不要再打 API 了
+  if (Date.now() < natalRateCooldownUntil && natalRateMessage){
+    fillAllWith(natalRateMessage);
+    return;
+  }
+
+  if (!base) {
+    fillAllWith(systemNotReady);
+    return;
+  }
+
+  try{
+    const payload = {
+      user: model.name || 'natal_guest',
+      prompt: JSON.stringify({
+        type:  'natal-main',
+        lang,
+        meta:{
+          name:   model.name || '',
+          date:   model.date,
+          time:   model.time || '',
+          place:  model.place || '',
+          gender: model.gender || 'u',
+          signKey:  sign.key,
+          signCn:   sign.name['zh-CN'] || sign.key,
+          signEn:   sign.name['en']   || sign.key,
+          element:  sign.el
+        }
+      })
+    };
+
+    console.log('[natal] calling worker', base + '/api/chat');
+    const res = await fetch(base + '/api/chat', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    console.log('[natal] worker status', res.status);
+    const data = await res.json().catch(()=>null);
+    console.log('[natal] worker payload', data);
+
+    // ========== 处理 Worker 回传 error / 429 ==========
+    if (data && data.ok === false) {
+      // 先准备一个默认 rate limit 文案
+      let msg = baseRateErr;
+
+      // Worker 里把 OpenAI 原始错误塞进了 data.error（字符串）
+      if (data.status === 429 && data.error) {
+        try{
+          const parsed = typeof data.error === 'string'
+            ? JSON.parse(data.error)
+            : data.error;
+
+          console.log('[natal] Rate limit detected:', parsed);
+
+          // 尝试从 OpenAI message 里抓出 "Please try again in 24m11.519s"
+          if (parsed && parsed.error && typeof parsed.error.message === 'string') {
+            const m = parsed.error.message.match(/Please try again in ([0-9]+)m([0-9.]+)s/i);
+            if (m) {
+              const mins = parseInt(m[1],10) || 0;
+              const secs = Math.round(parseFloat(m[2]) || 0);
+
+              // 在文案后面附上原生提示（只是 echo OpenAI 的字）
+              if (lang === 'en') {
+                msg = `${baseRateErr} Please try again after about ${mins} minute(s).`;
+              } else {
+                // 其他语言就简单一点，不拼时间，免得乱
+                msg = baseRateErr;
+              }
+
+              // 设置冷却时间（稍微比官方说的短一点也没关系，这里给满值）
+              const waitMs = (mins * 60 + secs) * 1000;
+              natalRateCooldownUntil = Date.now() + waitMs;
+              natalRateMessage = msg;
+            } else {
+              // 找不到时间，就用默认 rate 文案 + 短冷却 5 分钟
+              natalRateCooldownUntil = Date.now() + 5 * 60 * 1000;
+              natalRateMessage = msg;
+            }
+          }
+        }catch(e){
+          console.warn('[natal] parse upstream error failed', e);
+          natalRateCooldownUntil = Date.now() + 5 * 60 * 1000;
+          natalRateMessage = msg;
+        }
+
+        fillAllWith(natalRateMessage);
+        return;
+      }
+
+      // 不是 429，但 ok:false → 用通用错误
+      fillAllWith(data.msg || genericErr);
+      return;
+    }
+
+    // ========== 正常路径：真正拿到 AI 文案 ==========
+    natalRateCooldownUntil = 0;
+    natalRateMessage = null;
+
+    const sections = (data && data.sections) || {};
+    const sunText      = sections.sun || '';
+    const personaText  = sections.persona  || genericErr;
+    const relationText = sections.relation || genericErr;
+    const careerText   = sections.career   || genericErr;
+    const energyText   = sections.energy   || '';
+    const actions      = sections.actions;
+
+    if (secSunExtra && sunText){
+      secSunExtra.innerHTML = esc(sunText).replace(/\n/g,'<br>');
+    }
+
+    if (secPersona){
+      secPersona.innerHTML =
+        `<h3>${esc(titles.persona)}</h3><p>${esc(personaText).replace(/\n/g,'<br>')}</p>`;
+    }
+    if (secRelation){
+      secRelation.innerHTML =
+        `<h3>${esc(titles.relation)}</h3><p>${esc(relationText).replace(/\n/g,'<br>')}</p>`;
+    }
+    if (secCareer){
+      secCareer.innerHTML =
+        `<h3>${esc(titles.career)}</h3><p>${esc(careerText).replace(/\n/g,'<br>')}</p>`;
+    }
+    if (secEnergy){
+      const body = energyText
+        ? `<p>${esc(energyText).replace(/\n/g,'<br>')}</p>`
+        : `<p class="muted">${esc(genericErr)}</p>`;
+      secEnergy.innerHTML = `<h3>${esc(titles.energy)}</h3>${body}`;
+    }
+
+    if (secAction){
+      let listHtml = '';
+      if (Array.isArray(actions) && actions.length){
+        listHtml = '<ul>' +
+          actions.map(a => `<li>${esc(a)}</li>`).join('') +
+          '</ul>';
+      } else if (typeof actions === 'string' && actions.trim()){
+        listHtml = `<p>${esc(actions).replace(/\n/g,'<br>')}</p>`;
+      } else {
+        listHtml = `<p class="muted">${esc(genericErr)}</p>`;
+      }
+      secAction.innerHTML = `<h3>${esc(titles.action)}</h3>${listHtml}`;
+    }
+
+  }catch(e){
+    console.error('[natal] worker error:', e);
+    fillAllWith(genericErr);
+  }
+}  
+  
 async function loadNatalSections(model, sign) {
   const lang = getLang();
   const base = getApiBase();
@@ -1219,6 +1436,7 @@ function renderReport(model) {
 </script>
 </body>
 </html>
+
 
 
 
