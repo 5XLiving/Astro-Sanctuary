@@ -814,13 +814,30 @@ async function loadNatalSections(model, sign) {
   const secEnergy = wrap.querySelector('#secEnergy');
   const secAction = wrap.querySelector('#secAction');
 
-  console.log('[natal] API Base:', base);
-  console.log('[natal] Full URL:', base + '/api/chat');
+  const errMsg = (
+    lang === 'en' ? 'Connection seems unstable, please try again later.' :
+    lang === 'ja' ? '接続が不安定なようです。少し時間をおいて再度お試しください。' :
+    lang === 'th' ? 'การเชื่อมต่อขัดข้อง ลองใหม่อีกครั้งภายหลังนะคะ' :
+    lang === 'ms' ? 'Sambungan tidak stabil, sila cuba lagi kemudian.' :
+    '目前连线有点不稳定，你可以稍后再试一次。'
+  );
+
+  // 专门处理速率限制的错误信息
+  const rateLimitMsg = (
+    lang === 'en' ? 'AI service is temporarily rate limited. Please try again in 7-8 minutes.' :
+    lang === 'ja' ? 'AIサービスが一時的にレート制限されています。7-8分後にもう一度お試しください。' :
+    lang === 'th' ? 'ระบบ AI ถูกจำกัดการใช้งานชั่วคราว กรุณาลองใหม่ใน 7-8 นาที' :
+    lang === 'ms' ? 'Perkhidmatan AI had laju sementara. Sila cuba lagi dalam 7-8 minit.' :
+    'AI 服务暂时达到使用限制，请在 7-8 分钟后重试。'
+  );
 
   if (!base) {
     const msg = 'System not fully configured (API_BASE missing).';
-    console.error('[natal]', msg);
-    // ... 错误处理代码保持不变
+    if (secPersona)  secPersona.innerHTML  = `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(msg)}</p>`;
+    if (secRelation) secRelation.innerHTML = `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(msg)}</p>`;
+    if (secCareer)   secCareer.innerHTML   = `<h3>${esc(titles.career)}</h3><p class="muted">${esc(msg)}</p>`;
+    if (secEnergy)   secEnergy.innerHTML   = `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(msg)}</p>`;
+    if (secAction)   secAction.innerHTML   = `<h3>${esc(titles.action)}</h3><p class="muted">${esc(msg)}</p>`;
     return;
   }
 
@@ -844,49 +861,10 @@ async function loadNatalSections(model, sign) {
       })
     };
 
-    console.log('[natal] Sending payload:', payload);
-
+    console.log('[natal] calling worker', base + '/api/chat');
     const res = await fetch(base + '/api/chat', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
-
-    console.log('[natal] Response status:', res.status);
-    console.log('[natal] Response headers:', res.headers);
-
-    if (!res.ok) {
-      const errorText = await res.text();
-      console.error('[natal] API error:', res.status, errorText);
-      throw new Error(`HTTP ${res.status}: ${errorText}`);
-    }
-
-    const data = await res.json();
-    console.log('[natal] Response data:', data);
-
-    // 处理响应数据...
-    const sections = (data && data.sections) || {};
-    console.log('[natal] Sections received:', sections);
-
-    // ... 其余渲染代码保持不变
-
-  } catch (e) {
-    console.error('[natal] Fetch error:', e);
-    const detailedError = `API Error: ${e.message}. Please check the console for details.`;
-    
-    // 更新所有部分显示详细错误信息
-    if (secPersona) secPersona.innerHTML = `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(detailedError)}</p>`;
-    if (secRelation) secRelation.innerHTML = `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(detailedError)}</p>`;
-    if (secCareer) secCareer.innerHTML = `<h3>${esc(titles.career)}</h3><p class="muted">${esc(detailedError)}</p>`;
-    if (secEnergy) secEnergy.innerHTML = `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(detailedError)}</p>`;
-    if (secAction) secAction.innerHTML = `<h3>${esc(titles.action)}</h3><p class="muted">${esc(detailedError)}</p>`;
-  }
-}
-
-    console.log('[natal] calling worker', base + '/api/chat');
-    const res = await fetch(base + '/api/chat', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify(payload)
     });
 
@@ -896,58 +874,68 @@ async function loadNatalSections(model, sign) {
     const data = await res.json();
     console.log('[natal] worker payload', data);
 
+    // 检查是否是速率限制错误
+    if (data && data.status === 429) {
+      console.warn('[natal] Rate limit detected:', data.error);
+      // 显示速率限制特定的错误信息
+      [secPersona, secRelation, secCareer, secEnergy, secAction].forEach(sec => {
+        if (sec) {
+          const title = sec.querySelector('h3')?.textContent || '';
+          sec.innerHTML = `<h3>${esc(title)}</h3><p class="muted">${esc(rateLimitMsg)}</p>`;
+        }
+      });
+      return;
+    }
+
     const sections = (data && data.sections) || {};
-    const sunText      = sections.sun || '';
-    const personaText  = sections.persona  || errMsg;
+    const sunText = sections.sun || '';
+    const personaText = sections.persona || errMsg;
     const relationText = sections.relation || errMsg;
-    const careerText   = sections.career   || errMsg;
-    const energyText   = sections.energy   || '';
-    const actions      = sections.actions;
+    const careerText = sections.career || errMsg;
+    const energyText = sections.energy || '';
+    const actions = sections.actions;
 
-    if (secSunExtra && sunText){
-      secSunExtra.innerHTML = esc(sunText).replace(/\n/g,'<br>');
+    if (secSunExtra && sunText) {
+      secSunExtra.innerHTML = esc(sunText).replace(/\n/g, '<br>');
     }
 
-    if (secPersona){
-      secPersona.innerHTML =
-        `<h3>${esc(titles.persona)}</h3><p>${esc(personaText).replace(/\n/g,'<br>')}</p>`;
+    if (secPersona) {
+      secPersona.innerHTML = `<h3>${esc(titles.persona)}</h3><p>${esc(personaText).replace(/\n/g, '<br>')}</p>`;
     }
-    if (secRelation){
-      secRelation.innerHTML =
-        `<h3>${esc(titles.relation)}</h3><p>${esc(relationText).replace(/\n/g,'<br>')}</p>`;
+    if (secRelation) {
+      secRelation.innerHTML = `<h3>${esc(titles.relation)}</h3><p>${esc(relationText).replace(/\n/g, '<br>')}</p>`;
     }
-    if (secCareer){
-      secCareer.innerHTML =
-        `<h3>${esc(titles.career)}</h3><p>${esc(careerText).replace(/\n/g,'<br>')}</p>`;
+    if (secCareer) {
+      secCareer.innerHTML = `<h3>${esc(titles.career)}</h3><p>${esc(careerText).replace(/\n/g, '<br>')}</p>`;
     }
-    if (secEnergy){
+    if (secEnergy) {
       const body = energyText
-        ? `<p>${esc(energyText).replace(/\n/g,'<br>')}</p>`
+        ? `<p>${esc(energyText).replace(/\n/g, '<br>')}</p>`
         : `<p class="muted">${esc(errMsg)}</p>`;
       secEnergy.innerHTML = `<h3>${esc(titles.energy)}</h3>${body}`;
     }
 
-    if (secAction){
+    if (secAction) {
       let listHtml = '';
-      if (Array.isArray(actions) && actions.length){
-        listHtml = '<ul>' +
-          actions.map(a => `<li>${esc(a)}</li>`).join('') +
-          '</ul>';
-      } else if (typeof actions === 'string' && actions.trim()){
-        listHtml = `<p>${esc(actions).replace(/\n/g,'<br>')}</p>`;
+      if (Array.isArray(actions) && actions.length) {
+        listHtml = '<ul>' + actions.map(a => `<li>${esc(a)}</li>`).join('') + '</ul>';
+      } else if (typeof actions === 'string' && actions.trim()) {
+        listHtml = `<p>${esc(actions).replace(/\n/g, '<br>')}</p>`;
       } else {
         listHtml = `<p class="muted">${esc(errMsg)}</p>`;
       }
       secAction.innerHTML = `<h3>${esc(titles.action)}</h3>${listHtml}`;
     }
 
-  }catch(e){
+  } catch (e) {
     console.error('[natal] worker error:', e);
-    if (secPersona)  secPersona.innerHTML  = `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(errMsg)}</p>`;
-    if (secRelation) secRelation.innerHTML = `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(errMsg)}</p>`;
-    if (secCareer)   secCareer.innerHTML   = `<h3>${esc(titles.career)}</h3><p class="muted">${esc(errMsg)}</p>`;
-    if (secEnergy)   secEnergy.innerHTML   = `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(errMsg)}</p>`;
-    if (secAction)   secAction.innerHTML   = `<h3>${esc(titles.action)}</h3><p class="muted">${esc(errMsg)}</p>`;
+    // 显示通用的错误信息
+    [secPersona, secRelation, secCareer, secEnergy, secAction].forEach(sec => {
+      if (sec) {
+        const title = sec.querySelector('h3')?.textContent || '';
+        sec.innerHTML = `<h3>${esc(title)}</h3><p class="muted">${esc(errMsg)}</p>`;
+      }
+    });
   }
 }
 
@@ -1231,6 +1219,7 @@ function renderReport(model) {
 </script>
 </body>
 </html>
+
 
 
 
