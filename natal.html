@@ -259,13 +259,15 @@
   </div>
 
 <script>
+  // ⚠️ 改成你自己的 Worker 域名（不要加 /api/chat）
+  window.API_BASE = 'https://YOUR-WORKER-SUBDOMAIN.workers.dev';
+</script>
+  
+<script>
 (function(){
   'use strict';
 
-  /* ========================= 常量 ========================= */
-  const DEFAULT_API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
-
-  /* ========================= i18n 文案 ========================= */
+  /* ========================= i18n 文案（保留 UI 文案） ========================= */
   const I18N = {
     'zh-CN':{
       page_title:'本命星盘解析',
@@ -321,6 +323,7 @@
 
       alert_fill:'请补全「出生日期」与「出生地点」。',
       disclaimer:'＊当前仅示意太阳星座；完整命盘需使用出生地与精确时刻计算。',
+      // action_1/2/3 可以留着，但我们不再用它们作为报告内容
       action_1:'今天为自己预留 25 分钟安静时间，回顾这一年的成长。',
       action_2:'写下 3 件你想在接下来 30 天逐步推进的小目标。',
       action_3:'挑一位重要的人，发一句真诚的感谢或问候。',
@@ -331,7 +334,6 @@
     'zh-TW':{
       page_title:'本命星盤解析',
       lang_label:'語言',
-
       label_name:'姓名（選填）',
       ph_name:'你的稱呼（用於個人化）',
       gender_label:'性別',
@@ -392,7 +394,6 @@
     'en':{
       page_title:'Natal Chart Reading',
       lang_label:'Language',
-
       label_name:'Name (optional)',
       ph_name:'Your name (for personalization)',
       gender_label:'Gender',
@@ -453,7 +454,6 @@
     'ja':{
       page_title:'本命チャート鑑定',
       lang_label:'言語',
-
       label_name:'お名前（任意）',
       ph_name:'表示用のお名前',
       gender_label:'性別',
@@ -514,7 +514,6 @@
     'th':{
       page_title:'ดวงกำเนิด · Natal Chart',
       lang_label:'ภาษา',
-
       label_name:'ชื่อ (ไม่บังคับ)',
       ph_name:'ชื่อสำหรับใช้ในรายงาน',
       gender_label:'เพศ',
@@ -575,7 +574,6 @@
     'ms':{
       page_title:'Carta Natal',
       lang_label:'Bahasa',
-
       label_name:'Nama (pilihan)',
       ph_name:'Nama anda (untuk laporan)',
       gender_label:'Jantina',
@@ -655,14 +653,6 @@
       .replace(/>/g,'&gt;');
   }
 
-  function getApiBase(){
-    const raw = (typeof window.API_BASE === 'string' && window.API_BASE.trim())
-      ? window.API_BASE.trim()
-      : DEFAULT_API_BASE;
-    if (!raw) return '';
-    return raw.replace(/\/+$/,'');
-  }
-
   function applyI18n(){
     const lang = getLang();
     document.documentElement.lang = lang;
@@ -702,7 +692,7 @@
     setInterval(tick, 1000);
   }
 
-  /* ========================= 星座 & 元素 ========================= */
+  /* ========================= 星座 & 元素（保留） ========================= */
   const SIGN_LIST = [
     { key:'Aries',       start:[3,21], end:[4,19],  el:'fire',
       name:{'zh-CN':'白羊座','zh-TW':'牡羊座','en':'Aries','ja':'牡羊座','th':'เมษ','ms':'Aries'} },
@@ -748,20 +738,30 @@
     return SIGN_LIST.find(s => inRange(m,d,s.start,s.end)) || SIGN_LIST[11];
   }
 
-  const EL_TIPS = {
-    fire:{/* 这里保持你原来的 EL_TIPS 内容（略），你可以照抄上一个版本 */},
-    earth:{/* 同上 */},
-    air:{/* 同上 */},
-    water:{/* 同上 */}
-  };
-
-  // 为简短，这里省略 EL_TIPS 的详细内容，你可以直接把你现有的 EL_TIPS 四个对象整块复制进来
-  // ========= 记得用你原本的 EL_TIPS 定义替换上面的 fire/earth/air/water 占位 =========
-
-  function getElementTips(el, lang){
-    const pack = EL_TIPS[el];
-    if(!pack) return [];
-    return pack[lang] || pack['zh-CN'] || [];
+  /* ========================= section 标题（供前端 + AI 共用） ========================= */
+  function getSectionTitles(lang){
+    return {
+      persona:
+        lang === 'en' ? 'Personality Portrait' :
+        lang === 'ja' ? '性格画像' :
+        lang === 'th' ? 'ภาพรวมบุคลิก' :
+        lang === 'ms' ? 'Potret keperibadian' :
+        '性格画像',
+      relation:
+        lang === 'en' ? 'Relationships & Communication' :
+        lang === 'ja' ? '人間関係とコミュニケーション' :
+        lang === 'th' ? 'ความสัมพันธ์และการสื่อสาร' :
+        lang === 'ms' ? 'Hubungan & komunikasi' :
+        '关系与沟通',
+      career:
+        lang === 'en' ? 'Career & Wealth Direction' :
+        lang === 'ja' ? '仕事と豊かさの方向性' :
+        lang === 'th' ? 'ทิศทางงานและทรัพย์' :
+        lang === 'ms' ? 'Arah kerjaya & kewangan' :
+        '事业与财富走向',
+      energy: t('section_energy'),
+      action: t('section_action')
+    };
   }
 
   /* ========================= 表单 & 报告 ========================= */
@@ -785,16 +785,28 @@
     box.textContent = `${namePart}${model.date} ${timePart}${placePart}`;
   }
 
-  // === 核心：向 Worker 请求三大段 AI 文案 ===
+  function getApiBase(){
+    const raw = (typeof window.API_BASE === 'string' && window.API_BASE.trim())
+      ? window.API_BASE.trim()
+      : '';
+    if (!raw) {
+      console.warn('[natal] API_BASE not configured. Set window.API_BASE before this script.');
+      return '';
+    }
+    return raw.replace(/\/+$/,'');
+  }
+
   async function loadNatalSections(model, sign){
     const lang = getLang();
     const base = getApiBase();
+    const titles = getSectionTitles(lang);
 
+    const secSunExtra = gid('secSunExtra');
     const secPersona  = gid('secPersona');
     const secRelation = gid('secRelation');
     const secCareer   = gid('secCareer');
-
-    if (!secPersona || !secRelation || !secCareer) return;
+    const secEnergy   = gid('secEnergy');
+    const secAction   = gid('secAction');
 
     const errMsg = (
       lang === 'en' ? 'Connection seems unstable, please try again later.' :
@@ -804,33 +816,17 @@
       '目前连线有点不稳定，你可以稍后再试一次。'
     );
 
-    const titlePersona = (
-      lang === 'en' ? 'Personality Portrait' :
-      lang === 'ja' ? '性格画像' :
-      lang === 'th' ? 'ภาพรวมบุคลิก' :
-      lang === 'ms' ? 'Potret keperibadian' :
-      '性格画像'
-    );
-    const titleRelation = (
-      lang === 'en' ? 'Relationships & Communication' :
-      lang === 'ja' ? '人間関係とコミュニケーション' :
-      lang === 'th' ? 'ความสัมพันธ์และการสื่อสาร' :
-      lang === 'ms' ? 'Hubungan & komunikasi' :
-      '关系与沟通'
-    );
-    const titleCareer = (
-      lang === 'en' ? 'Career & Wealth Direction' :
-      lang === 'ja' ? '仕事と豊かさの方向性' :
-      lang === 'th' ? 'ทิศทางงานและทรัพย์' :
-      lang === 'ms' ? 'Arah kerjaya & kewangan' :
-      '事业与财富走向'
-    );
-
-    // 没配置后端时，直接显示错误提示，不发 fetch（避免无意义错误）
     if (!base) {
-      secPersona.innerHTML  = `<h3>${esc(titlePersona)}</h3><p class="muted">${esc(errMsg)}</p>`;
-      secRelation.innerHTML = `<h3>${esc(titleRelation)}</h3><p class="muted">${esc(errMsg)}</p>`;
-      secCareer.innerHTML   = `<h3>${esc(titleCareer)}</h3><p class="muted">${esc(errMsg)}</p>`;
+      const msg = (
+        lang === 'en'
+          ? 'System not fully configured (API_BASE missing).'
+          : '系统尚未完成配置（缺少 API_BASE）。'
+      );
+      if (secPersona)  secPersona.innerHTML  = `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(msg)}</p>`;
+      if (secRelation) secRelation.innerHTML = `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(msg)}</p>`;
+      if (secCareer)   secCareer.innerHTML   = `<h3>${esc(titles.career)}</h3><p class="muted">${esc(msg)}</p>`;
+      if (secEnergy)   secEnergy.innerHTML   = `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(msg)}</p>`;
+      if (secAction)   secAction.innerHTML   = `<h3>${esc(titles.action)}</h3><p class="muted">${esc(msg)}</p>`;
       return;
     }
 
@@ -854,31 +850,71 @@
         })
       };
 
+      console.log('[natal] calling worker', base + '/api/chat');
       const res = await fetch(base + '/api/chat', {
         method:'POST',
         headers:{ 'Content-Type':'application/json' },
         body: JSON.stringify(payload)
       });
 
-      if (!res.ok) {
-        console.warn('[natal] worker bad status:', res.status);
-        throw new Error('bad_status');
-      }
+      console.log('[natal] worker status', res.status);
+      if (!res.ok) throw new Error('bad_status_' + res.status);
 
       const data = await res.json();
+      console.log('[natal] worker payload', data);
+
       const sections = (data && data.sections) || {};
+      const sunText      = sections.sun || '';
       const personaText  = sections.persona  || errMsg;
       const relationText = sections.relation || errMsg;
       const careerText   = sections.career   || errMsg;
+      const energyText   = sections.energy   || '';
+      const actions      = sections.actions;
 
-      secPersona.innerHTML  = `<h3>${esc(titlePersona)}</h3><p>${esc(personaText).replace(/\n/g,'<br>')}</p>`;
-      secRelation.innerHTML = `<h3>${esc(titleRelation)}</h3><p>${esc(relationText).replace(/\n/g,'<br>')}</p>`;
-      secCareer.innerHTML   = `<h3>${esc(titleCareer)}</h3><p>${esc(careerText).replace(/\n/g,'<br>')}</p>`;
+      if (secSunExtra && sunText){
+        secSunExtra.innerHTML = esc(sunText).replace(/\n/g,'<br>');
+      }
+
+      if (secPersona){
+        secPersona.innerHTML =
+          `<h3>${esc(titles.persona)}</h3><p>${esc(personaText).replace(/\n/g,'<br>')}</p>`;
+      }
+      if (secRelation){
+        secRelation.innerHTML =
+          `<h3>${esc(titles.relation)}</h3><p>${esc(relationText).replace(/\n/g,'<br>')}</p>`;
+      }
+      if (secCareer){
+        secCareer.innerHTML =
+          `<h3>${esc(titles.career)}</h3><p>${esc(careerText).replace(/\n/g,'<br>')}</p>`;
+      }
+      if (secEnergy){
+        const body = energyText
+          ? `<p>${esc(energyText).replace(/\n/g,'<br>')}</p>`
+          : `<p class="muted">${esc(errMsg)}</p>`;
+        secEnergy.innerHTML = `<h3>${esc(titles.energy)}</h3>${body}`;
+      }
+
+      if (secAction){
+        let listHtml = '';
+        if (Array.isArray(actions) && actions.length){
+          listHtml = '<ul>' +
+            actions.map(a => `<li>${esc(a)}</li>`).join('') +
+            '</ul>';
+        } else if (typeof actions === 'string' && actions.trim()){
+          listHtml = `<p>${esc(actions).replace(/\n/g,'<br>')}</p>`;
+        } else {
+          listHtml = `<p class="muted">${esc(errMsg)}</p>`;
+        }
+        secAction.innerHTML = `<h3>${esc(titles.action)}</h3>${listHtml}`;
+      }
+
     }catch(e){
       console.error('[natal] worker error:', e);
-      secPersona.innerHTML  = `<h3>${esc(titlePersona)}</h3><p class="muted">${esc(errMsg)}</p>`;
-      secRelation.innerHTML = `<h3>${esc(titleRelation)}</h3><p class="muted">${esc(errMsg)}</p>`;
-      secCareer.innerHTML   = `<h3>${esc(titleCareer)}</h3><p class="muted">${esc(errMsg)}</p>`;
+      if (secPersona)  secPersona.innerHTML  = `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(errMsg)}</p>`;
+      if (secRelation) secRelation.innerHTML = `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(errMsg)}</p>`;
+      if (secCareer)   secCareer.innerHTML   = `<h3>${esc(titles.career)}</h3><p class="muted">${esc(errMsg)}</p>`;
+      if (secEnergy)   secEnergy.innerHTML   = `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(errMsg)}</p>`;
+      if (secAction)   secAction.innerHTML   = `<h3>${esc(titles.action)}</h3><p class="muted">${esc(errMsg)}</p>`;
     }
   }
 
@@ -889,24 +925,23 @@
 
     const lang = getLang();
     const sign = getSunSign(model.date);
-    const element = sign.el;
-    const tips = getElementTips(element, lang);
     const L = key => t(key);
 
-    // 给 Butler 用的上下文
-    const ctxMeta = {
-      name: model.name || '',
-      date: model.date,
-      time: model.time || '',
-      place: model.place || '',
+    // 存给 Butler 用
+    const meta = {
+      name:   model.name || '',
+      date:   model.date,
+      time:   model.time || '',
+      place:  model.place || '',
       gender: model.gender || 'u',
       signKey: sign.key,
-      sunSign: sign.name['en'] || sign.key,
       signCn:  sign.name['zh-CN'] || sign.key,
-      element
+      signEn:  sign.name['en']   || sign.key,
+      element: sign.el
     };
-    model.meta = ctxMeta;
-    window.lastModel = { meta: ctxMeta };
+    model.meta = meta;
+    window.lastModel = model;
+    lastModel = model;
 
     const overviewTitle = esc(L('section_overview'));
     const sunTitle      = esc(L('section_sun'));
@@ -914,6 +949,7 @@
     const actionTitle   = esc(L('section_action'));
     const sunLabel      = esc(L('sun_label'));
     const disclaimer    = esc(L('disclaimer'));
+    const signNameCn    = esc(sign.name['zh-CN'] || sign.key);
 
     const genderMap = {
       'zh-CN':{m:'男性',f:'女性',u:'—'},
@@ -926,26 +962,13 @@
     const gPack = genderMap[lang] || genderMap['zh-CN'];
     const genderLabel = gPack[model.gender] || gPack.u;
 
-    const hPersona = (
-      lang === 'en' ? 'Personality Portrait' :
-      lang === 'ja' ? '性格画像' :
-      lang === 'th' ? 'ภาพรวมบุคลิก' :
-      lang === 'ms' ? 'Potret keperibadian' :
-      '性格画像'
-    );
-    const hRelation = (
-      lang === 'en' ? 'Relationships & Communication' :
-      lang === 'ja' ? '人間関係とコミュニケーション' :
-      lang === 'th' ? 'ความสัมพันธ์และการสื่อสาร' :
-      lang === 'ms' ? 'Hubungan & komunikasi' :
-      '关系与沟通'
-    );
-    const hCareer = (
-      lang === 'en' ? 'Career & Wealth Direction' :
-      lang === 'ja' ? '仕事と豊かさの方向性' :
-      lang === 'th' ? 'ทิศทางงานและทรัพย์' :
-      lang === 'ms' ? 'Arah kerjaya & kewangan' :
-      '事业与财富走向'
+    const titles = getSectionTitles(lang);
+    const loadingText = (
+      lang === 'en' ? 'Loading AI reading…' :
+      lang === 'ja' ? 'AI リーディングを読み込み中…' :
+      lang === 'th' ? 'กำลังโหลดคำทำนายจาก AI…' :
+      lang === 'ms' ? 'Memuat bacaan AI…' :
+      '正在载入 AI 解读…'
     );
 
     const overviewHtml = `
@@ -958,43 +981,39 @@
     const sunHtml = `
       <div class="sec">
         <h3>${sunTitle}</h3>
-        <p>${sunLabel} <b>${esc(sign.name['zh-CN'] || sign.key)}</b></p>
+        <p>${sunLabel} <b>${signNameCn}</b></p>
         <p class="muted">${genderLabel !== '—' ? ('Gender / 性别：' + esc(genderLabel)) : ''}</p>
+        <div id="secSunExtra" class="muted" style="margin-top:6px;"></div>
       </div>`;
 
-    // 这三块只留标题 + loading 提示，实际内容由 loadNatalSections 去 Worker 拿
     const personaHtml = `
       <div class="sec" id="secPersona">
-        <h3>${esc(hPersona)}</h3>
-        <p class="muted">Loading from Xinlian Butler...</p>
+        <h3>${esc(titles.persona)}</h3>
+        <p class="muted">${esc(loadingText)}</p>
       </div>`;
 
     const relationHtml = `
       <div class="sec" id="secRelation">
-        <h3>${esc(hRelation)}</h3>
-        <p class="muted">Loading from Xinlian Butler...</p>
+        <h3>${esc(titles.relation)}</h3>
+        <p class="muted">${esc(loadingText)}</p>
       </div>`;
 
     const careerHtml = `
       <div class="sec" id="secCareer">
-        <h3>${esc(hCareer)}</h3>
-        <p class="muted">Loading from Xinlian Butler...</p>
+        <h3>${esc(titles.career)}</h3>
+        <p class="muted">${esc(loadingText)}</p>
       </div>`;
 
     const energyHtml = `
-      <div class="sec">
+      <div class="sec" id="secEnergy">
         <h3>${energyTitle}</h3>
-        <p>${tips.map(line => '• ' + esc(line)).join('<br>')}</p>
+        <p class="muted">${esc(loadingText)}</p>
       </div>`;
 
     const actionHtml = `
-      <div class="sec">
+      <div class="sec" id="secAction">
         <h3>${actionTitle}</h3>
-        <ul>
-          <li>${esc(L('action_1'))}</li>
-          <li>${esc(L('action_2'))}</li>
-          <li>${esc(L('action_3'))}</li>
-        </ul>
+        <p class="muted">${esc(loadingText)}</p>
       </div>`;
 
     wrap.innerHTML =
@@ -1008,30 +1027,11 @@
 
     result.style.display = 'block';
 
-    // 真正请求 AI 文案
+    // 🔮 这里真正丢给 AI 渲染
     loadNatalSections(model, sign);
   }
 
-  function fillBirthPlaceFromIP() {
-    const input = gid('place');
-    if (!input || input.value) return;
-    fetch('https://ipapi.co/json/')
-      .then(res => {
-        if (!res.ok) throw new Error('bad_status');
-        return res.json();
-      })
-      .then(data => {
-        const country = data.country_name || data.country;
-        const city = data.city;
-        const guess = (city && country) ? `${city}, ${country}` : (country || '');
-        if (guess && !input.value) {
-          input.value = guess;
-        }
-      })
-      .catch(()=>{});
-  }
-
-  /* ========================= 心怜管家 · 聊天浮窗 ========================= */
+  /* ========================= 心怜管家 · 聊天浮窗（保留，只改用 meta） ========================= */
   function initButlerChat(){
     const fab    = gid('ssChatFab');
     const panel  = gid('ssChatPanel');
@@ -1078,25 +1078,20 @@
 
       try {
         const ctx  = (window.lastModel && window.lastModel.meta) || {};
-        const lang = (typeof getLang === 'function') ? getLang() : 'zh-CN';
-        const base = getApiBase();
-
-        if (!base) {
-          if (thinking.parentNode) body.removeChild(thinking);
-          appendMsg('目前尚未配置後端服務，暫時無法連線，之後再來陪你聊。', false);
-          return;
-        }
-
+        const lang = getLang();
         const payload = {
           user: ctx.name || 'natal_guest',
           prompt: JSON.stringify({
             type: 'natal-butler',
             lang,
             sign: ctx.signKey || ctx.sunSign || null,
-            question: text,
-            meta: ctx
+            meta: ctx,
+            question: text
           })
         };
+
+        const base = getApiBase();
+        if (!base) throw new Error('no_api_base');
 
         const res = await fetch(base + '/api/chat', {
           method: 'POST',
@@ -1104,7 +1099,12 @@
           body: JSON.stringify(payload)
         });
 
-        let reply = '目前连线有点不稳定，你可以稍后再试一次。';
+        let reply = (
+          lang === 'en'
+            ? 'Connection seems unstable, please try again later.'
+            : '目前连线有点不稳定，你可以稍后再试一次。'
+        );
+
         if (res.ok) {
           const data = await res.json();
           if (data && data.reply) reply = data.reply;
@@ -1114,9 +1114,14 @@
         appendMsg(reply, false);
 
       } catch (e) {
-        console.error('[butler] error:', e);
+        console.error('[butler] error', e);
         if (thinking.parentNode) body.removeChild(thinking);
-        appendMsg('目前连线有点不稳定，你可以稍后再试一次。', false);
+        const msg = (
+          getLang() === 'en'
+            ? 'Connection seems unstable, please try again later.'
+            : '目前连线有点不稳定，你可以稍后再试一次。'
+        );
+        appendMsg(msg, false);
       }
     }
 
@@ -1140,6 +1145,8 @@
     }
 
     lastModel = model;
+    window.lastModel = model;
+
     renderHeaderSummary(model);
     renderReport(model);
   }
@@ -1178,8 +1185,6 @@
       timeInput.value = `${hh}:${mm}`;
     }
 
-    // fillBirthPlaceFromIP(); // 如不想看到 CORS 报错，可以先关掉
-
     const form = gid('chartForm');
     if(form){
       form.addEventListener('submit', handleGenerate);
@@ -1191,6 +1196,7 @@
 </script>
 </body>
 </html>
+
 
 
 
