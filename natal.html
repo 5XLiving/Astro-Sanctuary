@@ -799,129 +799,267 @@
     return raw.replace(/\/+$/,'');
   }
 
-  async function loadNatalSections(model, sign){
-    const lang = getLang();
-    const base = getApiBase();
-    const titles = getSectionTitles(lang);
+async function loadNatalSections(model, sign) {
+  const lang = getLang();
+  const base = getApiBase();
+  const titles = getSectionTitles(lang);
 
-    const secSunExtra = gid('secSunExtra');
-    const secPersona  = gid('secPersona');
-    const secRelation = gid('secRelation');
-    const secCareer   = gid('secCareer');
-    const secEnergy   = gid('secEnergy');
-    const secAction   = gid('secAction');
+  // 直接在 wrap 中查找元素，而不是通过 gid()
+  const wrap = gid('chartReport');
+  if (!wrap) return;
+  
+  const secSunExtra = wrap.querySelector('#secSunExtra');
+  const secPersona = wrap.querySelector('#secPersona');
+  const secRelation = wrap.querySelector('#secRelation');
+  const secCareer = wrap.querySelector('#secCareer');
+  const secEnergy = wrap.querySelector('#secEnergy');
+  const secAction = wrap.querySelector('#secAction');
 
-    const errMsg = (
-      lang === 'en' ? 'Connection seems unstable, please try again later.' :
-      lang === 'ja' ? '接続が不安定なようです。少し時間をおいて再度お試しください。' :
-      lang === 'th' ? 'การเชื่อมต่อขัดข้อง ลองใหม่อีกครั้งภายหลังนะคะ' :
-      lang === 'ms' ? 'Sambungan tidak stabil, sila cuba lagi kemudian.' :
-      '目前连线有点不稳定，你可以稍后再试一次。'
+  // 修复调试信息 - 使用 querySelector 而不是 gid
+  console.log('[natal] Looking for elements:', {
+    secSunExtra: !!secSunExtra,
+    secPersona: !!secPersona, 
+    secRelation: !!secRelation,
+    secCareer: !!secCareer,
+    secEnergy: !!secEnergy,
+    secAction: !!secAction
+  });
+
+  const errMsg = (
+    lang === 'en' ? 'Connection seems unstable, please try again later.' :
+    lang === 'ja' ? '接続が不安定なようです。少し時間をおいて再度お試しください。' :
+    lang === 'th' ? 'การเชื่อมต่อขัดข้อง ลองใหม่อีกครั้งภายหลังนะคะ' :
+    lang === 'ms' ? 'Sambungan tidak stabil, sila cuba lagi kemudian.' :
+    '目前连线有点不稳定，你可以稍后再试一次。'
+  );
+
+  if (!base) {
+    const msg = (
+      lang === 'en'
+        ? 'System not fully configured (API_BASE missing).'
+        : '系统尚未完成配置（缺少 API_BASE）。'
     );
-
-    if (!base) {
-      const msg = (
-        lang === 'en'
-          ? 'System not fully configured (API_BASE missing).'
-          : '系统尚未完成配置（缺少 API_BASE）。'
-      );
-      if (secPersona)  secPersona.innerHTML  = `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(msg)}</p>`;
-      if (secRelation) secRelation.innerHTML = `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(msg)}</p>`;
-      if (secCareer)   secCareer.innerHTML   = `<h3>${esc(titles.career)}</h3><p class="muted">${esc(msg)}</p>`;
-      if (secEnergy)   secEnergy.innerHTML   = `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(msg)}</p>`;
-      if (secAction)   secAction.innerHTML   = `<h3>${esc(titles.action)}</h3><p class="muted">${esc(msg)}</p>`;
-      return;
-    }
-
-    try{
-      const payload = {
-        user: model.name || 'natal_guest',
-        prompt: JSON.stringify({
-          type:  'natal-main',
-          lang,
-          meta:{
-            name:   model.name || '',
-            date:   model.date,
-            time:   model.time || '',
-            place:  model.place || '',
-            gender: model.gender || 'u',
-            signKey:    sign.key,
-            signCn:     sign.name['zh-CN'] || sign.key,
-            signEn:     sign.name['en'] || sign.key,
-            element:    sign.el
-          }
-        })
-      };
-
-      console.log('[natal] calling worker', base + '/api/chat');
-      const res = await fetch(base + '/api/chat', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      console.log('[natal] worker status', res.status);
-      if (!res.ok) throw new Error('bad_status_' + res.status);
-
-      const data = await res.json();
-      console.log('[natal] worker payload', data);
-
-      const sections = (data && data.sections) || {};
-      const sunText      = sections.sun || '';
-      const personaText  = sections.persona  || errMsg;
-      const relationText = sections.relation || errMsg;
-      const careerText   = sections.career   || errMsg;
-      const energyText   = sections.energy   || '';
-      const actions      = sections.actions;
-
-      if (secSunExtra && sunText){
-        secSunExtra.innerHTML = esc(sunText).replace(/\n/g,'<br>');
-      }
-
-      if (secPersona){
-        secPersona.innerHTML =
-          `<h3>${esc(titles.persona)}</h3><p>${esc(personaText).replace(/\n/g,'<br>')}</p>`;
-      }
-      if (secRelation){
-        secRelation.innerHTML =
-          `<h3>${esc(titles.relation)}</h3><p>${esc(relationText).replace(/\n/g,'<br>')}</p>`;
-      }
-      if (secCareer){
-        secCareer.innerHTML =
-          `<h3>${esc(titles.career)}</h3><p>${esc(careerText).replace(/\n/g,'<br>')}</p>`;
-      }
-      if (secEnergy){
-        const body = energyText
-          ? `<p>${esc(energyText).replace(/\n/g,'<br>')}</p>`
-          : `<p class="muted">${esc(errMsg)}</p>`;
-        secEnergy.innerHTML = `<h3>${esc(titles.energy)}</h3>${body}`;
-      }
-
-      if (secAction){
-        let listHtml = '';
-        if (Array.isArray(actions) && actions.length){
-          listHtml = '<ul>' +
-            actions.map(a => `<li>${esc(a)}</li>`).join('') +
-            '</ul>';
-        } else if (typeof actions === 'string' && actions.trim()){
-          listHtml = `<p>${esc(actions).replace(/\n/g,'<br>')}</p>`;
-        } else {
-          listHtml = `<p class="muted">${esc(errMsg)}</p>`;
-        }
-        secAction.innerHTML = `<h3>${esc(titles.action)}</h3>${listHtml}`;
-      }
-
-    }catch(e){
-      console.error('[natal] worker error:', e);
-      if (secPersona)  secPersona.innerHTML  = `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(errMsg)}</p>`;
-      if (secRelation) secRelation.innerHTML = `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(errMsg)}</p>`;
-      if (secCareer)   secCareer.innerHTML   = `<h3>${esc(titles.career)}</h3><p class="muted">${esc(errMsg)}</p>`;
-      if (secEnergy)   secEnergy.innerHTML   = `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(errMsg)}</p>`;
-      if (secAction)   secAction.innerHTML   = `<h3>${esc(titles.action)}</h3><p class="muted">${esc(errMsg)}</p>`;
-    }
+    if (secPersona)  secPersona.innerHTML  = `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(msg)}</p>`;
+    if (secRelation) secRelation.innerHTML = `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(msg)}</p>`;
+    if (secCareer)   secCareer.innerHTML   = `<h3>${esc(titles.career)}</h3><p class="muted">${esc(msg)}</p>`;
+    if (secEnergy)   secEnergy.innerHTML   = `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(msg)}</p>`;
+    if (secAction)   secAction.innerHTML   = `<h3>${esc(titles.action)}</h3><p class="muted">${esc(msg)}</p>`;
+    return;
   }
 
+  try{
+    const payload = {
+      user: model.name || 'natal_guest',
+      prompt: JSON.stringify({
+        type:  'natal-main',
+        lang,
+        meta:{
+          name:   model.name || '',
+          date:   model.date,
+          time:   model.time || '',
+          place:  model.place || '',
+          gender: model.gender || 'u',
+          signKey:    sign.key,
+          signCn:     sign.name['zh-CN'] || sign.key,
+          signEn:     sign.name['en'] || sign.key,
+          element:    sign.el
+        }
+      })
+    };
+
+    console.log('[natal] calling worker', base + '/api/chat');
+    const res = await fetch(base + '/api/chat', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    });
+
+    console.log('[natal] worker status', res.status);
+    if (!res.ok) throw new Error('bad_status_' + res.status);
+
+    const data = await res.json();
+    console.log('[natal] worker payload', data);
+
+    const sections = (data && data.sections) || {};
+    const sunText      = sections.sun || '';
+    const personaText  = sections.persona  || errMsg;
+    const relationText = sections.relation || errMsg;
+    const careerText   = sections.career   || errMsg;
+    const energyText   = sections.energy   || '';
+    const actions      = sections.actions;
+
+    if (secSunExtra && sunText){
+      secSunExtra.innerHTML = esc(sunText).replace(/\n/g,'<br>');
+    }
+
+    if (secPersona){
+      secPersona.innerHTML =
+        `<h3>${esc(titles.persona)}</h3><p>${esc(personaText).replace(/\n/g,'<br>')}</p>`;
+    }
+    if (secRelation){
+      secRelation.innerHTML =
+        `<h3>${esc(titles.relation)}</h3><p>${esc(relationText).replace(/\n/g,'<br>')}</p>`;
+    }
+    if (secCareer){
+      secCareer.innerHTML =
+        `<h3>${esc(titles.career)}</h3><p>${esc(careerText).replace(/\n/g,'<br>')}</p>`;
+    }
+    if (secEnergy){
+      const body = energyText
+        ? `<p>${esc(energyText).replace(/\n/g,'<br>')}</p>`
+        : `<p class="muted">${esc(errMsg)}</p>`;
+      secEnergy.innerHTML = `<h3>${esc(titles.energy)}</h3>${body}`;
+    }
+
+    if (secAction){
+      let listHtml = '';
+      if (Array.isArray(actions) && actions.length){
+        listHtml = '<ul>' +
+          actions.map(a => `<li>${esc(a)}</li>`).join('') +
+          '</ul>';
+      } else if (typeof actions === 'string' && actions.trim()){
+        listHtml = `<p>${esc(actions).replace(/\n/g,'<br>')}</p>`;
+      } else {
+        listHtml = `<p class="muted">${esc(errMsg)}</p>`;
+      }
+      secAction.innerHTML = `<h3>${esc(titles.action)}</h3>${listHtml}`;
+    }
+
+  }catch(e){
+    console.error('[natal] worker error:', e);
+    if (secPersona)  secPersona.innerHTML  = `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(errMsg)}</p>`;
+    if (secRelation) secRelation.innerHTML = `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(errMsg)}</p>`;
+    if (secCareer)   secCareer.innerHTML   = `<h3>${esc(titles.career)}</h3><p class="muted">${esc(errMsg)}</p>`;
+    if (secEnergy)   secEnergy.innerHTML   = `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(errMsg)}</p>`;
+    if (secAction)   secAction.innerHTML   = `<h3>${esc(titles.action)}</h3><p class="muted">${esc(errMsg)}</p>`;
+  }
+}
+
 function renderReport(model) {
+  const result = gid('result');
+  const wrap = gid('chartReport');
+  if (!wrap || !result) return;
+
+  const lang = getLang();
+  const sign = getSunSign(model.date);
+  const L = key => t(key);
+
+  // 存给 Butler 用
+  const meta = {
+    name: model.name || '',
+    date: model.date,
+    time: model.time || '',
+    place: model.place || '',
+    gender: model.gender || 'u',
+    signKey: sign.key,
+    signCn: sign.name['zh-CN'] || sign.key,
+    signEn: sign.name['en'] || sign.key,
+    element: sign.el
+  };
+  model.meta = meta;
+  window.lastModel = model;
+  lastModel = model;
+
+  const overviewTitle = esc(L('section_overview'));
+  const sunTitle = esc(L('section_sun'));
+  const energyTitle = esc(L('section_energy'));
+  const actionTitle = esc(L('section_action'));
+  const sunLabel = esc(L('sun_label'));
+  const disclaimer = esc(L('disclaimer'));
+  const signNameCn = esc(sign.name['zh-CN'] || sign.key);
+
+  const genderMap = {
+    'zh-CN': { m: '男性', f: '女性', u: '—' },
+    'zh-TW': { m: '男性', f: '女性', u: '—' },
+    'en': { m: 'Male', f: 'Female', u: '—' },
+    'ja': { m: '男性', f: '女性', u: '—' },
+    'th': { m: 'ชาย', f: 'หญิง', u: '—' },
+    'ms': { m: 'Lelaki', f: 'Perempuan', u: '—' }
+  };
+  const gPack = genderMap[lang] || genderMap['zh-CN'];
+  const genderLabel = gPack[model.gender] || gPack.u;
+
+  const titles = getSectionTitles(lang);
+  const loadingText = (
+    lang === 'en' ? 'Loading AI reading…' :
+    lang === 'ja' ? 'AI リーディングを読み込み中…' :
+    lang === 'th' ? 'กำลังโหลดคำทำนายจาก AI…' :
+    lang === 'ms' ? 'Memuat bacaan AI…' :
+    '正在载入 AI 解读…'
+  );
+
+  const overviewHtml = `
+    <div class="sec">
+      <h3>${overviewTitle}</h3>
+      <p>${esc(model.name || '')}${model.name ? ' · ' : ''}${esc(model.date)} ${esc(model.time || '')}${model.place ? (' @ ' + esc(model.place)) : ''}</p>
+      <p class="muted" style="opacity:.8">${disclaimer}</p>
+    </div>`;
+
+  const sunHtml = `
+    <div class="sec">
+      <h3>${sunTitle}</h3>
+      <p>${sunLabel} <b>${signNameCn}</b></p>
+      <p class="muted">${genderLabel !== '—' ? ('Gender / 性别：' + esc(genderLabel)) : ''}</p>
+      <div id="secSunExtra" class="muted" style="margin-top:6px;"></div>
+    </div>`;
+
+  const personaHtml = `
+    <div class="sec" id="secPersona">
+      <h3>${esc(titles.persona)}</h3>
+      <p class="muted">${esc(loadingText)}</p>
+    </div>`;
+
+  const relationHtml = `
+    <div class="sec" id="secRelation">
+      <h3>${esc(titles.relation)}</h3>
+      <p class="muted">${esc(loadingText)}</p>
+    </div>`;
+
+  const careerHtml = `
+    <div class="sec" id="secCareer">
+      <h3>${esc(titles.career)}</h3>
+      <p class="muted">${esc(loadingText)}</p>
+    </div>`;
+
+  const energyHtml = `
+    <div class="sec" id="secEnergy">
+      <h3>${energyTitle}</h3>
+      <p class="muted">${esc(loadingText)}</p>
+    </div>`;
+
+  const actionHtml = `
+    <div class="sec" id="secAction">
+      <h3>${actionTitle}</h3>
+      <p class="muted">${esc(loadingText)}</p>
+    </div>`;
+
+  wrap.innerHTML =
+    overviewHtml +
+    sunHtml +
+    personaHtml +
+    relationHtml +
+    careerHtml +
+    energyHtml +
+    actionHtml;
+
+  result.style.display = 'block';
+
+  // 移除或修复调试信息
+  const wrap = gid('chartReport');
+  console.log('[natal] Looking for elements:', {
+    secSunExtra: !!wrap?.querySelector('#secSunExtra'),
+    secPersona: !!wrap?.querySelector('#secPersona'), 
+    secRelation: !!wrap?.querySelector('#secRelation'),
+    secCareer: !!wrap?.querySelector('#secCareer'),
+    secEnergy: !!wrap?.querySelector('#secEnergy'),
+    secAction: !!wrap?.querySelector('#secAction')
+  });
+
+  // 🔮 关键修复：使用 setTimeout 确保 DOM 更新完成后再调用 AI
+  setTimeout(() => {
+    loadNatalSections(model, sign);
+  }, 100);
+}
 
   /* ========================= 心怜管家 · 聊天浮窗（保留，只改用 meta） ========================= */
   function initButlerChat(){
@@ -1088,6 +1226,7 @@ function renderReport(model) {
 </script>
 </body>
 </html>
+
 
 
 
