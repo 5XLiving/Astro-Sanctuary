@@ -267,7 +267,7 @@
 (function(){
   'use strict';
 
-  /* ========================= i18n 文案（保留 UI 文案） ========================= */
+  /* ========================= i18n 文案 ========================= */
   const I18N = {
     'zh-CN':{
       page_title:'本命星盘解析',
@@ -602,7 +602,7 @@
 
       vip_xinlian:'🌙 Ruang Xinlian',
       vip_record:'Rekod jiwa: gambar, mimpi, audio, doa',
-      vip_course:'Kursus: Bazi / Tarot / Astrologi / Human Design',
+      vip_course:'Kursus: Bazi / Tarot / Astrologi / Numerologi / Human Design',
       vip_memorial:'Sistem memorial keluarga',
       vip_tasks:'Latihan tenaga mingguan / tugasan ritual',
       vip_shop:'Diskaun kedai tenaga & azimat khas',
@@ -737,7 +737,7 @@
     return SIGN_LIST.find(s => inRange(m,d,s.start,s.end)) || SIGN_LIST[11];
   }
 
-  /* ========================= section 标题（供前端 + AI 共用） ========================= */
+  /* ========================= section 标题 ========================= */
   function getSectionTitles(lang){
     return {
       persona:
@@ -763,9 +763,12 @@
     };
   }
 
-  /* ========================= 表单 & 报告 ========================= */
+  /* ========================= 全局状态 ========================= */
   let lastModel = null;
+  let natalRateCooldownUntil = 0;
+  let natalRateMessage = null;
 
+  /* ========================= 表单 & 辅助 ========================= */
   function readForm(){
     const name  = (gid('name')?.value || '').trim();
     const place = (gid('place')?.value || '').trim();
@@ -795,14 +798,10 @@
     return raw.replace(/\/+$/,'');
   }
 
-  // ===== 全局 rate limit 状态，用在本页所有 natal 请求 =====
-  let natalRateCooldownUntil = 0;
-  let natalRateMessage = null;
-
-  // ===== 新版 loadNatalSections（只保留这一份） =====
+  /* ========================= 调 Worker 加载 AI 部分 ========================= */
   async function loadNatalSections(model, sign){
     const lang = getLang();
-    const base = getApiBase && getApiBase() || window.API_BASE;
+    const base = getApiBase();
     const titles = getSectionTitles(lang);
 
     const secSunExtra = gid('secSunExtra');
@@ -861,7 +860,7 @@
       }
     }
 
-    // 🔒 如果还在冷却时间内，直接复用上一条 rate limit 文案，避免再打 API
+    // 冷却期内不再打 API
     if (Date.now() < natalRateCooldownUntil && natalRateMessage){
       fillAllWith(natalRateMessage);
       return;
@@ -900,10 +899,15 @@
       });
 
       console.log('[natal] worker status', res.status);
-      const data = await res.json().catch(()=>null);
+      let data = null;
+      try{
+        data = await res.json();
+      }catch(e){
+        console.warn('[natal] cannot parse JSON', e);
+      }
       console.log('[natal] worker payload', data);
 
-      // —— Worker 明确回传 ok:false 的情况（包括上游 429）——
+      // 处理 Worker 回传 error / 429
       if (data && data.ok === false) {
         let msg = baseRateErr;
 
@@ -945,16 +949,21 @@
           return;
         }
 
-        // 不是 429，仅 ok:false
+        // 不是 429，但 ok:false → 通用错误
         fillAllWith(data.msg || genericErr);
         return;
       }
 
-      // —— 正常路径：有 sections 可以用 —— 
+      // 正常路径
       natalRateCooldownUntil = 0;
       natalRateMessage = null;
 
-      const sections = (data && data.sections) || {};
+      // 兼容：data.sections 或 data.reply
+      let sections = (data && data.sections) || {};
+      if ((!sections || !Object.keys(sections).length) && data && typeof data.reply === 'string') {
+        sections = { persona: data.reply };
+      }
+
       const sunText      = sections.sun || '';
       const personaText  = sections.persona  || genericErr;
       const relationText = sections.relation || genericErr;
@@ -1005,6 +1014,7 @@
     }
   }
 
+  /* ========================= 渲染报告 ========================= */
   function renderReport(model) {
     const result = gid('result');
     const wrap = gid('chartReport');
@@ -1040,10 +1050,10 @@
     const genderMap = {
       'zh-CN': { m: '男性', f: '女性', u: '—' },
       'zh-TW': { m: '男性', f: '女性', u: '—' },
-      'en': { m: 'Male', f: 'Female', u: '—' },
-      'ja': { m: '男性', f: '女性', u: '—' },
-      'th': { m: 'ชาย', f: 'หญิง', u: '—' },
-      'ms': { m: 'Lelaki', f: 'Perempuan', u: '—' }
+      'en':    { m: 'Male', f: 'Female', u: '—' },
+      'ja':    { m: '男性', f: '女性', u: '—' },
+      'th':    { m: 'ชาย', f: 'หญิง', u: '—' },
+      'ms':    { m: 'Lelaki', f: 'Perempuan', u: '—' }
     };
     const gPack = genderMap[lang] || genderMap['zh-CN'];
     const genderLabel = gPack[model.gender] || gPack.u;
@@ -1113,7 +1123,7 @@
 
     result.style.display = 'block';
 
-    // 等 DOM 更新完再打 AI
+    // 等 DOM 写完再调 AI
     setTimeout(() => {
       loadNatalSections(model, sign);
     }, 100);
@@ -1222,7 +1232,7 @@
     });
   }
 
-  /* ========================= 表单提交处理 ========================= */
+  /* ========================= 表单提交 ========================= */
   function handleGenerate(evt){
     if (evt && evt.preventDefault) evt.preventDefault();
 
@@ -1280,7 +1290,9 @@
 
     initButlerChat();
   });
+
 })();
 </script>
 </body>
 </html>
+
