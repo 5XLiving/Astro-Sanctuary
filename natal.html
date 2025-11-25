@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -259,11 +260,6 @@
   </div>
 
 <script>
-  // ⚠️ 改成你自己的 Worker 域名（不要加 /api/chat）
-  window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
-</script>
-  
-<script>
 (function(){
   'use strict';
 
@@ -333,6 +329,7 @@
     'zh-TW':{
       page_title:'本命星盤解析',
       lang_label:'語言',
+
       label_name:'姓名（選填）',
       ph_name:'你的稱呼（用於個人化）',
       gender_label:'性別',
@@ -393,6 +390,7 @@
     'en':{
       page_title:'Natal Chart Reading',
       lang_label:'Language',
+
       label_name:'Name (optional)',
       ph_name:'Your name (for personalization)',
       gender_label:'Gender',
@@ -453,6 +451,7 @@
     'ja':{
       page_title:'本命チャート鑑定',
       lang_label:'言語',
+
       label_name:'お名前（任意）',
       ph_name:'表示用のお名前',
       gender_label:'性別',
@@ -513,6 +512,7 @@
     'th':{
       page_title:'ดวงกำเนิด · Natal Chart',
       lang_label:'ภาษา',
+
       label_name:'ชื่อ (ไม่บังคับ)',
       ph_name:'ชื่อสำหรับใช้ในรายงาน',
       gender_label:'เพศ',
@@ -573,6 +573,7 @@
     'ms':{
       page_title:'Carta Natal',
       lang_label:'Bahasa',
+
       label_name:'Nama (pilihan)',
       ph_name:'Nama anda (untuk laporan)',
       gender_label:'Jantina',
@@ -720,6 +721,7 @@
   ];
 
   function inRange(m,d,[sm,sd],[em,ed]){
+    // 处理跨年区间（摩羯）
     if (sm < em || (sm === em && sd <= ed)) {
       return (m > sm || (m === sm && d >= sd)) &&
              (m < em || (m === em && d <= ed));
@@ -731,44 +733,136 @@
 
   function getSunSign(dateStr){
     const dt = new Date(dateStr);
+    if (Number.isNaN(dt.getTime())) return SIGN_LIST[11]; // 默认双鱼
+    const m = dt.getMonth() + 1;
+    const d = dt.getDate();
+    return SIGN_LIST.find(s => inRange(m,d,s.start,s.end)) || SIGN_LIST[11];
+  }
+
+  function getSunSign(dateStr){
+    const dt = new Date(dateStr);
     if (Number.isNaN(dt.getTime())) return SIGN_LIST[11];
     const m = dt.getMonth() + 1;
     const d = dt.getDate();
     return SIGN_LIST.find(s => inRange(m,d,s.start,s.end)) || SIGN_LIST[11];
   }
 
-  /* ========================= section 标题 ========================= */
-  function getSectionTitles(lang){
-    return {
-      persona:
-        lang === 'en' ? 'Personality Portrait' :
-        lang === 'ja' ? '性格画像' :
-        lang === 'th' ? 'ภาพรวมบุคลิก' :
-        lang === 'ms' ? 'Potret keperibadian' :
-        '性格画像',
-      relation:
-        lang === 'en' ? 'Relationships & Communication' :
-        lang === 'ja' ? '人間関係とコミュニケーション' :
-        lang === 'th' ? 'ความสัมพันธ์และการสื่อสาร' :
-        lang === 'ms' ? 'Hubungan & komunikasi' :
-        '关系与沟通',
-      career:
-        lang === 'en' ? 'Career & Wealth Direction' :
-        lang === 'ja' ? '仕事と豊かさの方向性' :
-        lang === 'th' ? 'ทิศทางงานและทรัพย์' :
-        lang === 'ms' ? 'Arah kerjaya & kewangan' :
-        '事业与财富走向',
-      energy: t('section_energy'),
-      action: t('section_action')
-    };
+  const EL_TIPS = {
+    fire:{
+      'zh-CN':[
+        '你的火象能量很强，适合先行动再微调方向。',
+        '把目标拆成一小步一小步，避免一次冲太猛而耗尽体力。'
+      ],
+      'zh-TW':[
+        '你帶有強烈的火象能量，適合先行動再微調方向。',
+        '把目標切成小步驟，避免一次衝太猛反而消耗殆盡。'
+      ],
+      'en':[
+        'You carry strong fire energy: movement first, then fine-tuning.',
+        'Break big goals into short sprints so you don’t burn out.'
+      ],
+      'ja':[
+        'あなたには火のエネルギーが強く、まず動きながら方向を調整するタイプです。',
+        '大きな目標は、小さなステップに分けて進めると燃え尽きにくくなります。'
+      ],
+      'th':[
+        'คุณมีพลังธาตุไฟค่อนข้างแรง เหมาะกับ “ลงมือก่อน ค่อยปรับทีหลัง”。',
+        'แบ่งเป้าหมายใหญ่ให้เป็นสเต็ปเล็ก ๆ จะช่วยไม่ให้หมดไฟง่ายเกินไป.'
+      ],
+      'ms':[
+        'Anda membawa tenaga api yang kuat: bergerak dulu, kemudian halakan semula.',
+        'Pecahkan matlamat besar kepada beberapa pecutan kecil supaya tidak cepat letih.'
+      ]
+    },
+    earth:{
+      'zh-CN':[
+        '土象能量让你务实、重视安全感，但也容易卡在完美主义。',
+        '给自己设一个「好够了就可以上线」的标准，再慢慢优化。'
+      ],
+      'zh-TW':[
+        '土象能量讓你務實、重視安全感，也可能容易陷入完美主義。',
+        '替自己設定一個「好到這裡就可以先上線」的標準，之後再微調。'
+      ],
+      'en':[
+        'Earth energy makes you practical and security-focused, but perfectionism can slow you down.',
+        'Set a “good enough to ship” line, then improve after you launch.'
+      ],
+      'ja':[
+        '地のエネルギーは、現実的で安定志向ですが、完璧主義になりやすい面もあります。',
+        '「ここまでできたら一旦出す」というラインを決め、その後に少しずつ改善していきましょう。'
+      ],
+      'th':[
+        'พลังธาตุดินทำให้คุณเน้นความมั่นคงและความปลอดภัย แต่งานอาจช้าเพราะอยากให้เป๊ะทุกอย่าง.',
+        'ลองกำหนดระดับว่า “แค่นี้ก็ส่งงานได้แล้ว” แล้วค่อยปรับรายละเอียดภายหลัง.'
+      ],
+      'ms':[
+        'Tenaga bumi menjadikan anda praktikal dan sukakan rasa selamat, tetapi mudah terperangkap dalam perfeksionisme.',
+        'Tetapkan tahap “cukup baik untuk dihantar”, kemudian perbaiki sedikit demi sedikit.'
+      ]
+    },
+    air:{
+      'zh-CN':[
+        '风象能量带来很多灵感和点子，也容易分心、想太多。',
+        '把想法写下来、排出优先顺序，就比较不会被信息淹没。'
+      ],
+      'zh-TW':[
+        '風象能量帶來許多靈感與點子，但也容易分心、想太多。',
+        '把想法寫下來並排出優先順序，就比較不會被資訊淹沒。'
+      ],
+      'en':[
+        'Air energy gives you plenty of ideas, but also mental noise.',
+        'Write down your ideas and prioritise them so your mind can rest.'
+      ],
+      'ja':[
+        '風のエネルギーは、ひらめきやアイデアが多い反面、考えすぎや気の散りやすさもあります。',
+        '思いついたことは書き出して優先順位をつけると、頭の中がスッキリしやすくなります。'
+      ],
+      'th':[
+        'พลังธาตุลมทำให้คุณคิดเก่ง ไอเดียเยอะ แต่ก็วุ่นวายในหัวได้ง่าย.',
+        'ลองเขียนไอเดียออกมาและจัดลำดับความสำคัญ จะช่วยให้จิตใจโล่งขึ้น.'
+      ],
+      'ms':[
+        'Tenaga udara memberi anda banyak idea, tetapi juga mudah berserabut.',
+        'Tulis semua idea dan susun ikut keutamaan supaya minda lebih tenang.'
+      ]
+    },
+    water:{
+      'zh-CN':[
+        '水象能量让你感受细腻、共情力强，但情绪也容易被环境牵动。',
+        '每天给自己一点时间写下感受，或用身体运动把情绪流动出去。'
+      ],
+      'zh-TW':[
+        '水象能量讓你感受細膩、共感能力強，但情緒也容易被環境牽動。',
+        '每天留一點時間寫下感受，或透過身體活動讓情緒流動出去。'
+      ],
+      'en':[
+        'Water energy makes you deeply sensitive and empathic, but moods can be easily swayed.',
+        'Give yourself a small daily ritual to name your feelings or move your body to let them flow.'
+      ],
+      'ja':[
+        '水のエネルギーは、繊細さと共感力を与えてくれますが、環境に感情が揺さぶられやすい面もあります。',
+        '毎日少しだけでも感情を書き出したり、体を動かしてエネルギーを流してあげましょう。'
+      ],
+      'th':[
+        'พลังธาตุน้ำทำให้คุณอ่อนไหว รับความรู้สึกของคนอื่นได้ดี แต่อารมณ์ก็ขึ้นลงง่าย.',
+        'ให้เวลาตัวเองทุกวันนิดหน่อย เพื่อเขียนหรือระบายความรู้สึกออกมาผ่านการเคลื่อนไหวของร่างกาย.'
+      ],
+      'ms':[
+        'Tenaga air menjadikan anda sangat peka dan empati, tetapi emosi juga mudah terpengaruh.',
+        'Setiap hari, luangkan sedikit masa untuk menulis perasaan atau menggerakkan badan agar emosi mengalir dengan sihat.'
+      ]
+    }
+  };
+
+  function getElementTips(el, lang){
+    const pack = EL_TIPS[el];
+    if(!pack) return [];
+    return pack[lang] || pack['zh-CN'] || [];
   }
 
-  /* ========================= 全局状态 ========================= */
+  /* ========================= 表单 & 报告 ========================= */
   let lastModel = null;
-  let natalRateCooldownUntil = 0;
-  let natalRateMessage = null;
 
-  /* ========================= 表单 & 辅助 ========================= */
   function readForm(){
     const name  = (gid('name')?.value || '').trim();
     const place = (gid('place')?.value || '').trim();
@@ -787,340 +881,144 @@
     box.textContent = `${namePart}${model.date} ${timePart}${placePart}`;
   }
 
-  function getApiBase(){
-    const raw = (typeof window.API_BASE === 'string' && window.API_BASE.trim())
-      ? window.API_BASE.trim()
-      : '';
-    if (!raw) {
-      console.warn('[natal] API_BASE not configured. Set window.API_BASE before this script.');
-      return '';
+function renderReport(model){
+  const result = gid('result');
+  const wrap   = gid('chartReport');
+  if(!wrap || !result) return;
+
+  const lang = getLang(); // 只用来拿标题 / 提示等 label
+  const sign = getSunSign(model.date);
+
+  // ☆ 这里故意固定用简体中文名字，当成 AI 翻译的母稿
+  const signNameCn = sign.name['zh-CN'] || sign.key;
+  const element = sign.el;
+  const tips = getElementTips(element, lang); // 能量提示仍然多语言
+  const L = key => t(key);
+
+  const overviewTitle = esc(L('section_overview'));
+  const sunTitle      = esc(L('section_sun'));
+  const energyTitle   = esc(L('section_energy'));
+  const actionTitle   = esc(L('section_action'));
+
+  const sunLabel = esc(L('sun_label'));
+  const disclaimer = esc(L('disclaimer'));
+
+  // —— 性别文字（标题还是可以多语言）——
+  const genderMap = {
+    'zh-CN':{m:'男性',f:'女性',u:'—'},
+    'zh-TW':{m:'男性',f:'女性',u:'—'},
+    'en':   {m:'Male',f:'Female',u:'—'},
+    'ja':   {m:'男性',f:'女性',u:'—'},
+    'th':   {m:'ชาย',f:'หญิง',u:'—'},
+    'ms':   {m:'Lelaki',f:'Perempuan',u:'—'}
+  };
+  const gPack = genderMap[lang] || genderMap['zh-CN'];
+  const genderLabel = gPack[model.gender] || gPack.u;
+
+  // —— 三个 section 的标题依然按语言来 —— 
+  const hPersona = (
+    lang === 'en' ? 'Personality Portrait' :
+    lang === 'ja' ? '性格画像' :
+    lang === 'th' ? 'ภาพรวมบุคลิก' :
+    lang === 'ms' ? 'Potret keperibadian' :
+    '性格画像'
+  );
+
+  const hRelation = (
+    lang === 'en' ? 'Relationships & Communication' :
+    lang === 'ja' ? '人間関係とコミュニケーション' :
+    lang === 'th' ? 'ความสัมพันธ์และการสื่อสาร' :
+    lang === 'ms' ? 'Hubungan & komunikasi' :
+    '关系与沟通'
+  );
+
+  const hCareer = (
+    lang === 'en' ? 'Career & Wealth Direction' :
+    lang === 'ja' ? '仕事と豊かさの方向性' :
+    lang === 'th' ? 'ทิศทางงานและทรัพย์' :
+    lang === 'ms' ? 'Arah kerjaya & kewangan' :
+    '事业与财富走向'
+  );
+
+  // ===== HTML 组装，不动你原来的结构 =====
+  const overviewHtml = `
+    <div class="sec">
+      <h3>${overviewTitle}</h3>
+      <p>${esc(model.name || '')}${model.name ? ' · ' : ''}${esc(model.date)} ${esc(model.time || '')}${model.place ? (' @ ' + esc(model.place)) : ''}</p>
+      <p class="muted" style="opacity:.8">${disclaimer}</p>
+    </div>`;
+
+  const sunHtml = `
+    <div class="sec">
+      <h3>${sunTitle}</h3>
+      <p>${sunLabel} <b>${esc(signNameCn)}</b></p>
+      <p class="muted">${genderLabel !== '—' ? ('Gender / 性别：' + esc(genderLabel)) : ''}</p>
+    </div>`;
+
+  const personaHtml = `
+    <div class="sec">
+      <h3>${esc(hPersona)}</h3>
+      <p>${personaLines.map(line => esc(line)).join('<br>')}</p>
+    </div>`;
+
+  const relationHtml = `
+    <div class="sec">
+      <h3>${esc(hRelation)}</h3>
+      <p>${relationLines.map(line => esc(line)).join('<br>')}</p>
+    </div>`;
+
+  const careerHtml = `
+    <div class="sec">
+      <h3>${esc(hCareer)}</h3>
+      <p>${careerLines.map(line => esc(line)).join('<br>')}</p>
+    </div>`;
+
+  const energyHtml = `
+    <div class="sec">
+      <h3>${energyTitle}</h3>
+      <p>${tips.map(line => '• ' + esc(line)).join('<br>')}</p>
+    </div>`;
+
+  const actionHtml = `
+    <div class="sec">
+      <h3>${actionTitle}</h3>
+      <ul>
+        <li>${esc(L('action_1'))}</li>
+        <li>${esc(L('action_2'))}</li>
+        <li>${esc(L('action_3'))}</li>
+      </ul>
+    </div>`;
+
+  wrap.innerHTML =
+    overviewHtml +
+    sunHtml +
+    personaHtml +
+    relationHtml +
+    careerHtml +
+    energyHtml +
+    actionHtml;
+
+  result.style.display = 'block';
+}
+
+  /* ========================= IP → 出生地点预填 ========================= */
+  async function fillBirthPlaceFromIP(){
+    const input = gid('place');
+    if(!input || input.value) return; // 有值就不动
+    try{
+      // ⚠️ ipapi 有 CORS + 429 风险，如不想看到 network error，可直接不用这个函数
+      const res = await fetch('https://ipapi.co/json/');
+      if(!res.ok) return;
+      const data = await res.json();
+      const country = data.country_name || data.country;
+      const city = data.city;
+      const guess = (city && country) ? `${city}, ${country}` : (country || '');
+      if(guess && !input.value){
+        input.value = guess;
+      }
+    }catch(e){
+      // 静默失败
     }
-    return raw.replace(/\/+$/,'');
-  }
-
-  // =============== AI 渲染：只保留这一份 loadNatalSections ===============
-  async function loadNatalSections(model, sign) {
-    const lang = getLang();
-    const base = getApiBase();
-    const titles = getSectionTitles(lang);
-
-    const wrap = gid('chartReport');
-    if (!wrap) return;
-
-    const secSunExtra = wrap.querySelector('#secSunExtra');
-    const secPersona  = wrap.querySelector('#secPersona');
-    const secRelation = wrap.querySelector('#secRelation');
-    const secCareer   = wrap.querySelector('#secCareer');
-    const secEnergy   = wrap.querySelector('#secEnergy');
-    const secAction   = wrap.querySelector('#secAction');
-
-    const genericErr = (
-      lang === 'en' ? 'Connection seems unstable, please try again later.' :
-      lang === 'ja' ? '接続が不安定なようです。少し時間をおいて再度お試しください。' :
-      lang === 'th' ? 'การเชื่อมต่อขัดข้อง กรุณาลองใหม่ภายหลัง' :
-      lang === 'ms' ? 'Sambungan tidak stabil, sila cuba lagi kemudian.' :
-      '目前连线有点不稳定，你可以稍后再试一次。'
-    );
-
-    const baseRateErr = (
-      lang === 'en'
-        ? 'AI service is temporarily rate limited.'
-        : lang === 'ja'
-        ? 'AI リーディングは現在レート制限中です。'
-        : lang === 'th'
-        ? 'ระบบ AI ถูกจำกัดการใช้งานชั่วคราวค่ะ'
-        : lang === 'ms'
-        ? 'Perkhidmatan AI sedang dikenakan had kadar buat sementara waktu.'
-        : 'AI 解读服务目前请求已达上限。'
-    );
-
-    const systemNotReady = (
-      lang === 'en'
-        ? 'System is not fully configured (API_BASE missing).'
-        : '系统尚未完成配置（缺少 API_BASE）。'
-    );
-
-    function fillAll(msg) {
-      if (secPersona) {
-        secPersona.innerHTML =
-          `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(msg)}</p>`;
-      }
-      if (secRelation) {
-        secRelation.innerHTML =
-          `<h3>${esc(titles.relation)}</h3><p class="muted">${esc(msg)}</p>`;
-      }
-      if (secCareer) {
-        secCareer.innerHTML =
-          `<h3>${esc(titles.career)}</h3><p class="muted">${esc(msg)}</p>`;
-      }
-      if (secEnergy) {
-        secEnergy.innerHTML =
-          `<h3>${esc(titles.energy)}</h3><p class="muted">${esc(msg)}</p>`;
-      }
-      if (secAction) {
-        secAction.innerHTML =
-          `<h3>${esc(titles.action)}</h3><p class="muted">${esc(msg)}</p>`;
-      }
-    }
-
-    // 已经在冷却期 → 直接用上一次的 rate limit 提示
-    if (Date.now() < natalRateCooldownUntil && natalRateMessage) {
-      fillAll(natalRateMessage);
-      return;
-    }
-
-    if (!base) {
-      fillAll(systemNotReady);
-      return;
-    }
-
-    try {
-      const payload = {
-        user: model.name || 'natal_guest',
-        prompt: JSON.stringify({
-          type: 'natal-main',
-          lang,
-          meta: {
-            name:   model.name || '',
-            date:   model.date,
-            time:   model.time || '',
-            place:  model.place || '',
-            gender: model.gender || 'u',
-            signKey: sign.key,
-            signCn:  sign.name['zh-CN'] || sign.key,
-            signEn:  sign.name['en']   || sign.key,
-            element: sign.el
-          }
-        })
-      };
-
-      console.log('[natal] calling worker', base + '/api/chat');
-      const res = await fetch(base + '/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-
-      console.log('[natal] worker status', res.status);
-      const data = await res.json().catch(() => null);
-      console.log('[natal] worker payload', data);
-
-      if (!data) {
-        fillAll(genericErr);
-        return;
-      }
-
-      // Worker 主动标记错误：ok:false
-      if (data.ok === false) {
-        // —— 专门处理 429 / rate limit ——
-        if (data.status === 429 && data.error) {
-          let msg = baseRateErr;
-          try {
-            const parsed = typeof data.error === 'string'
-              ? JSON.parse(data.error)
-              : data.error;
-
-            console.log('[natal] Rate limit detected:', parsed);
-
-            if (parsed && parsed.error && typeof parsed.error.message === 'string') {
-              const m = parsed.error.message.match(/Please try again in ([0-9]+)m([0-9.]+)s/i);
-              if (m) {
-                const mins = parseInt(m[1], 10) || 0;
-                const secs = Math.round(parseFloat(m[2]) || 0);
-
-                if (lang === 'en') {
-                  msg = `${baseRateErr} Please try again after about ${mins} minute(s).`;
-                } else {
-                  msg = baseRateErr;
-                }
-
-                const waitMs = (mins * 60 + secs) * 1000;
-                natalRateCooldownUntil = Date.now() + waitMs;
-                natalRateMessage = msg;
-              } else {
-                natalRateCooldownUntil = Date.now() + 5 * 60 * 1000;
-                natalRateMessage = msg;
-              }
-            }
-          } catch (e) {
-            console.warn('[natal] parse upstream error failed', e);
-            natalRateCooldownUntil = Date.now() + 5 * 60 * 1000;
-            natalRateMessage = baseRateErr;
-          }
-
-          fillAll(natalRateMessage);
-          return;
-        }
-
-        // 其它类型错误
-        fillAll(data.msg || genericErr);
-        return;
-      }
-
-      // 正常路径：AI 返回 sections
-      natalRateCooldownUntil = 0;
-      natalRateMessage = null;
-
-      const sections = data.sections || {};
-      const sunText      = sections.sun      || '';
-      const personaText  = sections.persona  || genericErr;
-      const relationText = sections.relation || genericErr;
-      const careerText   = sections.career   || genericErr;
-      const energyText   = sections.energy   || '';
-      const actions      = sections.actions;
-
-      if (secSunExtra && sunText) {
-        secSunExtra.innerHTML = esc(sunText).replace(/\n/g, '<br>');
-      }
-      if (secPersona) {
-        secPersona.innerHTML =
-          `<h3>${esc(titles.persona)}</h3><p>${esc(personaText).replace(/\n/g, '<br>')}</p>`;
-      }
-      if (secRelation) {
-        secRelation.innerHTML =
-          `<h3>${esc(titles.relation)}</h3><p>${esc(relationText).replace(/\n/g, '<br>')}</p>`;
-      }
-      if (secCareer) {
-        secCareer.innerHTML =
-          `<h3>${esc(titles.career)}</h3><p>${esc(careerText).replace(/\n/g, '<br>')}</p>`;
-      }
-      if (secEnergy) {
-        const body = energyText
-          ? `<p>${esc(energyText).replace(/\n/g, '<br>')}</p>`
-          : `<p class="muted">${esc(genericErr)}</p>`;
-        secEnergy.innerHTML = `<h3>${esc(titles.energy)}</h3>${body}`;
-      }
-      if (secAction) {
-        let listHtml = '';
-        if (Array.isArray(actions) && actions.length) {
-          listHtml = '<ul>' + actions.map(a => `<li>${esc(a)}</li>`).join('') + '</ul>';
-        } else if (typeof actions === 'string' && actions.trim()) {
-          listHtml = `<p>${esc(actions).replace(/\n/g, '<br>')}</p>`;
-        } else {
-          listHtml = `<p class="muted">${esc(genericErr)}</p>`;
-        }
-        secAction.innerHTML = `<h3>${esc(titles.action)}</h3>${listHtml}`;
-      }
-
-    } catch (e) {
-      console.error('[natal] worker error:', e);
-      fillAll(genericErr);
-    }
-  }
-  
-  /* ========================= 渲染报告 ========================= */
-  function renderReport(model) {
-    const result = gid('result');
-    const wrap = gid('chartReport');
-    if (!wrap || !result) return;
-
-    const lang = getLang();
-    const sign = getSunSign(model.date);
-    const L = key => t(key);
-
-    const meta = {
-      name: model.name || '',
-      date: model.date,
-      time: model.time || '',
-      place: model.place || '',
-      gender: model.gender || 'u',
-      signKey: sign.key,
-      signCn: sign.name['zh-CN'] || sign.key,
-      signEn: sign.name['en'] || sign.key,
-      element: sign.el
-    };
-    model.meta = meta;
-    window.lastModel = model;
-    lastModel = model;
-
-    const overviewTitle = esc(L('section_overview'));
-    const sunTitle = esc(L('section_sun'));
-    const energyTitle = esc(L('section_energy'));
-    const actionTitle = esc(L('section_action'));
-    const sunLabel = esc(L('sun_label'));
-    const disclaimer = esc(L('disclaimer'));
-    const signNameCn = esc(sign.name['zh-CN'] || sign.key);
-
-    const genderMap = {
-      'zh-CN': { m: '男性', f: '女性', u: '—' },
-      'zh-TW': { m: '男性', f: '女性', u: '—' },
-      'en':    { m: 'Male', f: 'Female', u: '—' },
-      'ja':    { m: '男性', f: '女性', u: '—' },
-      'th':    { m: 'ชาย', f: 'หญิง', u: '—' },
-      'ms':    { m: 'Lelaki', f: 'Perempuan', u: '—' }
-    };
-    const gPack = genderMap[lang] || genderMap['zh-CN'];
-    const genderLabel = gPack[model.gender] || gPack.u;
-
-    const titles = getSectionTitles(lang);
-    const loadingText = (
-      lang === 'en' ? 'Loading AI reading…' :
-      lang === 'ja' ? 'AI リーディングを読み込み中…' :
-      lang === 'th' ? 'กำลังโหลดคำทำนายจาก AI…' :
-      lang === 'ms' ? 'Memuat bacaan AI…' :
-      '正在载入 AI 解读…'
-    );
-
-    const overviewHtml = `
-      <div class="sec">
-        <h3>${overviewTitle}</h3>
-        <p>${esc(model.name || '')}${model.name ? ' · ' : ''}${esc(model.date)} ${esc(model.time || '')}${model.place ? (' @ ' + esc(model.place)) : ''}</p>
-        <p class="muted" style="opacity:.8">${disclaimer}</p>
-      </div>`;
-
-    const sunHtml = `
-      <div class="sec">
-        <h3>${sunTitle}</h3>
-        <p>${sunLabel} <b>${signNameCn}</b></p>
-        <p class="muted">${genderLabel !== '—' ? ('Gender / 性别：' + esc(genderLabel)) : ''}</p>
-        <div id="secSunExtra" class="muted" style="margin-top:6px;"></div>
-      </div>`;
-
-    const personaHtml = `
-      <div class="sec" id="secPersona">
-        <h3>${esc(titles.persona)}</h3>
-        <p class="muted">${esc(loadingText)}</p>
-      </div>`;
-
-    const relationHtml = `
-      <div class="sec" id="secRelation">
-        <h3>${esc(titles.relation)}</h3>
-        <p class="muted">${esc(loadingText)}</p>
-      </div>`;
-
-    const careerHtml = `
-      <div class="sec" id="secCareer">
-        <h3>${esc(titles.career)}</h3>
-        <p class="muted">${esc(loadingText)}</p>
-      </div>`;
-
-    const energyHtml = `
-      <div class="sec" id="secEnergy">
-        <h3>${energyTitle}</h3>
-        <p class="muted">${esc(loadingText)}</p>
-      </div>`;
-
-    const actionHtml = `
-      <div class="sec" id="secAction">
-        <h3>${actionTitle}</h3>
-        <p class="muted">${esc(loadingText)}</p>
-      </div>`;
-
-    wrap.innerHTML =
-      overviewHtml +
-      sunHtml +
-      personaHtml +
-      relationHtml +
-      careerHtml +
-      energyHtml +
-      actionHtml;
-
-    result.style.display = 'block';
-
-    // 等 DOM 写完再调 AI
-    setTimeout(() => {
-      loadNatalSections(model, sign);
-    }, 100);
   }
 
   /* ========================= 心怜管家 · 聊天浮窗 ========================= */
@@ -1132,11 +1030,11 @@
     const send   = gid('ssChatSend');
     const body   = gid('ssChatBody');
 
-    if (!fab || !panel || !input || !send || !body) return;
+    if(!fab || !panel || !input || !send || !body) return;
 
     function showPanel(){
       panel.style.display = 'block';
-      fab.style.display = 'grid';
+      fab.style.display = 'none';
       input.focus();
     }
     function hidePanel(){
@@ -1150,83 +1048,55 @@
     function appendMsg(text, isMe){
       const div = document.createElement('div');
       div.className = 'ss-msg' + (isMe ? ' me' : '');
-      div.innerHTML = esc(text).replace(/\n/g, '<br>');
+      div.innerHTML = esc(text).replace(/\n/g,'<br>');
       body.appendChild(div);
       body.scrollTop = body.scrollHeight;
     }
 
-    async function handleSend(){
-      const text = input.value.trim();
-      if (!text) return;
+    async function fakeReply(userText){
+      const ctx = lastModel || readForm();
+      const sign = ctx.date ? getSunSign(ctx.date) : null;
+      const lang = getLang();
 
-      appendMsg(text, true);
+      let intro = '';
+      if (sign) {
+        const signName = sign.name[lang] || sign.name['zh-CN'];
+        intro = `（基于你现在的太阳星座 ${signName} 给你一个简单方向）\n\n`;
+      }
+
+      const reply =
+        intro +
+        '我先用「整体能量」的角度帮你看：\n' +
+        '· 把你刚刚问的问题拆成 1～2 个重点（例如：感情中的担心点 / 工作中最想突破的卡点）。\n' +
+        '· 然后我们可以继续往下聊，你也可以告诉我：你现在最想先调整的是哪一块？';
+
+      await new Promise(r => setTimeout(r, 500));
+      appendMsg(reply, false);
+    }
+
+    async function handleSend(){
+      const val = (input.value || '').trim();
+      if(!val) return;
+      appendMsg(val, true);
       input.value = '';
 
-      const thinking = document.createElement('div');
-      thinking.className = 'ss-msg';
-      thinking.textContent = '…thinking';
-      body.appendChild(thinking);
-      body.scrollTop = body.scrollHeight;
-
-      try {
-        const ctx  = (window.lastModel && window.lastModel.meta) || {};
-        const lang = getLang();
-        const payload = {
-          user: ctx.name || 'natal_guest',
-          prompt: JSON.stringify({
-            type: 'natal-butler',
-            lang,
-            sign: ctx.signKey || ctx.sunSign || null,
-            meta: ctx,
-            question: text
-          })
-        };
-
-        const base = getApiBase();
-        if (!base) throw new Error('no_api_base');
-
-        const res = await fetch(base + '/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-
-        let reply = (
-          lang === 'en'
-            ? 'Connection seems unstable, please try again later.'
-            : '目前连线有点不稳定，你可以稍后再试一次。'
-        );
-
-        if (res.ok) {
-          const data = await res.json();
-          if (data && data.reply) reply = data.reply;
-        }
-
-        if (thinking.parentNode) body.removeChild(thinking);
-        appendMsg(reply, false);
-
-      } catch (e) {
-        console.error('[butler] error', e);
-        if (thinking.parentNode) body.removeChild(thinking);
-        const msg = (
-          getLang() === 'en'
-            ? 'Connection seems unstable, please try again later.'
-            : '目前连线有点不稳定，你可以稍后再试一次。'
-        );
-        appendMsg(msg, false);
+      try{
+        await fakeReply(val);
+      }catch(e){
+        appendMsg('目前连线有一点不稳定，你可以稍后再试一次，或先把重点写下来当作自我整理。', false);
       }
     }
 
     send.addEventListener('click', handleSend);
-    input.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && !e.shiftKey) {
+    input.addEventListener('keydown', e=>{
+      if(e.key === 'Enter' && !e.shiftKey){
         e.preventDefault();
         handleSend();
       }
     });
   }
 
-  /* ========================= 表单提交 ========================= */
+  /* ========================= 表单提交处理 ========================= */
   function handleGenerate(evt){
     if (evt && evt.preventDefault) evt.preventDefault();
 
@@ -1237,8 +1107,6 @@
     }
 
     lastModel = model;
-    window.lastModel = model;
-
     renderHeaderSummary(model);
     renderReport(model);
   }
@@ -1277,6 +1145,9 @@
       timeInput.value = `${hh}:${mm}`;
     }
 
+    // 如果你现在不想看到 ipapi 的 CORS 报错，可以先注释掉这一行：
+    // fillBirthPlaceFromIP();
+
     const form = gid('chartForm');
     if(form){
       form.addEventListener('submit', handleGenerate);
@@ -1284,11 +1155,19 @@
 
     initButlerChat();
   });
-
 })();
 </script>
 </body>
 </html>
+
+
+
+
+
+
+
+
+
 
 
 
