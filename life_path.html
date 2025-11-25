@@ -959,9 +959,8 @@ async function runAI(obj){
   const wrap = ensureRootStructure();
   const lang = getLang() || 'zh-CN';
 
-  // 清掉旧的 AI 区块，避免多次 append 堆积
-  const oldSecs = wrap.querySelectorAll('.sec.ai-block');
-  oldSecs.forEach(s => s.remove());
+  // 清掉旧的 AI 区块
+  wrap.querySelectorAll('.sec.ai-block').forEach(s => s.remove());
 
   const sec = document.createElement('div');
   sec.className = 'sec ai-block';
@@ -970,17 +969,12 @@ async function runAI(obj){
     <div class="skeleton"><div></div><div></div><div></div></div>`;
   wrap.appendChild(sec);
 
-  const sys = buildSystemPrompt(lang);
-
+  const sys = buildSystemPrompt(lang);   // ← 用你那套多语言 System Prompt
   const user = `
 出生日期（ISO）: ${obj.iso}
-Life Path / 生命路径: ${obj.lp}${isMaster(obj.lp)?'（大师数字 / Master Number）':''}
-Love Number / 情感数字: ${obj.lv}${isMaster(obj.lv)?'（大师数字 / Master Number）':''}
-
-请在报告中：
-- 清楚点出生命路径数字与情感数字，并解释它们的含义；
-- 说明两者组合如何影响性格、关系与工作方式；
-- 使用第二人称，像是在对当事人说话。`;
+Life Path: ${obj.lp}${isMaster(obj.lp)?' (Master Number)':''}
+Love Number: ${obj.lv}${isMaster(obj.lv)?' (Master Number)':''}
+  `;
 
   try{
     const r = await fetchWithRetry(`${API_BASE}/api/chat`,{
@@ -1000,16 +994,19 @@ Love Number / 情感数字: ${obj.lv}${isMaster(obj.lv)?'（大师数字 / Maste
 
     const html = mdToHtml(raw);
 
-    // 如果請求期间语言被切换，避免旧语言覆盖新语言
+    // 避免语言切换导致旧内容覆盖
     if (sec.getAttribute('data-lang') !== getLang()) return;
 
     sec.innerHTML = `<h3>${t('ai_title')}</h3><div class="ai-content">${html}</div>`;
   }catch(e){
-    const local = localNumerologyInsight(obj);
-    sec.innerHTML = `<h3>${t('ai_title')}</h3><div class="ai-content">${local}</div>`;
-    console.warn('AI fallback:', e?.message||e);
+    console.warn('AI error:', e?.message || e);
+    sec.innerHTML = `<h3>${t('ai_title')}</h3>
+      <div class="ai-content">
+        <p style="opacity:.8;">（AI 服务器暂时连不上，请稍后再试一次。）</p>
+      </div>`;
   }
 }
+
 
 /* ===== 登录/注册（占位） ===== */
 async function safeJson(resp){
@@ -1135,6 +1132,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 </script>
 </body>
 </html>
+
 
 
 
