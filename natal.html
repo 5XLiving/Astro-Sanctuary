@@ -765,8 +765,8 @@
 
   /* ========================= 全局状态 ========================= */
   let lastModel = null;
-  let natalRateCooldownUntil = 0;
-  let natalRateMessage = null;
+  let natalRateCooldownUntil = 0;   // 429 冷却结束时间（时间戳）
+  let natalRateMessage = null;      // 冷却期间要显示的提示文案
 
   /* ========================= 表单 & 辅助 ========================= */
   function readForm(){
@@ -781,8 +781,8 @@
   function renderHeaderSummary(model){
     const box = gid('chartSummary');
     if(!box) return;
-    const namePart = model.name ? (model.name + ' · ') : '';
-    const timePart = model.time || '';
+    const namePart  = model.name ? (model.name + ' · ') : '';
+    const timePart  = model.time || '';
     const placePart = model.place ? (' @ ' + model.place) : '';
     box.textContent = `${namePart}${model.date} ${timePart}${placePart}`;
   }
@@ -798,10 +798,10 @@
     return raw.replace(/\/+$/,'');
   }
 
-  /* ========================= 调 Worker 加载 AI 部分 ========================= */
+  /* ========================= AI 主体渲染 ========================= */
   async function loadNatalSections(model, sign){
-    const lang = getLang();
-    const base = getApiBase();
+    const lang   = getLang();
+    const base   = getApiBase();
     const titles = getSectionTitles(lang);
 
     const secSunExtra = gid('secSunExtra');
@@ -860,7 +860,7 @@
       }
     }
 
-    // 冷却期内不再打 API
+    // 🔒 若处于冷却期，直接显示上次的提示，不再打 API
     if (Date.now() < natalRateCooldownUntil && natalRateMessage){
       fillAllWith(natalRateMessage);
       return;
@@ -899,18 +899,14 @@
       });
 
       console.log('[natal] worker status', res.status);
-      let data = null;
-      try{
-        data = await res.json();
-      }catch(e){
-        console.warn('[natal] cannot parse JSON', e);
-      }
+      const data = await res.json().catch(()=>null);
       console.log('[natal] worker payload', data);
 
-      // 处理 Worker 回传 error / 429
+      // ========== Worker 回传 ok:false 的情况 ==========
       if (data && data.ok === false) {
         let msg = baseRateErr;
 
+        // 专门处理 429（包含 openai 原始错误字符串）
         if (data.status === 429 && data.error) {
           try{
             const parsed = typeof data.error === 'string'
@@ -949,26 +945,21 @@
           return;
         }
 
-        // 不是 429，但 ok:false → 通用错误
+        // 不是 429：通用错误
         fillAllWith(data.msg || genericErr);
         return;
       }
 
-      // 正常路径
+      // ========== 正常：有 sections ==========
       natalRateCooldownUntil = 0;
       natalRateMessage = null;
 
-      // 兼容：data.sections 或 data.reply
-      let sections = (data && data.sections) || {};
-      if ((!sections || !Object.keys(sections).length) && data && typeof data.reply === 'string') {
-        sections = { persona: data.reply };
-      }
-
-      const sunText      = sections.sun || '';
-      const personaText  = sections.persona  || genericErr;
-      const relationText = sections.relation || genericErr;
-      const careerText   = sections.career   || genericErr;
-      const energyText   = sections.energy   || '';
+      const sections     = (data && data.sections) || {};
+      const sunText      = sections.sun       || '';
+      const personaText  = sections.persona   || genericErr;
+      const relationText = sections.relation  || genericErr;
+      const careerText   = sections.career    || genericErr;
+      const energyText   = sections.energy    || '';
       const actions      = sections.actions;
 
       if (secSunExtra && sunText){
@@ -1295,4 +1286,5 @@
 </script>
 </body>
 </html>
+
 
