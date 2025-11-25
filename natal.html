@@ -765,8 +765,8 @@
 
   /* ========================= 全局状态 ========================= */
   let lastModel = null;
-  let natalRateCooldownUntil = 0;   // 429 冷却结束时间（时间戳）
-  let natalRateMessage = null;      // 冷却期间要显示的提示文案
+  let natalRateCooldownUntil = 0;
+  let natalRateMessage = null;
 
   /* ========================= 表单 & 辅助 ========================= */
   function readForm(){
@@ -781,8 +781,8 @@
   function renderHeaderSummary(model){
     const box = gid('chartSummary');
     if(!box) return;
-    const namePart  = model.name ? (model.name + ' · ') : '';
-    const timePart  = model.time || '';
+    const namePart = model.name ? (model.name + ' · ') : '';
+    const timePart = model.time || '';
     const placePart = model.place ? (' @ ' + model.place) : '';
     box.textContent = `${namePart}${model.date} ${timePart}${placePart}`;
   }
@@ -798,18 +798,21 @@
     return raw.replace(/\/+$/,'');
   }
 
-  /* ========================= AI 主体渲染 ========================= */
-  async function loadNatalSections(model, sign){
-    const lang   = getLang();
-    const base   = getApiBase();
+  // =============== AI 渲染：只保留这一份 loadNatalSections ===============
+  async function loadNatalSections(model, sign) {
+    const lang = getLang();
+    const base = getApiBase();
     const titles = getSectionTitles(lang);
 
-    const secSunExtra = gid('secSunExtra');
-    const secPersona  = gid('secPersona');
-    const secRelation = gid('secRelation');
-    const secCareer   = gid('secCareer');
-    const secEnergy   = gid('secEnergy');
-    const secAction   = gid('secAction');
+    const wrap = gid('chartReport');
+    if (!wrap) return;
+
+    const secSunExtra = wrap.querySelector('#secSunExtra');
+    const secPersona  = wrap.querySelector('#secPersona');
+    const secRelation = wrap.querySelector('#secRelation');
+    const secCareer   = wrap.querySelector('#secCareer');
+    const secEnergy   = wrap.querySelector('#secEnergy');
+    const secAction   = wrap.querySelector('#secAction');
 
     const genericErr = (
       lang === 'en' ? 'Connection seems unstable, please try again later.' :
@@ -837,7 +840,7 @@
         : '系统尚未完成配置（缺少 API_BASE）。'
     );
 
-    function fillAllWith(msg){
+    function fillAll(msg) {
       if (secPersona) {
         secPersona.innerHTML =
           `<h3>${esc(titles.persona)}</h3><p class="muted">${esc(msg)}</p>`;
@@ -860,55 +863,59 @@
       }
     }
 
-    // 🔒 若处于冷却期，直接显示上次的提示，不再打 API
-    if (Date.now() < natalRateCooldownUntil && natalRateMessage){
-      fillAllWith(natalRateMessage);
+    // 已经在冷却期 → 直接用上一次的 rate limit 提示
+    if (Date.now() < natalRateCooldownUntil && natalRateMessage) {
+      fillAll(natalRateMessage);
       return;
     }
 
     if (!base) {
-      fillAllWith(systemNotReady);
+      fillAll(systemNotReady);
       return;
     }
 
-    try{
+    try {
       const payload = {
         user: model.name || 'natal_guest',
         prompt: JSON.stringify({
-          type:  'natal-main',
+          type: 'natal-main',
           lang,
-          meta:{
+          meta: {
             name:   model.name || '',
             date:   model.date,
             time:   model.time || '',
             place:  model.place || '',
             gender: model.gender || 'u',
-            signKey:  sign.key,
-            signCn:   sign.name['zh-CN'] || sign.key,
-            signEn:   sign.name['en']   || sign.key,
-            element:  sign.el
+            signKey: sign.key,
+            signCn:  sign.name['zh-CN'] || sign.key,
+            signEn:  sign.name['en']   || sign.key,
+            element: sign.el
           }
         })
       };
 
       console.log('[natal] calling worker', base + '/api/chat');
       const res = await fetch(base + '/api/chat', {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload)
       });
 
       console.log('[natal] worker status', res.status);
-      const data = await res.json().catch(()=>null);
+      const data = await res.json().catch(() => null);
       console.log('[natal] worker payload', data);
 
-      // ========== Worker 回传 ok:false 的情况 ==========
-      if (data && data.ok === false) {
-        let msg = baseRateErr;
+      if (!data) {
+        fillAll(genericErr);
+        return;
+      }
 
-        // 专门处理 429（包含 openai 原始错误字符串）
+      // Worker 主动标记错误：ok:false
+      if (data.ok === false) {
+        // —— 专门处理 429 / rate limit ——
         if (data.status === 429 && data.error) {
-          try{
+          let msg = baseRateErr;
+          try {
             const parsed = typeof data.error === 'string'
               ? JSON.parse(data.error)
               : data.error;
@@ -918,7 +925,7 @@
             if (parsed && parsed.error && typeof parsed.error.message === 'string') {
               const m = parsed.error.message.match(/Please try again in ([0-9]+)m([0-9.]+)s/i);
               if (m) {
-                const mins = parseInt(m[1],10) || 0;
+                const mins = parseInt(m[1], 10) || 0;
                 const secs = Math.round(parseFloat(m[2]) || 0);
 
                 if (lang === 'en') {
@@ -935,76 +942,72 @@
                 natalRateMessage = msg;
               }
             }
-          }catch(e){
+          } catch (e) {
             console.warn('[natal] parse upstream error failed', e);
             natalRateCooldownUntil = Date.now() + 5 * 60 * 1000;
-            natalRateMessage = msg;
+            natalRateMessage = baseRateErr;
           }
 
-          fillAllWith(natalRateMessage);
+          fillAll(natalRateMessage);
           return;
         }
 
-        // 不是 429：通用错误
-        fillAllWith(data.msg || genericErr);
+        // 其它类型错误
+        fillAll(data.msg || genericErr);
         return;
       }
 
-      // ========== 正常：有 sections ==========
+      // 正常路径：AI 返回 sections
       natalRateCooldownUntil = 0;
       natalRateMessage = null;
 
-      const sections     = (data && data.sections) || {};
-      const sunText      = sections.sun       || '';
-      const personaText  = sections.persona   || genericErr;
-      const relationText = sections.relation  || genericErr;
-      const careerText   = sections.career    || genericErr;
-      const energyText   = sections.energy    || '';
+      const sections = data.sections || {};
+      const sunText      = sections.sun      || '';
+      const personaText  = sections.persona  || genericErr;
+      const relationText = sections.relation || genericErr;
+      const careerText   = sections.career   || genericErr;
+      const energyText   = sections.energy   || '';
       const actions      = sections.actions;
 
-      if (secSunExtra && sunText){
-        secSunExtra.innerHTML = esc(sunText).replace(/\n/g,'<br>');
+      if (secSunExtra && sunText) {
+        secSunExtra.innerHTML = esc(sunText).replace(/\n/g, '<br>');
       }
-
-      if (secPersona){
+      if (secPersona) {
         secPersona.innerHTML =
-          `<h3>${esc(titles.persona)}</h3><p>${esc(personaText).replace(/\n/g,'<br>')}</p>`;
+          `<h3>${esc(titles.persona)}</h3><p>${esc(personaText).replace(/\n/g, '<br>')}</p>`;
       }
-      if (secRelation){
+      if (secRelation) {
         secRelation.innerHTML =
-          `<h3>${esc(titles.relation)}</h3><p>${esc(relationText).replace(/\n/g,'<br>')}</p>`;
+          `<h3>${esc(titles.relation)}</h3><p>${esc(relationText).replace(/\n/g, '<br>')}</p>`;
       }
-      if (secCareer){
+      if (secCareer) {
         secCareer.innerHTML =
-          `<h3>${esc(titles.career)}</h3><p>${esc(careerText).replace(/\n/g,'<br>')}</p>`;
+          `<h3>${esc(titles.career)}</h3><p>${esc(careerText).replace(/\n/g, '<br>')}</p>`;
       }
-      if (secEnergy){
+      if (secEnergy) {
         const body = energyText
-          ? `<p>${esc(energyText).replace(/\n/g,'<br>')}</p>`
+          ? `<p>${esc(energyText).replace(/\n/g, '<br>')}</p>`
           : `<p class="muted">${esc(genericErr)}</p>`;
         secEnergy.innerHTML = `<h3>${esc(titles.energy)}</h3>${body}`;
       }
-
-      if (secAction){
+      if (secAction) {
         let listHtml = '';
-        if (Array.isArray(actions) && actions.length){
-          listHtml = '<ul>' +
-            actions.map(a => `<li>${esc(a)}</li>`).join('') +
-            '</ul>';
-        } else if (typeof actions === 'string' && actions.trim()){
-          listHtml = `<p>${esc(actions).replace(/\n/g,'<br>')}</p>`;
+        if (Array.isArray(actions) && actions.length) {
+          listHtml = '<ul>' + actions.map(a => `<li>${esc(a)}</li>`).join('') + '</ul>';
+        } else if (typeof actions === 'string' && actions.trim()) {
+          listHtml = `<p>${esc(actions).replace(/\n/g, '<br>')}</p>`;
         } else {
           listHtml = `<p class="muted">${esc(genericErr)}</p>`;
         }
         secAction.innerHTML = `<h3>${esc(titles.action)}</h3>${listHtml}`;
       }
 
-    }catch(e){
+    } catch (e) {
       console.error('[natal] worker error:', e);
-      fillAllWith(genericErr);
+      fillAll(genericErr);
     }
   }
-
+  
   /* ========================= 渲染报告 ========================= */
   function renderReport(model) {
     const result = gid('result');
@@ -1286,5 +1289,6 @@
 </script>
 </body>
 </html>
+
 
 
