@@ -539,41 +539,65 @@ function calcLoveNumber(iso){
 
 /* ===== 渲染基础摘要（数字 + 简短说明） ===== */
 function renderProReport(obj){
-  const wrap=ensureRootStructure();
-  const {iso,lp,lv} = obj;
-  const lang = getLang();
+  const wrap = ensureRootStructure();
+  const { iso, lp, lv } = obj;
+  const lang = getLang() || 'zh-CN';
 
   const basicTitle = t('sec_basic');
   const lpTitle = t('sec_lp');
   const loveTitle = t('sec_love');
 
+    // ===== 标签文案：根据语言切换 =====
+  let birthLabel, lpLabel, loveLabel;
+  switch (lang) {
+    case 'zh-TW':
+      birthLabel = '出生日期：';
+      lpLabel = '生命路徑 ';
+      loveLabel = '情感數字 ';
+      break;
+    case 'zh-CN':
+      birthLabel = '出生日期：';
+      lpLabel = '生命路径 ';
+      loveLabel = '情感数字 ';
+      break;
+    case 'ja':
+      birthLabel = '生年月日：';
+      lpLabel = 'ライフパスナンバー ';
+      loveLabel = '感情／恋愛ナンバー ';
+      break;
+    default:
+      birthLabel = 'Birth date: ';
+      lpLabel = 'Life Path ';
+      loveLabel = 'Love Number ';
+  }
+
+  // ===== 大师数字尾标 =====
   const lpTag = isMaster(lp)
-    ? (lang==='en' ? '(Master Number)' : '（大师数字）')
+    ? (lang.startsWith('zh') ? '（大师数字）' : '(Master Number)')
     : '';
   const lvTag = isMaster(lv)
-    ? (lang==='en' ? '(Master Number)' : '（大师数字）')
+    ? (lang.startsWith('zh') ? '（大师数字）' : '(Master Number)')
     : '';
 
-  let lpNote='', lvNote='';
-  if(lang === 'en'){
-    const tones = {
-      1:'Independent, pioneering, and needs room to lead.',
-      2:'Gentle, cooperative, and sensitive to atmosphere.',
-      3:'Expressive, creative, and thrives when sharing ideas.',
-      4:'Structured, practical, and strong with systems.',
-      5:'Dynamic, curious, and grows through change and travel.',
-      6:'Caring, responsible, and focused on home and loved ones.',
-      7:'Analytical, intuitive, and drawn to research or spirituality.',
-      8:'Ambitious, strategic, and attracted to leadership and results.',
-      9:'Compassionate, big-picture, and humanitarian.',
-      11:'Highly intuitive and visionary, needs good energetic boundaries.',
-      22:'Big-scale builder who can turn vision into concrete impact.',
-      33:'Healing, teaching, and service-oriented, but must avoid self-sacrifice.'
+  // ===== 语气说明：不同语言不同表 =====
+  let tones;
+  if (lang === 'ja') {
+    tones = {
+      1:'主体性が強く、リーダーシップを発揮しやすい数字です。頼ること・人に任せることも学びになります。',
+      2:'人の気持ちに敏感で、調整役になりやすいタイプです。境界線を持つことでエネルギーを守れます。',
+      3:'表現力とクリエイティブな感性が豊かです。楽しみながらアウトプットすると運気が動きます。',
+      4:'安定・秩序・土台づくりの数字です。長期的な仕組みづくりに向いていますが、心配しすぎに注意。',
+      5:'変化と自由を求める探究者タイプです。環境を変えることで大きく成長しますが、自律のバランスも大切。',
+      6:'責任感が強く、家族や周囲を守ろうとする優しさがあります。まず自分を満たすことがテーマになります。',
+      7:'物事を深く考え、探求したい気持ちが強い数字です。直感とデータの両方を大事にすると安定します。',
+      8:'成果・達成・マネジメントの数字です。リーダーシップやお金の扱いに学びがあります。',
+      9:'共感力が高く、人のために動きやすいヒューマニストです。抱え込みすぎない手放しが大事なテーマです。',
+      11:'直感とインスピレーションが強いマスターナンバーです。 grounding（地に足をつけること）が鍵になります。',
+      22:'大きなビジョンを現実に落とし込む力を持つマスターナンバーです。段階的な計画が成功のポイントです。',
+      33:'奉仕・癒し・教えるエネルギーが強い数字です。自分を犠牲にし過ぎないことが最大のテーマになります。'
     };
-    lpNote = tones[lp] || '';
-    lvNote = tones[lv] || '';
-  }else{
-    const tones = {
+  } else if (lang.startsWith('zh')) {
+    tones = {
       1:'独立、开创，很适合带头；需要学习的是「请人帮忙」。',
       2:'温和、敏感，擅长协调关系；需要界线感避免被消耗。',
       3:'表达力与创意强，适合说写演；要避免分心与半途而废。',
@@ -587,23 +611,40 @@ function renderProReport(obj){
       22:'有把愿景落地的能力，适合大项目；要分阶段执行，避免过压。',
       33:'带有疗愈与服务使命，但要先照顾好自己，才不会过度透支。'
     };
-    lpNote = tones[lp] || '';
-    lvNote = tones[lv] || '';
+  } else {
+    // 其他语言一律英文
+    tones = {
+      1:'Independent, pioneering, and needs room to lead.',
+      2:'Gentle, cooperative, and sensitive to atmosphere.',
+      3:'Expressive, creative, and thrives when sharing ideas.',
+      4:'Structured, practical, and strong with systems.',
+      5:'Dynamic, curious, and grows through change and travel.',
+      6:'Caring, responsible, and focused on home and loved ones.',
+      7:'Analytical, intuitive, and drawn to research or spirituality.',
+      8:'Ambitious, strategic, and attracted to leadership and results.',
+      9:'Compassionate, big-picture, and humanitarian.',
+      11:'Highly intuitive and visionary, needs good energetic boundaries.',
+      22:'Big-scale builder who can turn vision into concrete impact.',
+      33:'Healing, teaching, and service-oriented, but must avoid self-sacrifice.'
+    };
   }
+
+  const lpNote = tones[lp] || '';
+  const lvNote = tones[lv] || '';
 
   wrap.innerHTML = `
     <div class="sec">
       <h3>${basicTitle}</h3>
-      <p>${lang==='en' ? 'Birth date: ' : '出生日期：'}${iso}</p>
+      <p>${birthLabel}${iso}</p>
     </div>
     <div class="sec">
       <h3>${lpTitle}</h3>
-      <p>${lang==='en' ? 'Life Path ' : '生命路径 '}<b>${lp}</b> ${lpTag}</p>
+      <p>${lpLabel}<b>${lp}</b> ${lpTag}</p>
       ${lpNote ? `<p>${lpNote}</p>` : ''}
     </div>
     <div class="sec">
       <h3>${loveTitle}</h3>
-      <p>${lang==='en' ? 'Love Number ' : '情感数字 '}<b>${lv}</b> ${lvTag}</p>
+      <p>${loveLabel}<b>${lv}</b> ${lvTag}</p>
       ${lvNote ? `<p>${lvNote}</p>` : ''}
     </div>
   `;
@@ -928,6 +969,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 </script>
 </body>
 </html>
+
 
 
 
