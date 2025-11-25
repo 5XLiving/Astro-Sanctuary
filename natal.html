@@ -886,24 +886,37 @@ function renderReport(model){
   const wrap   = gid('chartReport');
   if(!wrap || !result) return;
 
-  const lang = getLang(); // 只用来拿标题 / 提示等 label
+  const lang = getLang();      // 用来拿标题 / 文案语言
   const sign = getSunSign(model.date);
+  const L    = key => t(key);
 
-  // ☆ 这里故意固定用简体中文名字，当成 AI 翻译的母稿
   const signNameCn = sign.name['zh-CN'] || sign.key;
-  const element = sign.el;
-  const tips = getElementTips(element, lang); // 能量提示仍然多语言
-  const L = key => t(key);
+  const signNameEn = sign.name['en']    || sign.key;
+  const element    = sign.el;
+
+  const tips = getElementTips(element, lang); // 能量提示多语言
 
   const overviewTitle = esc(L('section_overview'));
   const sunTitle      = esc(L('section_sun'));
   const energyTitle   = esc(L('section_energy'));
   const actionTitle   = esc(L('section_action'));
 
-  const sunLabel = esc(L('sun_label'));
+  const sunLabel   = esc(L('sun_label'));
   const disclaimer = esc(L('disclaimer'));
 
-  // —— 性别文字（标题还是可以多语言）——
+  // —— 元素名称 —— 
+  const EL_NAME = {
+    'zh-CN': { fire:'火象', earth:'土象', air:'风象', water:'水象' },
+    'zh-TW': { fire:'火象', earth:'土象', air:'風象', water:'水象' },
+    'en':    { fire:'fire', earth:'earth', air:'air', water:'water' },
+    'ja':    { fire:'火のエレメント', earth:'地のエレメント', air:'風のエレメント', water:'水のエレメント' },
+    'th':    { fire:'ธาตุไฟ', earth:'ธาตุดิน', air:'ธาตุลม', water:'ธาตุน้ำ' },
+    'ms':    { fire:'api', earth:'bumi', air:'udara', water:'air' }
+  };
+  const elPack = EL_NAME[lang] || EL_NAME['en'];
+  const elName = elPack[element] || element;
+
+  // —— 性别文字 —— 
   const genderMap = {
     'zh-CN':{m:'男性',f:'女性',u:'—'},
     'zh-TW':{m:'男性',f:'女性',u:'—'},
@@ -912,15 +925,16 @@ function renderReport(model){
     'th':   {m:'ชาย',f:'หญิง',u:'—'},
     'ms':   {m:'Lelaki',f:'Perempuan',u:'—'}
   };
-  const gPack = genderMap[lang] || genderMap['zh-CN'];
+  const gPack       = genderMap[lang] || genderMap['zh-CN'];
   const genderLabel = gPack[model.gender] || gPack.u;
 
-  // —— 三个 section 的标题依然按语言来 —— 
+  // —— 三个 section 的标题（随语言变）——
   const hPersona = (
     lang === 'en' ? 'Personality Portrait' :
     lang === 'ja' ? '性格画像' :
     lang === 'th' ? 'ภาพรวมบุคลิก' :
     lang === 'ms' ? 'Potret keperibadian' :
+    lang === 'zh-TW' ? '性格画像' :
     '性格画像'
   );
 
@@ -929,6 +943,7 @@ function renderReport(model){
     lang === 'ja' ? '人間関係とコミュニケーション' :
     lang === 'th' ? 'ความสัมพันธ์และการสื่อสาร' :
     lang === 'ms' ? 'Hubungan & komunikasi' :
+    lang === 'zh-TW' ? '關係與溝通' :
     '关系与沟通'
   );
 
@@ -937,10 +952,116 @@ function renderReport(model){
     lang === 'ja' ? '仕事と豊かさの方向性' :
     lang === 'th' ? 'ทิศทางงานและทรัพย์' :
     lang === 'ms' ? 'Arah kerjaya & kewangan' :
+    lang === 'zh-TW' ? '事業與財富走向' :
     '事业与财富走向'
   );
 
-  // ===== HTML 组装，不动你原来的结构 =====
+  // =========================
+  // 这里补上三组文案：性格 / 关系 / 事业
+  // =========================
+  let personaLines  = [];
+  let relationLines = [];
+  let careerLines   = [];
+
+  if (lang === 'en') {
+    const elLabel = (element === 'fire' ? 'fire sign'
+                     : element === 'earth' ? 'earth sign'
+                     : element === 'air' ? 'air sign'
+                     : 'water sign');
+
+    personaLines = [
+      `Your Sun is in ${signNameEn}, a ${elLabel}. This gives you a very ${elLabel.includes('fire') ? 'direct and spontaneous' : elLabel.includes('earth') ? 'grounded and practical' : elLabel.includes('air') ? 'curious and mental' : 'sensitive and intuitive'} flavour in how you approach life.`,
+      `You tend to protect what matters to you in your own way, and you prefer to move at a rhythm that fits your inner timing rather than other people’s expectations.`
+    ];
+
+    relationLines = [
+      `In relationships, your ${elLabel} nature makes you ${element === 'fire' ? 'warm but a bit impatient' :
+                          element === 'earth' ? 'reliable but sometimes slow to express feelings' :
+                          element === 'air' ? 'communicative but easily distracted' :
+                          'caring but sometimes overwhelmed by emotion'}.`,
+      `The more you learn to say clearly what you need — instead of testing or guessing — the easier it becomes for people to meet you halfway.`
+    ];
+
+    careerLines = [
+      `At work, Sun in ${signNameEn} pushes you to look for ${element === 'fire' ? 'challenge and growth' :
+                         element === 'earth' ? 'stability and tangible results' :
+                         element === 'air' ? 'ideas, conversations and change' :
+                         'meaning, connection and healing'}.`,
+      `If you align your daily tasks with something you truly care about, your energy lasts much longer and money tends to follow more naturally.`
+    ];
+
+  } else if (lang === 'ja') {
+    personaLines = [
+      `あなたの太陽星座は${signNameCn}で、${elName}の性質を強く持っています。`,
+      `自分なりのペースやこだわりがあり、人からどう見られるかよりも「自分が納得できるか」を大切にしやすいタイプです。`
+    ];
+    relationLines = [
+      `人間関係では、この${elName}らしさがそのまま出ます。距離感の取り方や本音の出し方に、少しクセが出やすいところもあります。`,
+      `「本当はどうしてほしいのか」「どこまで踏み込んでほしいのか」を自分で言葉にしていくほど、誤解は減っていきます。`
+    ];
+    careerLines = [
+      `仕事面では、${signNameCn}の太陽らしく、自分の世界観や価値観を活かせるフィールドで力を発揮しやすいでしょう。`,
+      `安定だけでなく「やりがい」「成長」「人の役に立てている感覚」など、心が満たされる条件を少しずつ整えていくことがポイントです。`
+    ];
+
+  } else if (lang === 'th') {
+    personaLines = [
+      `ดวงอาทิตย์ของคุณอยู่ที่ราศี${signNameCn} ซึ่งเชื่อมโยงกับพลังของ${elName}.`,
+      `โดยพื้นฐานแล้วคุณมีสไตล์เป็นของตัวเอง ชอบใช้ชีวิตตามจังหวะและมาตรฐานที่ตัวเองยอมรับ มากกว่าจะทำตามสิ่งที่คนอื่นคาดหวัง.`
+    ];
+    relationLines = [
+      `เรื่องความสัมพันธ์ พลังของ${elName} ทำให้คุณมีวิธีเข้าใกล้คนอื่นแบบเฉพาะตัว บางครั้งคนรอบข้างอาจอ่านใจคุณไม่ออกง่าย ๆ.`,
+      `ยิ่งคุณบอกความต้องการของตัวเองตรง ๆ มากขึ้นเท่าไร ทั้งเรื่องระยะห่าง เวลา หรือความคาดหวัง ความสัมพันธ์ก็จะยิ่งชัดและสบายใจขึ้น.`
+    ];
+    careerLines = [
+      `ในงานและการเงิน ราศี${signNameCn} ทำให้คุณมองหาเส้นทางที่ทั้งพอเลี้ยงชีพได้ และยังให้ความรู้สึกมีคุณค่าในแบบของตัวเองด้วย.`,
+      `ลองค่อย ๆ ขยับงานไปในทิศทางที่สอดคล้องกับสิ่งที่คุณเชื่อและเก่งจริง ๆ จะช่วยให้พลังงานไม่หมดเร็ว และโอกาสด้านรายได้ก็เปิดมากขึ้น.`
+    ];
+
+  } else if (lang === 'ms') {
+    personaLines = [
+      `Matahari anda berada dalam tanda ${signNameEn} (${signNameCn}), yang membawa sifat ${elName} yang jelas.`,
+      `Secara semula jadi anda cenderung mengikut ritma sendiri; apa yang membuat anda rasa betul dan tulen lebih penting daripada memenuhi jangkaan orang lain.`
+    ];
+    relationLines = [
+      `Dalam hubungan, tenaga ${elName} ini membuat cara anda rapat dengan orang lain agak unik — kadang-kadang orang sukar meneka apa yang anda rasa sebenarnya.`,
+      `Lebih banyak anda berani menyatakan keperluan dan had anda dengan jelas, lebih mudah hubungan menjadi jujur dan stabil.`
+    ];
+    careerLines = [
+      `Dalam kerjaya, Matahari di ${signNameEn} mendorong anda mencari kerja yang selari dengan nilai peribadi, bukan sekadar “gaji cukup”.`,
+      `Apabila pekerjaan menyokong rasa makna dan potensi anda, tenaga anda tahan lama dan rezeki kewangan pun cenderung mengikut.`
+    ];
+
+  } else if (lang === 'zh-TW') {
+    personaLines = [
+      `你的太陽星座是${signNameCn}，帶有明顯的${elName}特質。`,
+      `你在意「活得像自己」，常常寧可花時間慢慢調整，也不想勉強配合別人的期待。`
+    ];
+    relationLines = [
+      `在人際與感情相處上，這份${elName}氣質會直接反映在你的表達方式與距離感上。`,
+      `越能坦白說出自己的需要與界線，越不容易陷入「對方應該要懂我」卻又失望的循環。`
+    ];
+    careerLines = [
+      `在工作與財富上，${signNameCn}的太陽通常需要一份既能養活自己、又不背離內心價值的路。`,
+      `當你一步步靠近真正在乎的領域時，專注力與耐力會自然提升，財富也比較容易穩定累積。`
+    ];
+
+  } else { // 默认 zh-CN
+    personaLines = [
+      `你的太阳星座是${signNameCn}，带有明显的${elName}特质。`,
+      `你重视「活得像自己」，不太喜欢被标准答案绑住，更倾向用自己的节奏去安排人生。`
+    ];
+    relationLines = [
+      `在人际与感情互动中，这份${elName}能量会体现在你的表达方式、亲密距离感与安全感需求上。`,
+      `当你愿意更清楚说出自己的需要、界线与不安，对方就更有机会真正理解你，而不是靠猜。`
+    ];
+    careerLines = [
+      `在事业与财富方向上，${signNameCn}的太阳需要一条既能维持基本稳定、又不违背内心价值的路。`,
+      `越能把工作拉向你真正擅长与在乎的领域，你的耐力越强，赚钱也会变得更顺手。`
+    ];
+  }
+
+  // ===== HTML 结构（保持你原来的风格） =====
   const overviewHtml = `
     <div class="sec">
       <h3>${overviewTitle}</h3>
@@ -1159,6 +1280,7 @@ function renderReport(model){
 </script>
 </body>
 </html>
+
 
 
 
