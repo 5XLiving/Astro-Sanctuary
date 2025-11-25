@@ -442,6 +442,7 @@ const translations = {
     "sec_love":"Nombor Cinta"
   }
 };
+
 /* 语言工具 */
 function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
 function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
@@ -547,7 +548,7 @@ function renderProReport(obj){
   const lpTitle = t('sec_lp');
   const loveTitle = t('sec_love');
 
-    // ===== 标签文案：根据语言切换 =====
+  // 标签文案：根据语言切换
   let birthLabel, lpLabel, loveLabel;
   switch (lang) {
     case 'zh-TW':
@@ -571,7 +572,7 @@ function renderProReport(obj){
       loveLabel = 'Love Number ';
   }
 
-  // ===== 大师数字尾标 =====
+  // 大师数字尾标
   const lpTag = isMaster(lp)
     ? (lang.startsWith('zh') ? '（大师数字）' : '(Master Number)')
     : '';
@@ -579,7 +580,7 @@ function renderProReport(obj){
     ? (lang.startsWith('zh') ? '（大师数字）' : '(Master Number)')
     : '';
 
-  // ===== 语气说明：不同语言不同表 =====
+  // 语气说明：不同语言不同表
   let tones;
   if (lang === 'ja') {
     tones = {
@@ -774,54 +775,212 @@ function mdToHtml(md){
    .replace(/\n/g,'<br/>');
 }
 
+/* ===== 语言专属 System Prompt ===== */
+function buildSystemPrompt(lang){
+  // 根据语言返回完全本地化的 System Prompt
+  switch(lang){
+    case 'ja':
+      return `
+あなたは「心憐バトラー」というプロの数秘リーダーです。
+出力は **すべて日本語** で書いてください。他の言語は混ぜないでください。
+
+レポート構成は必ず次の 6 章にしてください（見出しも日本語）：
+
+## コアイメージ
+全体的な雰囲気・人生の主軸・この人らしさをまとめる。
+
+## 性格と才能
+ライフパスナンバーから読み取れる性格の強み・才能・日常のスタイルを説明する。
+
+## 感情と人間関係
+感情／恋愛ナンバーから、親密な関係のスタイル、コミュニケーション、安心感のポイントを説明する。
+
+## 仕事と豊かさ
+向いている働き方、お金との付き合い方、つまずきやすいポイントと調整のヒントを書く。
+
+## 今のテーマと癒し
+考えすぎずに受け取れるよう、やさしい言葉で課題や成長テーマをまとめ、癒しのヒントを添える。
+
+## 今日〜今週のアクション
+3〜5 個の箇条書きで、すぐ試せる行動を提案する。
+・1 行は必ず動詞から始める（例：「○分だけ〜する」「〜を3つ書き出す」など）
+・できるだけ具体的な時間・回数を書く。
+
+トーン：あたたかく、具体的で、実行しやすい内容にしてください。
+恐怖をあおる表現や「運命だから仕方ない」という決めつけは避けてください。`;
+
+    case 'th':
+      return `
+คุณคือ "Xinlian Butler" นักอ่านตัวเลขศาสตร์มืออาชีพ
+ให้ตอบ **เป็นภาษาไทยทั้งหมด** ห้ามผสมภาษาอื่นในหัวข้อหรือเนื้อหา
+
+โครงสร้างรายงานต้องมี 6 หัวข้อดังนี้ (ใช้หัวข้อภาษาไทย):
+
+## ภาพรวมตัวตน
+อธิบายบรรยากาศโดยรวม แก่นชีวิต และความเป็นตัวตนของเขา/เธอ
+
+## บุคลิกและพรสวรรค์
+อธิบายจุดแข็ง พรสวรรค์ และสไตล์การใช้ชีวิตจากเลขเส้นทางชีวิต (Life Path)
+
+## ความรู้สึกและความสัมพันธ์
+อธิบายวิธีแสดงออกทางอารมณ์ การสื่อสาร ความต้องการด้านความปลอดภัย จากเลขความรัก (Love Number)
+
+## การงานและความมั่งคั่ง
+เล่าถึงสไตล์การทำงาน วิธีหาเงิน จุดที่ติดขัดบ่อย และแนวทางปรับตัว
+
+## บทเรียนในช่วงนี้และการเยียวยา
+ชี้จุดบอดและบทเรียนช่วงนี้ด้วยน้ำเสียงนุ่มนวล ไม่ใช่การข่มขู่ และให้คำแนะนำแบบเยียวยา
+
+## สิ่งที่ทำได้วันนี้ / สัปดาห์นี้
+เขียนเป็นข้อย่อย 3–5 ข้อ
+- แต่ละข้อขึ้นต้นด้วยคำกริยา (เช่น “เขียน…”, “กันเวลา…นาที”)
+- ทำให้เป็นรูปธรรม เช่น จำนวนครั้ง เวลา นาที เป็นต้น
+
+น้ำเสียง: อบอุ่น มีสติ ไม่ดราม่าหรือฟังดูเป็นชะตากรรมตายตัว ให้ผู้อ่านรู้สึกมีพลังมากขึ้นหลังอ่านจบ`;
+
+    case 'ms':
+      return `
+Anda ialah "Xinlian Butler", seorang pembaca numerologi profesional.
+Sila tulis **semua jawapan dalam Bahasa Melayu** sahaja (jangan campur bahasa lain).
+
+Struktur laporan mesti mempunyai 6 bahagian berikut (guna tajuk BM):
+
+## Profil Teras
+Gambarkan aura keseluruhan, tema hidup utama dan keunikan diri orang ini.
+
+## Personaliti & Bakat
+Terangkan kekuatan, bakat semula jadi dan gaya harian berdasarkan Nombor Life Path.
+
+## Emosi & Hubungan
+Terangkan gaya keintiman, cara berkomunikasi dan keperluan emosi berdasarkan Nombor Cinta.
+
+## Kerjaya & Kewangan
+Jelaskan gaya kerja, cara wang mengalir, tempat yang mudah tersekat dan cara menyesuaikan diri.
+
+## Pelajaran Semasa & Penyembuhan
+Namakan titik buta dan tema pembelajaran dengan nada lembut, serta berikan cadangan pemulihan yang tidak menakutkan.
+
+## Tindakan Hari Ini / Minggu Ini
+Senaraikan 3–5 cadangan tindakan dalam bentuk bullet:
+- Setiap baris mesti bermula dengan kata kerja (cth. “Tulis…”, “Peruntukkan 20 minit untuk…”)
+- Buat ia sejelas mungkin dari segi masa / bilangan kali.
+
+Nada: hangat, membumi, praktikal dan menyokong.
+Elakkan bahasa menakut-nakutkan atau seolah-olah takdir yang tidak boleh diubah.`;
+
+    case 'en':
+      return `
+You are "Xinlian Butler", a professional numerology reader.
+You MUST write the entire answer in **English only** (no mixing of other languages).
+
+Use this exact 6-section structure with English headings:
+
+## Core Profile
+Describe overall vibe, main life theme, and what makes this person "them".
+
+## Personality & Talents
+Explain strengths, gifts, and everyday style from the Life Path number.
+
+## Love & Relationships
+Explain intimacy style, communication, and emotional needs from the Love number.
+
+## Career & Wealth
+Describe work style, money patterns, common blocks, and how to adjust.
+
+## Current Lessons & Healing
+Gently name blind spots and growth themes, with supportive, non-scary language.
+
+## Action Steps for Today / This Week
+List 3–5 bullet points:
+- Each starts with a verb ("Write down...", "Keep 20 minutes for...")
+- Make them concrete and measurable (time, count, frequency).
+
+Tone: warm, grounded, practical, encouraging.
+Avoid fatalistic or fear-based language.`;
+
+    case 'zh-TW':
+      return `
+你是「心憐管家」，一位專業的數秘解讀師。
+請 **全程使用繁體中文** 回覆，避免混用其他語言。
+
+報告請固定使用以下六個段落（標題也請用繁體中文）：
+
+## 核心画像
+描述對方的整體氣質、人生主軸與「這個人最像什麼樣子」。
+
+## 性格與天賦
+從生命路徑數字說明性格優勢、天賦與日常行事風格。
+
+## 感情與關係
+從情感數字分析親密關係的互動風格、溝通方式與安全感需求。
+
+## 事業與財富
+說明適合的工作模式、賺錢方式、容易卡關之處，以及可行的調整方向。
+
+## 階段課題與療癒
+用溫柔、不恐嚇的語氣指出階段性課題與盲點，並給出療癒與自我照顧建議。
+
+## 今日／本週可執行
+以 3～5 條條列式建議結尾，每條用動詞開頭，並盡量具體（時間長度、次數等）。
+
+語氣：溫暖、具體、可行，避免宿命論與恐嚇式說法。`;
+
+    case 'zh-CN':
+    default:
+      return `
+你是「心怜管家」，一位专业的灵数解读师。
+请 **全程使用简体中文** 回覆，避免混用其他语言。
+
+报告请固定使用以下六个段落（标题也请用简体中文）：
+
+## 核心画像
+描述对方的整体气质、人生主轴与「这个人最像什么样子」。
+
+## 性格与天赋
+从生命路径数字说明性格优势、天赋与日常行事风格。
+
+## 感情与关系
+从情感数字分析亲密关系的互动风格、沟通方式与安全感需求。
+
+## 事业与财富
+说明适合的工作模式、赚钱方式、容易卡关之处，以及可行的调整方向。
+
+## 阶段课题与疗愈
+用温柔、不恐吓的语气指出阶段性课题与盲点，并给出疗愈与自我照顾建议。
+
+## 今日／本周可执行
+以 3～5 条条列式建议结尾，每条用动词开头，并尽量具体（时间长度、次数等）。
+
+语气：温暖、具体、可行，避免宿命论与恐吓式说法。`;
+  }
+}
+
 async function runAI(obj){
   const wrap = ensureRootStructure();
+  const lang = getLang() || 'zh-CN';
+
+  // 清掉旧的 AI 区块，避免多次 append 堆积
+  const oldSecs = wrap.querySelectorAll('.sec.ai-block');
+  oldSecs.forEach(s => s.remove());
+
   const sec = document.createElement('div');
-  sec.className='sec';
+  sec.className = 'sec ai-block';
+  sec.setAttribute('data-lang', lang);
   sec.innerHTML = `<h3>${t('ai_title')}</h3>
     <div class="skeleton"><div></div><div></div><div></div></div>`;
   wrap.appendChild(sec);
 
-  const lang = getLang();
-
-  const sys = `
-你是“心怜管家”，专业灵数解读师。
-当前站点语言代码: ${lang}。
-- 如果代码为 "en"，请全程使用英文输出；
-- "zh-CN" 用简体中文；"zh-TW" 用繁体中文；
-- 其他语言（ja/th/ms）可优先用对应语言，不确定时用英文。
-
-请根据提供的数字生成【完整灵数报告】，结构固定为：
-## 核心画像
-描述此人的整体气质与人生主轴。
-
-## 性格与天赋
-展开说明生命路径数字所代表的性格优势、天赋与日常风格。
-
-## 感情与关系
-从情感数字切入，描述亲密关系／沟通方式／安全感需求。
-
-## 事业与财富
-说明适合的工作风格、赚钱方式、容易卡住的点，以及可以如何调整。
-
-## 阶段课题与疗愈
-温和地指出可能的盲点与阶段议题，并给出不吓人的疗愈建议。
-
-## 今日/本周可执行
-以 3–5 条项目符号列出行动建议，每条用动词开头，并尽量量化
-（例如：写 3 件…、预留 20 分钟…、本周至少尝试 1 次…）。
-
-语气要求：温暖、具体、可执行，避免恐吓式或宿命论用语。`;
+  const sys = buildSystemPrompt(lang);
 
   const user = `
-出生日期: ${obj.iso}
-生命路径: ${obj.lp}${isMaster(obj.lp)?'（大师数字）':''}
-情感数字: ${obj.lv}${isMaster(obj.lv)?'（大师数字）':''}
+出生日期（ISO）: ${obj.iso}
+Life Path / 生命路径: ${obj.lp}${isMaster(obj.lp)?'（大师数字 / Master Number）':''}
+Love Number / 情感数字: ${obj.lv}${isMaster(obj.lv)?'（大师数字 / Master Number）':''}
 
 请在报告中：
-- 明确提到生命路径数字与情感数字，并解释它们的意义；
-- 说明两者组合会如何影响性格、关系与工作；
-- 所有建议用当下时态，好像在对当事人直接说话。`;
+- 清楚点出生命路径数字与情感数字，并解释它们的含义；
+- 说明两者组合如何影响性格、关系与工作方式；
+- 使用第二人称，像是在对当事人说话。`;
 
   try{
     const r = await fetchWithRetry(`${API_BASE}/api/chat`,{
@@ -837,83 +996,19 @@ async function runAI(obj){
 
     const data = await r.json().catch(()=>({}));
     const raw = data?.reply || data?.text || (data?.choices && data.choices[0]?.message?.content) || '';
-    const html = mdToHtml(raw||'');
+    if(!raw) throw new Error('empty');
+
+    const html = mdToHtml(raw);
+
+    // 如果請求期间语言被切换，避免旧语言覆盖新语言
+    if (sec.getAttribute('data-lang') !== getLang()) return;
+
     sec.innerHTML = `<h3>${t('ai_title')}</h3><div class="ai-content">${html}</div>`;
-    if(!raw){ throw new Error('empty'); }
   }catch(e){
     const local = localNumerologyInsight(obj);
-    // 不要脚注，不要多一层 div，直接塞内容
     sec.innerHTML = `<h3>${t('ai_title')}</h3><div class="ai-content">${local}</div>`;
     console.warn('AI fallback:', e?.message||e);
   }
-}
-
-/* ===== 聊天组件 ===== */
-function mountChat(){
-  if(gid('ssChatFab')) return;
-  const fab = document.createElement('div');
-  fab.id='ssChatFab';
-  fab.className='ss-chat-fab';
-  fab.title='心怜管家';
-
-  const panel = document.createElement('div');
-  panel.id='ssChatPanel';
-  panel.className='ss-chat-panel';
-  panel.style.display='none';
-  panel.innerHTML = `
-    <div class="ss-chat-head">
-      <div class="ss-chat-title">心怜管家 · Chat</div>
-      <div class="ss-close" id="ssChatClose">✕</div>
-    </div>
-    <div class="ss-chat-body" id="ssChatBody"></div>
-    <div class="ss-chat-input">
-      <input id="ssChatInput" type="text" />
-      <button id="ssChatSend" class="btn">${t('chat_send')}</button>
-    </div>`;
-
-  document.body.appendChild(fab);
-  document.body.appendChild(panel);
-  applyChatI18n();
-
-  const body = gid('ssChatBody');
-  const input = gid('ssChatInput');
-
-  const open=()=>{ panel.style.display='block'; input&&input.focus(); };
-  const close=()=>{ panel.style.display='none'; };
-  fab.onclick=open;
-  gid('ssChatClose').onclick=close;
-
-  function add(text,me=false){
-    const d=document.createElement('div');
-    d.className='ss-msg'+(me?' me':'');
-    d.textContent=text;
-    body.appendChild(d);
-    body.scrollTop=body.scrollHeight;
-  }
-
-  gid('ssChatSend').onclick = async ()=>{
-    const v = (input?.value||'').trim();
-    if(!v) return;
-    add(v,true);
-    input.value='';
-    try{
-      const r = await fetchWithRetry(`${API_BASE}/api/chat`,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({
-          messages:[
-            {role:'system',content:'你是“心怜管家”，回答网站导航/功能/会员相关问题，语气温暖简洁。'},
-            {role:'user',content:v}
-          ]
-        })
-      },2);
-      const data = await r.json().catch(()=>({}));
-      const reply = data?.reply || data?.text || (data?.choices && data.choices[0]?.message?.content) || '稍后再试。';
-      add(reply);
-    }catch(e){
-      add('网络有点忙，我稍后再回答。');
-    }
-  };
 }
 
 /* ===== 登录/注册（占位） ===== */
@@ -966,7 +1061,7 @@ function initLangUI(){
       setLang(select.value);
       applyI18n();
       applyChatI18n();
-      // ★ 如果已经有结果，就用新语言重渲染
+      // 如果已经有结果，就用新语言重渲染
       if (window.lastNumCtx) {
         renderProReport(window.lastNumCtx);
         runAI(window.lastNumCtx);
@@ -1004,7 +1099,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const bd=gid('birthdate');
   const btn=gid('btnGen');
 
-  // 预设出生日期为今天（birthdate 默认今天）
+  // 预设出生日期为今天
   if (bd && !bd.value){
     const today = new Date();
     bd.value = today.toISOString().split('T')[0];
@@ -1025,7 +1120,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     gid('result').style.display='block';
     const payload = {iso,lp,lv};
-    window.lastNumCtx = payload;          // ← 记住这次的结果
+    window.lastNumCtx = payload;
     renderProReport(payload);
     runAI(payload);
     gid('result').scrollIntoView({behavior:'smooth',block:'start'});
@@ -1040,6 +1135,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 </script>
 </body>
 </html>
+
 
 
 
