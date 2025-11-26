@@ -976,7 +976,7 @@ async function runAI(obj){
     <div class="skeleton"><div></div><div></div><div></div></div>`;
   wrap.appendChild(sec);
 
-  const sys = buildSystemPrompt(lang);   // ← 用你那套多语言 System Prompt
+  const sys = buildSystemPrompt(lang);
   const user = `
 出生日期（ISO）: ${obj.iso}
 Life Path: ${obj.lp}${isMaster(obj.lp)?' (Master Number)':''}
@@ -984,7 +984,7 @@ Love Number: ${obj.lv}${isMaster(obj.lv)?' (Master Number)':''}
   `;
 
   try{
-    const r = await fetchWithRetry(`${API_BASE}/api/chat`,{
+    const resp = await fetchWithRetry(`${API_BASE}/api/chat`,{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -995,9 +995,41 @@ Love Number: ${obj.lv}${isMaster(obj.lv)?' (Master Number)':''}
       })
     }, 3);
 
-    const data = await r.json().catch(()=>({}));
-    const raw = data?.reply || data?.text || (data?.choices && data.choices[0]?.message?.content) || '';
-    if(!raw) throw new Error('empty');
+    const status = resp.status;
+    const textBody = await resp.text();
+    console.log('[numerology][runAI] status =', status, 'body =', textBody);
+
+    let data = null;
+    try {
+      data = JSON.parse(textBody);
+    } catch (e) {
+      console.warn('[numerology][runAI] JSON parse error:', e);
+    }
+
+    let raw = '';
+
+    if (data && typeof data === 'object') {
+      raw =
+        data.reply ||
+        data.text ||
+        (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ||
+        data.message || '';
+
+      // 如果还有 error 字段，也顺便兜一下
+      if (!raw && data.error) {
+        raw = typeof data.error === 'string'
+          ? data.error
+          : JSON.stringify(data.error);
+      }
+    } else {
+      // 后端直接返回纯文本，就当作完整回答
+      raw = (textBody || '').trim();
+    }
+
+    if (!raw) {
+      console.warn('[numerology][runAI] empty reply from backend, data =', data);
+      throw new Error('empty_reply');
+    }
 
     const html = mdToHtml(raw);
 
@@ -1006,14 +1038,19 @@ Love Number: ${obj.lv}${isMaster(obj.lv)?' (Master Number)':''}
 
     sec.innerHTML = `<h3>${t('ai_title')}</h3><div class="ai-content">${html}</div>`;
   }catch(e){
-    console.warn('AI error:', e?.message || e);
+    console.warn('[numerology][runAI] error:', e?.message || e);
+
+    const fallback =
+      lang === 'en'
+        ? 'AI server is a bit unstable right now. Please try again in a moment.'
+        : 'AI 服务器连线有点不稳定，可以等一下再点一次生成。';
+
     sec.innerHTML = `<h3>${t('ai_title')}</h3>
       <div class="ai-content">
-        <p style="opacity:.8;">（AI 服务器暂时连不上，请稍后再试一次。）</p>
+        <p style="opacity:.8;">${fallback}</p>
       </div>`;
   }
 }
-
 
 /* ===== 登录/注册（占位） ===== */
 async function safeJson(resp){
@@ -1315,6 +1352,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
 
 
 
