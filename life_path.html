@@ -753,17 +753,29 @@ function localNumerologyInsight({ lp, lv }) {
 }
 
 /* ===== 调用 AI（重试 + 兜底，生成完整多段报告） ===== */
-async function fetchWithRetry(url, options, tries=3){
-  let err;
-  for(let i=0;i<tries;i++){
+async function fetchWithRetry(url, options, tries = 3){
+  let lastErr;
+  for (let i = 0; i < tries; i++){
     try{
-      const r = await fetch(url, options);
-      if(r.ok) return r;
-      err = new Error('HTTP '+r.status);
-    }catch(e){ err = e; }
-    await new Promise(res=>setTimeout(res, 500*Math.pow(2,i)));
+      const resp = await fetch(url, options);
+
+      // 如果是 rate limit / 429，直接返回给上层处理，不要再 retry 了
+      if (resp.status === 429) {
+        return resp;
+      }
+
+      if (resp.ok) {
+        return resp;
+      }
+
+      lastErr = new Error('HTTP ' + resp.status);
+    }catch(e){
+      lastErr = e;
+    }
+    // 只有在非 429 的情况下才真的退避重试
+    await new Promise(res => setTimeout(res, 500 * Math.pow(2, i)));
   }
-  throw err;
+  throw lastErr;
 }
 
 function mdToHtml(md){
@@ -966,7 +978,6 @@ async function runAI(obj){
   const wrap = ensureRootStructure();
   const lang = getLang() || 'zh-CN';
 
-  // 清掉旧的 AI 区块
   wrap.querySelectorAll('.sec.ai-block').forEach(s => s.remove());
 
   const sec = document.createElement('div');
@@ -984,7 +995,7 @@ Love Number: ${obj.lv}${isMaster(obj.lv)?' (Master Number)':''}
   `;
 
   try{
-    const resp = await fetchWithRetry(`${API_BASE}/api/chat`,{
+    const resp = await fetchWithRetry(`${API_BASE}/api/chat`, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -1000,14 +1011,16 @@ Love Number: ${obj.lv}${isMaster(obj.lv)?' (Master Number)':''}
     console.log('[numerology][runAI] status =', status, 'body =', textBody);
 
     let data = null;
-    try {
-      data = JSON.parse(textBody);
-    } catch (e) {
-      console.warn('[numerology][runAI] JSON parse error:', e);
+    try { data = JSON.parse(textBody); } catch(e) {}
+
+    // ★★ 这里：如果是 rate limit，直接走本地兜底 ★★
+    if (data && data.error && data.error.code === 'rate_limit_exceeded') {
+      const html = localNumerologyInsight(obj);
+      sec.innerHTML = `<h3>${t('ai_title')}</h3><div class="ai-content">${html}</div>`;
+      return;
     }
 
     let raw = '';
-
     if (data && typeof data === 'object') {
       raw =
         data.reply ||
@@ -1015,14 +1028,12 @@ Love Number: ${obj.lv}${isMaster(obj.lv)?' (Master Number)':''}
         (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ||
         data.message || '';
 
-      // 如果还有 error 字段，也顺便兜一下
       if (!raw && data.error) {
         raw = typeof data.error === 'string'
           ? data.error
           : JSON.stringify(data.error);
       }
     } else {
-      // 后端直接返回纯文本，就当作完整回答
       raw = (textBody || '').trim();
     }
 
@@ -1032,23 +1043,16 @@ Love Number: ${obj.lv}${isMaster(obj.lv)?' (Master Number)':''}
     }
 
     const html = mdToHtml(raw);
-
-    // 避免语言切换导致旧内容覆盖
     if (sec.getAttribute('data-lang') !== getLang()) return;
 
     sec.innerHTML = `<h3>${t('ai_title')}</h3><div class="ai-content">${html}</div>`;
   }catch(e){
     console.warn('[numerology][runAI] error:', e?.message || e);
 
-    const fallback =
-      lang === 'en'
-        ? 'AI server is a bit unstable right now. Please try again in a moment.'
-        : 'AI 服务器连线有点不稳定，可以等一下再点一次生成。';
-
+    // 兜底走本地 insight，而不是只显示“服务器不稳”
+    const html = localNumerologyInsight(obj);
     sec.innerHTML = `<h3>${t('ai_title')}</h3>
-      <div class="ai-content">
-        <p style="opacity:.8;">${fallback}</p>
-      </div>`;
+      <div class="ai-content">${html}</div>`;
   }
 }
 
@@ -1332,8 +1336,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const payload = { iso, lp, lv };
     window.lastNumCtx = payload;
 
+    // 只用本地报告，不打 API
     renderProReport(payload);
-    runAI(payload);
+
+    // 如果你想加一点“深度解读”，可以直接塞本地兜底：
+    const wrap = ensureRootStructure();
+    const sec = document.createElement('div');
+    sec.className = 'sec ai-block';
+    sec.innerHTML = `<h3>${t('ai_title')}</h3>
+    <div class="ai-content">${localNumerologyInsight(payload)}</div>`;
+    wrap.appendChild(sec);
 
     resultSec?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
@@ -1352,6 +1364,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
 
 
 
