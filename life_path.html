@@ -926,9 +926,9 @@ Avoid fatalistic or fear-based language.`;
 
 語氣：溫暖、具體、可行，避免宿命論與恐嚇式說法。`;
 
-    case 'zh-CN':
-    default:
-      return `
+case 'zh-CN':
+default:
+  return `
 你是「心怜管家」，一位专业的灵数解读师。
 请 **全程使用简体中文** 回覆，避免混用其他语言。
 
@@ -951,6 +951,12 @@ Avoid fatalistic or fear-based language.`;
 
 ## 今日／本周可执行
 以 3～5 条条列式建议结尾，每条用动词开头，并尽量具体（时间长度、次数等）。
+
+**重要要求：**
+- 不要写成「教科书式数字介绍」，不要只是复述 1–9 的标准说明。
+- 即使两个人的数字组合相同，也要用不同的角度与比喻来写，避免完全相同的段落或句子。
+- 多用生活场景、具体行为建议，而不是抽象的大道理。
+- 避免恐吓、绝对化用语（例如「注定」「一定失败」等）。
 
 语气：温暖、具体、可行，避免宿命论与恐吓式说法。`;
   }
@@ -1049,6 +1055,171 @@ async function registerFlow(email,password){
   }
 }
 
+/* ===== Chat System Prompt for Xinlian Butler ===== */
+function buildChatSystemPrompt(lang){
+  switch(lang){
+    case 'en':
+      return `You are "Xinlian Butler", a gentle spiritual & numerology assistant.
+Always reply in ENGLISH ONLY.
+Be warm, concise, and practical. Avoid scary or fatalistic language.`;
+
+    case 'ja':
+      return `あなたは「心憐バトラー」というスピリチュアル＆数秘アシスタントです。
+必ず日本語だけで回答してください。
+トーンはあたたかく、具体的で、相手が少しホッとできる内容にしてください。`;
+
+    case 'th':
+      return `คุณคือ "Xinlian Butler" ผู้ช่วยเชิงจิตวิญญาณและตัวเลขศาสตร์
+ตอบเป็นภาษาไทยเท่านั้น
+น้ำเสียงอบอุ่น ใช้คำง่าย ๆ และไม่ทำให้คนอ่านรู้สึกกลัวหรือหมดหวัง`;
+
+    case 'ms':
+      return `Anda ialah "Xinlian Butler", pembantu rohani & numerologi.
+Jawab dalam Bahasa Melayu sahaja.
+Nada mesra, membumi dan memberi semangat; elakkan bahasa yang menakutkan.`;
+
+    case 'zh-TW':
+      return `你是「心憐管家」，一位溫柔的靈性／靈數小助理。
+請全程使用繁體中文回覆。
+語氣溫暖、具體，不要恐嚇或製造宿命感。`;
+
+    case 'zh-CN':
+    default:
+      return `你是「心怜管家」，一位溫柔的靈性／靈數小助理。
+請全程使用簡體中文回覆。
+語氣溫暖、具體，不要恐嚇或製造宿命感。`;
+  }
+}
+
+/* ===== Xinlian Butler Chat Widget ===== */
+function mountChat(){
+  // 如果已经挂载过，就不重复创建
+  if (document.getElementById('ssChatFab')) return;
+
+  const fab = document.createElement('button');
+  fab.id = 'ssChatFab';
+  fab.type = 'button';
+  fab.className = 'ss-chat-fab';
+  fab.textContent = t('chat_fab');
+
+  const panel = document.createElement('div');
+  panel.id = 'ssChatPanel';
+  panel.className = 'ss-chat-panel';
+  panel.innerHTML = `
+    <div class="ss-chat-head">
+      <div class="ss-chat-title">心怜管家 · Chat</div>
+      <div class="ss-close" aria-label="Close">✕</div>
+    </div>
+    <div class="ss-chat-body" id="ssChatBody"></div>
+    <div class="ss-chat-input">
+      <input id="ssChatInput" type="text" autocomplete="off" />
+      <button class="btn" id="ssChatSend" type="button">${t('chat_send')}</button>
+    </div>
+  `;
+
+  document.body.appendChild(fab);
+  document.body.appendChild(panel);
+
+  applyChatI18n(); // 用当前语言刷新按钮/占位文本
+
+  const body   = document.getElementById('ssChatBody');
+  const input  = document.getElementById('ssChatInput');
+  const sendBtn= document.getElementById('ssChatSend');
+  const close  = panel.querySelector('.ss-close');
+
+  function appendMsg(text, me=false){
+    const div = document.createElement('div');
+    div.className = 'ss-msg' + (me ? ' me' : '');
+    div.textContent = text;
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  async function sendToButler(text){
+    const clean = (text || '').trim();
+    if (!clean) return;
+
+    const lang = getLang() || 'zh-CN';
+
+    // 显示我的讯息
+    appendMsg(clean, true);
+
+    // 占位中的 AI 回覆
+    const placeholder = document.createElement('div');
+    placeholder.className = 'ss-msg';
+    placeholder.textContent = '...';
+    body.appendChild(placeholder);
+    body.scrollTop = body.scrollHeight;
+
+    try{
+      const sys = buildChatSystemPrompt(lang);
+      const resp = await fetchWithRetry(`${API_BASE}/api/chat`, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({
+          messages: [
+            { role: 'system', content: sys },
+            { role: 'user',   content: clean }
+          ]
+        })
+      }, 3);
+
+      const data = await resp.json().catch(()=> ({}));
+      const raw  = data?.reply || data?.text ||
+        (data?.choices && data.choices[0]?.message?.content) || '';
+
+      const finalText = raw ? raw.trim() :
+        (lang === 'en'
+          ? 'I felt a little disconnected from the server. You can try again in a moment.'
+          : '刚刚连线有点不稳，可以稍后再问我一次。');
+
+      placeholder.textContent = finalText;
+      body.scrollTop = body.scrollHeight;
+    }catch(e){
+      placeholder.textContent =
+        (getLang()==='en'
+          ? 'Network error, please try again later.'
+          : '网络有点不稳，请稍后再试。');
+      body.scrollTop = body.scrollHeight;
+    }
+  }
+
+  function handleSend(){
+    const val = input.value;
+    input.value = '';
+    sendToButler(val);
+  }
+
+  // 事件绑定
+  fab.addEventListener('click', ()=>{
+    const visible = panel.style.display === 'block';
+    panel.style.display = visible ? 'none' : 'block';
+    if (!visible) {
+      setTimeout(()=> input && input.focus(), 50);
+    }
+  });
+
+  close.addEventListener('click', ()=>{
+    panel.style.display = 'none';
+  });
+
+  sendBtn.addEventListener('click', handleSend);
+  input.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter') handleSend();
+  });
+
+  // 欢迎语
+  const lang = getLang() || 'zh-CN';
+  const welcome =
+    lang === 'en'
+      ? 'Hi, I am Xinlian Butler. You can ask me about your numbers or anything on your mind.'
+      : '嗨，我是心怜管家，可以跟我聊聊你刚刚看到的数字，或最近的心事。';
+  appendMsg(welcome, false);
+
+  // 也挂到 window 上，方便其他页面重用（可选）
+  window.mountChat = mountChat;
+}
+  
 /* ===== 初始化 ===== */
 function initLangUI(){
   const select = gid('langSelect');
@@ -1133,4 +1304,5 @@ document.addEventListener('DOMContentLoaded', ()=>{
 </script>
 </body>
 </html>
+
 
