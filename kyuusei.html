@@ -1444,38 +1444,102 @@ function isVIP(){
   return localStorage.getItem('vipStatus')==='active' || !!localStorage.getItem('vipEmail');
 }
 
-/* 3) 卡片挂载 & 芯片 */
-function ensureAiCard(){
-  const target =
-    document.getElementById('butler-host') ||
-    document.getElementById('rich-report') ||
-    document.getElementById('result');
+function ensureAiCard(target) {
   if (!target) return;
 
   let card = document.getElementById('aiCard');
+
+  // 若卡片已经存在：移动 + 多语言刷新
   if (card) {
     // 若已存在但位置不对，搬到 target，确保排在报告之后
-    if (card.parentElement !== target) target.appendChild(card);
+    if (card.parentElement !== target) {
+      target.appendChild(card);
+    }
+
+    // 更新标题（配合多语言）
+    const h3 = card.querySelector('#butlerTitle');
+    if (h3) {
+      h3.textContent = t('butler_title') || '心怜管家 · 解读';
+      h3.setAttribute('data-i18n', 'butler_title');
+    }
+
+    // 重新渲染 chips（让 label 跟随当前语言）
+    if (typeof renderChips === 'function') {
+      renderChips();
+    }
     return;
   }
 
-  // 首次创建
+  // —— 走到这里表示【还没有卡片】，首次创建 ——
   const sec = document.createElement('div');
   sec.className = 'sec';
   sec.id = 'aiCard';
   sec.innerHTML = `
-    <h3 id="butlerTitle" data-i18n="butler_title">${t('butler_title')||'心怜管家 · 解读'}</h3>
+    <h3 id="butlerTitle" data-i18n="butler_title">
+      ${t('butler_title') || '心怜管家 · 解读'}
+    </h3>
     <div id="aiContent" class="ai-content">
       <div class="skeleton">
-        <div style="width:60%"></div><div style="width:80%"></div><div style="width:90%"></div>
-        <div style="width:70%"></div><div style="width:50%"></div>
+        <div style="width:60%"></div>
+        <div style="width:80%"></div>
+        <div style="width:90%"></div>
+        <div style="width:70%"></div>
+        <div style="width:50%"></div>
       </div>
     </div>
     <div class="chips" id="aiChips"></div>
   `;
   target.appendChild(sec);
-  renderChips();
-}  
+
+  if (typeof renderChips === 'function') {
+    renderChips();
+  }
+}
+
+// 使用你在语言包里定义的：chip_career / chip_love / chip_money / chip_list / chip_30d
+function renderChips() {
+  const box = document.getElementById('aiChips');
+  if (!box) return;
+
+  box.innerHTML = '';
+
+  const chips = [
+    { key: 'chip_career', fallback: '事业' },
+    { key: 'chip_love',   fallback: '感情' },
+    { key: 'chip_money',  fallback: '财运' },
+    { key: 'chip_list',   fallback: '今日待办' },
+    { key: 'chip_30d',    fallback: '30天建议' },
+  ];
+
+  chips.forEach((c) => {
+    const label = (typeof t === 'function' && t(c.key)) || c.fallback;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.textContent = label;
+    btn.setAttribute('data-i18n', c.key);
+
+    // 点击 chip 触发 AI（这里只是预留事件钩子，之后你接你的 worker）
+    btn.addEventListener('click', () => {
+      // 这里你可以调用自己的 AI 函数，例如：
+      // requestXinlianAdvice(c.key);
+      const aiBox = document.getElementById('aiContent');
+      if (aiBox) {
+        aiBox.innerHTML = `
+          <div class="skeleton">
+            <div style="width:60%"></div>
+            <div style="width:80%"></div>
+            <div style="width:90%"></div>
+            <div style="width:70%"></div>
+            <div style="width:50%"></div>
+          </div>
+        `;
+      }
+    });
+
+    box.appendChild(btn);
+  });
+}
   
 /* ===== Chat 浮窗 ===== */
 (function(){
@@ -2464,6 +2528,7 @@ applyI18n();
 </script>
 </body>
 </html>
+
 
 
 
