@@ -288,6 +288,8 @@
 (function(){
   "use strict";
 
+  let lastCtx = null; // 记住最近一次的解读上下文，用来切换语言时重渲染
+
   /* ===== 配置（不再使用任何远程 AI）===== */
   const LANG_KEY = "site_lang";
 
@@ -889,6 +891,7 @@ function buildButlerHtml(lang, ctx){
     // 计算生命路径 & 本地渲染
     const lp = calcLifePath(birthdate);
     const ctx = {lang, name, gender, birthdate, birthtime, birthplace, topic, question, lp};
+    lastCtx = ctx;  // 记住本次的输入与结果，用于切换语言时重渲染
 
     try{
       const energyHtml = buildEnergyHtml(lang, ctx);
@@ -1012,6 +1015,12 @@ function buildButlerHtml(lang, ctx){
     applyI18n();
     applyChatI18n();
     mountChat();
+    ...
+    sel.addEventListener('change', ()=>{
+      setLang(sel.value);
+      applyI18n();
+      applyChatI18n();
+    });
 
     const goBtn = $('go');
     if (goBtn) goBtn.addEventListener('click', generate);
@@ -1046,16 +1055,38 @@ function buildButlerHtml(lang, ctx){
       });
     }
 
-    sel.addEventListener('change', ()=>{
-      setLang(sel.value);
+    sel.addEventListener('change', () => {
+      const newLang = sel.value;
+      setLang(newLang);
       applyI18n();
       applyChatI18n();
+
+      // 如果已经生成过报告，切换语言时用同一份 ctx 重渲染本地 HTML
+      if (lastCtx) {
+        lastCtx.lang = newLang; // 更新上下文语言
+        const energyCard = $('energyCard');
+        const aiCard = $('aiCard');
+        const energyBox = $('energyText');
+        const aiBox = $('aiText');
+
+        if (energyCard && aiCard && energyBox && aiBox &&
+            energyCard.style.display !== 'none' &&
+            aiCard.style.display !== 'none') {
+          try {
+            const energyHtml = buildEnergyHtml(newLang, lastCtx);
+            const butlerHtml = buildButlerHtml(newLang, lastCtx);
+            energyBox.innerHTML = energyHtml;
+            aiBox.innerHTML = butlerHtml;
+          } catch (e) {
+            console.warn('[i18n→report] rebuild failed:', e);
+          }
+        }
+      }
     });
-  });
-})();
 </script>
 </body>
 </html>
+
 
 
 
