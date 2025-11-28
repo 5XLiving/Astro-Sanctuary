@@ -288,8 +288,7 @@
 (function(){
   "use strict";
 
-  /* ===== 配置 ===== */
-  const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev'; // ← 你的 Workers
+  /* ===== 配置（不再使用任何远程 AI）===== */
   const LANG_KEY = "site_lang";
 
   /* ===== 小工具 ===== */
@@ -305,7 +304,7 @@
     'ms':'Malay'
   };
 
-  /* ===== i18n ===== */
+  /* ===== i18n（沿用你原来的文案）===== */
   const i18n = {
     "zh-CN": {
       title:"能量类型分析 · 5XLiving", brand:"Soul Sanctuary", lang_label:"语言",
@@ -367,7 +366,7 @@
       chat_fab:"問", chat_title:"心憐管家 · Chat", chat_ph:"想了解什麼？（例如：如何開始免費體驗）", chat_send:"發送",
       need_birth:"請至少選擇出生日期（可留空時間/地點）",
       generating:"正在生成解讀…",
-      retry:"抱歉，暫時無法生成，請稍後再試。", neterr:"網路異常，请稍後再試。",
+      retry:"抱歉，暫時無法生成，請稍後再試。", neterr:"網路異常，請稍後再試。",
       vip_title:"🌙 會員區域 VIP Segment",
       vip_mingli:"🗝 命理空間專屬內容",
       vip_love:"姻緣方向：戀愛緣分、婚姻走勢",
@@ -386,7 +385,7 @@
       login_title:"💎 登入 VIP 功能",
       panel_login_head:"帳戶登入 / 註冊",
       ph_email:"信箱 Email",
-      ph_password:"密碼 Password（至少 8 位，需包含大小寫字母、數字與符號）",
+      ph_password:"密碼 Password（至少 8 位，含大小寫字母、數字與符號）",
       ph_label_password:"密碼 Password",
       btn_login:"登入帳戶", btn_register:"註冊帳戶", btn_reset:"🔑 重設密碼",
       panel_member_head:"會員服務",
@@ -605,161 +604,242 @@
     if(titleEl){ titleEl.textContent = t("title"); }
   }
 
-  /* ===== Markdown -> HTML（简版） ===== */
-  function mdToHtml(md){
-    if(!md) return '';
-    md = md.replace(/\r\n?/g, '\n').trim();
-
-    // 标题：# 或 ＃，1~3级 -> 统一成 h3
-    md = md.replace(/(^|\n)[#＃]{1,3}\s+(.+?)(?=\n|$)/g, '$1<h3 class="ai-head">$2</h3>');
-
-    // 有序列表块
-    md = md.replace(/(^|\n)(\s*\d+[.)]\s+.+(?:\n\s*\d+[.)]\s+.+)*)/g, (m, pre, block) => {
-      if (/^\s*<ol>/.test(block)) return m;
-      const items = block
-        .split('\n')
-        .map(line => line.replace(/^\s*\d+[.)]\s+(.+)$/,'<li>$1</li>'))
-        .filter(li => /<li>/.test(li))
-        .join('');
-      return `${pre}<ol>${items}</ol>`;
-    });
-
-    // 无序列表块
-    md = md.replace(/(^|\n)(\s*[-*]\s+.+(?:\n\s*[-*]\s+.+)*)/g, (m, pre, block) => {
-      if (/^\s*<ul>/.test(block)) return m;
-      const items = block
-        .split('\n')
-        .map(line => line.replace(/^\s*[-*]\s+(.+)$/,'<li>$1</li>'))
-        .filter(li => /<li>/.test(li))
-        .join('');
-      return `${pre}<ul>${items}</ul>`;
-    });
-
-    // 加粗/斜体
-    md = md.replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*(.+?)\*/g,'<i>$1</i>');
-
-    // 段落：空行分段；段内单行保留换行
-    md = md
-      .split(/\n{2,}/)
-      .map(para => {
-        if (/^\s*<(?:ul|ol|h3)\b/i.test(para)) return para;
-        return `<p>${para.replace(/\n/g,'<br/>')}</p>`;
-      })
-      .join('');
-
-    // 清理 p 包裹列表/标题
-    md = md.replace(/<p>\s*(<(?:ul|ol|h3)\b[\s\S]*?<\/(?:ul|ol|h3)>)\s*<\/p>/g, '$1');
-    return md;
+  /* ===== 简单数秘：生命路径数字 ===== */
+  function calcLifePath(birthStr){
+    const digits = (birthStr || "").replace(/[^0-9]/g,"").split("");
+    if(!digits.length) return 0;
+    let sum = digits.reduce((s,d)=>s+parseInt(d||"0",10),0);
+    while(sum > 9){
+      sum = sum.toString().split("").reduce((s,d)=>s+parseInt(d||"0",10),0);
+    }
+    if(sum === 0) sum = 9;
+    return sum;
   }
 
-  /* ===== 生成提示词：能量报告 ===== */
-  function buildPromptEnergyReport({langName, name, gender, birthdate, birthtime, birthplace, topic, question, nowStr}){
-    const lang = getLang();
-    const topicMapAll = {
-      "zh-CN": {love:"爱情/关系",career:"事业/工作",wealth:"财富/投资",family:"家庭/人际",health:"健康/身心",study:"学业/成长",move:"旅行/搬迁",other:"其他"},
-      "zh-TW": {love:"愛情/關係",career:"事業/工作",wealth:"財富/投資",family:"家庭/人際",health:"健康/身心",study:"學業/成長",move:"旅行/搬遷",other:"其他"},
-      "en":    {love:"Love/Relationship",career:"Career/Work",wealth:"Wealth/Investment",family:"Family/Social",health:"Health/Mind-Body",study:"Study/Growth",move:"Travel/Move",other:"Other"},
-      "ja":    {love:"恋愛・パートナーシップ",career:"仕事・キャリア",wealth:"お金・投資",family:"家族・人間関係",health:"健康・心身",study:"学び・成長",move:"旅行・引っ越し",other:"その他"},
-      "th":    {love:"ความรัก/ความสัมพันธ์",career:"งาน/อาชีพ",wealth:"การเงิน/การลงทุน",family:"ครอบครัว/สังคม",health:"สุขภาพ/กายใจ",study:"การเรียนรู้/การเติบโต",move:"ท่องเที่ยว/ย้ายที่อยู่",other:"อื่น ๆ"},
-      "ms":    {love:"Cinta/Hubungan",career:"Kerjaya/Pekerjaan",wealth:"Kewangan/Pelaburan",family:"Keluarga/Sosial",health:"Kesihatan/Minda-Jasad",study:"Pembelajaran/Perkembangan",move:"Perjalanan/Pindah",other:"Lain-lain"}
-    };
-    const topicMap = topicMapAll[lang] || topicMapAll["en"];
+  /* 关注主题显示用（本地映射）*/
+  const topicMapAll = {
+    "zh-CN": {love:"爱情/关系",career:"事业/工作",wealth:"财富/投资",family:"家庭/人际",health:"健康/身心",study:"学业/成长",move:"旅行/搬迁",other:"其他"},
+    "zh-TW": {love:"愛情/關係",career:"事業/工作",wealth:"財富/投資",family:"家庭/人際",health:"健康/身心",study:"學業/成長",move:"旅行/搬遷",other:"其他"},
+    "en":    {love:"Love / Relationship",career:"Career / Work",wealth:"Wealth / Investment",family:"Family / Social",health:"Health / Mind-Body",study:"Study / Growth",move:"Travel / Move",other:"General"},
+    "ja":    {love:"恋愛・パートナーシップ",career:"仕事・キャリア",wealth:"お金・投資",family:"家族・人間関係",health:"健康・心身",study:"学び・成長",move:"旅行・引っ越し",other:"その他"},
+    "th":    {love:"ความรัก / ความสัมพันธ์",career:"งาน / อาชีพ",wealth:"การเงิน / การลงทุน",family:"ครอบครัว / สังคม",health:"สุขภาพ / กายใจ",study:"การเรียนรู้ / การเติบโต",move:"ท่องเที่ยว / ย้ายที่อยู่",other:"ทั่วไป"},
+    "ms":    {love:"Cinta / Hubungan",career:"Kerjaya / Pekerjaan",wealth:"Kewangan / Pelaburan",family:"Keluarga / Sosial",health:"Kesihatan / Minda-Jasad",study:"Pembelajaran / Perkembangan",move:"Perjalanan / Pindah",other:"Umum"}
+  };
 
-    const basic = [
-      name ? `称呼：${name}` : null,
-      gender ? `性别：${gender}` : null,
-      birthdate ? `生日：${birthdate}` : null,
-      birthtime ? `时间：${birthtime}` : null,
-      birthplace ? `地点：${birthplace}` : null
-    ].filter(Boolean).join('；');
-
-    return `You are "Energy Analyst" at 5XLiving.
-OUTPUT LANGUAGE: ${langName}. Tone: rigorous, positive, practical. Avoid medical/legal claims.
-
-[Now] Current local date/time: ${nowStr}
-[User Basics] ${basic || '（用户未提供更多信息）'}
-[Focus] ${topicMap[topic] || topic || '通用'}
-[Question] ${question || '（无具体问题，请给通用提示）'}
-
-Write a MARKDOWN report with EXACT headings (do not add extra ones):
-# 能量画像（2–4句，概括当下能量类型与主导策略）
-# 当下节律（7天）
-- 列出 2–3 个窗口与注意点（用日期/周次表达；若未知，用“第X天起”）
-# 30天走势
-- 3–5 条趋势与关键节点（含“宜/忌”）
-# 关键资源
-- 3–4 条：可利用的优势/支持系统
-# 易耗点与边界
-- 3–4 条：容易消耗/需要设置的界限
-# 方法与局限
-- 说明推断边界与缺失信息的影响`;
+  function getTopicName(lang, topic){
+    const m = topicMapAll[lang] || topicMapAll["en"];
+    return m[topic] || m.other || "";
   }
 
-  /* ===== 生成提示词：心怜管家（分区五段） ===== */
-  function buildPromptButlerSections({langName, energyMD}){
-    return `You are "Xinlian Butler", an energy-type coach at 5XLiving.
-OUTPUT LANGUAGE: ${langName}. Style: warm, grounded, actionable. Be specific and measurable.
+  /* 为不同生命路径准备一个简短标签（中/英） */
+  const lpNameZh = {
+    1:"起点型 · 主动开局",
+    2:"桥梁型 · 协作与支持",
+    3:"表达型 · 创意与沟通",
+    4:"结构型 · 稳定与脚踏实地",
+    5:"流动型 · 变化与自由",
+    6:"照护型 · 责任与关怀",
+    7:"洞察型 · 思考与内观",
+    8:"权威型 · 资源与成就",
+    9:"整合型 · 疗愈与收束"
+  };
+  const lpNameEn = {
+    1:"Type 1 · Initiator",
+    2:"Type 2 · Bridge & Support",
+    3:"Type 3 · Expression & Creativity",
+    4:"Type 4 · Structure & Stability",
+    5:"Type 5 · Freedom & Change",
+    6:"Type 6 · Care & Responsibility",
+    7:"Type 7 · Insight & Reflection",
+    8:"Type 8 · Power & Achievement",
+    9:"Type 9 · Integration & Healing"
+  };
 
-You will produce a 5-section actionable plan based on the following Energy Report:
-=== Energy Report (Markdown) ===
-${energyMD || '(no report)'}
-=== END ===
+  /* ===== 本地渲染：能量报告 HTML ===== */
+  function buildEnergyHtml(lang, ctx){
+    const isZh = (lang === "zh-CN" || lang === "zh-TW");
+    const lpName = isZh ? (lpNameZh[ctx.lp] || "") : (lpNameEn[ctx.lp] || "");
+    const topicName = getTopicName(lang, ctx.topic);
+    const q = ctx.question || "";
+    const namePartZh = ctx.name ? (ctx.name + "，") : "";
+    const namePartEn = ctx.name ? (ctx.name + ", ") : "";
 
-Return MARKDOWN with EXACT headings below (no theory, only actions/decisions):
-# 事业
-- 3–5 条具体举措（带频次/阈值/里程碑）
-# 感情
-- 3–4 条互动策略/边界（可操作）
-# 财运
-- 3–4 条现金流/支出/投资的具体动作
-# 今日待办
-- 5 项以内，按优先级；可在 30–60 分钟内完成
-# 30天建议
-- 5–7 条跨周规划（第1/2/3/4周的重点），写出可衡量的结果`;
-  }
+    if(isZh){
+      return (
+        '<h3 class="ai-head">能量画像</h3>' +
+        '<p>' + namePartZh + '你的生命路径数字为 <b>' + ctx.lp +
+        '</b>（' + lpName + '）。近期在「' + topicName +
+        '」主题上，重点不是当下一定要做出巨大突破，而是用稳定的小步行动，把已经在想的事情真正落地。</p>' +
+        (q ? ('<p>你现在的提问方向：「' + q + '」，会放大你对现状的敏感度，也提醒你要更有意识地分配精力。</p>') : '') +
 
-  /* ===== 通用 AI 调用：带 model + 错误 fallback ===== */
-  async function callAI(messages){
-    try{
-      const r = await fetch(`${API_BASE}/api/chat`,{
-        method:'POST',
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          model: 'gpt-4.1-mini',
-          messages,
-          temperature: 0.7,
-          stream: false
-        })
-      });
-      const ct = (r.headers.get('content-type') || '').toLowerCase();
+        '<h3 class="ai-head">当下节律（7 天）</h3>' +
+        '<ul>' +
+        '<li><b>前 2–3 天：</b>适合先盘点手上事情，整理环境/文件/待办；越简单的小任务越能帮你「热身」。</li>' +
+        '<li><b>中间 2–3 天：</b>可以挑 1–2 件与你的「' + topicName + '」直接相关的行动，例如一通讯息、一个对话、一次小尝试。</li>' +
+        '<li><b>最后 1–2 天：</b>收尾与回顾周期，写下这几天的 3 个「做得好的地方」，不要只盯着没做到的。</li>' +
+        '</ul>' +
 
-      if (ct.includes('application/json')) {
-        const data = await r.json();
-        console.log('[energy] worker JSON:', data);
-        let reply =
-          data.reply ??
-          data.text ??
-          (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ??
-          data.error ??
-          '';
-        if (!reply) reply = JSON.stringify(data);
-        return reply;
-      } else {
-        const text = await r.text();
-        console.log('[energy] worker TEXT:', text);
-        return text || '';
-      }
-    }catch(e){
-      console.error('callAI error:', e);
-      return '';
+        '<h3 class="ai-head">30 天走势</h3>' +
+        '<ul>' +
+        '<li>整体节奏偏「循序渐进」，适合分成每周一个小目标，而不是一次性把所有计划压在同一周。</li>' +
+        '<li>当感觉卡住时，与其硬顶，不如先调整生活作息、睡眠与身体状态，心态会跟着松动。</li>' +
+        '<li>如果你愿意，每周为「' + topicName + '」留出至少 2 个固定时段，当作与你自己的预约。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">关键资源</h3>' +
+        '<ul>' +
+        '<li>你对细节的直觉与敏感度，是很好的雷达，可以帮你避开明显不适合的选择。</li>' +
+        '<li>当有人愿意和你一起讨论或陪你执行时，你会更容易坚持，不必勉强一个人扛全部。</li>' +
+        '<li>你过往的经验（成功也好、失误也好）都是资料库，可以拿来复盘，而不是当作羞愧的来源。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">易耗点与边界</h3>' +
+        '<ul>' +
+        '<li>长时间刷手机、比较自己与他人的进度，会让你对「还不够好」非常敏感，形成隐形内耗。</li>' +
+        '<li>答应太多别人的请求，忘记留时间给自己的计划，是这一阶段最容易失衡的地方。</li>' +
+        '<li>你可以练习对自己说：「这件事我可以分成三小步做」，而不是一次期待完美。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">方法与局限</h3>' +
+        '<p>以上解读是基于 <b>出生日期与简单关注主题</b> 的本地规则推演，并没有使用联网 AI，也尚未整合完整命盘/流年等资料。</p>' +
+        '<p>它适合作为一个「温和的起点」，帮你先看见自己的节奏与可用资源。若未来加入更完整的命盘与动态流年资料，报告会更细致、更贴近你的真实状态。</p>'
+      );
+    } else {
+      return (
+        '<h3 class="ai-head">Energy Snapshot</h3>' +
+        '<p>' + namePartEn + 'your life-path number is <b>' + ctx.lp +
+        '</b> (' + lpName + '). Around the topic of <b>' + topicName +
+        '</b>, the main focus in this phase is to move with small, consistent steps rather than forcing a big breakthrough at once.</p>' +
+        (q ? ('<p>Your current question — “‘ + q + '” — makes you more aware of how you spend your energy. Use it as a reminder to choose your focus more consciously.</p>') : '') +
+
+        '<h3 class="ai-head">Next 7 Days</h3>' +
+        '<ul>' +
+        '<li><b>Day 1–2:</b> declutter and organise (space, files, to-do list). Simple tasks help you warm up your system.</li>' +
+        '<li><b>Day 3–5:</b> pick 1–2 actions directly linked to <b>' + topicName + '</b>, such as a message, a conversation, or a small experiment.</li>' +
+        '<li><b>Day 6–7:</b> close the mini-cycle by writing down 3 things you did well, instead of only looking at what is still unfinished.</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Next 30 Days</h3>' +
+        '<ul>' +
+        '<li>The rhythm is better as “step by step”. Design one small focus per week instead of pushing everything into the same week.</li>' +
+        '<li>When you feel stuck, adjust sleep, food and body movement first. Your mindset will often follow.</li>' +
+        '<li>If possible, block at least two fixed time slots per week dedicated to <b>' + topicName + '</b>.</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Key Resources</h3>' +
+        '<ul>' +
+        '<li>Your sensitivity to detail works like a radar, helping you avoid obviously misaligned choices.</li>' +
+        '<li>You tend to stay on track more easily when someone can discuss or co-work with you, instead of carrying everything alone.</li>' +
+        '<li>Past experiences (successes and mistakes) are data, not proof that you “failed”. They can be reviewed and reused.</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Energy Leaks & Boundaries</h3>' +
+        '<ul>' +
+        '<li>Endless scrolling and comparing your progress with others quietly drains your energy.</li>' +
+        '<li>Saying “yes” to too many requests and leaving no space for your own plans is a major source of imbalance now.</li>' +
+        '<li>Practice telling yourself: “I can break this into three small steps” instead of expecting one perfect move.</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Method & Limits</h3>' +
+        '<p>This is a purely local demo reading based only on your <b>birthdate and focus topic</b>. It does not use online AI and does not include a full chart or transits.</p>' +
+        '<p>Use it as a gentle starting point to see your rhythm and resources. With more detailed chart data in the future, the reading can become more precise and personalised.</p>'
+      );
     }
   }
 
-  /* ====== 生成流程：先能量报告，再心怜管家 ====== */
+  /* ===== 本地渲染：心怜管家五区块 HTML ===== */
+  function buildButlerHtml(lang, ctx){
+    const isZh = (lang === "zh-CN" || lang === "zh-TW");
+    const topicName = getTopicName(lang, ctx.topic);
+    const lp = ctx.lp;
+    const lpTagZh = lpNameZh[lp] || "";
+    const lpTagEn = lpNameEn[lp] || "";
+    const q = ctx.question || "";
+
+    if(isZh){
+      return (
+        '<h3 class="ai-head">事业</h3>' +
+        '<ul>' +
+        '<li>为本月「' + topicName + '」设定一个最小可执行目标，例如：完成 1 个作品、发出 3 封关键邮件、或敲定 1 个合作。</li>' +
+        '<li>把这个目标拆成 <b>每周 1 步</b>，并写在行事历里，而不是只放在脑中。</li>' +
+        '<li>根据你的能量类型（' + lpTagZh + '），在你精神最清醒的时段处理最难的那 20% 任务。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">感情</h3>' +
+        '<ul>' +
+        '<li>练习用「我感受到……」而不是「你都……」的句式表达感受，减少防御与冲突。</li>' +
+        '<li>为重要关系预留固定时间（例如每周一次深度对话 30 分钟），而不是只在出问题时处理。</li>' +
+        '<li>如果目前是单身，把一部分注意力放在「自己和自己的关系」，例如更稳定的作息、自我照顾。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">财运</h3>' +
+        '<ul>' +
+        '<li>先看清「钱往哪里流」，这 30 天可以把所有支出分为三类：必要、想要、可以延期。</li>' +
+        '<li>设定一个温和的现金缓冲目标，例如多累积 1 个月的基本生活费，并写下实现路径。</li>' +
+        '<li>与其追求一次性暴冲，不如把「现金流稳定」当成这阶段的核心练习。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">今日待办</h3>' +
+        '<ol>' +
+        '<li>花 10–15 分钟写下目前最让你在意的 3 件事（可包含「' + topicName + '」或你刚才的问题）。</li>' +
+        '<li>从中圈出 1 件「今天做一点就有差」的事项，并设定 30 分钟专注时间。</li>' +
+        '<li>处理完之后，用 3 句话记录：我做到了什么？我的感受如何？下一步想怎么调整？</li>' +
+        '</ol>' +
+
+        '<h3 class="ai-head">30 天建议</h3>' +
+        '<ul>' +
+        '<li><b>第 1 周：</b>整理环境与资讯，确认你在「' + topicName + '」上的真正优先顺序。</li>' +
+        '<li><b>第 2 周：</b>完成第一个小成果（哪怕只是一个草稿、一封讯息、一场对话）。</li>' +
+        '<li><b>第 3 周：</b>根据反馈微调策略，减少明显耗能的做法，多做让你有一点点开心的行动。</li>' +
+        '<li><b>第 4 周：</b>复盘整个月，写下 3 件值得感谢自己的地方，并为下一个 30 天设定一个更轻盈的目标。</li>' +
+        '</ul>' +
+        '<p style="margin-top:8px" class="muted">※ 以上为本地示范版「心怜管家」建议，用简单规则配合你的生日与主题生成，不连接外部 AI 服务器。</p>'
+      );
+    } else {
+      return (
+        '<h3 class="ai-head">Career</h3>' +
+        '<ul>' +
+        '<li>Pick one realistic focus for this month around <b>' + topicName + '</b> (e.g. finish one piece of work, send three key emails, secure one collaboration).</li>' +
+        '<li>Break it into <b>one step per week</b> and put it in your calendar, not only in your head.</li>' +
+        '<li>Given your pattern (' + lpTagEn + '), use your clearest time of the day for the hardest 20% of tasks.</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Relationships</h3>' +
+        '<ul>' +
+        '<li>Use “I feel…” instead of “You always…” when you speak about feelings, to reduce defensiveness.</li>' +
+        '<li>Reserve regular time for important connections (e.g. one 30-minute deep talk each week) instead of only talking when there is a problem.</li>' +
+        '<li>If you are single, treat your relationship with yourself as a key priority: sleep, food, routines and self-care.</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Money</h3>' +
+        '<ul>' +
+        '<li>For these 30 days, tag each expense as: essential, nice-to-have, or can-delay. Just seeing the pattern already shifts your choices.</li>' +
+        '<li>Set a gentle buffer target (e.g. one extra month of basic expenses) and outline how to build it step by step.</li>' +
+        '<li>Focus on stabilising cash flow rather than chasing one big “all-in” opportunity.</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Today&apos;s To-Dos</h3>' +
+        '<ol>' +
+        '<li>Spend 10–15 minutes writing down the 3 things that matter most to you right now (they may include <b>' + topicName + '</b> or your question).</li>' +
+        '<li>Choose one item where “doing a bit today” already makes a difference, and give it a 30-minute focus block.</li>' +
+        '<li>Afterwards, note in 2–3 sentences what you did, how you felt, and what you want to adjust next time.</li>' +
+        '</ol>' +
+
+        '<h3 class="ai-head">Next 30 Days</h3>' +
+        '<ul>' +
+        '<li><b>Week 1:</b> clean up your environment and information; clarify what truly comes first around <b>' + topicName + '</b>.</li>' +
+        '<li><b>Week 2:</b> create the first small outcome (a draft, a message, a conversation, a simple test).</li>' +
+        '<li><b>Week 3:</b> adjust based on feedback; do less of what obviously drains you and more of what feels slightly energising.</li>' +
+        '<li><b>Week 4:</b> review the month, thank yourself for three specific things, and set a lighter focus for the next 30 days.</li>' +
+        '</ul>' +
+        '<p class="muted" style="margin-top:8px">This “Xinlian Butler” section is a local demo: it uses simple rules based on your birthdate and topic, and does not call any external AI.</p>'
+      );
+    }
+  }
+
+  /* ====== 生成流程：纯本地，不联网 ====== */
   async function generate(){
     const lang = getLang();
-    const langName = BUTLER_LANG_NAME[lang] || BUTLER_LANG_NAME['zh-CN'];
-
     const name = $('name').value.trim();
     const gender = $('gender').value;
     const birthdate = $('birthdate').value;
@@ -783,51 +863,72 @@ Return MARKDOWN with EXACT headings below (no theory, only actions/decisions):
     const aiCard = $('aiCard'), aiBox = $('aiText');
 
     energyCard.style.display='block';
-    energyBox.innerHTML = `
-      <div class="skeleton">
-        <div style="width:78%"></div><div style="width:92%"></div><div style="width:86%"></div>
-        <div style="width:70%"></div><div style="width:55%"></div>
-      </div>`;
-
     aiCard.style.display='block';
-    aiBox.innerHTML = `
-      <div class="skeleton">
-        <div style="width:65%"></div><div style="width:82%"></div><div style="width:90%"></div>
-        <div style="width:72%"></div><div style="width:48%"></div>
-      </div>`;
 
-    const now = new Date();
-    const nowStr = now.toISOString();
+    energyBox.innerHTML = (
+      '<div class="skeleton">' +
+      '<div style="width:78%"></div><div style="width:92%"></div><div style="width:86%"></div>' +
+      '<div style="width:70%"></div><div style="width:55%"></div>' +
+      '</div>'
+    );
+    aiBox.innerHTML = (
+      '<div class="skeleton">' +
+      '<div style="width:65%"></div><div style="width:82%"></div><div style="width:90%"></div>' +
+      '<div style="width:72%"></div><div style="width:48%"></div>' +
+      '</div>'
+    );
+
+    // 计算生命路径 & 本地渲染
+    const lp = calcLifePath(birthdate);
+    const ctx = {lang, name, gender, birthdate, birthtime, birthplace, topic, question, lp};
 
     try{
-      const sysEnergy = `You are "Energy Analyst" at 5XLiving. OUTPUT LANGUAGE: ${langName}.`;
-      const usrEnergy = buildPromptEnergyReport({langName, name, gender, birthdate, birthtime, birthplace, topic, question, nowStr});
-      const energyMD = await callAI([
-        {role:'system',content:sysEnergy},
-        {role:'user',content:usrEnergy}
-      ]);
-      energyBox.innerHTML = mdToHtml(energyMD || t('retry'));
-
-      const sysButler = `You are "Xinlian Butler", an energy-type coach. OUTPUT LANGUAGE: ${langName}.`;
-      const usrButler = buildPromptButlerSections({langName, energyMD});
-      const butlerMD = await callAI([
-        {role:'system',content:sysButler},
-        {role:'user',content:usrButler}
-      ]);
-      aiBox.innerHTML = mdToHtml(butlerMD || t('retry'));
-
+      const energyHtml = buildEnergyHtml(lang, ctx);
+      const butlerHtml = buildButlerHtml(lang, ctx);
+      energyBox.innerHTML = energyHtml;
+      aiBox.innerHTML = butlerHtml;
       window.scrollTo({top: energyCard.offsetTop - 10, behavior:'smooth'});
     } catch(e){
-      console.error('generate error:', e);
-      energyBox.innerHTML = `<p>${t('neterr')}</p>`;
-      aiBox.innerHTML = `<p>${t('retry')}</p>`;
+      console.error('local generate error:', e);
+      energyBox.innerHTML = '<p>' + t('neterr') + '</p>';
+      aiBox.innerHTML = '<p>' + t('retry') + '</p>';
     } finally{
       btn.disabled = false;
       btn.textContent = btnOrig;
     }
   }
 
-  /* ====== Chat 浮窗 ====== */
+  /* ====== Chat 浮窗：改成本地 FAQ，不连 AI ====== */
+  function localChatAnswer(prompt){
+    const lang = getLang();
+    const isZh = (lang === "zh-CN" || lang === "zh-TW");
+    const p = (prompt || "").toLowerCase();
+
+    if(isZh){
+      if(/vip|會員|会员|价格|價錢|收费|收費/.test(prompt)){
+        return "目前这是示范版页面：\n\n• 年费会员：命理空间进阶解读\n• 月费 VIP：命理空间 + 心怜空间 + 课程\n\n具体价格与开通方式，会统一在命理商城页面说明。";
+      }
+      if(/免费|體驗|体验|試用/.test(prompt)){
+        return "现在的「能量类型分析」是本地演算法示范版，所有解读都在浏览器内完成，不连接 AI 服务器。\n\n未来若上线完整会员系统，会在登入后开放更多深度报告与储存功能。";
+      }
+      if(/登录|登入|注册|註冊|reset|重设|重置|密码|密碼/.test(prompt)){
+        return "登入与注册区块目前主要作为 UI 示意：\n\n• 账号资料会接到后台（例如 Airtable / Shopify）之后才会正式启用\n• 重设密码也会通过后台 API 处理\n\n当前版本不建议输入真实密码，仅做界面测试。";
+      }
+      return "这里的「心怜管家 · Chat」是本地说明版，不连到 AI。\n\n你可以在上方表单输入生日、时间与关注主题，点「生成分析」，系统会用简单规则在你的浏览器中生成：\n• 能量报告（7 天 / 30 天节律）\n• 事业 / 感情 / 财运 / 今日待办 / 30 天建议\n\n所有内容都不会上传到服务器，仅用于示范与 UI 测试。";
+    } else {
+      if(/vip|price|pricing|member|membership/.test(p)){
+        return "This is a demo page for the upcoming membership system.\n\n• Yearly plan: deeper destiny reports\n• Monthly VIP: destiny space + Xinlian space + courses\n\nExact pricing and activation will be shown on the main shop site.";
+      }
+      if(/free|trial|demo/.test(p)){
+        return "The “Energy Type Analysis” on this page is a local demo. All readings are generated in your browser only, without calling any AI service.\n\nLater, when the full member system goes live, more detailed reports and storage features will be available after login.";
+      }
+      if(/login|sign in|sign-in|register|password|reset/.test(p)){
+        return "Login / register fields here are UI placeholders.\n\nThey will connect to a real backend (e.g. Airtable / Shopify / custom API) in the future. For now, please avoid using real passwords and treat this as a design preview.";
+      }
+      return "This “Xinlian Butler · Chat” is a local help bot only.\n\nYou can fill in your birthdate and focus topic above and click “Generate Reading”. The page will build:\n• An Energy Report (7-day and 30-day rhythm)\n• Career, Love, Money, Today’s To-Dos and 30-day suggestions\n\nEverything is computed locally in your browser — no external AI calls are made in this version.";
+    }
+  }
+
   function mountChat(){
     const fab = $('ssChatFab'),
           panel = $('ssChatPanel'),
@@ -847,44 +948,8 @@ Return MARKDOWN with EXACT headings below (no theory, only actions/decisions):
     async function askChat(prompt){
       addMsg(prompt, true);
       input.value = '';
-      const sys = 'You are "Xinlian Butler". OUTPUT LANGUAGE: ' +
-        (BUTLER_LANG_NAME[getLang()] || 'Simplified Chinese') +
-        '. Help with features, navigation, and membership. Tone: warm, concise.';
-      try{
-        const r = await fetch(`${API_BASE}/api/chat`,{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            model: 'gpt-4.1-mini',
-            messages:[
-              {role:'system',content:sys},
-              {role:'user',content:prompt}
-            ],
-            temperature: 0.6,
-            stream: false
-          })
-        });
-        const ct = (r.headers.get('content-type') || '').toLowerCase();
-        let reply = '';
-        if (ct.includes('application/json')){
-          const data = await r.json();
-          console.log('[chat] worker JSON:', data);
-          reply =
-            data.reply ??
-            data.text ??
-            (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ??
-            data.error ??
-            '';
-          if (!reply) reply = JSON.stringify(data);
-        } else {
-          reply = await r.text();
-          console.log('[chat] worker TEXT:', reply);
-        }
-        addMsg(reply || t('retry'));
-      }catch(e){
-        console.error('chat error:', e);
-        addMsg(t('neterr'));
-      }
+      const reply = localChatAnswer(prompt);
+      addMsg(reply);
     }
 
     fab.addEventListener('click',()=>{
@@ -897,7 +962,7 @@ Return MARKDOWN with EXACT headings below (no theory, only actions/decisions):
       if(v) askChat(v);
     });
     input.addEventListener('keydown',e=>{
-      if(e.key==='Enter'){
+      if(e.key === 'Enter'){
         const v = input.value.trim();
         if(v) askChat(v);
       }
@@ -915,6 +980,7 @@ Return MARKDOWN with EXACT headings below (no theory, only actions/decisions):
     if (titleEl) titleEl.textContent = t('chat_title');
   }
 
+  /* ===== DOM Ready ===== */
   document.addEventListener('DOMContentLoaded', ()=>{
     // 默认填入今天日期 & 当前时间（方便测试）
     const now = new Date();
@@ -925,10 +991,10 @@ Return MARKDOWN with EXACT headings below (no theory, only actions/decisions):
     const mm = String(now.getMinutes()).padStart(2,'0');
 
     const bd = $('birthdate');
-    if (bd && !bd.value) bd.value = `${y}-${m}-${d}`;
+    if (bd && !bd.value) bd.value = y + '-' + m + '-' + d;
 
     const bt = $('birthtime');
-    if (bt && !bt.value) bt.value = `${hh}:${mm}`;
+    if (bt && !bt.value) bt.value = hh + ':' + mm;
 
     const sel = $('langSelect');
     const current = getLang();
@@ -982,6 +1048,7 @@ Return MARKDOWN with EXACT headings below (no theory, only actions/decisions):
 </script>
 </body>
 </html>
+
 
 
 
