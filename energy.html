@@ -284,7 +284,7 @@
     </div>
   </div>
 
- <script>
+<script>
 (function(){
   "use strict";
 
@@ -367,7 +367,7 @@
       chat_fab:"問", chat_title:"心憐管家 · Chat", chat_ph:"想了解什麼？（例如：如何開始免費體驗）", chat_send:"發送",
       need_birth:"請至少選擇出生日期（可留空時間/地點）",
       generating:"正在生成解讀…",
-      retry:"抱歉，暫時無法生成，請稍後再試。", neterr:"網路異常，請稍後再試。",
+      retry:"抱歉，暫時無法生成，請稍後再試。", neterr:"網路異常，请稍後再試。",
       vip_title:"🌙 會員區域 VIP Segment",
       vip_mingli:"🗝 命理空間專屬內容",
       vip_love:"姻緣方向：戀愛緣分、婚姻走勢",
@@ -386,7 +386,7 @@
       login_title:"💎 登入 VIP 功能",
       panel_login_head:"帳戶登入 / 註冊",
       ph_email:"信箱 Email",
-      ph_password:"密碼 Password（至少 8 位，含大小寫字母、數字與符號）",
+      ph_password:"密碼 Password（至少 8 位，需包含大小寫字母、數字與符號）",
       ph_label_password:"密碼 Password",
       btn_login:"登入帳戶", btn_register:"註冊帳戶", btn_reset:"🔑 重設密碼",
       panel_member_head:"會員服務",
@@ -718,20 +718,35 @@ Return MARKDOWN with EXACT headings below (no theory, only actions/decisions):
 - 5–7 条跨周规划（第1/2/3/4周的重点），写出可衡量的结果`;
   }
 
+  /* ===== 通用 AI 调用：带 model + 错误 fallback ===== */
   async function callAI(messages){
     try{
       const r = await fetch(`${API_BASE}/api/chat`,{
         method:'POST',
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({messages})
+        body: JSON.stringify({
+          model: 'gpt-4.1-mini',
+          messages,
+          temperature: 0.7,
+          stream: false
+        })
       });
       const ct = (r.headers.get('content-type') || '').toLowerCase();
 
       if (ct.includes('application/json')) {
         const data = await r.json();
-        return data.reply || data.text || (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) || '';
+        console.log('[energy] worker JSON:', data);
+        let reply =
+          data.reply ??
+          data.text ??
+          (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ??
+          data.error ??
+          '';
+        if (!reply) reply = JSON.stringify(data);
+        return reply;
       } else {
         const text = await r.text();
+        console.log('[energy] worker TEXT:', text);
         return text || '';
       }
     }catch(e){
@@ -832,23 +847,38 @@ Return MARKDOWN with EXACT headings below (no theory, only actions/decisions):
     async function askChat(prompt){
       addMsg(prompt, true);
       input.value = '';
-      const sys = `You are "Xinlian Butler". OUTPUT LANGUAGE: ${BUTLER_LANG_NAME[getLang()]||'Simplified Chinese'}. Help with features, navigation, and membership. Tone: warm, concise.`;
+      const sys = 'You are "Xinlian Butler". OUTPUT LANGUAGE: ' +
+        (BUTLER_LANG_NAME[getLang()] || 'Simplified Chinese') +
+        '. Help with features, navigation, and membership. Tone: warm, concise.';
       try{
         const r = await fetch(`${API_BASE}/api/chat`,{
           method:'POST',
           headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({messages:[
-            {role:'system',content:sys},
-            {role:'user',content:prompt}
-          ]})
+          body: JSON.stringify({
+            model: 'gpt-4.1-mini',
+            messages:[
+              {role:'system',content:sys},
+              {role:'user',content:prompt}
+            ],
+            temperature: 0.6,
+            stream: false
+          })
         });
         const ct = (r.headers.get('content-type') || '').toLowerCase();
         let reply = '';
         if (ct.includes('application/json')){
           const data = await r.json();
-          reply = data.reply ?? data.text ?? (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ?? '';
+          console.log('[chat] worker JSON:', data);
+          reply =
+            data.reply ??
+            data.text ??
+            (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ??
+            data.error ??
+            '';
+          if (!reply) reply = JSON.stringify(data);
         } else {
           reply = await r.text();
+          console.log('[chat] worker TEXT:', reply);
         }
         addMsg(reply || t('retry'));
       }catch(e){
@@ -952,5 +982,6 @@ Return MARKDOWN with EXACT headings below (no theory, only actions/decisions):
 </script>
 </body>
 </html>
+
 
 
