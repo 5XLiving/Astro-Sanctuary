@@ -997,103 +997,114 @@
     if (titleEl) titleEl.textContent = t('chat_title');
   }
 
-  /* ===== DOM Ready ===== */
-  document.addEventListener('DOMContentLoaded', ()=>{
-    // 默认填入今天日期 & 当前时间（方便测试）
-    const now = new Date();
-    const y = now.getFullYear();
-    const m = String(now.getMonth()+1).padStart(2,'0');
-    const d = String(now.getDate()).padStart(2,'0');
-    const hh = String(now.getHours()).padStart(2,'0');
-    const mm = String(now.getMinutes()).padStart(2,'0');
+document.addEventListener('DOMContentLoaded', () => {
+  // 默认填入今天日期 & 当前时间（方便测试）
+  const now = new Date();
+  const y  = now.getFullYear();
+  const m  = String(now.getMonth() + 1).padStart(2, '0');
+  const d  = String(now.getDate()).padStart(2, '0');
+  const hh = String(now.getHours()).padStart(2, '0');
+  const mm = String(now.getMinutes()).padStart(2, '0');
 
-    const bd = $('birthdate');
-    if (bd && !bd.value) bd.value = y + '-' + m + '-' + d;
+  const bd = $('birthdate');
+  if (bd && !bd.value) bd.value = `${y}-${m}-${d}`;
 
-    const bt = $('birthtime');
-    if (bt && !bt.value) bt.value = hh + ':' + mm;
+  const bt = $('birthtime');
+  if (bt && !bt.value) bt.value = `${hh}:${mm}`;
 
-    const sel = $('langSelect');
-    const current = getLang();
-    if (sel) {
-      sel.value = current;
-    }
-    document.documentElement.lang = current;
+  const sel = $('langSelect');
+  const current = getLang();
 
-    applyI18n();
-    applyChatI18n();
-    mountChat();
+  if (sel) {
+    sel.value = current;
+  }
+  document.documentElement.lang = current;
 
-    const goBtn = $('go');
-    if (goBtn) goBtn.addEventListener('click', generate);
+  // 初始化多语言 & Chat
+  applyI18n();
+  applyChatI18n();
+  mountChat();
 
-    const clearBtn = $('clear');
-    if (clearBtn){
-      clearBtn.addEventListener('click', ()=>{
-        ['name','gender','birthtime','birthplace','topic','question','presetQ'].forEach(id=>{
-          const el = $(id); if(!el) return;
-          if (el.tagName === 'SELECT') el.selectedIndex = 0;
-          else el.value = '';
-        });
+  // 生成按钮
+  const goBtn = $('go');
+  if (goBtn) goBtn.addEventListener('click', generate);
+
+  // 清空按钮
+  const clearBtn = $('clear');
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      ['name','gender','birthtime','birthplace','topic','question','presetQ'].forEach(id => {
+        const el = $(id);
+        if (!el) return;
+        if (el.tagName === 'SELECT') el.selectedIndex = 0;
+        else el.value = '';
+      });
+
+      const energyCard = $('energyCard');
+      const aiCard = $('aiCard');
+      if (energyCard) energyCard.style.display = 'none';
+      if (aiCard) aiCard.style.display = 'none';
+
+      const energyBox = $('energyText');
+      const aiBox = $('aiText');
+      if (energyBox) energyBox.innerHTML = '';
+      if (aiBox) aiBox.innerHTML = '';
+
+      const err = $('err');
+      if (err) err.style.display = 'none';
+
+      lastCtx = null;
+    });
+  }
+
+  // 模板问题选择 → 自动填入 textarea
+  const presetSel = $('presetQ');
+  if (presetSel) {
+    presetSel.addEventListener('change', (e) => {
+      const opt = e.target.options[e.target.selectedIndex];
+      const txt = opt ? opt.textContent.trim() : '';
+      if (txt) $('question').value = txt;
+    });
+  }
+
+  // 语言切换（只保留这一份监听器）
+  if (sel) {
+    sel.addEventListener('change', () => {
+      const newLang = sel.value;
+      setLang(newLang);
+      document.documentElement.lang = newLang;
+
+      applyI18n();
+      applyChatI18n();
+
+      // 如果已经生成过报告，切换语言时重渲染本地 HTML
+      if (lastCtx) {
+        lastCtx.lang = newLang;
         const energyCard = $('energyCard');
-        const aiCard = $('aiCard');
-        if (energyCard){ energyCard.style.display='none'; }
-        if (aiCard){ aiCard.style.display='none'; }
-        const energyBox = $('energyText');
-        const aiBox = $('aiText');
-        if (energyBox) energyBox.innerHTML = '';
-        if (aiBox) aiBox.innerHTML = '';
-        const err = $('err');
-        if (err) err.style.display='none';
-        lastCtx = null;
-      });
-    }
+        const aiCard     = $('aiCard');
+        const energyBox  = $('energyText');
+        const aiBox      = $('aiText');
 
-    const presetSel = $('presetQ');
-    if (presetSel){
-      presetSel.addEventListener('change', (e)=>{
-        const opt = e.target.options[e.target.selectedIndex];
-        const txt = opt ? opt.textContent.trim() : '';
-        if (txt) $('question').value = txt;
-      });
-    }
-
-    // 统一的语言切换：UI + Chat + 报告重渲染
-    if (sel) {
-      sel.addEventListener('change', () => {
-        const newLang = sel.value;
-        setLang(newLang);
-        applyI18n();
-        applyChatI18n();
-
-        if (lastCtx) {
-          lastCtx.lang = newLang;
-          const energyCard = $('energyCard');
-          const aiCard = $('aiCard');
-          const energyBox = $('energyText');
-          const aiBox = $('aiText');
-
-          if (energyCard && aiCard && energyBox && aiBox &&
-              energyCard.style.display !== 'none' &&
-              aiCard.style.display !== 'none') {
-            try {
-              const energyHtml = buildEnergyHtml(newLang, lastCtx);
-              const butlerHtml = buildButlerHtml(newLang, lastCtx);
-              energyBox.innerHTML = energyHtml;
-              aiBox.innerHTML = butlerHtml;
-            } catch (e) {
-              console.warn('[i18n→report] rebuild failed:', e);
-            }
+        if (
+          energyCard && aiCard && energyBox && aiBox &&
+          energyCard.style.display !== 'none' &&
+          aiCard.style.display     !== 'none'
+        ) {
+          try {
+            energyBox.innerHTML = buildEnergyHtml(newLang, lastCtx);
+            aiBox.innerHTML     = buildButlerHtml(newLang, lastCtx);
+          } catch (e) {
+            console.warn('[i18n→report] rebuild failed:', e);
           }
         }
-      });
-    }
-  });
-
-})();
+      }
+    });
+  }
+});
 </script>
 </body>
 </html>
+
 
 
 
