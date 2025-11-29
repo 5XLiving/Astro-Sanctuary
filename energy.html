@@ -241,19 +241,6 @@
           <label class="muted" data-i18n="birth_time_label">出生时间（可选）</label>
           <input type="time" id="birthtime">
         </div>
-        <div>
-          <label class="muted" data-i18n="topic_label">关注主题</label>
-          <select id="topic">
-            <option value="love" data-i18n="topic_love">爱情/关系</option>
-            <option value="career" data-i18n="topic_career">事业/工作</option>
-            <option value="wealth" data-i18n="topic_wealth">财富/投资</option>
-            <option value="family" data-i18n="topic_family">家庭/人际</option>
-            <option value="health" data-i18n="topic_health">健康/身心</option>
-            <option value="study" data-i18n="topic_study">学业/成长</option>
-            <option value="move" data-i18n="topic_move">旅行/搬迁</option>
-            <option value="other" data-i18n="topic_other">其他</option>
-          </select>
-        </div>
       </div><!-- /Row 2 -->
       
       <button id="btnGenerate" class="btn primary" data-i18n="btn_gen">
@@ -950,16 +937,24 @@
     }
   }
 
-  /* 渲染结果区 */
+  /* 渲染结果区（加入日文文案，避免 Friend / Focus 混语言） */
   function renderResult(ctx){
     if(!ctx) return;
+
     const lang = getLang();
     const isZh = (lang === "zh-CN" || lang === "zh-TW");
+    const isJa = (lang === "ja");
+
     const name = (ctx.name || "").trim();
     const topic = ctx.topic || "other";
     const lp = ctx.lp || calcLifePath(ctx.birthdate || "");
     const topicLabel = getTopicName(lang, topic);
-    const displayName = name || (isZh ? "朋友" : "Friend");
+    const displayName = name || (
+      isZh ? "朋友" :
+      isJa ? "Friend" :  // 也可以改成「あなた」如果你比较喜欢
+      "Friend"
+    );
+
     const lpLabelMap = isZh ? lpNameZhMap : lpNameEnMap;
     const lpLabel = lpLabelMap[lp] || "";
 
@@ -972,30 +967,49 @@
     const actionEl = $("actionTips");
     const remindEl = $("energyReminder");
 
+    // ===== 个人信息区 / Personal header =====
     if (personalInfo){
+      let html = "";
+
       if (isZh){
-        personalInfo.innerHTML =
+        html =
           "<p><strong>" + displayName + "</strong>，你的生命路径数字是 <strong>" + lp +
           "</strong>（" + lpLabel + "）。</p>" +
           "<p class=\"muted\">关注主题：" + topicLabel + "</p>";
+      } else if (isJa){
+        html =
+          "<p><strong>" + displayName + "</strong> さんのライフパスナンバーは <strong>" + lp +
+          "</strong>（" + lpLabel + "）です。</p>" +
+          "<p class=\"muted\">フォーカステーマ：" + topicLabel + "</p>";
       } else {
-        personalInfo.innerHTML =
+        html =
           "<p><strong>" + displayName + "</strong>, your Life Path number is <strong>" + lp +
           "</strong> (" + lpLabel + ").</p>" +
           "<p class=\"muted\">Focus: " + topicLabel + "</p>";
       }
+
+      personalInfo.innerHTML = html;
     }
+
+    // ===== 四个小格子内容 =====
     if (coreEl) coreEl.textContent = meaning.core;
     if (cycleEl) cycleEl.textContent = meaning.cycle;
+
     if (actionEl){
       if (extraAdvice){
-        actionEl.textContent = isZh
-          ? meaning.action + "。" + extraAdvice
-          : meaning.action + " " + extraAdvice;
+        if (isZh){
+          actionEl.textContent = meaning.action + "。" + extraAdvice;
+        } else if (isJa){
+          // 日文暂时沿用英文句子，但会一起输出，之后你想要可以再换成完全日文
+          actionEl.textContent = meaning.action + " " + extraAdvice;
+        } else {
+          actionEl.textContent = meaning.action + " " + extraAdvice;
+        }
       } else {
         actionEl.textContent = meaning.action;
       }
     }
+
     if (remindEl) remindEl.textContent = meaning.reminder;
   }
 
@@ -1235,3 +1249,4 @@
 </script>
 </body>
 </html>
+
