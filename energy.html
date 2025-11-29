@@ -288,25 +288,29 @@
 (function(){
   "use strict";
 
-  let lastCtx = null;
+  let lastCtx = null; // 记住最近一次的解读上下文，用来切语言时重渲染
 
-  /* ===== 配置（不再使用任何远程 AI）===== */
+  /* ===== 配置 ===== */
   const LANG_KEY = "site_lang";
 
   /* ===== 小工具 ===== */
   const $ = (id) => document.getElementById(id);
   const getLang = () => localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN";
-  const setLang = v => { localStorage.setItem(LANG_KEY, v); document.documentElement.lang = v; };
-  const BUTLER_LANG_NAME = {
-    'zh-CN':'Simplified Chinese',
-    'zh-TW':'Traditional Chinese',
-    'en':'English',
-    'ja':'Japanese',
-    'th':'Thai',
-    'ms':'Malay'
+  const setLang = v => {
+    localStorage.setItem(LANG_KEY, v);
+    document.documentElement.lang = v;
   };
 
-  /* ===== i18n（沿用你原来的文案）===== */
+  const BUTLER_LANG_NAME = {
+    "zh-CN":"Simplified Chinese",
+    "zh-TW":"Traditional Chinese",
+    "en":"English",
+    "ja":"Japanese",
+    "th":"Thai",
+    "ms":"Malay"
+  };
+
+  /* ===== i18n 词典（你原来的内容，略有整理，无 ensure() 错误） ===== */
   const i18n = {
     "zh-CN": {
       title:"能量类型分析 · 5XLiving", brand:"Soul Sanctuary", lang_label:"语言",
@@ -657,7 +661,7 @@
     9:"Type 9 · Integration & Healing"
   };
 
-  /* ===== 本地渲染：能量报告 HTML（修正版） ===== */
+  /* ===== 本地渲染：能量报告 HTML ===== */
   function buildEnergyHtml(lang, ctx){
     const isZh = (lang === "zh-CN" || lang === "zh-TW");
     const lpName = isZh ? (lpNameZh[ctx.lp] || "") : (lpNameEn[ctx.lp] || "");
@@ -756,14 +760,14 @@
     }
   }
 
-  /* ===== 本地渲染：心怜管家五区块 HTML（修正版） ===== */
+  /* ===== 本地渲染：心怜管家五区块 HTML ===== */
   function buildButlerHtml(lang, ctx){
     const isZh = (lang === "zh-CN" || lang === "zh-TW");
     const topicName = getTopicName(lang, ctx.topic);
     const lp = ctx.lp;
     const lpTagZh = lpNameZh[lp] || "";
     const lpTagEn = lpNameEn[lp] || "";
-    const q = ctx.question || "";
+    // const q = ctx.question || ""; // 目前未用
 
     if(isZh){
       return (
@@ -815,7 +819,7 @@
 
         '<h3 class="ai-head">Relationships</h3>' +
         '<ul>' +
-        '<li>Use “I feel…” instead of “You always…” when you speak about feelings, to reduce defensiveness.</li>' +
+        '<li>Use "I feel…" instead of "You always…" when you speak about feelings, to reduce defensiveness.</li>' +
         '<li>Reserve regular time for important connections (e.g. one 30-minute deep talk each week) instead of only talking when there is a problem.</li>' +
         '<li>If you are single, treat your relationship with yourself as a key priority: sleep, food, routines and self-care.</li>' +
         '</ul>' +
@@ -824,13 +828,13 @@
         '<ul>' +
         '<li>For these 30 days, tag each expense as: essential, nice-to-have, or can-delay. Just seeing the pattern already shifts your choices.</li>' +
         '<li>Set a gentle buffer target (e.g. one extra month of basic expenses) and outline how to build it step by step.</li>' +
-        '<li>Focus on stabilising cash flow rather than chasing one big “all-in” opportunity.</li>' +
+        '<li>Focus on stabilising cash flow rather than chasing one big "all-in" opportunity.</li>' +
         '</ul>' +
 
         '<h3 class="ai-head">Today\'s To-Dos</h3>' +
         '<ol>' +
         '<li>Spend 10–15 minutes writing down the 3 things that matter most to you right now (they may include <b>' + topicName + '</b> or your question).</li>' +
-        '<li>Choose one item where “doing a bit today” already makes a difference, and give it a 30-minute focus block.</li>' +
+        '<li>Choose one item where "doing a bit today" already makes a difference, and give it a 30-minute focus block.</li>' +
         '<li>Afterwards, note in 2–3 sentences what you did, how you felt, and what you want to adjust next time.</li>' +
         '</ol>' +
 
@@ -846,46 +850,47 @@
     }
   }
 
-  /* ====== 生成流程：纯本地，不联网 ====== */
+  /* ====== 生成流程：纯本地 ====== */
   async function generate(){
     const lang = getLang();
-    const name = $('name').value.trim();
-    const gender = $('gender').value;
-    const birthdate = $('birthdate').value;
-    const birthtime = $('birthtime').value;
-    const birthplace = $('birthplace').value.trim();
-    const topic = $('topic').value;
-    const question = $('question').value.trim();
+    const name = $("name").value.trim();
+    const gender = $("gender").value;
+    const birthdate = $("birthdate").value;
+    const birthtime = $("birthtime").value;
+    const birthplace = $("birthplace").value.trim();
+    const topic = $("topic").value;
+    const question = $("question").value.trim();
 
     if(!birthdate){
-      const e = $('err'); e.style.display='block'; e.textContent = t('need_birth');
-      setTimeout(()=>{ e.style.display='none'; }, 3000);
+      const e = $("err");
+      e.style.display = "block";
+      e.textContent = t("need_birth");
+      setTimeout(()=>{ e.style.display="none"; }, 3000);
       return;
     }
 
-    const btn = $('go');
+    const btn = $("go");
     const btnOrig = btn.textContent;
     btn.disabled = true;
-    btn.textContent = t('generating');
+    btn.textContent = t("generating");
 
-    const energyCard = $('energyCard'), energyBox = $('energyText');
-    const aiCard = $('aiCard'), aiBox = $('aiText');
+    const energyCard = $("energyCard"), energyBox = $("energyText");
+    const aiCard = $("aiCard"), aiBox = $("aiText");
 
-    energyCard.style.display='block';
-    aiCard.style.display='block';
+    energyCard.style.display = "block";
+    aiCard.style.display = "block";
 
-    energyBox.innerHTML = (
+    energyBox.innerHTML =
       '<div class="skeleton">' +
       '<div style="width:78%"></div><div style="width:92%"></div><div style="width:86%"></div>' +
       '<div style="width:70%"></div><div style="width:55%"></div>' +
-      '</div>'
-    );
-    aiBox.innerHTML = (
+      '</div>';
+
+    aiBox.innerHTML =
       '<div class="skeleton">' +
       '<div style="width:65%"></div><div style="width:82%"></div><div style="width:90%"></div>' +
       '<div style="width:72%"></div><div style="width:48%"></div>' +
-      '</div>'
-    );
+      '</div>';
 
     const lp = calcLifePath(birthdate);
     const ctx = {lang, name, gender, birthdate, birthtime, birthplace, topic, question, lp};
@@ -896,18 +901,18 @@
       const butlerHtml = buildButlerHtml(lang, ctx);
       energyBox.innerHTML = energyHtml;
       aiBox.innerHTML = butlerHtml;
-      window.scrollTo({top: energyCard.offsetTop - 10, behavior:'smooth'});
+      window.scrollTo({top: energyCard.offsetTop - 10, behavior:"smooth"});
     } catch(e){
-      console.error('local generate error:', e);
-      energyBox.innerHTML = '<p>' + t('neterr') + '</p>';
-      aiBox.innerHTML = '<p>' + t('retry') + '</p>';
-    } finally{
+      console.error("local generate error:", e);
+      energyBox.innerHTML = "<p>" + t("neterr") + "</p>";
+      aiBox.innerHTML = "<p>" + t("retry") + "</p>";
+    } finally {
       btn.disabled = false;
       btn.textContent = btnOrig;
     }
   }
 
-  /* ====== Chat 浮窗：改成本地 FAQ，不连 AI ====== */
+  /* ====== Chat 浮窗：本地 FAQ ====== */
   function localChatAnswer(prompt){
     const lang = getLang();
     const isZh = (lang === "zh-CN" || lang === "zh-TW");
@@ -939,16 +944,16 @@
   }
 
   function mountChat(){
-    const fab = $('ssChatFab'),
-          panel = $('ssChatPanel'),
-          body = $('ssChatBody'),
-          input = $('ssChatInput'),
-          send = $('ssChatSend'),
-          closeBtn = $('ssChatClose');
+    const fab = $("ssChatFab"),
+          panel = $("ssChatPanel"),
+          body = $("ssChatBody"),
+          input = $("ssChatInput"),
+          send = $("ssChatSend"),
+          closeBtn = $("ssChatClose");
 
     function addMsg(text, me=false){
-      const d = document.createElement('div');
-      d.className = 'ss-msg' + (me ? ' me' : '');
+      const d = document.createElement("div");
+      d.className = "ss-msg" + (me ? " me" : "");
       d.textContent = text;
       body.appendChild(d);
       body.scrollTop = body.scrollHeight;
@@ -956,155 +961,137 @@
 
     async function askChat(prompt){
       addMsg(prompt, true);
-      input.value = '';
+      input.value = "";
       const reply = localChatAnswer(prompt);
       addMsg(reply);
     }
 
-    if (fab) {
-      fab.addEventListener('click',()=>{
-        panel.style.display='flex';
-        input.focus();
-      });
-    }
-    if (closeBtn) {
-      closeBtn.addEventListener('click',()=>{ panel.style.display='none'; });
-    }
-    if (send) {
-      send.addEventListener('click',()=>{
+    if (!fab || !panel) return;
+
+    fab.addEventListener("click", ()=>{
+      panel.style.display = "flex";
+      input && input.focus();
+    });
+    closeBtn && closeBtn.addEventListener("click",()=>{ panel.style.display="none"; });
+    send && send.addEventListener("click",()=>{
+      const v = input.value.trim();
+      if(v) askChat(v);
+    });
+    input && input.addEventListener("keydown",e=>{
+      if(e.key === "Enter"){
         const v = input.value.trim();
         if(v) askChat(v);
-      });
-    }
-    if (input) {
-      input.addEventListener('keydown',e=>{
-        if(e.key === 'Enter'){
-          const v = input.value.trim();
-          if(v) askChat(v);
-        }
-      });
-    }
-  }
-
-  function applyChatI18n(){
-    const fab = $('ssChatFab');
-    if (fab) fab.textContent = t('chat_fab');
-    const sendBtn = $('ssChatSend');
-    if (sendBtn) sendBtn.textContent = t('chat_send');
-    const input = $('ssChatInput');
-    if (input) input.placeholder = t('chat_ph');
-    const titleEl = document.querySelector('.ss-chat-title');
-    if (titleEl) titleEl.textContent = t('chat_title');
-  }
-
-document.addEventListener('DOMContentLoaded', () => {
-  // 默认填入今天日期 & 当前时间（方便测试）
-  const now = new Date();
-  const y  = now.getFullYear();
-  const m  = String(now.getMonth() + 1).padStart(2, '0');
-  const d  = String(now.getDate()).padStart(2, '0');
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-
-  const bd = $('birthdate');
-  if (bd && !bd.value) bd.value = `${y}-${m}-${d}`;
-
-  const bt = $('birthtime');
-  if (bt && !bt.value) bt.value = `${hh}:${mm}`;
-
-  const sel = $('langSelect');
-  const current = getLang();
-
-  if (sel) {
-    sel.value = current;
-  }
-  document.documentElement.lang = current;
-
-  // 初始化多语言 & Chat
-  applyI18n();
-  applyChatI18n();
-  mountChat();
-
-  // 生成按钮
-  const goBtn = $('go');
-  if (goBtn) goBtn.addEventListener('click', generate);
-
-  // 清空按钮
-  const clearBtn = $('clear');
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      ['name','gender','birthtime','birthplace','topic','question','presetQ'].forEach(id => {
-        const el = $(id);
-        if (!el) return;
-        if (el.tagName === 'SELECT') el.selectedIndex = 0;
-        else el.value = '';
-      });
-
-      const energyCard = $('energyCard');
-      const aiCard = $('aiCard');
-      if (energyCard) energyCard.style.display = 'none';
-      if (aiCard) aiCard.style.display = 'none';
-
-      const energyBox = $('energyText');
-      const aiBox = $('aiText');
-      if (energyBox) energyBox.innerHTML = '';
-      if (aiBox) aiBox.innerHTML = '';
-
-      const err = $('err');
-      if (err) err.style.display = 'none';
-
-      lastCtx = null;
-    });
-  }
-
-  // 模板问题选择 → 自动填入 textarea
-  const presetSel = $('presetQ');
-  if (presetSel) {
-    presetSel.addEventListener('change', (e) => {
-      const opt = e.target.options[e.target.selectedIndex];
-      const txt = opt ? opt.textContent.trim() : '';
-      if (txt) $('question').value = txt;
-    });
-  }
-
-  // 语言切换（只保留这一份监听器）
-  if (sel) {
-    sel.addEventListener('change', () => {
-      const newLang = sel.value;
-      setLang(newLang);
-      document.documentElement.lang = newLang;
-
-      applyI18n();
-      applyChatI18n();
-
-      // 如果已经生成过报告，切换语言时重渲染本地 HTML
-      if (lastCtx) {
-        lastCtx.lang = newLang;
-        const energyCard = $('energyCard');
-        const aiCard     = $('aiCard');
-        const energyBox  = $('energyText');
-        const aiBox      = $('aiText');
-
-        if (
-          energyCard && aiCard && energyBox && aiBox &&
-          energyCard.style.display !== 'none' &&
-          aiCard.style.display     !== 'none'
-        ) {
-          try {
-            energyBox.innerHTML = buildEnergyHtml(newLang, lastCtx);
-            aiBox.innerHTML     = buildButlerHtml(newLang, lastCtx);
-          } catch (e) {
-            console.warn('[i18n→report] rebuild failed:', e);
-          }
-        }
       }
     });
   }
-});          // ✅ 结束 DOMContentLoaded
-})();        // ✅ 结束最上面的 (function(){ ... })()
-</script>     // ✅ script 标签正常关闭
+
+  function applyChatI18n(){
+    const fab = $("ssChatFab");
+    if (fab) fab.textContent = t("chat_fab");
+    const sendBtn = $("ssChatSend");
+    if (sendBtn) sendBtn.textContent = t("chat_send");
+    const input = $("ssChatInput");
+    if (input) input.placeholder = t("chat_ph");
+    const titleEl = document.querySelector(".ss-chat-title");
+    if (titleEl) titleEl.textContent = t("chat_title");
+  }
+
+  /* ===== DOM Ready ===== */
+  document.addEventListener("DOMContentLoaded", ()=>{
+    // 默认填入今天日期 & 当前时间
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth()+1).padStart(2,"0");
+    const d = String(now.getDate()).padStart(2,"0");
+    const hh = String(now.getHours()).padStart(2,"0");
+    const mm = String(now.getMinutes()).padStart(2,"0");
+
+    const bd = $("birthdate");
+    if (bd && !bd.value) bd.value = y + "-" + m + "-" + d;
+
+    const bt = $("birthtime");
+    if (bt && !bt.value) bt.value = hh + ":" + mm;
+
+    const sel = $("langSelect");
+    let current = getLang();
+    if (!i18n[current]) current = "zh-CN"; // 防呆
+    if (sel) sel.value = current;
+    document.documentElement.lang = current;
+
+    applyI18n();
+    applyChatI18n();
+    mountChat();
+
+    const goBtn = $("go");
+    if (goBtn) goBtn.addEventListener("click", generate);
+
+    const clearBtn = $("clear");
+    if (clearBtn){
+      clearBtn.addEventListener("click", ()=>{
+        ["name","gender","birthtime","birthplace","topic","question","presetQ"].forEach(id=>{
+          const el = $(id); if(!el) return;
+          if (el.tagName === "SELECT") el.selectedIndex = 0;
+          else el.value = "";
+        });
+        const energyCard = $("energyCard");
+        const aiCard = $("aiCard");
+        if (energyCard){ energyCard.style.display="none"; }
+        if (aiCard){ aiCard.style.display="none"; }
+        const energyBox = $("energyText");
+        const aiBox = $("aiText");
+        if (energyBox) energyBox.innerHTML = "";
+        if (aiBox) aiBox.innerHTML = "";
+        const err = $("err");
+        if (err) err.style.display="none";
+        lastCtx = null;
+      });
+    }
+
+    const presetSel = $("presetQ");
+    if (presetSel){
+      presetSel.addEventListener("change", (e)=>{
+        const opt = e.target.options[e.target.selectedIndex];
+        const txt = opt ? opt.textContent.trim() : "";
+        if (txt) $("question").value = txt;
+      });
+    }
+
+    if (sel){
+      sel.addEventListener("change", () => {
+        const newLang = sel.value;
+        setLang(newLang);
+        applyI18n();
+        applyChatI18n();
+
+        // 如果已经生成过报告，切语言时重渲染
+        if (lastCtx) {
+          lastCtx.lang = newLang;
+          const energyCard = $("energyCard");
+          const aiCard = $("aiCard");
+          const energyBox = $("energyText");
+          const aiBox = $("aiText");
+
+          if (
+            energyCard && aiCard && energyBox && aiBox &&
+            energyCard.style.display !== "none" &&
+            aiCard.style.display     !== "none"
+          ) {
+            try {
+              energyBox.innerHTML = buildEnergyHtml(newLang, lastCtx);
+              aiBox.innerHTML     = buildButlerHtml(newLang, lastCtx);
+            } catch (e) {
+              console.warn("[i18n→report] rebuild failed:", e);
+            }
+          }
+        }
+      });
+    }
+  });
+})();
+</script>
 </body>
 </html>  
+
 
 
 
