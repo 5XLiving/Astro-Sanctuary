@@ -288,7 +288,7 @@
 (function(){
   "use strict";
 
-  let lastCtx = null; // 记住最近一次的解读上下文，用来切语言时重渲染
+  let lastCtx = null; // 最近一次解读上下文
 
   /* ===== 配置 ===== */
   const LANG_KEY = "site_lang";
@@ -310,7 +310,7 @@
     "ms":"Malay"
   };
 
-  /* ===== i18n 词典（你原来的内容，略有整理，无 ensure() 错误） ===== */
+  /* ===== i18n 词典 ===== */
   const i18n = {
     "zh-CN": {
       title:"能量类型分析 · 5XLiving", brand:"Soul Sanctuary", lang_label:"语言",
@@ -637,8 +637,8 @@
     return m[topic] || m.other || "";
   }
 
-  /* 为不同生命路径准备一个简短标签（中/英） */
-  const lpNameZh = {
+  /* 为不同生命路径准备一个简短标签 */
+  const lpNameZhMap = {
     1:"起点型 · 主动开局",
     2:"桥梁型 · 协作与支持",
     3:"表达型 · 创意与沟通",
@@ -649,7 +649,7 @@
     8:"权威型 · 资源与成就",
     9:"整合型 · 疗愈与收束"
   };
-  const lpNameEn = {
+  const lpNameEnMap = {
     1:"Type 1 · Initiator",
     2:"Type 2 · Bridge & Support",
     3:"Type 3 · Expression & Creativity",
@@ -661,548 +661,544 @@
     9:"Type 9 · Integration & Healing"
   };
 
-function buildButlerHtml(lang, ctx){
-  var topicName = getTopicName(lang, ctx.topic);
-  var lp = ctx.lp;
-  var lpTagZh = lpNameZhMap[lp] || "";
-  var lpTagEn = lpNameEnMap[lp] || "";
+  /* ===== 心怜管家本地 HTML ===== */
+  function buildButlerHtml(lang, ctx){
+    const topicName = getTopicName(lang, ctx.topic);
+    const lp = ctx.lp;
+    const lpTagZh = lpNameZhMap[lp] || "";
+    const lpTagEn = lpNameEnMap[lp] || "";
 
-  function buildZh(){
-    return (
-      '<h3 class="ai-head">事業</h3>' +
-      '<ul>' +
-      '<li>為本月「' + topicName + '」設定一個最小可執行目標，例如：完成 1 個作品、發出 3 封關鍵郵件、或敲定 1 個合作。</li>' +
-      '<li>把這個目標拆成 <b>每週 1 步</b>，寫進行事曆，而不是只放在腦中。</li>' +
-      '<li>依照你的能量類型（' + lpTagZh + '），在精神最清醒的時段處理最難的那 20% 任務。</li>' +
-      '</ul>' +
+    function buildZh(){
+      return (
+        '<h3 class="ai-head">事業</h3>' +
+        '<ul>' +
+        '<li>為本月「' + topicName + '」設定一個最小可執行目標，例如：完成 1 個作品、發出 3 封關鍵郵件、或敲定 1 個合作。</li>' +
+        '<li>把這個目標拆成 <b>每週 1 步</b>，寫進行事曆，而不是只放在腦中。</li>' +
+        '<li>依照你的能量類型（' + lpTagZh + '），在精神最清醒的時段處理最難的那 20% 任務。</li>' +
+        '</ul>' +
 
-      '<h3 class="ai-head">感情</h3>' +
-      '<ul>' +
-      '<li>練習用「我感受到……」而不是「你都……」來表達感受，可以大幅降低防禦與衝突。</li>' +
-      '<li>為重要關係預留固定時間（例如每週一次 30 分鐘深度對話），而不是只在出問題時才談。</li>' +
-      '<li>如果目前是單身，把一部分注意力放在「自己和自己的關係」，穩定作息與自我照顧會變成吸引力的一部分。</li>' +
-      '</ul>' +
+        '<h3 class="ai-head">感情</h3>' +
+        '<ul>' +
+        '<li>練習用「我感受到……」而不是「你都……」來表達感受，可以大幅降低防禦與衝突。</li>' +
+        '<li>為重要關係預留固定時間（例如每週一次 30 分鐘深度對話），而不是只在出問題時才談。</li>' +
+        '<li>如果目前是單身，把一部分注意力放在「自己和自己的關係」，穩定作息與自我照顧會變成吸引力的一部分。</li>' +
+        '</ul>' +
 
-      '<h3 class="ai-head">財運</h3>' +
-      '<ul>' +
-      '<li>這 30 天可以把所有支出分為三類：必要、想要、可以延期。先看清錢往哪裡流。</li>' +
-      '<li>設定一個溫和的現金緩衝目標，例如多存 1 個月的基本生活費，並寫下可行的實現路徑。</li>' +
-      '<li>與其追求一次性暴衝，不如把「現金流穩定」當成這階段的核心修煉。</li>' +
-      '</ul>' +
+        '<h3 class="ai-head">財運</h3>' +
+        '<ul>' +
+        '<li>這 30 天可以把所有支出分為三類：必要、想要、可以延期。先看清錢往哪裡流。</li>' +
+        '<li>設定一個溫和的現金緩衝目標，例如多存 1 個月的基本生活費，並寫下可行的實現路徑。</li>' +
+        '<li>與其追求一次性暴衝，不如把「現金流穩定」當成這階段的核心修煉。</li>' +
+        '</ul>' +
 
-      '<h3 class="ai-head">今日待辦</h3>' +
-      '<ol>' +
-      '<li>花 10–15 分鐘寫下目前最讓你在意的 3 件事（可以包含「' + topicName + '」或你剛才的提問）。</li>' +
-      '<li>從中圈出 1 件「今天做一點就有差」的事項，為它安排 30 分鐘專注時間。</li>' +
-      '<li>結束後，用 2–3 句話記錄：我做到了什麼？我的感受如何？下一步想怎麼調整？</li>' +
-      '</ol>' +
+        '<h3 class="ai-head">今日待辦</h3>' +
+        '<ol>' +
+        '<li>花 10–15 分鐘寫下目前最讓你在意的 3 件事（可以包含「' + topicName + '」或你剛才的提問）。</li>' +
+        '<li>從中圈出 1 件「今天做一點就有差」的事項，為它安排 30 分鐘專注時間。</li>' +
+        '<li>結束後，用 2–3 句話記錄：我做到了什麼？我的感受如何？下一步想怎麼調整？</li>' +
+        '</ol>' +
 
-      '<h3 class="ai-head">30 天建議</h3>' +
-      '<ul>' +
-      '<li><b>第 1 週：</b>整理環境與資訊，釐清你在「' + topicName + '」上的真正優先順序。</li>' +
-      '<li><b>第 2 週：</b>完成第一個小成果（草稿、訊息、對話或一個小實驗都可以）。</li>' +
-      '<li><b>第 3 週：</b>根據回饋微調策略，減少明顯耗能的做法，多做讓你稍微開心的行動。</li>' +
-      '<li><b>第 4 週：</b>複盤整個月，寫下 3 件值得感謝自己的地方，並為下一個 30 天設定一個更輕盈的目標。</li>' +
-      '</ul>' +
-      '<p class="muted" style="margin-top:8px">以上為本地示範版「心憐管家」建議，使用簡單規則配合你的生日與主題生成，不連線外部 AI 伺服器。</p>'
-    );
+        '<h3 class="ai-head">30 天建議</h3>' +
+        '<ul>' +
+        '<li><b>第 1 週：</b>整理環境與資訊，釐清你在「' + topicName +
+        '」上的真正優先順序。</li>' +
+        '<li><b>第 2 週：</b>完成第一個小成果（草稿、訊息、對話或一個小實驗都可以）。</li>' +
+        '<li><b>第 3 週：</b>根據回饋微調策略，減少明顯耗能的做法，多做讓你稍微開心的行動。</li>' +
+        '<li><b>第 4 週：</b>複盤整個月，寫下 3 件值得感謝自己的地方，並為下一個 30 天設定一個更輕盈的目標。</li>' +
+        '</ul>' +
+        '<p class="muted" style="margin-top:8px">以上為本地示範版「心憐管家」建議，使用簡單規則配合你的生日與主題生成，不連線外部 AI 伺服器。</p>'
+      );
+    }
+
+    function buildJa(){
+      return (
+        '<h3 class="ai-head">仕事・キャリア</h3>' +
+        '<ul>' +
+        '<li>今月、「' + topicName +
+        '」に関して達成したいことを一つだけ決めます。作品を一つ仕上げる、重要なメールを三通送る、協業の相談を一件進めるなど。</li>' +
+        '<li>そのゴールを<b>週ごとの一歩</b>に分け、カレンダーに書き込みます。頭の中だけに置かないようにしましょう。</li>' +
+        '<li>あなたのパターン（' + lpTagEn +
+        '）を意識して、一日の中で一番頭が冴えている時間帯に、いちばん重たい 20% のタスクを当ててください。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">恋愛・人間関係</h3>' +
+        '<ul>' +
+        '<li>「あなたはいつも…」ではなく、「私はこう感じている…」という形で気持ちを伝える練習をしてみましょう。防御反応がぐっと下がります。</li>' +
+        '<li>トラブルが出たときだけ話すのではなく、週に一度 30 分ほど、じっくり話せる時間をあらかじめ予約しておくと安心感が高まります。</li>' +
+        '<li>シングルの場合は、「自分との関係」を整えることが土台になります。生活リズムやセルフケアは、将来のご縁にもつながる準備です。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">お金・現実面</h3>' +
+        '<ul>' +
+        '<li>この 30 日間は支出を「必要」「あればうれしい」「後回し可能」の三つに分けてみましょう。お金の流れが見えるだけでも意識が変わります。</li>' +
+        '<li>まずは「最低限 1 か月分の生活費のクッションをつくる」など、現実的でやさしい目標を決めてみてください。</li>' +
+        '<li>一度きりの大勝負よりも、キャッシュフローを安定させることを軸にした方が、長期的には安心です。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">今日できること</h3>' +
+        '<ol>' +
+        '<li>今いちばん気になっていることを 3 つ書き出します（「' + topicName +
+        '」やあなたの質問内容を含めても構いません）。</li>' +
+        '<li>その中から「今日少しだけ進めるだけでも意味がある」ものを一つ選び、30 分間の集中時間を確保します。</li>' +
+        '<li>終わったら、何をしたか、どう感じたか、次はどうしたいかを 2〜3 行でメモしておきましょう。</li>' +
+        '</ol>' +
+
+        '<h3 class="ai-head">30 日の流れ</h3>' +
+        '<ul>' +
+        '<li><b>1 週目：</b>環境と情報を整え、「' + topicName +
+        '」について本当に優先したいことを絞り込みます。</li>' +
+        '<li><b>2 週目：</b>小さくても具体的な成果を一つつくります（ドラフト、メッセージ、対話、簡単なテストなど）。</li>' +
+        '<li><b>3 週目：</b>返ってきた反応を見てやり方を微調整し、明らかに消耗する行動を減らし、少しでも楽しい行動を増やします。</li>' +
+        '<li><b>4 週目：</b>1 か月を振り返り、自分をねぎらうポイントを 3 つ書き出し、次の 30 日のために軽やかなテーマを一つ設定します。</li>' +
+        '</ul>' +
+        '<p class="muted" style="margin-top:8px">この「心憐コンシェルジュ」はローカル版デモです。あなたの生年月日とテーマに基づいたシンプルなルールだけで生成されており、外部 AI には接続していません。</p>'
+      );
+    }
+
+    function buildTh(){
+      return (
+        '<h3 class="ai-head">การงาน / เส้นทางอาชีพ</h3>' +
+        '<ul>' +
+        '<li>กำหนดเป้าหมายเล็ก ๆ เพียงหนึ่งอย่างในเดือนนี้ที่เกี่ยวกับ <b>' + topicName +
+        '</b> เช่น ปิดงานหนึ่งชิ้น ส่งอีเมลสำคัญสามฉบับ หรือคุยเรื่องดีลหนึ่งครั้ง</li>' +
+        '<li>แตกเป้านั้นออกเป็น<b>หนึ่งก้าวต่อสัปดาห์</b> แล้วจดลงในปฏิทินจริง ไม่ปล่อยให้ลอยอยู่ในหัวอย่างเดียว</li>' +
+        '<li>ดูจังหวะพลังงานของตัวเอง (' + lpTagEn +
+        ') เลือกช่วงเวลาที่สมองปลอดโปร่งที่สุดของวันเพื่อจัดการ 20 เปอร์เซ็นต์งานที่หนักที่สุด</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">ความรัก / ความสัมพันธ์</h3>' +
+        '<ul>' +
+        '<li>ลองใช้ประโยคแบบ "ฉันรู้สึกว่า…" แทน "เธอชอบ…" จะช่วยลดการป้องกันตัวและการปะทะได้มาก</li>' +
+        '<li>กันเวลาแน่นอนสัปดาห์ละครั้งสำหรับการคุยลึก ๆ ประมาณ 30 นาที แทนที่จะคุยกันเฉพาะตอนมีปัญหา</li>' +
+        '<li>ถ้าตอนนี้โสด ให้ถือว่า "ความสัมพันธ์กับตัวเอง" คือฐานสำคัญ จัดระบบการนอน การกิน การดูแลตัวเองให้ดีขึ้นก่อน</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">การเงิน</h3>' +
+        '<ul>' +
+        '<li>ในช่วง 30 วันนี้ ลองจัดหมวดรายจ่ายเป็นสามกลุ่ม: จำเป็น อยากได้ และเลื่อนได้ แค่เห็นภาพรวมก็ช่วยปรับการตัดสินใจแล้ว</li>' +
+        '<li>ตั้งเป้าหมายกันชนเงินสดที่จับต้องได้ เช่น สำรองค่าใช้จ่ายพื้นฐานเพิ่มอีกหนึ่งเดือน พร้อมเขียนทางเลือกว่าจะทำให้ถึงเป้าอย่างไร</li>' +
+        '<li>แทนที่จะหวังโอกาสครั้งเดียวแล้วชีวิตเปลี่ยน ให้โฟกัสที่การสร้างกระแสเงินสดที่นิ่งและคาดเดาได้มากขึ้น</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">สิ่งที่ทำได้วันนี้</h3>' +
+        '<ol>' +
+        '<li>ใช้เวลา 10–15 นาทีเขียนสิ่งที่ตอนนี้คุณกังวลหรือให้ความสำคัญมากที่สุด 3 เรื่อง (รวม <b>' + topicName +
+        '</b> หรือคำถามของคุณได้)</li>' +
+        '<li>เลือกหนึ่งเรื่องที่ "ทำวันนี้นิดเดียวก็มีผล" แล้วกันเวลาโฟกัสให้มัน 30 นาที</li>' +
+        '<li>หลังทำเสร็จ เขียนสั้น ๆ ว่าได้ทำอะไรไปแล้ว รู้สึกอย่างไร และครั้งหน้าจะปรับอะไร</li>' +
+        '</ol>' +
+
+        '<h3 class="ai-head">แนวทาง 30 วัน</h3>' +
+        '<ul>' +
+        '<li><b>สัปดาห์ที่ 1:</b> เคลียร์สภาพแวดล้อมและข้อมูลที่รก แล้วเรียงลำดับความสำคัญที่แท้จริงของเรื่อง <b>' + topicName +
+        '</b></li>' +
+        '<li><b>สัปดาห์ที่ 2:</b> สร้างผลลัพธ์เล็ก ๆ อย่างน้อยหนึ่งอย่าง เช่น ร่างงาน ข้อความ คุยกับใครสักคน หรือทดลองอะไรหนึ่งครั้ง</li>' +
+        '<li><b>สัปดาห์ที่ 3:</b> ดูผลตอบรับแล้วปรับวิธีการ ลดสิ่งที่ดูดพลัง เพิ่มสิ่งที่ทำแล้วรู้สึกดีขึ้นเล็กน้อย</li>' +
+        '<li><b>สัปดาห์ที่ 4:</b> ทบทวนทั้งเดือน เขียน 3 อย่างที่อยากขอบคุณตัวเอง และตั้งเป้าที่เบาขึ้นสำหรับ 30 วันถัดไป</li>' +
+        '</ul>' +
+        '<p class="muted" style="margin-top:8px">ส่วน "Xinlian Concierge" นี้เป็นเวอร์ชันทดลองในเครื่อง ใช้กฎง่าย ๆ จากวันเกิดและหัวข้อของคุณเท่านั้น ยังไม่เชื่อมต่อกับ AI ภายนอก</p>'
+      );
+    }
+
+    function buildMs(){
+      return (
+        '<h3 class="ai-head">Kerjaya</h3>' +
+        '<ul>' +
+        '<li>Tetapkan satu matlamat kecil untuk bulan ini berkaitan <b>' + topicName +
+        '</b>, contohnya menyiapkan satu projek, menghantar tiga emel penting atau memulakan satu perbincangan kerjasama.</li>' +
+        '<li>Pecahkan matlamat itu kepada<b>satu langkah setiap minggu</b> dan tandakan terus dalam kalendar, bukan sekadar ingat dalam kepala.</li>' +
+        '<li>Selaraskan dengan corak tenaga anda (' + lpTagEn +
+        ') dengan meletakkan 20 peratus tugas paling berat pada waktu yang paling segar dalam sehari.</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Hubungan & Emosi</h3>' +
+        '<ul>' +
+        '<li>Gunakan ayat seperti "saya rasa…" dan bukannya "awak selalu…" apabila bercakap tentang perasaan, supaya ruang untuk mendengar satu sama lain lebih terbuka.</li>' +
+        '<li>Sediakan masa tetap seminggu sekali, kira-kira 30 minit, untuk berbual secara jujur, bukan hanya bercakap bila masalah muncul.</li>' +
+        '<li>Jika anda bujang, anggap hubungan dengan diri sendiri sebagai asas dahulu. Rutin harian yang lebih stabil dan penjagaan diri akan menyokong hubunganในอนาคต.</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Kewangan</h3>' +
+        '<ul>' +
+        '<li>Sepanjang 30 hari ini, cuba bahagikan perbelanjaan kepada tiga kategori: perlu, mahu, dan boleh ditangguh. Ia membantu anda melihat ke mana wang mengalir.</li>' +
+        '<li>Tetapkan sasaran penampan tunai yang realistik, contohnya tambahan satu bulan perbelanjaan asas, dan tulis beberapa cara untuk mencapainya.</li>' +
+        '<li>Daripada mengejar satu peluang besar sekali gus, lebih stabil jika fokus pada aliran tunai yang konsisten dan boleh dijangka.</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Tindakan Hari Ini</h3>' +
+        '<ol>' +
+        '<li>Luangkan 10–15 minit menulis tiga perkara yang paling bermain di fikiran anda sekarang (boleh termasuk <b>' + topicName +
+        '</b> atau soalan anda).</li>' +
+        '<li>Pilih satu perkara yang jika dibuat sedikit hari ini pun sudah ada kesan, dan beri masa fokus 30 minit untuk itu.</li>' +
+        '<li>Selepas selesai, catat secara ringkas apa yang anda lakukan, apa yang anda rasa, dan apa yang ingin anda ubah pada kali seterusnya.</li>' +
+        '</ol>' +
+
+        '<h3 class="ai-head">Cadangan 30 Hari</h3>' +
+        '<ul>' +
+        '<li><b>Minggu 1:</b> Kemas ruang dan maklumat anda, dan jelaskan keutamaan sebenar bagi <b>' + topicName +
+        '</b>.</li>' +
+        '<li><b>Minggu 2:</b> Cipta satu hasil kecil yang nyata, seperti draf, mesej, perbualan atau ujian ringkas.</li>' +
+        '<li><b>Minggu 3:</b> Laraskan strategi berdasarkan maklum balas; kurangkan tindakan yang jelas menghabiskan tenaga, dan tambah tindakan yang memberi sedikit rasa ringan.</li>' +
+        '<li><b>Minggu 4:</b> Tinjau semula sebulan, tulis tiga perkara yang anda rasa bangga atau bersyukur, dan pilih satu fokus yang lebih ringan untuk 30 hari seterusnya。</li>' +
+        '</ul>' +
+        '<p class="muted" style="margin-top:8px">Bahagian "Xinlian Concierge" ini ialah demo tempatan. Ia menggunakan peraturan ringkas berasaskan tarikh lahir dan tema anda sahaja dan tidak menyambung kepada AI luar。</p>'
+      );
+    }
+
+    function buildEn(){
+      return (
+        '<h3 class="ai-head">Career</h3>' +
+        '<ul>' +
+        '<li>Pick one realistic focus for this month around <b>' + topicName +
+        '</b> (for example, finish one piece of work, send three key emails, or move one collaboration forward).</li>' +
+        '<li>Break it into<b>one step per week</b> and put it in your calendar, not only in your head。</li>' +
+        '<li>Given your pattern (' + lpTagEn +
+        '), use your clearest time of the day for the hardest 20 percent of tasks。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Relationships</h3>' +
+        '<ul>' +
+        '<li>Use "I feel…" instead of "You always…" when you speak about feelings, to reduce defensiveness and conflict。</li>' +
+        '<li>Reserve regular time for important connections (for example, one 30-minute deep talk each week) instead of only talking when there is a problem。</li>' +
+        '<li>If you are single, treat your relationship with yourself as a key priority: sleep, food, routines and self-care。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Money</h3>' +
+        '<ul>' +
+        '<li>For these 30 days, tag each expense as essential, nice-to-have, or can-delay。 Just seeing the pattern already shifts your choices。</li>' +
+        '<li>Set a gentle buffer target (for example, one extra month of basic expenses) and outline how to build it step by step。</li>' +
+        '<li>Focus on stabilising cash flow rather than chasing one big all-in opportunity。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Today\'s To-Dos</h3>' +
+        '<ol>' +
+        '<li>Spend 10–15 minutes writing down the three things that matter most to you right now (they may include <b>' + topicName +
+        '</b> or your question)。</li>' +
+        '<li>Choose one item where doing a bit today already makes a difference, and give it a 30-minute focus block。</li>' +
+        '<li>Afterwards, note in two or three sentences what you did, how you felt, and what you want to adjust next time。</li>' +
+        '</ol>' +
+
+        '<h3 class="ai-head">Next 30 Days</h3>' +
+        '<ul>' +
+        '<li><b>Week 1:</b> clean up your environment and information; clarify what truly comes first around <b>' + topicName +
+        '</b>。</li>' +
+        '<li><b>Week 2:</b> create the first small outcome (a draft, a message, a conversation, a simple test)。</li>' +
+        '<li><b>Week 3:</b> adjust based on feedback; do less of what obviously drains you and more of what feels slightly energising。</li>' +
+        '<li><b>Week 4:</b> review the month, thank yourself for three specific things, and set a lighter focus for the next 30 days。</li>' +
+        '</ul>' +
+        '<p class="muted" style="margin-top:8px">This Xinlian Butler section is a local demo: it uses simple rules based on your birthdate and topic, and does not call any external AI。</p>'
+      );
+    }
+
+    if (lang === "zh-CN") return buildZh();
+    if (lang === "zh-TW") return buildZh(); // 這裡用同一套繁中語感；如果你要獨立版本可以拆開
+    if (lang === "ja") return buildJa();
+    if (lang === "th") return buildTh();
+    if (lang === "ms") return buildMs();
+    return buildEn();
   }
 
-  function buildJa(){
-    return (
-      '<h3 class="ai-head">仕事・キャリア</h3>' +
-      '<ul>' +
-      '<li>今月、「' + topicName +
-      '」に関して達成したいことを一つだけ決めます。作品を一つ仕上げる、重要なメールを三通送る、協業の相談を一件進めるなど。</li>' +
-      '<li>そのゴールを<b>週ごとの一歩</b>に分け、カレンダーに書き込みます。頭の中だけに置かないようにしましょう。</li>' +
-      '<li>あなたのパターン（' + lpTagEn +
-      '）を意識して、一日の中で一番頭が冴えている時間帯に、いちばん重たい 20% のタスクを当ててください。</li>' +
-      '</ul>' +
+  /* ===== 能量报告本地 HTML ===== */
+  function buildEnergyHtml(lang, ctx){
+    const topicName = getTopicName(lang, ctx.topic);
+    const q = ctx.question || "";
+    const namePartZh = ctx.name ? (ctx.name + "，") : "";
+    const namePartEn = ctx.name ? (ctx.name + ", ") : "";
+    const lpLabelZh = lpNameZhMap[ctx.lp] || "";
+    const lpLabelEn = lpNameEnMap[ctx.lp] || "";
 
-      '<h3 class="ai-head">恋愛・人間関係</h3>' +
-      '<ul>' +
-      '<li>「あなたはいつも…」ではなく、「私はこう感じている…」という形で気持ちを伝える練習をしてみましょう。防御反応がぐっと下がります。</li>' +
-      '<li>トラブルが出たときだけ話すのではなく、週に一度 30 分ほど、じっくり話せる時間をあらかじめ予約しておくと安心感が高まります。</li>' +
-      '<li>シングルの場合は、「自分との関係」を整えることが土台になります。生活リズムやセルフケアは、将来のご縁にもつながる準備です。</li>' +
-      '</ul>' +
+    function zhCN(){
+      const qPart = q
+        ? '<p>你現在的提問方向：「' + q +
+          '」，會放大你對現狀的敏感度，也提醒你要更有意識地分配精力。</p>'
+        : "";
+      return (
+        '<h3 class="ai-head">能量画像</h3>' +
+        '<p>' + namePartZh + '你的生命路徑數字為 <b>' + ctx.lp +
+        '</b>（' + lpLabelZh + '）。近期在「' + topicName +
+        '」主題上，重點不是當下一定要做出巨大突破，而是用穩定的小步行動，把已經在想的事情真正落地。</p>' +
+        qPart +
 
-      '<h3 class="ai-head">お金・現実面</h3>' +
-      '<ul>' +
-      '<li>この 30 日間は支出を「必要」「あればうれしい」「後回し可能」の三つに分けてみましょう。お金の流れが見えるだけでも意識が変わります。</li>' +
-      '<li>まずは「最低限 1 か月分の生活費のクッションをつくる」など、現実的でやさしい目標を決めてみてください。</li>' +
-      '<li>一度きりの大勝負よりも、キャッシュフローを安定させることを軸にした方が、長期的には安心です。</li>' +
-      '</ul>' +
+        '<h3 class="ai-head">當下節律（7 天）</h3>' +
+        '<ul>' +
+        '<li><b>前 2–3 天：</b>適合先盤點手上事情，整理環境／檔案／待辦；越簡單的小任務越能幫你「熱身」。</li>' +
+        '<li><b>中間 2–3 天：</b>可以挑 1–2 件與「' + topicName + '」直接相關的行動，例如一通訊息、一個對話、一次小嘗試。</li>' +
+        '<li><b>最後 1–2 天：</b>收尾與回顧周期，寫下這幾天的 3 個「做得好的地方」，不要只盯著沒做到的。</li>' +
+        '</ul>' +
 
-      '<h3 class="ai-head">今日できること</h3>' +
-      '<ol>' +
-      '<li>今いちばん気になっていることを 3 つ書き出します（「' + topicName +
-      '」やあなたの質問内容を含めても構いません）。</li>' +
-      '<li>その中から「今日少しだけ進めるだけでも意味がある」ものを一つ選び、30 分間の集中時間を確保します。</li>' +
-      '<li>終わったら、何をしたか、どう感じたか、次はどうしたいかを 2〜3 行でメモしておきましょう。</li>' +
-      '</ol>' +
+        '<h3 class="ai-head">30 天走勢</h3>' +
+        '<ul>' +
+        '<li>整體節奏偏「循序漸進」，適合分成每週一個小目標，而不是一次性把所有計畫壓在同一週。</li>' +
+        '<li>當感覺卡住時，與其硬頂，不如先調整生活作息、睡眠與身體狀態，心態會跟著鬆動。</li>' +
+        '<li>如果你願意，每週為「' + topicName + '」留出至少 2 個固定時段，當作與自己的約定。</li>' +
+        '</ul>' +
 
-      '<h3 class="ai-head">30 日の流れ</h3>' +
-      '<ul>' +
-      '<li><b>1 週目：</b>環境と情報を整え、「' + topicName +
-      '」について本当に優先したいことを絞り込みます。</li>' +
-      '<li><b>2 週目：</b>小さくても具体的な成果を一つつくります（ドラフト、メッセージ、対話、簡単なテストなど）。</li>' +
-      '<li><b>3 週目：</b>返ってきた反応を見てやり方を微調整し、明らかに消耗する行動を減らし、少しでも楽しい行動を増やします。</li>' +
-      '<li><b>4 週目：</b>1 か月を振り返り、自分をねぎらうポイントを 3 つ書き出し、次の 30 日のために軽やかなテーマを一つ設定します。</li>' +
-      '</ul>' +
-      '<p class="muted" style="margin-top:8px">この「心憐コンシェルジュ」はローカル版デモです。あなたの生年月日とテーマに基づいたシンプルなルールだけで生成されており、外部 AI には接続していません。</p>'
-    );
+        '<h3 class="ai-head">關鍵資源</h3>' +
+        '<ul>' +
+        '<li>你對細節的直覺與敏感，是很好的雷達，可以幫你避開明顯不適合的選擇。</li>' +
+        '<li>當有人願意和你一起討論或陪你執行時，你會更容易堅持，不必勉強一個人扛全部。</li>' +
+        '<li>你過往的經驗（成功也好、失誤也好）都是資料庫，可以拿來複盤，而不是當作羞愧的來源。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">易耗點與界線</h3>' +
+        '<ul>' +
+        '<li>長時間滑手機、比較自己與他人的進度，會讓你對「還不夠好」非常敏感，形成隱形內耗。</li>' +
+        '<li>答應太多別人的請求，忘記留時間給自己的計畫，是這一階段最容易失衡的地方。</li>' +
+        '<li>你可以練習對自己說：「這件事我可以分成三小步做」，而不是一次期待完美。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">方法與侷限</h3>' +
+        '<p>以上解讀是基於 <b>出生日期與簡單關注主題</b> 的本地規則推演，沒有使用連網 AI，也尚未整合完整命盤與流年等資料。</p>' +
+        '<p>它適合作為一個「溫和的起點」，幫你先看見自己的節奏與可用資源。未來若加入更完整的命盤與動態流年，報告會更細緻、更貼近你的真實狀態。</p>'
+      );
+    }
+
+    function zhTW(){
+      const qPart = q
+        ? '<p>你目前的提問（「' + q +
+          '」）其實是在提醒你留意自己把能量花在什麼地方，可以把它當成更有意識選擇專注方向的起點。</p>'
+        : "";
+      return (
+        '<h3 class="ai-head">能量速寫</h3>' +
+        '<p>' + namePartZh + '你的生命路徑數字為 <b>' + ctx.lp +
+        '</b>（' + lpLabelZh + '）。在<b>「' + topicName +
+        '」</b>這個主題上，現在最重要的不是一次衝出巨大突破，而是透過穩定、可持續的小步行動，慢慢把你心裡已經構想的東西落地。</p>' +
+        qPart +
+
+        '<h3 class="ai-head">未來 7 天</h3>' +
+        '<ul>' +
+        '<li><b>第 1–2 天：</b>先整理空間、檔案與待辦清單，讓環境與頭腦都輕一點。越簡單的小任務，越適合作為「熱身」。</li>' +
+        '<li><b>第 3–5 天：</b>選出 1–2 個與<b>「' + topicName +
+        '」</b>直接相關的具體行動，例如發一則訊息、約一場對話，或做一個小小的嘗試。</li>' +
+        '<li><b>第 6–7 天：</b>幫這個小週期收尾，寫下這幾天你做得不錯的 3 件事，而不是只盯著自己還沒完成的部分。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">未來 30 天</h3>' +
+        '<ul>' +
+        '<li>這段時間比較適合「循序漸進」的節奏，為自己設計<b>每週一個小焦點</b>，而不是把所有目標一次塞進同一週。</li>' +
+        '<li>當你覺得卡住、動不起來時，與其硬撐，不如先從睡眠、作息與身體狀態下手調整，心態通常會隨之鬆動。</li>' +
+        '<li>如果可以，為<b>「' + topicName +
+        '」</b>在行事曆上預留每週至少 2 個固定時段，像是與自己的一個正式約定。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">關鍵資源</h3>' +
+        '<ul>' +
+        '<li>你對細節的敏銳與直覺是一套很好的「雷達系統」，能幫你及早看見不對勁或不適合的選項。</li>' +
+        '<li>當身邊有人可以一起討論、陪你並行時，你會更容易堅持，而不需要逞強一個人扛所有事情。</li>' +
+        '<li>過去的經驗——包含成功與失誤——其實都是資料庫，可以拿來複盤與調整，而不是拿來證明「自己不夠好」。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">能量流失與界線</h3>' +
+        '<ul>' +
+        '<li>長時間滑手機、無意識地拿自己跟別人比較，很容易在不知不覺中消耗掉大量注意力與自信。</li>' +
+        '<li>答應太多他人的請求，卻忘了先替自己的計畫留位置，會讓你在這個階段特別容易失衡與疲乏。</li>' +
+        '<li>你可以練習對自己說：「這件事我可以拆成三個小步驟」，而不是一次就要求完美的那一步。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">方法與限制</h3>' +
+        '<p>這份解讀只依據你的<b>出生日期與關注主題</b>，在本地以簡單規則運算生成，沒有連線任何外部 AI，也尚未納入完整命盤或流年資訊。</p>' +
+        '<p>請把它當作一個溫和的起點，幫你看見自己的節奏與可用資源。未來如果再加入更完整的命盤結構與時間線，整體建議會更細膩、更貼近你的實際狀態。</p>'
+      );
+    }
+
+    function en(){
+      const qPart = q
+        ? '<p>Your current question ("' + q +
+          '") makes you more aware of how you spend your energy. Use it as a reminder to choose your focus more consciously.</p>'
+        : "";
+      return (
+        '<h3 class="ai-head">Energy Snapshot</h3>' +
+        '<p>' + namePartEn + 'your life-path number is <b>' + ctx.lp +
+        '</b> (' + lpLabelEn + '). Around the topic of <b>' + topicName +
+        '</b>, the main focus in this phase is to move with small, consistent steps rather than forcing a big breakthrough at once.</p>' +
+        qPart +
+
+        '<h3 class="ai-head">Next 7 Days</h3>' +
+        '<ul>' +
+        '<li><b>Day 1–2:</b> declutter and organise (space, files, to-do list). Simple tasks help you warm up your system.</li>' +
+        '<li><b>Day 3–5:</b> pick 1–2 actions directly linked to <b>' + topicName +
+        '</b>, such as a message, a conversation, or a small experiment。</li>' +
+        '<li><b>Day 6–7:</b> close the mini-cycle by writing down 3 things you did well, instead of only looking at what is still unfinished。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Next 30 Days</h3>' +
+        '<ul>' +
+        '<li>The rhythm is better as step by step. Design one small focus per week instead of pushing everything into the same week。</li>' +
+        '<li>When you feel stuck, adjust sleep, food and body movement first. Your mindset will often follow。</li>' +
+        '<li>If possible, block at least two fixed time slots per week dedicated to <b>' + topicName + '</b>。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Key Resources</h3>' +
+        '<ul>' +
+        '<li>Your sensitivity to detail works like a radar, helping you avoid obviously misaligned choices。</li>' +
+        '<li>You tend to stay on track more easily when someone can discuss or co-work with you, instead of carrying everything alone。</li>' +
+        '<li>Past experiences (successes and mistakes) are data, not proof that you failed. They can be reviewed and reused。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Energy Leaks & Boundaries</h3>' +
+        '<ul>' +
+        '<li>Endless scrolling and comparing your progress with others quietly drains your energy。</li>' +
+        '<li>Saying yes to too many requests and leaving no space for your own plans is a major source of imbalance now。</li>' +
+        '<li>Practice telling yourself: I can break this into three small steps instead of expecting one perfect move。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Method & Limits</h3>' +
+        '<p>This is a purely local demo reading based only on your <b>birthdate and focus topic</b>. It does not use online AI and does not include a full chart or transits。</p>' +
+        '<p>Use it as a gentle starting point to see your rhythm and resources. With more detailed chart data in the future, the reading can become more precise and personalised。</p>'
+      );
+    }
+
+    function ja(){
+      const qPart = q
+        ? '<p>いまの質問内容（「' + q +
+          '」）は、あなたがエネルギーをどこに使っているかを意識させてくれるサインです。焦らず、意図的にフォーカスを選ぶきっかけにしてください。</p>'
+        : "";
+      return (
+        '<h3 class="ai-head">エネルギープロフィール</h3>' +
+        '<p>' + namePartEn + 'あなたのライフパスナンバーは <b>' + ctx.lp +
+        '</b>（' + lpLabelEn + '）です。テーマ「' + topicName +
+        '」に関して、このタイミングで大きな結果を無理に出すよりも、小さくても現実的な一歩を積み重ねることが大切な時期です。</p>' +
+        qPart +
+
+        '<h3 class="ai-head">今後 7 日間</h3>' +
+        '<ul>' +
+        '<li><b>1〜2 日目：</b>まずは環境やファイル、ToDo を整理し、頭と空間を軽くすることから始めましょう。小さなタスクが良いウォーミングアップになります。</li>' +
+        '<li><b>3〜5 日目：</b>「' + topicName +
+        '」に直接つながる行動を 1〜2 個選びます。メッセージを送る、話し合う、小さな実験をしてみるなど。</li>' +
+        '<li><b>6〜7 日目：</b>この一週間を振り返り、「うまくできたこと」を 3 つ書き出します。できなかったことだけに意識を向けないようにします。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">今後 30 日間</h3>' +
+        '<ul>' +
+        '<li>一気にすべてを進めるより、「週ごとに一つの小さな焦点」を決めて動く方が合っています。</li>' +
+        '<li>行き詰まりを感じたら、まず睡眠や食事、身体の休息を整えることから。心の状態はそのあとについてきます。</li>' +
+        '<li>可能であれば、「' + topicName +
+        '」のために週 2 回ほど、カレンダー上でブロックした時間を用意しましょう。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">活かせるリソース</h3>' +
+        '<ul>' +
+        '<li>細かいところに気づく感性は、あなたのレーダーです。合わない選択肢を早めに見抜く助けになります。</li>' +
+        '<li>誰かと一緒に話し合ったり、並走してもらえるときの方が、ひとりで抱え込むよりも続けやすいタイプです。</li>' +
+        '<li>過去の成功も失敗も、すべては「データ」です。自分を責める材料ではなく、次に活かすための素材として扱ってください。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">エネルギー漏れと境界線</h3>' +
+        '<ul>' +
+        '<li>SNS を見続けて他人と自分を比べることは、静かにエネルギーを消耗させます。</li>' +
+        '<li>頼まれごとに何でも応じてしまい、自分のための時間を確保できないと、バランスを崩しやすくなります。</li>' +
+        '<li>「完璧な一手」を狙うよりも、「これは三つの小さなステップに分けられる」と考える練習をしてみましょう。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">方法と限界</h3>' +
+        '<p>このリーディングは、あなたの<b>生年月日とフォーカステーマ</b>のみを使ったローカルルールによるデモ版です。オンライン AI や完全なホロスコープ、トランジットの情報はまだ含まれていません。</p>' +
+        '<p>まずは自分のリズムとリソースをやさしく見つめる入口として使ってください。将来的に詳細なチャートや時期読みを組み合わせることで、より精度の高いリーディングへ拡張できます。</p>'
+      );
+    }
+
+    function th(){
+      const qPart = q
+        ? '<p>คำถามตอนนี้ของคุณว่า "' + q +
+          '" เป็นเหมือนสัญญาณเตือนให้คุณกลับมาดูว่าใช้พลังงานไปกับอะไรอยู่ ลองใช้เป็นจุดเริ่มต้นในการเลือกโฟกัสอย่างมีสติ</p>'
+        : "";
+      return (
+        '<h3 class="ai-head">ภาพรวมพลังงาน</h3>' +
+        '<p>' + namePartEn + 'หมายเลขเส้นทางชีวิตของคุณคือ <b>' + ctx.lp +
+        '</b> (' + lpLabelEn + ') สำหรับหัวข้อ <b>' + topicName +
+        '</b> ช่วงนี้ไม่จำเป็นต้องเร่งให้เกิดการเปลี่ยนแปลงครั้งใหญ่ แต่เหมาะกับการเดินทีละก้าวเล็ก ๆ ที่ทำได้จริง</p>' +
+        qPart +    
+
+        '<h3 class="ai-head">ช่วง 7 วันถัดไป</h3>' +
+        '<ul>' +
+        '<li><b>วันที่ 1–2:</b> เริ่มจากการเก็บกวาด จัดโต๊ะ เก็บไฟล์ หรือจัด To do list ให้เรียบร้อย งานเล็ก ๆ จะช่วยวอร์มร่างกายและสมองได้ดี</li>' +
+        '<li><b>วันที่ 3–5:</b> เลือกลงมือทำ 1–2 อย่างที่เกี่ยวกับหัวข้อ <b>' + topicName +
+        '</b> โดยตรง เช่น ทักแชต พูดคุย ตั้งนัด หรือทดลองอะไรเล็ก ๆ</li>' +
+        '<li><b>วันที่ 6–7:</b> ทบทวนสัปดาห์นี้ เขียนสิ่งที่ "ทำได้ดี" อย่างน้อย 3 ข้อ แทนที่จะมองแต่สิ่งที่ยังไม่เสร็จ</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">ช่วง 30 วันถัดไป</h3>' +
+        '<ul>' +
+        '<li>จังหวะที่เหมาะกับคุณคือแบบค่อยเป็นค่อยไป แบ่งเป้าออกเป็นเป้าหมายเล็ก ๆ รายสัปดาห์แทนการยัดทุกอย่างไว้ในสัปดาห์เดียว</li>' +
+        '<li>ถ้ารู้สึกตัน ให้เริ่มจากการดูแลร่างกายก่อน เช่น นอนให้พอ กินให้อิ่ม ขยับร่างกายบ้าง อารมณ์จะค่อย ๆ ตามมา</li>' +
+        '<li>ถ้าเป็นไปได้ ลองกันเวลาคงที่สัปดาห์ละ 2 ช่วงสำหรับ <b>' + topicName +
+        '</b> เหมือนนัดสำคัญกับตัวเอง</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">จุดแข็งและทรัพยากร</h3>' +
+        '<ul>' +
+        '<li>ความละเอียดอ่อนและสัญชาตญาณในการมองรายละเอียด เป็นเหมือนเรดาร์ที่ช่วยให้คุณเลี่ยงตัวเลือกที่ไม่เหมาะได้เร็วขึ้น</li>' +
+        '<li>คุณมักเดินหน้าได้ดีกว่าเมื่อมีคนคุยด้วยหรือช่วยเดินไปพร้อมกัน มากกว่าต้องแบกทุกอย่างคนเดียว</li>' +
+        '<li>ประสบการณ์ที่ผ่านมา ทั้งสำเร็จและพลาด ล้วนเป็นฐานข้อมูล ไม่ใช่หลักฐานว่าคุณล้มเหลว</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">จุดที่พลังรั่วและเรื่องขอบเขต</h3>' +
+        '<ul>' +
+        '<li>การไถหน้าจอดูชีวิตคนอื่นไปเรื่อย ๆ แล้วเปรียบเทียบตัวเอง ทำให้พลังงานรั่วแบบไม่รู้ตัว</li>' +
+        '<li>ตอบตกลงทุกคำขอจนลืมกันเวลาสำหรับแผนของตัวเอง ทำให้จังหวะชีวิตเสียสมดุลได้ง่าย</li>' +
+        '<li>ลองฝึกบอกตัวเองว่า "งานนี้แบ่งเป็นสามก้าวย่อยได้" แทนการรอจังหวะที่ต้องทำให้สมบูรณ์แบบทีเดียว</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">วิธีใช้และขอบเขตของคำทำนาย</h3>' +
+        '<p>รายงานนี้เป็นเวอร์ชันทดลองที่สร้างจาก <b>วันเกิดและหัวข้อที่คุณสนใจ</b> เท่านั้น ทำงานแบบออฟไลน์ในเบราว์เซอร์ของคุณ และยังไม่ได้ใช้ AI ภายนอกหรือดวงแบบละเอียด</p>' +
+        '<p>มองมันเป็น "จุดเริ่มต้นที่อ่อนโยน" เพื่อให้เห็นจังหวะและทรัพยากรของตัวเองก่อน เมื่อมีข้อมูลดวงละเอียดและจังหวะเวลาเพิ่มในอนาคต คำแนะนำจะปรับให้ตรงชีวิตคุณมากขึ้นได้อีก</p>'
+      );
+    }
+
+    function ms(){
+      const qPart = q
+        ? '<p>Soalan anda sekarang "' + q +
+          '" sebenarnya membantu anda sedar ke mana tenaga anda sedang mengalir. Gunakan ia sebagai tanda untuk memilih fokus dengan lebih sedar.</p>'
+        : "";
+      return (
+        '<h3 class="ai-head">Gambaran Tenaga</h3>' +
+        '<p>' + namePartEn + 'nombor laluan hidup anda ialah <b>' + ctx.lp +
+        '</b> (' + lpLabelEn + '). Untuk tema <b>' + topicName +
+        '</b>, fasa ini lebih sesuai dengan langkah kecil yang konsisten, bukan paksaan untuk capai perubahan besar sekaligus。</p>' +
+        qPart +
+
+        '<h3 class="ai-head">7 Hari Akan Datang</h3>' +
+        '<ul>' +
+        '<li><b>Hari 1–2:</b> Mulakan dengan mengemas ruang, fail dan senarai tugas anda. Tugas kecil membantu memanaskan badan dan minda。</li>' +
+        '<li><b>Hari 3–5:</b> Pilih 1–2 tindakan yang berkait terus dengan <b>' + topicName +
+        '</b>, seperti menghantar mesej, berbual dengan seseorang, atau mencuba sesuatu yang ringkas。</li>' +
+        '<li><b>Hari 6–7:</b> Tinjau semula minggu anda dan tulis sekurang-kurangnya 3 perkara yang telah anda lakukan dengan baik, bukan hanya melihat apa yang belum siap。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">30 Hari Akan Datang</h3>' +
+        '<ul>' +
+        '<li>Lebih baik susun hidup anda mengikut langkah mingguan yang jelas, satu fokus kecil setiap minggu, berbanding cuba melakukan semuanya pada minggu yang sama。</li>' +
+        '<li>Bila rasa buntu, laraskan dulu asas seperti tidur, pemakanan dan pergerakan badan. Keadaan emosi selalunya akan ikut berubah。</li>' +
+        '<li>Jika boleh, peruntukkan sekurang-kurangnya dua blok masa tetap setiap minggu khusus untuk <b>' + topicName +
+        '</b>。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Sumber Kekuatan</h3>' +
+        '<ul>' +
+        '<li>Kepekaan anda terhadap butiran kecil bertindak sebagai radar, membantu anda mengelak pilihan yang jelas tidak selari dengan diri anda。</li>' +
+        '<li>Anda biasanya lebih mudah konsisten bila ada seseorang untuk berbincang atau bergerak bersama, berbanding memikul semuanya seorang diri。</li>' +
+        '<li>Pengalaman lepas, sama ada berjaya atau tersilap, semuanya adalah data. Gunakannya sebagai rujukan, bukan alasan untuk menyalahkan diri。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Kebocoran Tenaga & Sempadan</h3>' +
+        '<ul>' +
+        '<li>Menatal media sosial dan membandingkan diri dengan orang lain berulang kali secara senyap menghabiskan tenaga anda。</li>' +
+        '<li>Mengatakan ya kepada terlalu banyak permintaan sehingga tiada masa untuk rancangan sendiri mudah menyebabkan ketidakseimbangan。</li>' +
+        '<li>Biasakan diri berkata "saya boleh pecahkan tugas ini kepada tiga langkah kecil" daripada menunggu satu tindakan yang sempurna。</li>' +
+        '</ul>' +
+
+        '<h3 class="ai-head">Kaedah & Had</h3>' +
+        '<p>Laporan ini ialah versi demo tempatan yang dibina hanya daripada <b>tarikh lahir dan tema fokus</b> anda. Ia tidak menggunakan AI atas talian dan belum mengandungi data carta penuh atau transit masa。</p>' +
+        '<p>Gunakannya sebagai titik mula yang lembut untuk melihat ritma dan sumber tenaga anda. Apabila data carta yang lebih terperinci ditambah kemudian, bacaan boleh jadi lebih khusus dan peribadi。</p>'
+      );
+    }
+
+    if (lang === "zh-CN") return zhCN();
+    if (lang === "zh-TW") return zhTW();
+    if (lang === "ja")    return ja();
+    if (lang === "th")    return th();
+    if (lang === "ms")    return ms();
+    return en();
   }
-
-  function buildTh(){
-    return (
-      '<h3 class="ai-head">การงาน / เส้นทางอาชีพ</h3>' +
-      '<ul>' +
-      '<li>กำหนดเป้าหมายเล็ก ๆ เพียงหนึ่งอย่างในเดือนนี้ที่เกี่ยวกับ <b>' + topicName +
-      '</b> เช่น ปิดงานหนึ่งชิ้น ส่งอีเมลสำคัญสามฉบับ หรือคุยเรื่องดีลหนึ่งครั้ง</li>' +
-      '<li>แตกเป้านั้นออกเป็น<b>หนึ่งก้าวต่อสัปดาห์</b> แล้วจดลงในปฏิทินจริง ไม่ปล่อยให้ลอยอยู่ในหัวอย่างเดียว</li>' +
-      '<li>ดูจังหวะพลังงานของตัวเอง (' + lpTagEn +
-      ') เลือกช่วงเวลาที่สมองปลอดโปร่งที่สุดของวันเพื่อจัดการ 20 เปอร์เซ็นต์งานที่หนักที่สุด</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">ความรัก / ความสัมพันธ์</h3>' +
-      '<ul>' +
-      '<li>ลองใช้ประโยคแบบ "ฉันรู้สึกว่า…" แทน "เธอชอบ…" จะช่วยลดการป้องกันตัวและการปะทะได้มาก</li>' +
-      '<li>กันเวลาแน่นอนสัปดาห์ละครั้งสำหรับการคุยลึก ๆ ประมาณ 30 นาที แทนที่จะคุยกันเฉพาะตอนมีปัญหา</li>' +
-      '<li>ถ้าตอนนี้โสด ให้ถือว่า "ความสัมพันธ์กับตัวเอง" คือฐานสำคัญ จัดระบบการนอน การกิน การดูแลตัวเองให้ดีขึ้นก่อน</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">การเงิน</h3>' +
-      '<ul>' +
-      '<li>ในช่วง 30 วันนี้ ลองจัดหมวดรายจ่ายเป็นสามกลุ่ม: จำเป็น อยากได้ และเลื่อนได้ แค่เห็นภาพรวมก็ช่วยปรับการตัดสินใจแล้ว</li>' +
-      '<li>ตั้งเป้าหมายกันชนเงินสดที่จับต้องได้ เช่น สำรองค่าใช้จ่ายพื้นฐานเพิ่มอีกหนึ่งเดือน พร้อมเขียนทางเลือกว่าจะทำให้ถึงเป้าอย่างไร</li>' +
-      '<li>แทนที่จะหวังโอกาสครั้งเดียวแล้วชีวิตเปลี่ยน ให้โฟกัสที่การสร้างกระแสเงินสดที่นิ่งและคาดเดาได้มากขึ้น</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">สิ่งที่ทำได้วันนี้</h3>' +
-      '<ol>' +
-      '<li>ใช้เวลา 10–15 นาทีเขียนสิ่งที่ตอนนี้คุณกังวลหรือให้ความสำคัญมากที่สุด 3 เรื่อง (รวม <b>' + topicName +
-      '</b> หรือคำถามของคุณได้)</li>' +
-      '<li>เลือกหนึ่งเรื่องที่ "ทำวันนี้นิดเดียวก็มีผล" แล้วกันเวลาโฟกัสให้มัน 30 นาที</li>' +
-      '<li>หลังทำเสร็จ เขียนสั้น ๆ ว่าได้ทำอะไรไปแล้ว รู้สึกอย่างไร และครั้งหน้าจะปรับอะไร</li>' +
-      '</ol>' +
-
-      '<h3 class="ai-head">แนวทาง 30 วัน</h3>' +
-      '<ul>' +
-      '<li><b>สัปดาห์ที่ 1:</b> เคลียร์สภาพแวดล้อมและข้อมูลที่รก แล้วเรียงลำดับความสำคัญที่แท้จริงของเรื่อง <b>' + topicName +
-      '</b></li>' +
-      '<li><b>สัปดาห์ที่ 2:</b> สร้างผลลัพธ์เล็ก ๆ อย่างน้อยหนึ่งอย่าง เช่น ร่างงาน ข้อความ คุยกับใครสักคน หรือทดลองอะไรหนึ่งครั้ง</li>' +
-      '<li><b>สัปดาห์ที่ 3:</b> ดูผลตอบรับแล้วปรับวิธีการ ลดสิ่งที่ดูดพลัง เพิ่มสิ่งที่ทำแล้วรู้สึกดีขึ้นเล็กน้อย</li>' +
-      '<li><b>สัปดาห์ที่ 4:</b> ทบทวนทั้งเดือน เขียน 3 อย่างที่อยากขอบคุณตัวเอง และตั้งเป้าที่เบาขึ้นสำหรับ 30 วันถัดไป</li>' +
-      '</ul>' +
-      '<p class="muted" style="margin-top:8px">ส่วน "Xinlian Concierge" นี้เป็นเวอร์ชันทดลองในเครื่อง ใช้กฎง่าย ๆ จากวันเกิดและหัวข้อของคุณเท่านั้น ยังไม่เชื่อมต่อกับ AI ภายนอก</p>'
-    );
-  }
-
-  function buildMs(){
-    return (
-      '<h3 class="ai-head">Kerjaya</h3>' +
-      '<ul>' +
-      '<li>Tetapkan satu matlamat kecil untuk bulan ini berkaitan <b>' + topicName +
-      '</b>, contohnya menyiapkan satu projek, menghantar tiga emel penting atau memulakan satu perbincangan kerjasama.</li>' +
-      '<li>Pecahkan matlamat itu kepada<b>satu langkah setiap minggu</b> dan tandakan terus dalam kalendar, bukan sekadar ingat dalam kepala.</li>' +
-      '<li>Selaraskan dengan corak tenaga anda (' + lpTagEn +
-      ') dengan meletakkan 20 peratus tugas paling berat pada waktu yang paling segar dalam sehari.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">Hubungan & Emosi</h3>' +
-      '<ul>' +
-      '<li>Gunakan ayat seperti "saya rasa…" dan bukannya "awak selalu…" apabila bercakap tentang perasaan, supaya ruang untuk mendengar satu sama lain lebih terbuka.</li>' +
-      '<li>Sediakan masa tetap seminggu sekali, kira-kira 30 minit, untuk berbual secara jujur, bukan hanya bercakap bila masalah muncul.</li>' +
-      '<li>Jika anda bujang, anggap hubungan dengan diri sendiri sebagai asas dahulu. Rutin harian yang lebih stabil dan penjagaan diri akan menyokong hubunganในอนาคต.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">Kewangan</h3>' +
-      '<ul>' +
-      '<li>Sepanjang 30 hari ini, cuba bahagikan perbelanjaan kepada tiga kategori: perlu, mahu, dan boleh ditangguh. Ia membantu anda melihat ke mana wang mengalir.</li>' +
-      '<li>Tetapkan sasaran penampan tunai yang realistik, contohnya tambahan satu bulan perbelanjaan asas, dan tulis beberapa cara untuk mencapainya.</li>' +
-      '<li>Daripada mengejar satu peluang besar sekali gus, lebih stabil jika fokus pada aliran tunai yang konsisten dan boleh dijangka.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">Tindakan Hari Ini</h3>' +
-      '<ol>' +
-      '<li>Luangkan 10–15 minit menulis tiga perkara yang paling bermain di fikiran anda sekarang (boleh termasuk <b>' + topicName +
-      '</b> atau soalan anda).</li>' +
-      '<li>Pilih satu perkara yang jika dibuat sedikit hari ini pun sudah ada kesan, dan beri masa fokus 30 minit untuk itu.</li>' +
-      '<li>Selepas selesai, catat secara ringkas apa yang anda lakukan, apa yang anda rasa, dan apa yang ingin anda ubah pada kali seterusnya.</li>' +
-      '</ol>' +
-
-      '<h3 class="ai-head">Cadangan 30 Hari</h3>' +
-      '<ul>' +
-      '<li><b>Minggu 1:</b> Kemas ruang dan maklumat anda, dan jelaskan keutamaan sebenar bagi <b>' + topicName +
-      '</b>.</li>' +
-      '<li><b>Minggu 2:</b> Cipta satu hasil kecil yang nyata, seperti draf, mesej, perbualan atau ujian ringkas.</li>' +
-      '<li><b>Minggu 3:</b> Laraskan strategi berdasarkan maklum balas; kurangkan tindakan yang jelas menghabiskan tenaga, dan tambah tindakan yang memberi sedikit rasa ringan.</li>' +
-      '<li><b>Minggu 4:</b> Tinjau semula sebulan, tulis tiga perkara yang anda rasa bangga atau bersyukur, dan pilih satu fokus yang lebih ringan untuk 30 hari seterusnya.</li>' +
-      '</ul>' +
-      '<p class="muted" style="margin-top:8px">Bahagian "Xinlian Concierge" ini ialah demo tempatan. Ia menggunakan peraturan ringkas berasaskan tarikh lahir dan tema anda sahaja dan tidak menyambung kepada AI luar.</p>'
-    );
-  }
-
-  function buildEn(){
-    return (
-      '<h3 class="ai-head">Career</h3>' +
-      '<ul>' +
-      '<li>Pick one realistic focus for this month around <b>' + topicName +
-      '</b> (for example, finish one piece of work, send three key emails, or move one collaboration forward).</li>' +
-      '<li>Break it into<b>one step per week</b> and put it in your calendar, not only in your head.</li>' +
-      '<li>Given your pattern (' + lpTagEn +
-      '), use your clearest time of the day for the hardest 20 percent of tasks.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">Relationships</h3>' +
-      '<ul>' +
-      '<li>Use "I feel…" instead of "You always…" when you speak about feelings, to reduce defensiveness and conflict.</li>' +
-      '<li>Reserve regular time for important connections (for example, one 30-minute deep talk each week) instead of only talking when there is a problem.</li>' +
-      '<li>If you are single, treat your relationship with yourself as a key priority: sleep, food, routines and self-care.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">Money</h3>' +
-      '<ul>' +
-      '<li>For these 30 days, tag each expense as essential, nice-to-have, or can-delay. Just seeing the pattern already shifts your choices.</li>' +
-      '<li>Set a gentle buffer target (for example, one extra month of basic expenses) and outline how to build it step by step.</li>' +
-      '<li>Focus on stabilising cash flow rather than chasing one big all-in opportunity.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">Today\'s To-Dos</h3>' +
-      '<ol>' +
-      '<li>Spend 10–15 minutes writing down the three things that matter most to you right now (they may include <b>' + topicName +
-      '</b> or your question).</li>' +
-      '<li>Choose one item where doing a bit today already makes a difference, and give it a 30-minute focus block.</li>' +
-      '<li>Afterwards, note in two or three sentences what you did, how you felt, and what you want to adjust next time.</li>' +
-      '</ol>' +
-
-      '<h3 class="ai-head">Next 30 Days</h3>' +
-      '<ul>' +
-      '<li><b>Week 1:</b> clean up your environment and information; clarify what truly comes first around <b>' + topicName +
-      '</b>.</li>' +
-      '<li><b>Week 2:</b> create the first small outcome (a draft, a message, a conversation, a simple test).</li>' +
-      '<li><b>Week 3:</b> adjust based on feedback; do less of what obviously drains you and more of what feels slightly energising.</li>' +
-      '<li><b>Week 4:</b> review the month, thank yourself for three specific things, and set a lighter focus for the next 30 days.</li>' +
-      '</ul>' +
-      '<p class="muted" style="margin-top:8px">This Xinlian Butler section is a local demo: it uses simple rules based on your birthdate and topic, and does not call any external AI.</p>'
-    );
-  }
-
-  if (lang === "zh-CN" || lang === "zh-TW") return buildZh();
-  if (lang === "ja") return buildJa();
-  if (lang === "th") return buildTh();
-  if (lang === "ms") return buildMs();
-  return buildEn();
-}
-  
-  /* ===== 本地渲染：能量报告 HTML ===== */
-function buildEnergyHtml(lang, ctx){
-  var topicName = getTopicName(lang, ctx.topic);
-  var q = ctx.question || "";
-  var namePartZh = ctx.name ? (ctx.name + "，") : "";
-  var namePartEn = ctx.name ? (ctx.name + ", ") : "";
-  var lpNameZh = lpNameZhMap[ctx.lp] || "";
-  var lpNameEn = lpNameEnMap[ctx.lp] || "";
-
-  // 为了复用：中文用这一段
-  function buildZh(){
-    var qPart = q
-      ? '<p>你現在的提問方向：「' + q +
-        '」，會放大你對現狀的敏感度，也提醒你要更有意識地分配精力。</p>'
-      : "";
-    return (
-      '<h3 class="ai-head">能量画像</h3>' +
-      '<p>' + namePartZh + '你的生命路徑數字為 <b>' + ctx.lp +
-      '</b>（' + lpNameZh + '）。近期在「' + topicName +
-      '」主題上，重點不是當下一定要做出巨大突破，而是用穩定的小步行動，把已經在想的事情真正落地。</p>' +
-      qPart +
-
-      '<h3 class="ai-head">當下節律（7 天）</h3>' +
-      '<ul>' +
-      '<li><b>前 2–3 天：</b>適合先盤點手上事情，整理環境／檔案／待辦；越簡單的小任務越能幫你「熱身」。</li>' +
-      '<li><b>中間 2–3 天：</b>可以挑 1–2 件與「' + topicName + '」直接相關的行動，例如一通訊息、一個對話、一次小嘗試。</li>' +
-      '<li><b>最後 1–2 天：</b>收尾與回顧周期，寫下這幾天的 3 個「做得好的地方」，不要只盯著沒做到的。</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">30 天走勢</h3>' +
-      '<ul>' +
-      '<li>整體節奏偏「循序漸進」，適合分成每週一個小目標，而不是一次性把所有計畫壓在同一週。</li>' +
-      '<li>當感覺卡住時，與其硬頂，不如先調整生活作息、睡眠與身體狀態，心態會跟著鬆動。</li>' +
-      '<li>如果你願意，每週為「' + topicName + '」留出至少 2 個固定時段，當作與自己的約定。</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">關鍵資源</h3>' +
-      '<ul>' +
-      '<li>你對細節的直覺與敏感，是很好的雷達，可以幫你避開明顯不適合的選擇。</li>' +
-      '<li>當有人願意和你一起討論或陪你執行時，你會更容易堅持，不必勉強一個人扛全部。</li>' +
-      '<li>你過往的經驗（成功也好、失誤也好）都是資料庫，可以拿來複盤，而不是當作羞愧的來源。</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">易耗點與界線</h3>' +
-      '<ul>' +
-      '<li>長時間滑手機、比較自己與他人的進度，會讓你對「還不夠好」非常敏感，形成隱形內耗。</li>' +
-      '<li>答應太多別人的請求，忘記留時間給自己的計畫，是這一階段最容易失衡的地方。</li>' +
-      '<li>你可以練習對自己說：「這件事我可以分成三小步做」，而不是一次期待完美。</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">方法與侷限</h3>' +
-      '<p>以上解讀是基於 <b>出生日期與簡單關注主題</b> 的本地規則推演，沒有使用連網 AI，也尚未整合完整命盤與流年等資料。</p>' +
-      '<p>它適合作為一個「溫和的起點」，幫你先看見自己的節奏與可用資源。未來若加入更完整的命盤與動態流年，報告會更細緻、更貼近你的真實狀態。</p>'
-    );
-  }
-
-  // 繁體中文版（zh-TW）
-function buildTw(){
-  var qPart = q
-    ? '<p>你目前的提問（「' + q +
-      '」）其實是在提醒你留意自己把能量花在什麼地方，可以把它當成更有意識選擇專注方向的起點。</p>'
-    : "";
-
-  return (
-    '<h3 class="ai-head">能量速寫</h3>' +
-    '<p>' + namePartZh + '你的生命路徑數字為 <b>' + ctx.lp +
-    '</b>（' + lpNameZh + '）。在<b>「' + topicName +
-    '」</b>這個主題上，現在最重要的不是一次衝出巨大突破，而是透過穩定、可持續的小步行動，慢慢把你心裡已經構想的東西落地。</p>' +
-    qPart +
-
-    '<h3 class="ai-head">未來 7 天</h3>' +
-    '<ul>' +
-    '<li><b>第 1–2 天：</b>先整理空間、檔案與待辦清單，讓環境與頭腦都輕一點。越簡單的小任務，越適合作為「熱身」。</li>' +
-    '<li><b>第 3–5 天：</b>選出 1–2 個與<b>「' + topicName +
-    '」</b>直接相關的具體行動，例如發一則訊息、約一場對話，或做一個小小的嘗試。</li>' +
-    '<li><b>第 6–7 天：</b>幫這個小週期收尾，寫下這幾天你做得不錯的 3 件事，而不是只盯著自己還沒完成的部分。</li>' +
-    '</ul>' +
-
-    '<h3 class="ai-head">未來 30 天</h3>' +
-    '<ul>' +
-    '<li>這段時間比較適合「循序漸進」的節奏，為自己設計<b>每週一個小焦點</b>，而不是把所有目標一次塞進同一週。</li>' +
-    '<li>當你覺得卡住、動不起來時，與其硬撐，不如先從睡眠、作息與身體狀態下手調整，心態通常會隨之鬆動。</li>' +
-    '<li>如果可以，為<b>「' + topicName +
-    '」</b>在行事曆上預留每週至少 2 個固定時段，像是與自己的一個正式約定。</li>' +
-    '</ul>' +
-
-    '<h3 class="ai-head">關鍵資源</h3>' +
-    '<ul>' +
-    '<li>你對細節的敏銳與直覺是一套很好的「雷達系統」，能幫你及早看見不對勁或不適合的選項。</li>' +
-    '<li>當身邊有人可以一起討論、陪你並行時，你會更容易堅持，而不需要逞強一個人扛所有事情。</li>' +
-    '<li>過去的經驗——包含成功與失誤——其實都是資料庫，可以拿來複盤與調整，而不是拿來證明「自己不夠好」。</li>' +
-    '</ul>' +
-
-    '<h3 class="ai-head">能量流失與界線</h3>' +
-    '<ul>' +
-    '<li>長時間滑手機、無意識地拿自己跟別人比較，很容易在不知不覺中消耗掉大量注意力與自信。</li>' +
-    '<li>答應太多他人的請求，卻忘了先替自己的計畫留位置，會讓你在這個階段特別容易失衡與疲乏。</li>' +
-    '<li>你可以練習對自己說：「這件事我可以拆成三個小步驟」，而不是一次就要求完美的那一步。</li>' +
-    '</ul>' +
-
-    '<h3 class="ai-head">方法與限制</h3>' +
-    '<p>這份解讀只依據你的<b>出生日期與關注主題</b>，在本地以簡單規則運算生成，沒有連線任何外部 AI，也尚未納入完整命盤或流年資訊。</p>' +
-    '<p>請把它當作一個溫和的起點，幫你看見自己的節奏與可用資源。未來如果再加入更完整的命盤結構與時間線，整體建議會更細膩、更貼近你的實際狀態。</p>'
-  );
-}
-
-  // 英文版（預設）
-  function buildEn(){
-    var qPart = q
-      ? '<p>Your current question ("' + q +
-        '") makes you more aware of how you spend your energy. Use it as a reminder to choose your focus more consciously.</p>'
-      : "";
-    return (
-      '<h3 class="ai-head">Energy Snapshot</h3>' +
-      '<p>' + namePartEn + 'your life-path number is <b>' + ctx.lp +
-      '</b> (' + lpNameEn + '). Around the topic of <b>' + topicName +
-      '</b>, the main focus in this phase is to move with small, consistent steps rather than forcing a big breakthrough at once.</p>' +
-      qPart +
-
-      '<h3 class="ai-head">Next 7 Days</h3>' +
-      '<ul>' +
-      '<li><b>Day 1–2:</b> declutter and organise (space, files, to-do list). Simple tasks help you warm up your system.</li>' +
-      '<li><b>Day 3–5:</b> pick 1–2 actions directly linked to <b>' + topicName +
-      '</b>, such as a message, a conversation, or a small experiment.</li>' +
-      '<li><b>Day 6–7:</b> close the mini-cycle by writing down 3 things you did well, instead of only looking at what is still unfinished.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">Next 30 Days</h3>' +
-      '<ul>' +
-      '<li>The rhythm is better as step by step. Design one small focus per week instead of pushing everything into the same week.</li>' +
-      '<li>When you feel stuck, adjust sleep, food and body movement first. Your mindset will often follow.</li>' +
-      '<li>If possible, block at least two fixed time slots per week dedicated to <b>' + topicName + '</b>.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">Key Resources</h3>' +
-      '<ul>' +
-      '<li>Your sensitivity to detail works like a radar, helping you avoid obviously misaligned choices.</li>' +
-      '<li>You tend to stay on track more easily when someone can discuss or co-work with you, instead of carrying everything alone.</li>' +
-      '<li>Past experiences (successes and mistakes) are data, not proof that you failed. They can be reviewed and reused.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">Energy Leaks & Boundaries</h3>' +
-      '<ul>' +
-      '<li>Endless scrolling and comparing your progress with others quietly drains your energy.</li>' +
-      '<li>Saying yes to too many requests and leaving no space for your own plans is a major source of imbalance now.</li>' +
-      '<li>Practice telling yourself: I can break this into three small steps instead of expecting one perfect move.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">Method & Limits</h3>' +
-      '<p>This is a purely local demo reading based only on your <b>birthdate and focus topic</b>. It does not use online AI and does not include a full chart or transits.</p>' +
-      '<p>Use it as a gentle starting point to see your rhythm and resources. With more detailed chart data in the future, the reading can become more precise and personalised.</p>'
-    );
-  }
-  
-  // 日文版
-  function buildJa(){
-    var qPart = q
-      ? '<p>いまの質問内容（「' + q +
-        '」）は、あなたがエネルギーをどこに使っているかを意識させてくれるサインです。焦らず、意図的にフォーカスを選ぶきっかけにしてください。</p>'
-      : "";
-    return (
-      '<h3 class="ai-head">エネルギープロフィール</h3>' +
-      '<p>' + namePartEn + 'あなたのライフパスナンバーは <b>' + ctx.lp +
-      '</b>（' + lpNameEn + '）です。テーマ「' + topicName +
-      '」に関して、このタイミングで大きな結果を無理に出すよりも、小さくても現実的な一歩を積み重ねることが大切な時期です。</p>' +
-      qPart +
-
-      '<h3 class="ai-head">今後 7 日間</h3>' +
-      '<ul>' +
-      '<li><b>1〜2 日目：</b>まずは環境やファイル、ToDo を整理し、頭と空間を軽くすることから始めましょう。小さなタスクが良いウォーミングアップになります。</li>' +
-      '<li><b>3〜5 日目：</b>「' + topicName +
-      '」に直接つながる行動を 1〜2 個選びます。メッセージを送る、話し合う、小さな実験をしてみるなど。</li>' +
-      '<li><b>6〜7 日目：</b>この一週間を振り返り、「うまくできたこと」を 3 つ書き出します。できなかったことだけに意識を向けないようにします。</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">今後 30 日間</h3>' +
-      '<ul>' +
-      '<li>一気にすべてを進めるより、「週ごとに一つの小さな焦点」を決めて動く方が合っています。</li>' +
-      '<li>行き詰まりを感じたら、まず睡眠や食事、身体の休息を整えることから。心の状態はそのあとについてきます。</li>' +
-      '<li>可能であれば、「' + topicName +
-      '」のために週 2 回ほど、カレンダー上でブロックした時間を用意しましょう。</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">活かせるリソース</h3>' +
-      '<ul>' +
-      '<li>細かいところに気づく感性は、あなたのレーダーです。合わない選択肢を早めに見抜く助けになります。</li>' +
-      '<li>誰かと一緒に話し合ったり、並走してもらえるときの方が、ひとりで抱え込むよりも続けやすいタイプです。</li>' +
-      '<li>過去の成功も失敗も、すべては「データ」です。自分を責める材料ではなく、次に活かすための素材として扱ってください。</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">エネルギー漏れと境界線</h3>' +
-      '<ul>' +
-      '<li>SNS を見続けて他人と自分を比べることは、静かにエネルギーを消耗させます。</li>' +
-      '<li>頼まれごとに何でも応じてしまい、自分のための時間を確保できないと、バランスを崩しやすくなります。</li>' +
-      '<li>「完璧な一手」を狙うよりも、「これは三つの小さなステップに分けられる」と考える練習をしてみましょう。</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">方法と限界</h3>' +
-      '<p>このリーディングは、あなたの<b>生年月日とフォーカステーマ</b>のみを使ったローカルルールによるデモ版です。オンライン AI や完全なホロスコープ、トランジットの情報はまだ含まれていません。</p>' +
-      '<p>まずは自分のリズムとリソースをやさしく見つめる入口として使ってください。将来的に詳細なチャートや時期読みを組み合わせることで、より精度の高いリーディングへ拡張できます。</p>'
-    );
-  }
-
-  // 泰文版
-  function buildTh(){
-    var qPart = q
-      ? '<p>คำถามตอนนี้ของคุณว่า "' + q +
-        '" เป็นเหมือนสัญญาณเตือนให้คุณกลับมาดูว่าใช้พลังงานไปกับอะไรอยู่ ลองใช้เป็นจุดเริ่มต้นในการเลือกโฟกัสอย่างมีสติ</p>'
-      : "";
-    return (
-      '<h3 class="ai-head">ภาพรวมพลังงาน</h3>' +
-      '<p>' + namePartEn + 'หมายเลขเส้นทางชีวิตของคุณคือ <b>' + ctx.lp +
-      '</b> (' + lpNameEn + ') สำหรับหัวข้อ <b>' + topicName +
-      '</b> ช่วงนี้ไม่จำเป็นต้องเร่งให้เกิดการเปลี่ยนแปลงครั้งใหญ่ แต่เหมาะกับการเดินทีละก้าวเล็ก ๆ ที่ทำได้จริง</p>' +
-      qPart +
-
-      '<h3 class="ai-head">ช่วง 7 วันถัดไป</h3>' +
-      '<ul>' +
-      '<li><b>วันที่ 1–2:</b> เริ่มจากการเก็บกวาด จัดโต๊ะ เก็บไฟล์ หรือจัด To do list ให้เรียบร้อย งานเล็ก ๆ จะช่วยวอร์มร่างกายและสมองได้ดี</li>' +
-      '<li><b>วันที่ 3–5:</b> เลือกลงมือทำ 1–2 อย่างที่เกี่ยวกับหัวข้อ <b>' + topicName +
-      '</b> โดยตรง เช่น ทักแชต พูดคุย ตั้งนัด หรือทดลองอะไรเล็ก ๆ</li>' +
-      '<li><b>วันที่ 6–7:</b> ทบทวนสัปดาห์นี้ เขียนสิ่งที่ "ทำได้ดี" อย่างน้อย 3 ข้อ แทนที่จะมองแต่สิ่งที่ยังไม่เสร็จ</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">ช่วง 30 วันถัดไป</h3>' +
-      '<ul>' +
-      '<li>จังหวะที่เหมาะกับคุณคือแบบค่อยเป็นค่อยไป แบ่งเป้าออกเป็นเป้าหมายเล็ก ๆ รายสัปดาห์แทนการยัดทุกอย่างไว้ในสัปดาห์เดียว</li>' +
-      '<li>ถ้ารู้สึกตัน ให้เริ่มจากการดูแลร่างกายก่อน เช่น นอนให้พอ กินให้อิ่ม ขยับร่างกายบ้าง อารมณ์จะค่อย ๆ ตามมา</li>' +
-      '<li>ถ้าเป็นไปได้ ลองกันเวลาคงที่สัปดาห์ละ 2 ช่วงสำหรับ <b>' + topicName +
-      '</b> เหมือนนัดสำคัญกับตัวเอง</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">จุดแข็งและทรัพยากร</h3>' +
-      '<ul>' +
-      '<li>ความละเอียดอ่อนและสัญชาตญาณในการมองรายละเอียด เป็นเหมือนเรดาร์ที่ช่วยให้คุณเลี่ยงตัวเลือกที่ไม่เหมาะได้เร็วขึ้น</li>' +
-      '<li>คุณมักเดินหน้าได้ดีกว่าเมื่อมีคนคุยด้วยหรือช่วยเดินไปพร้อมกัน มากกว่าต้องแบกทุกอย่างคนเดียว</li>' +
-      '<li>ประสบการณ์ที่ผ่านมา ทั้งสำเร็จและพลาด ล้วนเป็นฐานข้อมูล ไม่ใช่หลักฐานว่าคุณล้มเหลว</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">จุดที่พลังรั่วและเรื่องขอบเขต</h3>' +
-      '<ul>' +
-      '<li>การไถหน้าจอดูชีวิตคนอื่นไปเรื่อย ๆ แล้วเปรียบเทียบตัวเอง ทำให้พลังงานรั่วแบบไม่รู้ตัว</li>' +
-      '<li>ตอบตกลงทุกคำขอจนลืมกันเวลาสำหรับแผนของตัวเอง ทำให้จังหวะชีวิตเสียสมดุลได้ง่าย</li>' +
-      '<li>ลองฝึกบอกตัวเองว่า "งานนี้แบ่งเป็นสามก้าวย่อยได้" แทนการรอจังหวะที่ต้องทำให้สมบูรณ์แบบทีเดียว</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">วิธีใช้และขอบเขตของคำทำนาย</h3>' +
-      '<p>รายงานนี้เป็นเวอร์ชันทดลองที่สร้างจาก <b>วันเกิดและหัวข้อที่คุณสนใจ</b> เท่านั้น ทำงานแบบออฟไลน์ในเบราว์เซอร์ของคุณ และยังไม่ได้ใช้ AI ภายนอกหรือดวงแบบละเอียด</p>' +
-      '<p>มองมันเป็น "จุดเริ่มต้นที่อ่อนโยน" เพื่อให้เห็นจังหวะและทรัพยากรของตัวเองก่อน เมื่อมีข้อมูลดวงละเอียดและจังหวะเวลาเพิ่มในอนาคต คำแนะนำจะปรับให้ตรงชีวิตคุณมากขึ้นได้อีก</p>'
-    );
-  }
-
-  // 馬來文版
-  function buildMs(){
-    var qPart = q
-      ? '<p>Soalan anda sekarang "' + q +
-        '" sebenarnya membantu anda sedar ke mana tenaga anda sedang mengalir. Gunakan ia sebagai tanda untuk memilih fokus dengan lebih sedar.</p>'
-      : "";
-    return (
-      '<h3 class="ai-head">Gambaran Tenaga</h3>' +
-      '<p>' + namePartEn + 'nombor laluan hidup anda ialah <b>' + ctx.lp +
-      '</b> (' + lpNameEn + '). Untuk tema <b>' + topicName +
-      '</b>, fasa ini lebih sesuai dengan langkah kecil yang konsisten, bukan paksaan untuk capai perubahan besar sekaligus.</p>' +
-      qPart +
-
-      '<h3 class="ai-head">7 Hari Akan Datang</h3>' +
-      '<ul>' +
-      '<li><b>Hari 1–2:</b> Mulakan dengan mengemas ruang, fail dan senarai tugas anda. Tugas kecil membantu memanaskan badan dan minda.</li>' +
-      '<li><b>Hari 3–5:</b> Pilih 1–2 tindakan yang berkait terus dengan <b>' + topicName +
-      '</b>, seperti menghantar mesej, berbual dengan seseorang, atau mencuba sesuatu yang ringkas.</li>' +
-      '<li><b>Hari 6–7:</b> Tinjau semula minggu anda dan tulis sekurang-kurangnya 3 perkara yang telah anda lakukan dengan baik, bukan hanya melihat apa yang belum siap.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">30 Hari Akan Datang</h3>' +
-      '<ul>' +
-      '<li>Lebih baik susun hidup anda mengikut langkah mingguan yang jelas, satu fokus kecil setiap minggu, berbanding cuba melakukan semuanya pada minggu yang sama.</li>' +
-      '<li>Bila rasa buntu, laraskan dulu asas seperti tidur, pemakanan dan pergerakan badan. Keadaan emosi selalunya akan ikut berubah.</li>' +
-      '<li>Jika boleh, peruntukkan sekurang-kurangnya dua blok masa tetap setiap minggu khusus untuk <b>' + topicName +
-      '</b>.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">Sumber Kekuatan</h3>' +
-      '<ul>' +
-      '<li>Kepekaan anda terhadap butiran kecil bertindak sebagai radar, membantu anda mengelak pilihan yang jelas tidak selari dengan diri anda.</li>' +
-      '<li>Anda biasanya lebih mudah konsisten bila ada seseorang untuk berbincang atau bergerak bersama, berbanding memikul semuanya seorang diri.</li>' +
-      '<li>Pengalaman lepas, sama ada berjaya atau tersilap, semuanya adalah data. Gunakannya sebagai rujukan, bukan alasan untuk menyalahkan diri.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">Kebocoran Tenaga & Sempadan</h3>' +
-      '<ul>' +
-      '<li>Menatal media sosial dan membandingkan diri dengan orang lain berulang kali secara senyap menghabiskan tenaga anda.</li>' +
-      '<li>Mengatakan ya kepada terlalu banyak permintaan sehingga tiada masa untuk rancangan sendiri mudah menyebabkan ketidakseimbangan.</li>' +
-      '<li>Biasakan diri berkata "saya boleh pecahkan tugas ini kepada tiga langkah kecil" daripada menunggu satu tindakan yang sempurna.</li>' +
-      '</ul>' +
-
-      '<h3 class="ai-head">Kaedah & Had</h3>' +
-      '<p>Laporan ini ialah versi demo tempatan yang dibina hanya daripada <b>tarikh lahir dan tema fokus</b> anda. Ia tidak menggunakan AI atas talian dan belum mengandungi data carta penuh atau transit masa.</p>' +
-      '<p>Gunakannya sebagai titik mula yang lembut untuk melihat ritma dan sumber tenaga anda. Apabila data carta yang lebih terperinci ditambah kemudian, bacaan boleh jadi lebih khusus dan peribadi.</p>'
-    );
-  }
-
-  // 語言分派
-  if (lang === "zh-CN" || lang === "zh-TW") return buildZh();
-  if (lang === "ja") return buildJa();
-  if (lang === "th") return buildTh();
-  if (lang === "ms") return buildMs();
-  return buildEn();
-}
 
   /* ====== 生成流程：纯本地 ====== */
   async function generate(){
@@ -1352,7 +1348,6 @@ function buildTw(){
 
   /* ===== DOM Ready ===== */
   document.addEventListener("DOMContentLoaded", ()=>{
-    // 默认填入今天日期 & 当前时间
     const now = new Date();
     const y = now.getFullYear();
     const m = String(now.getMonth()+1).padStart(2,"0");
@@ -1368,7 +1363,7 @@ function buildTw(){
 
     const sel = $("langSelect");
     let current = getLang();
-    if (!i18n[current]) current = "zh-CN"; // 防呆
+    if (!i18n[current]) current = "zh-CN";
     if (sel) sel.value = current;
     document.documentElement.lang = current;
 
@@ -1417,7 +1412,6 @@ function buildTw(){
         applyI18n();
         applyChatI18n();
 
-        // 如果已经生成过报告，切语言时重渲染
         if (lastCtx) {
           lastCtx.lang = newLang;
           const energyCard = $("energyCard");
@@ -1445,6 +1439,7 @@ function buildTw(){
 </script>
 </body>
 </html>  
+
 
 
 
