@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -55,15 +54,101 @@
     .error{color:#ff8b8b}
     footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0}
 
-    /* AI result */
-    #aiCard .skeleton, #energyCard .skeleton{display:grid;gap:8px}
-    #aiCard .skeleton div, #energyCard .skeleton div{height:12px;border-radius:6px;background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);animation:sh 1.2s infinite}
-    @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
-    #aiText, #energyText{white-space:normal;line-height:1.7}
-    #aiText ul, #energyText ul{margin:.4rem 0 .2rem 1.2rem}
-    /* AI 文内标题与卡片标题同色 */
-    #aiText h2, #aiText h3, #energyText h2, #energyText h3{
-      color:#ffe084 !important; margin:12px 0 6px; font-size:1.05rem; font-weight:800;
+    /* 新结果区域样式 */
+    .card-title{
+      font-weight:800;
+      color:#ffe084;
+      margin:0 0 10px;
+      font-size:1.1rem;
+    }
+    #resultSection #personalInfo{
+      margin-bottom:12px;
+      font-size:.95rem;
+    }
+    #resultSection #personalInfo .muted{
+      font-size:.9rem;
+    }
+    .energy-grid{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+      margin-top:10px;
+    }
+    @media(min-width:760px){
+      .energy-grid{grid-template-columns:1fr 1fr}
+    }
+    .energy-card{
+      border-radius:var(--radius);
+      border:1px solid #1f2a36;
+      padding:12px 14px;
+      background:#0f141d;
+    }
+    .energy-card h4{
+      margin:0 0 6px;
+      font-size:.95rem;
+      color:#ffe084;
+    }
+    .energy-card p{
+      margin:0;
+      font-size:.95rem;
+      line-height:1.6;
+    }
+    .disclaimer{
+      margin-top:16px;
+      padding-top:10px;
+      border-top:1px dashed #243244;
+      font-size:.9rem;
+      color:var(--muted);
+    }
+
+    .loading{
+      text-align:center;
+      margin:20px 0;
+      display:none;
+      font-size:.95rem;
+      color:var(--muted);
+    }
+    .spinner{
+      width:28px;
+      height:28px;
+      border-radius:50%;
+      border:3px solid #243244;
+      border-top-color:#e6c76e;
+      margin:0 auto 8px;
+      animation:spin .8s linear infinite;
+    }
+    @keyframes spin{
+      to{transform:rotate(360deg);}
+    }
+
+    .feature-grid{
+      display:grid;
+      grid-template-columns:1fr;
+      gap:12px;
+      margin-top:8px;
+    }
+    @media(min-width:760px){
+      .feature-grid{grid-template-columns:repeat(3,1fr);}
+    }
+    .feature-card{
+      border-radius:var(--radius);
+      border:1px solid #1f2a36;
+      padding:12px 14px;
+      background:#0f141d;
+    }
+    .feature-icon{
+      font-size:1.4rem;
+      margin-bottom:6px;
+    }
+    .feature-card h4{
+      margin:0 0 4px;
+      font-size:.98rem;
+      color:#ffe084;
+    }
+    .feature-card p{
+      margin:0;
+      font-size:.9rem;
+      color:var(--muted);
     }
 
     /* Chat */
@@ -84,7 +169,7 @@
     .ss-chat-input{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid #243244}
     .ss-chat-input input{flex:1 1 auto;min-width:0}
 
-    /* 让 AI 标题与列表更紧凑、统一 */
+    /* AI 文内标题与列表更紧凑、统一（保留，未来可复用） */
     #aiText, #energyText{ white-space:normal; line-height:1.7 }
     #aiText h3.ai-head, #energyText h3.ai-head{
       color:#ffe084; font-weight:800; font-size:1.05rem; margin:14px 0 8px;
@@ -174,18 +259,72 @@
       <button id="btnGenerate" class="btn primary" data-i18n="btn_gen">
         生成分析
       </button>
+    </div><!-- /表单卡片 -->
 
-    <!-- 新增：能量报告（先显示这个） -->
-    <div id="energyCard" class="card" style="display:none">
-      <div class="h2" data-i18n="sec_energy">能量报告</div>
-      <div id="energyText"></div>
+    <!-- 新：加载状态 -->
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      <p data-i18n="loading_text">正在分析您的能量类型...</p>
     </div>
 
-    <!-- 结果：心怜管家（分区：事业/感情/财运/今日待办/30天建议） -->
-    <div id="aiCard" class="card" style="display:none">
-      <div class="h2" data-i18n="sec_ai">心怜管家解读与建议</div>
-      <div id="aiText"></div>
-    </div>
+    <!-- 新：结果区 -->
+    <section class="card result-section" id="resultSection" style="display:none">
+      <h2 class="card-title" data-i18n="result_title">您的能量分析</h2>
+      <div id="personalInfo"></div>
+      
+      <div class="energy-grid">
+        <div class="energy-card">
+          <h4 data-i18n="core_energy">🌱 核心能量</h4>
+          <p id="coreEnergy">分析生成中...</p>
+        </div>
+        
+        <div class="energy-card">
+          <h4 data-i18n="current_cycle">💫 当前周期</h4>
+          <p id="currentCycle">分析生成中...</p>
+        </div>
+        
+        <div class="energy-card">
+          <h4 data-i18n="action_tips">🎯 行动建议</h4>
+          <p id="actionTips">分析生成中...</p>
+        </div>
+        
+        <div class="energy-card">
+          <h4 data-i18n="energy_reminder">⚡ 能量提醒</h4>
+          <p id="energyReminder">分析生成中...</p>
+        </div>
+      </div>
+
+      <div class="disclaimer">
+        <h4 data-i18n="disclaimer_title">📝 重要说明</h4>
+        <p data-i18n="disclaimer_text">
+          此分析基于简单的生命数字计算方法，仅用于娱乐和自我反思目的。结果由本地算法生成，不应视为专业建议。真正的成长与疗愈，仍需要结合自我觉察与专业咨询。
+        </p>
+      </div>
+    </section>
+
+    <!-- 新：了解更多 -->
+    <section class="card">
+      <h2 class="card-title" data-i18n="more_title">了解更多</h2>
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-icon">📚</div>
+          <h4 data-i18n="more_study_title">学习资源</h4>
+          <p data-i18n="more_study_text">探索更多关于能量类型、生命数字与个人成长的文章与课程。</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">👥</div>
+          <h4 data-i18n="more_community_title">社区交流</h4>
+          <p data-i18n="more_community_text">在心怜空间中，与其他探索者分享经验、问题与灵感。</p>
+        </div>
+        
+        <div class="feature-card">
+          <div class="feature-icon">🔮</div>
+          <h4 data-i18n="more_deep_title">深度分析</h4>
+          <p data-i18n="more_deep_text">结合完整命盘、流年与风水空间，获得更立体的个人能量地图。</p>
+        </div>
+      </div>
+    </section>
 
     <!-- 会员区（展示用） -->
     <section class="card section">
@@ -309,6 +448,24 @@
       need_birth:"请至少选择出生日期（可留空时间/地点）",
       generating:"正在生成解读…",
       retry:"抱歉，暂时无法生成，请稍后再试。", neterr:"网络异常，请稍后再试。",
+
+      /* 新结果区文案 */
+      loading_text:"正在分析您的能量类型...",
+      result_title:"您的能量分析",
+      core_energy:"🌱 核心能量",
+      current_cycle:"💫 当前周期",
+      action_tips:"🎯 行动建议",
+      energy_reminder:"⚡ 能量提醒",
+      disclaimer_title:"📝 重要说明",
+      disclaimer_text:"此分析基于简单的生命数字计算方法，仅用于娱乐和自我反思目的。结果由本地算法生成，不应视为专业建议。真正的成长与疗愈，仍需要结合自我觉察与专业咨询。",
+      more_title:"了解更多",
+      more_study_title:"学习资源",
+      more_study_text:"探索更多关于能量类型、生命数字与个人成长的文章与课程。",
+      more_community_title:"社区交流",
+      more_community_text:"在心怜空间中，与其他探索者分享经验、问题与灵感。",
+      more_deep_title:"深度分析",
+      more_deep_text:"结合完整命盘、流年与风水空间，获得更立体的个人能量地图。",
+
       vip_title:"🌙 会员区域 VIP Segment",
       vip_mingli:"🗝 命理空间专属内容",
       vip_love:"姻缘方向：恋爱缘分、婚姻走势",
@@ -343,7 +500,7 @@
       birth_place_label:"出生地點（可選）", birth_place_ph:"城市/國家",
       topic_label:"關注主題", topic_love:"愛情/關係", topic_career:"事業/工作", topic_wealth:"財富/投資", topic_family:"家庭/人際", topic_health:"健康/身心", topic_study:"學業/成長", topic_move:"旅行/搬遷", topic_other:"其他",
       preset_label:"常用問題", preset_none:"（可選）選擇一個模板",
-      preset_1:"我現在的能量狀態有什麼特點？", preset_2:"怎麼用對策略，減少內耗？", preset_3:"近期在事業/合作上如何對齊節奏？", preset_4:"關係裡的能量互動有什麼提醒？", preset_5:"如何建立穩定的情緒與界限？",
+      preset_1:"我現在的能量狀態有什麼特點？", preset_2:"怎麼用對策略，減少內耗？", preset_3:"近期在事業/合作上如何對齊節奏？", preset_4:"關係裡的能量互動有什麼提醒？", preset_5:"如何建立穩定的情緒與界線？",
       q_label:"你的具體問題（可直接貼上）", q_ph:"例如：最近總是感到疲憊內耗，想知道我的能量策略是什麼、下一步該做什麼。",
       btn_gen:"生成解析", btn_clear:"清空",
       sec_energy:"能量報告",
@@ -352,6 +509,23 @@
       need_birth:"請至少選擇出生日期（可留空時間/地點）",
       generating:"正在生成解讀…",
       retry:"抱歉，暫時無法生成，請稍後再試。", neterr:"網路異常，請稍後再試。",
+
+      loading_text:"正在分析您的能量類型...",
+      result_title:"您的能量分析",
+      core_energy:"🌱 核心能量",
+      current_cycle:"💫 當前週期",
+      action_tips:"🎯 行動建議",
+      energy_reminder:"⚡ 能量提醒",
+      disclaimer_title:"📝 重要說明",
+      disclaimer_text:"此分析基於簡單的生命數字計算方法，只用於娛樂與自我反思。結果由本地演算法產生，不應視為專業建議。真正的成長與療癒，仍需要結合自我覺察與專業諮詢。",
+      more_title:"了解更多",
+      more_study_title:"學習資源",
+      more_study_text:"探索更多關於能量類型、生命數字與個人成長的文章與課程。",
+      more_community_title:"社群交流",
+      more_community_text:"在心憐空間中，與其他探索者分享經驗、問題與靈感。",
+      more_deep_title:"深度分析",
+      more_deep_text:"結合完整命盤、流年與風水空間，獲得更立體的個人能量地圖。",
+
       vip_title:"🌙 會員區域 VIP Segment",
       vip_mingli:"🗝 命理空間專屬內容",
       vip_love:"姻緣方向：戀愛緣分、婚姻走勢",
@@ -400,6 +574,23 @@
       need_birth:"Please select at least your birthdate (time/place optional).",
       generating:"Generating reading…",
       retry:"Sorry, couldn’t generate for now.", neterr:"Network error. Try again later.",
+
+      loading_text:"Analyzing your energy type...",
+      result_title:"Your Energy Analysis",
+      core_energy:"🌱 Core Energy",
+      current_cycle:"💫 Current Cycle",
+      action_tips:"🎯 Action Tips",
+      energy_reminder:"⚡ Energy Reminder",
+      disclaimer_title:"📝 Important Note",
+      disclaimer_text:"This analysis is based on simple numerology-style calculations and is meant for reflection and inspiration only. All results are generated locally in your browser and are not a substitute for professional advice or therapy.",
+      more_title:"Learn More",
+      more_study_title:"Study & Resources",
+      more_study_text:"Explore more articles and courses about energy types, numerology and personal growth.",
+      more_community_title:"Community",
+      more_community_text:"In Xinlian Space you can share questions, experiences and insights with like-minded explorers.",
+      more_deep_title:"Deeper Readings",
+      more_deep_text:"Combine full charts, yearly cycles and Feng Shui space reading for a more complete energy map.",
+
       vip_title:"🌙 VIP Area",
       vip_mingli:"🗝 Destiny Space — Exclusive Content",
       vip_love:"Love & Marriage: romantic chemistry, marriage outlook",
@@ -448,6 +639,23 @@
       need_birth:"少なくとも生年月日を選択してください（時間／場所は任意）。",
       generating:"リーディングを生成中…",
       retry:"申し訳ありません。今は生成できません。しばらくしてからお試しください。", neterr:"ネットワークエラーです。時間をおいて再度お試しください。",
+
+      loading_text:"エネルギータイプを分析中…",
+      result_title:"あなたのエネルギー分析",
+      core_energy:"🌱 コアエネルギー",
+      current_cycle:"💫 現在のサイクル",
+      action_tips:"🎯 行動のヒント",
+      energy_reminder:"⚡ エネルギーの注意点",
+      disclaimer_title:"📝 注意事項",
+      disclaimer_text:"この分析は、シンプルな数秘術的な計算にもとづいた参考情報です。すべてブラウザ内で処理されており、専門的な診断やカウンセリングの代わりにはなりません。",
+      more_title:"さらに知りたい方へ",
+      more_study_title:"学習リソース",
+      more_study_text:"エネルギータイプやライフパス、個人の成長に関する記事・講座を順次追加していきます。",
+      more_community_title:"コミュニティ",
+      more_community_text:"心憐スペースでは、似たテーマを持つ人たちと経験やアイデアをシェアできます。",
+      more_deep_title:"より深いリーディング",
+      more_deep_text:"完全な命式や年ごとの運気、空間と組み合わせることで、より立体的なエネルギーマップを作る予定です。",
+
       vip_title:"🌙 VIP エリア",
       vip_mingli:"🗝 命理スペース：会員限定コンテンツ",
       vip_love:"恋愛・結婚：ご縁の流れ、結婚のタイミング",
@@ -496,6 +704,23 @@
       need_birth:"กรุณาเลือกอย่างน้อยวันเกิด (เวลา/สถานที่ ไม่บังคับ)",
       generating:"กำลังสร้างคำทำนาย…",
       retry:"ขออภัย ตอนนี้ยังไม่สามารถสร้างคำทำนายได้", neterr:"เครือข่ายขัดข้อง โปรดลองใหม่ภายหลัง",
+
+      loading_text:"กำลังวิเคราะห์ประเภทพลังงานของคุณ…",
+      result_title:"การวิเคราะห์พลังงานของคุณ",
+      core_energy:"🌱 แก่นพลังงาน",
+      current_cycle:"💫 วงจรปัจจุบัน",
+      action_tips:"🎯 คำแนะนำในการลงมือทำ",
+      energy_reminder:"⚡ ข้อควรระวังด้านพลังงาน",
+      disclaimer_title:"📝 ข้อควรทราบ",
+      disclaimer_text:"การวิเคราะห์นี้อ้างอิงจากการคำนวณตัวเลขแบบง่าย ใช้เพื่อการสะท้อนตนเองและความบันเทิงเท่านั้น ผลลัพธ์ไม่ใช่คำวินิจฉัยทางวิชาชีพหรือคำแนะนำด้านสุขภาพจิตโดยตรง",
+      more_title:"อยากเรียนรู้เพิ่ม",
+      more_study_title:"แหล่งเรียนรู้",
+      more_study_text:"จะมีบทความและคอร์สเกี่ยวกับประเภทพลังงาน เลขชีวิต และการเติบโตภายในเพิ่มเข้ามาเรื่อย ๆ",
+      more_community_title:"คอมมูนิตี้",
+      more_community_text:"ในโซน Xinlian คุณสามารถแชร์ประสบการณ์และคำถามกับคนที่สนใจเรื่องคล้ายกันได้",
+      more_deep_title:"การอ่านเชิงลึก",
+      more_deep_text:"ในอนาคตจะมีการผสมผสานดวงเต็ม จังหวะรายปี และฮวงจุ้ย เพื่อสร้างแผนที่พลังงานที่ครอบคลุมมากขึ้น",
+
       vip_title:"🌙 พื้นที่ VIP",
       vip_mingli:"🗝 เนื้อหาเฉพาะสมาชิก — โซนดวงชะตา",
       vip_love:"ด้านความรักและการแต่งงาน: ศักยภาพและจังหวะความสัมพันธ์",
@@ -544,6 +769,23 @@
       need_birth:"Sila pilih sekurang-kurangnya tarikh lahir (masa/tempat adalah pilihan).",
       generating:"Sedang menjana bacaan…",
       retry:"Maaf, bacaan tidak dapat dijana buat masa ini.", neterr:"Ralat rangkaian. Cuba lagi kemudian.",
+
+      loading_text:"Sedang menganalisis jenis tenaga anda…",
+      result_title:"Analisis Tenaga Anda",
+      core_energy:"🌱 Tenaga Teras",
+      current_cycle:"💫 Kitaran Semasa",
+      action_tips:"🎯 Cadangan Tindakan",
+      energy_reminder:"⚡ Peringatan Tenaga",
+      disclaimer_title:"📝 Penafian",
+      disclaimer_text:"Analisis ini berasaskan pengiraan numerologi ringkas dan hanya untuk refleksi diri dan hiburan. Keputusan dijana secara setempat dalam pelayar anda dan bukan nasihat profesional.",
+      more_title:"Ketahui Lebih Lanjut",
+      more_study_title:"Sumber Pembelajaran",
+      more_study_text:"Terokai lebih banyak artikel dan kursus tentang jenis tenaga, numerologi dan pembangunan diri.",
+      more_community_title:"Komuniti",
+      more_community_text:"Dalam Ruang Xinlian, anda boleh berkongsi pengalaman dan soalan dengan mereka yang berminat dalam topik yang sama.",
+      more_deep_title:"Analisis Mendalam",
+      more_deep_text:"Gabungkan carta penuh, kitaran tahunan dan bacaan Feng Shui ruang untuk peta tenaga yang lebih menyeluruh.",
+
       vip_title:"🌙 Zon VIP",
       vip_mingli:"🗝 Ruang Takdir — Kandungan Eksklusif",
       vip_love:"Cinta & Perkahwinan: keserasian dan masa jodoh",
@@ -589,12 +831,12 @@
     if(titleEl){ titleEl.textContent = t("title"); }
   }
 
-  /* ===== 简单数秘：生命路径数字 ===== */
+  /* ===== 简单数秘：生命路径数字（保留 11/22） ===== */
   function calcLifePath(birthStr){
     const digits = (birthStr || "").replace(/[^0-9]/g,"").split("");
     if(!digits.length) return 0;
     let sum = digits.reduce((s,d)=>s+parseInt(d||"0",10),0);
-    while(sum > 9){
+    while(sum > 9 && sum !== 11 && sum !== 22){
       sum = sum.toString().split("").reduce((s,d)=>s+parseInt(d||"0",10),0);
     }
     if(sum === 0) sum = 9;
@@ -616,7 +858,7 @@
     return m[topic] || m.other || "";
   }
 
-  /* 为不同生命路径准备一个简短标签（备用） */
+  /* 生命路径标签（短） */
   const lpNameZhMap = {
     1:"起点型 · 主动开局",
     2:"桥梁型 · 协作与支持",
@@ -626,7 +868,9 @@
     6:"照护型 · 责任与关怀",
     7:"洞察型 · 思考与内观",
     8:"权威型 · 资源与成就",
-    9:"整合型 · 疗愈与收束"
+    9:"整合型 · 疗愈与收束",
+    11:"大师灵感型 · 直觉与启示",
+    22:"大师建造型 · 远见与落实"
   };
   const lpNameEnMap = {
     1:"Type 1 · Initiator",
@@ -637,371 +881,122 @@
     6:"Type 6 · Care & Responsibility",
     7:"Type 7 · Insight & Reflection",
     8:"Type 8 · Power & Achievement",
-    9:"Type 9 · Integration & Healing"
+    9:"Type 9 · Integration & Healing",
+    11:"Master 11 · Intuition & Inspiration",
+    22:"Master 22 · Vision & Builder"
   };
 
-  // Top-level entry: whole butler block
-  function buildButlerHtml(lang, ctx) {
-    try {
-      return (
-        '<section class="ai-card">' +
-          buildEnergyHtml(lang, ctx) +
-        '</section>'
-      );
-    } catch (e) {
-      console.error('[butler] buildButlerHtml error:', e);
-      return '<p class="ai-error">AI section render error.</p>';
+  /* 生命路径详细含义（简化版） */
+  function getLifePathMeaning(num, lang){
+    const isZh = (lang === "zh-CN" || lang === "zh-TW");
+    const zh = {
+      1:{core:"开创者能量，独立自主，带有领导与开局的气质。",cycle:"现在适合把心里想了很久的事，做成真正的起步。",action:"给自己一个明确的方向，哪怕只是一小步行动。",reminder:"记得在坚持自我与听取他人意见之间找到平衡。"},
+      2:{core:"合作者能量，敏感细腻，擅长连结人与人之间。",cycle:"适合修复关系、建立协作，与可靠的人并肩同行。",action:"多安排一些一对一的交流，让自己被看见、被理解。",reminder:"照顾他人时也要留一点空间给自己，不必事事退让。"},
+      3:{core:"表达者能量，创意丰富，乐观活泼，适合说写演。",cycle:"创意活跃期，适合产出内容、分享想法。",action:"把心里的点子写下来、说出来，而不是只停留在脑中。",reminder:"避免一次铺太多计划，先完成一件小事再加下一件。"},
+      4:{core:"建设者能量，踏实稳定，重视安全感与结构。",cycle:"打基础的阶段，适合整理生活与工作系统。",action:"建立几个简单、可重复的日常习惯，让自己站稳脚跟。",reminder:"稳定不等于停滞，适度的调整反而能让结构更稳固。"},
+      5:{core:"自由者能量，适应力强，喜欢新鲜变化与体验。",cycle:"变化较多的时期，机会容易从意想不到的地方出现。",action:"为自己保留一点机动空间，试着回应突然出现的灵感。",reminder:"在追求自由的同时，记得为自己设下一些温柔的界线。"},
+      6:{core:"照护者能量，有责任感，重视承诺与亲密关系。",cycle:"与家庭、人际、团队责任感有关的主题会被放大。",action:"适度表达自己的需要，而不是只扮演照顾与付出的一方。",reminder:"当你学会照顾自己，他人也更容易真正地靠近你。"},
+      7:{core:"探索者能量，思考深入，偏向内省与追问本质。",cycle:"适合放慢脚步、学习、整理内心与知识系统。",action:"为自己安排独处与学习时间，把零散的想法整理下来。",reminder:"别把所有问题都锁在脑袋里，可以找可信任的人聊聊。"},
+      8:{core:"成就者能量，目标导向，懂得经营资源与影响力。",cycle:"适合检视目标、资源与投入产出比的阶段。",action:"把当下最重要的 1–2 个目标写清楚，并拆成可执行步骤。",reminder:"成功不只看成绩单，也包含你的健康、人际与心安。"},
+      9:{core:"整合者能量，包容力强，带有疗愈与收束的气质。",cycle:"适合完成旧事、整理过去，腾出空间迎接新篇章。",action:"列出需要收尾的事项，一次解决一个小环节。",reminder:"结束并不代表失败，而是为新的循环让路。"},
+      11:{core:"直觉大师能量，灵感敏锐，容易接收细腻讯号。",cycle:"灵感与感受被放大的时期，适合记梦、记灵感。",action:"把脑海里闪过的画面与感受记录下来，再慢慢筛选。",reminder:"保持基本作息与生活结构，帮助你把灵感落地。"},
+      22:{core:"大师建造者能量，能把远大愿景变成具体结构。",cycle:"适合规划中长期项目与布局资源。",action:"为自己的大愿景画一张简图，再拆成一年、三个月、当下。",reminder:"再大的蓝图也来自一个个小而稳定的动作。"}
+    };
+    const en = {
+      1:{core:"Pioneer energy – independent, self-directed, with natural leadership.",cycle:"Good time to start something you’ve been thinking about for a while.",action:"Choose one direction and take a small but clear first step.",reminder:"Balance your own will with listening to feedback from others."},
+      2:{core:"Connector energy – sensitive, relational, good at building bridges.",cycle:"Best for nurturing relationships and healthy collaborations.",action:"Create space for sincere one-to-one conversations.",reminder:"Care for others without abandoning your own needs and limits."},
+      3:{core:"Expressor energy – creative, communicative, playful and bright.",cycle:"Creative peak; good for sharing ideas and producing content.",action:"Write, speak or create instead of keeping everything in your head.",reminder:"Avoid scattering your focus; finish one small thing at a time."},
+      4:{core:"Builder energy – grounded, practical, focused on structure and safety.",cycle:"Foundation-building phase; perfect for organizing life and work systems.",action:"Set up simple, repeatable routines that give you a stable base.",reminder:"Stability isn’t the same as stagnation; small adjustments help you grow."},
+      5:{core:"Explorer energy – adaptable, curious, craving fresh experiences.",cycle:"A more changeable period; chances may appear from unexpected places.",action:"Leave room in your schedule for spontaneous opportunities.",reminder:"Freedom feels better when you also have gentle, self-chosen boundaries."},
+      6:{core:"Caretaker energy – responsible, devoted, family-oriented.",cycle:"Themes around family, team and shared responsibility are highlighted.",action:"State your needs kindly instead of only giving and supporting.",reminder:"When you honour your own well-being, your care for others is more sustainable."},
+      7:{core:"Seeker energy – introspective, analytical, searching for truth.",cycle:"Good time for study, reflection and inner alignment.",action:"Schedule quiet time to read, think and organise your ideas.",reminder:"You don’t have to solve every question alone; trusted conversations help."},
+      8:{core:"Achiever energy – ambitious, resource-oriented, impact-driven.",cycle:"Cycle of goals, results and reviewing return on effort.",action:"Write down your top one or two priorities and break them into steps.",reminder:"Real success includes health, relationships and inner peace, not just numbers."},
+      9:{core:"Integrator energy – compassionate, wise, with a healing presence.",cycle:"Completion phase; good for closing chapters and letting go.",action:"List things that need closure and finish them one piece at a time.",reminder:"Endings are not failures; they clear space for a truer beginning."},
+      11:{core:"Master 11 – intuitive, visionary, highly sensitive to subtle signals.",cycle:"Heightened inspiration; good for dream work and journaling insights.",action:"Capture flashes of insight in notes before they fade.",reminder:"Ground yourself with simple routines so inspiration can become reality."},
+      22:{core:"Master 22 – the master builder who turns big visions into form.",cycle:"Good time to map long-term projects and organise resources.",action:"Sketch your big vision, then break it into yearly, quarterly and current steps.",reminder:"Every large structure is built from many small, steady actions."}
+    };
+    const table = isZh ? zh : en;
+    return table[num] || table[1];
+  }
+
+  /* 按关注主题给一点额外方向（不跟 life path 强绑） */
+  function getFocusAdvice(topic, lang){
+    const isZh = (lang === "zh-CN" || lang === "zh-TW");
+    const key = topic || "other";
+    if(isZh){
+      const zh = {
+        love:"在关系里，多练习把真实感受说出来，而不是先猜测对方怎么想。",
+        career:"在事业上，优先处理最能提升长期价值的任务，而不是只追眼前忙碌。",
+        wealth:"在财富上，先建立基本安全感，再考虑更积极的投资与扩张。",
+        family:"在人际与家庭中，保持倾听，但也记得表达自己的界线与底线。",
+        health:"在身心层面，为睡眠、饮食与适度运动预留时间，是一切的基础。",
+        study:"在学习与成长上，选择一个想扎实走下去的方向，持续 30 天试试看。",
+        move:"在旅行或搬迁的决定里，多问自己：这次移动希望带来什么新的感受？",
+        other:"整体来说，比起追求完美，更重要的是稳稳向前、允许自己调整节奏。"
+      };
+      return zh[key] || zh.other;
+    } else {
+      const en = {
+        love:"In relationships, practice voicing your real feelings instead of guessing the other person’s mind.",
+        career:"For career, prioritise tasks that build long-term value instead of only reacting to urgency.",
+        wealth:"For money, focus on a basic sense of stability first, then consider taking bolder steps.",
+        family:"For family and social life, listen deeply but also honour your own boundaries.",
+        health:"For health, simple consistency in sleep, food and movement will change more than intense bursts.",
+        study:"For growth, choose one direction to commit to and stay with it for at least 30 days.",
+        move:"For travel or moving, ask what feeling or quality you hope this change will bring.",
+        other:"Overall, steady progress and permission to adjust your pace matter more than perfection."
+      };
+      return en[key] || en.other;
     }
   }
 
-  // Core energy section with multi-language support
-  function buildEnergyHtml(lang, ctx) {
-    ctx = ctx || {};
+  /* 渲染结果区 */
+  function renderResult(ctx){
+    if(!ctx) return;
+    const lang = getLang();
+    const isZh = (lang === "zh-CN" || lang === "zh-TW");
+    const name = (ctx.name || "").trim();
+    const topic = ctx.topic || "other";
+    const lp = ctx.lp || calcLifePath(ctx.birthdate || "");
+    const topicLabel = getTopicName(lang, topic);
+    const displayName = name || (isZh ? "朋友" : "Friend");
+    const lpLabelMap = isZh ? lpNameZhMap : lpNameEnMap;
+    const lpLabel = lpLabelMap[lp] || "";
 
-    // Basic safe getters
-    const rawName = (ctx.name || '').trim();
-    const lp = (ctx.lp !== undefined && ctx.lp !== null) ? String(ctx.lp) : '?';
+    const meaning = getLifePathMeaning(lp, lang);
+    const extraAdvice = getFocusAdvice(topic, lang);
 
-    // lpLabel: 优先用 ctx.lpLabel[lang]，否则按语言默认
-    const lpLabelMap = (ctx.lpLabel && typeof ctx.lpLabel === 'object') ? ctx.lpLabel : {};
-    let lpLabel =
-      lpLabelMap[lang] ||
-      lpLabelMap['zh-TW'] ||
-      lpLabelMap['zh-CN'] ||
-      lpLabelMap['en'] ||
-      '';
+    const personalInfo = $("personalInfo");
+    const coreEl = $("coreEnergy");
+    const cycleEl = $("currentCycle");
+    const actionEl = $("actionTips");
+    const remindEl = $("energyReminder");
 
-    if (!lpLabel) {
-      const num = parseInt(lp, 10);
-      if (lang === 'zh-CN' || lang === 'zh-TW') {
-        lpLabel = lpNameZhMap[num] || '';
+    if (personalInfo){
+      if (isZh){
+        personalInfo.innerHTML =
+          "<p><strong>" + displayName + "</strong>，你的生命路径数字是 <strong>" + lp +
+          "</strong>（" + lpLabel + "）。</p>" +
+          "<p class=\"muted\">关注主题：" + topicLabel + "</p>";
       } else {
-        lpLabel = lpNameEnMap[num] || '';
+        personalInfo.innerHTML =
+          "<p><strong>" + displayName + "</strong>, your Life Path number is <strong>" + lp +
+          "</strong> (" + lpLabel + ").</p>" +
+          "<p class=\"muted\">Focus: " + topicLabel + "</p>";
       }
     }
-
-    // topicName comes from ctx.topicName; if empty, fallback by lang
-    const rawTopicName = (ctx.topicName || '').trim();
-    const topic =
-      rawTopicName ||
-      (lang === 'en'
-        ? 'this focus'
-        : lang === 'ja'
-        ? 'このテーマ'
-        : lang === 'th'
-        ? 'เรื่องนี้'
-        : lang === 'ms'
-        ? 'topik ini'
-        : lang === 'zh-CN'
-        ? '这个主题'
-        : '這個主題'); // default: zh-TW style
-
-    // Name prefix per language
-    function namePrefix(l) {
-      if (!rawName) return '';
-      switch (l) {
-        case 'en':
-        case 'en-US':
-        case 'ja':
-        case 'ja-JP':
-        case 'th':
-        case 'th-TH':
-        case 'ms':
-        case 'ms-MY':
-          return rawName + ', ';
-        case 'zh-CN':
-        case 'zh-TW':
-        default:
-          return rawName + '，';
+    if (coreEl) coreEl.textContent = meaning.core;
+    if (cycleEl) cycleEl.textContent = meaning.cycle;
+    if (actionEl){
+      if (extraAdvice){
+        actionEl.textContent = isZh
+          ? meaning.action + "。" + extraAdvice
+          : meaning.action + " " + extraAdvice;
+      } else {
+        actionEl.textContent = meaning.action;
       }
     }
-
-    // === zh-CN (简体) ===
-    function zhCN() {
-      const namePart = namePrefix('zh-CN');
-      return (
-        '<h3 class="ai-head">能量画像</h3>' +
-        '<p>' + namePart + '你的生命路径数字为 <b>' + lp +
-        '</b>（' + lpLabel + '）。近期在「' + topic +
-        '」主题上，重点不是当下一定要做出巨大突破，而是用稳定的小步行动，把已经在想的事情真正落地。</p>' +
-
-        '<h3 class="ai-head">当下节律（7 天）</h3>' +
-        '<ul>' +
-          '<li><b>前 2–3 天：</b>适合先盘点手上事情，整理环境／档案／待办；越简单的小任务越能帮你「热身」。</li>' +
-          '<li><b>中间 2–3 天：</b>可以挑 1–2 件与「' + topic + '」直接相关的行动，例如一通讯息、一个对话、一次小尝试。</li>' +
-          '<li><b>最后 1–2 天：</b>收尾与回顾周期，写下这几天的 3 个「做得好的地方」，不要只盯着没做到的。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">30 天走势</h3>' +
-        '<ul>' +
-          '<li>整体节奏偏「循序渐进」，适合分成每周一个小目标，而不是一次性把所有计划压在同一周。</li>' +
-          '<li>当感觉卡住时，与其硬顶，不如先调整生活作息、睡眠与身体状态，心态会跟着松动。</li>' +
-          '<li>如果你愿意，每周为「' + topic + '」留出至少 2 个固定时段，当作与自己的约定。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">关键资源</h3>' +
-        '<ul>' +
-          '<li>你对细节的直觉与敏感，是很好的雷达，可以帮你避开明显不适合的选择。</li>' +
-          '<li>当有人愿意和你一起讨论或陪你执行时，你会更容易坚持，不必勉强一个人扛全部。</li>' +
-          '<li>你过往的经验（成功也好、失误也好）都是资料库，可以拿来复盘，而不是当作羞愧的来源。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">易耗点与界线</h3>' +
-        '<ul>' +
-          '<li>长时间滑手机、比较自己与他人的进度，会让你对「还不够好」非常敏感，形成隐形内耗。</li>' +
-          '<li>答应太多别人的请求，忘记留时间给自己的计划，是这一阶段最容易失衡的地方。</li>' +
-          '<li>你可以练习对自己说：「这件事我可以分成三小步做」，而不是一次期待完美。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">方法与局限</h3>' +
-        '<p>以上解读是基于 <b>出生日期与关注主题</b> 的本地规则推演，没有使用连网 AI，也尚未整合完整命盘与流年等资料。</p>' +
-        '<p>它适合作为一个「温和的起点」，帮你先看见自己的节奏与可用资源。未来若加入更完整的命盘与动态流年，报告会更细致、更贴近你的真实状态。</p>'
-      );
-    }
-
-    // === zh-TW（繁體）===
-    function zhTW() {
-      const namePart = namePrefix('zh-TW');
-      return (
-        '<h3 class="ai-head">能量画像</h3>' +
-        '<p>' + namePart + '你的生命路徑數字為 <b>' + lp +
-        '</b>（' + lpLabel + '）。近期在「' + topic +
-        '」主題上，重點不是當下一定要做出巨大突破，而是用穩定的小步行動，把已經在想的事情真正落地。</p>' +
-
-        '<h3 class="ai-head">當下節律（7 天）</h3>' +
-        '<ul>' +
-          '<li><b>前 2–3 天：</b>適合先盤點手上事情，整理環境／檔案／待辦；越簡單的小任務越能幫你「熱身」。</li>' +
-          '<li><b>中間 2–3 天：</b>可以挑 1–2 件與「' + topic + '」直接相關的行動，例如一通訊息、一個對話、一次小嘗試。</li>' +
-          '<li><b>最後 1–2 天：</b>收尾與回顧週期，寫下這幾天的 3 個「做得好的地方」，不要只盯著沒做到的。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">30 天走勢</h3>' +
-        '<ul>' +
-          '<li>整體節奏偏「循序漸進」，適合分成每週一個小目標，而不是一次性把所有計畫壓在同一週。</li>' +
-          '<li>當感覺卡住時，與其硬頂，不如先調整生活作息、睡眠與身體狀態，心態會跟著鬆動。</li>' +
-          '<li>如果你願意，每週為「' + topic + '」留出至少 2 個固定時段，當作與自己的約定。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">關鍵資源</h3>' +
-        '<ul>' +
-          '<li>你對細節的直覺與敏感，是很好的雷達，可以幫你避開明顯不適合的選擇。</li>' +
-          '<li>當有人願意和你一起討論或陪你執行時，你會更容易堅持，不必勉強一個人扛全部。</li>' +
-          '<li>你過往的經驗（成功也好、失誤也好）都是資料庫，可以拿來複盤，而不是當作羞愧的來源。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">易耗點與界線</h3>' +
-        '<ul>' +
-          '<li>長時間滑手機、比較自己與他人的進度，會讓你對「還不夠好」非常敏感，形成隱形內耗。</li>' +
-          '<li>答應太多別人的請求，忘記留時間給自己的計畫，是這一階段最容易失衡的地方。</li>' +
-          '<li>你可以練習對自己說：「這件事我可以分成三小步做」，而不是一次期待完美。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">方法與侷限</h3>' +
-        '<p>以上解讀是基於 <b>出生日期與關注主題</b> 的本地規則推演，沒有使用連網 AI，也尚未整合完整命盤與流年等資料。</p>' +
-        '<p>它適合作為一個「溫和的起點」，幫你先看見自己的節奏與可用資源。未來若加入更完整的命盤與動態流年，報告會更細緻、更貼近你的真實狀態。</p>'
-      );
-    }
-
-    // === English ===
-    function enUS() {
-      const namePart = namePrefix('en');
-      return (
-        '<h3 class="ai-head">Energy Snapshot</h3>' +
-        '<p>' + namePart + 'your Life Path number is <b>' + lp +
-        '</b> (' + lpLabel + '). For the focus around “‘' + topic +
-        '’”, the point right now is not to force a huge breakthrough, but to turn your existing ideas into small, steady actions.</p>' +
-
-        '<h3 class="ai-head">Current Rhythm (7 days)</h3>' +
-        '<ul>' +
-          '<li><b>First 2–3 days:</b> Good for taking stock: tidy your space, files, and to-dos. Very small tasks work like a warm-up for your energy.</li>' +
-          '<li><b>Middle 2–3 days:</b> Choose one or two concrete actions directly linked to “‘' + topic +
-          '” – for example sending a message, starting a conversation, or trying a small experiment.</li>' +
-          '<li><b>Last 1–2 days:</b> This is a review phase. Write down three things you did well in these days, instead of only staring at what you did not finish.</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">30-Day Tendency</h3>' +
-        '<ul>' +
-          '<li>The overall rhythm is gradual and step by step. It works better to set one small target for each week than to push everything into a single week.</li>' +
-          '<li>When you feel blocked, rather than pushing harder, adjust your daily routine, sleep, and body state first. Your mindset will loosen once the body feels safer.</li>' +
-          '<li>If you can, reserve at least two fixed slots each week just for “‘' + topic +
-          '” and treat them as an appointment with yourself.</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">Key Resources</h3>' +
-        '<ul>' +
-          '<li>Your intuition and sensitivity to details work like a radar that helps you avoid clearly unsuitable choices.</li>' +
-          '<li>You tend to stay more consistent when someone is willing to discuss things with you or walk with you in action. You do not have to carry everything alone.</li>' +
-          '<li>Your past experiences – both successes and mistakes – are a valuable database. They are material for review, not something you need to feel ashamed of.</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">Energy Drains & Boundaries</h3>' +
-        '<ul>' +
-          '<li>Long sessions of scrolling on your phone and comparing your progress to others can make you very sensitive to the idea of “not good enough”, which turns into hidden inner friction.</li>' +
-          '<li>Saying yes to too many requests from others and forgetting to leave time for your own plans is the easiest way to lose balance in this phase.</li>' +
-          '<li>Practice telling yourself: “I can break this into three small steps,” instead of expecting one perfect move.</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">Method & Limits</h3>' +
-        '<p>This reading is generated from <b>your birth date and current focus</b> using local rule-based logic. It does not use online AI and it has not yet combined your full chart or yearly cycles.</p>' +
-        '<p>Think of it as a gentle starting point to see your rhythm and available resources more clearly. When full birth charts and dynamic yearly trends are added in the future, the report will become more detailed and closer to your real situation.</p>'
-      );
-    }
-
-    // === Japanese ===
-    function jaJP() {
-      const namePart = namePrefix('ja');
-      return (
-        '<h3 class="ai-head">エネルギーイメージ</h3>' +
-        '<p>' + namePart + 'あなたのライフパスナンバーは <b>' + lp +
-        '</b>（' + lpLabel + '）です。いま「' + topic +
-        '」というテーマについて大事なのは、いきなり大きな飛躍を起こすことではなく、すでに頭の中にあるアイデアを、安定した小さな行動に落とし込んでいくことです。</p>' +
-
-        '<h3 class="ai-head">直近 7 日間のリズム</h3>' +
-        '<ul>' +
-          '<li><b>最初の 2〜3 日：</b>手元のタスクを整理したり、部屋やファイル、ToDo を整えるのに向いています。小さな作業ほど、エネルギーの「ウォームアップ」になります。</li>' +
-          '<li><b>真ん中の 2〜3 日：</b>「' + topic +
-          '」に直接つながる行動を 1〜2 個選びましょう。メッセージを送る、誰かと話してみる、小さなチャレンジをしてみる、などです。</li>' +
-          '<li><b>最後の 1〜2 日：</b>振り返りと締めくくりのタイミングです。この数日間で「うまくできたこと」を 3 つ書き出し、できなかったことだけに意識を向けないようにしましょう。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">30 日間の流れ</h3>' +
-        '<ul>' +
-          '<li>全体のリズムは「段階的・ステップ型」です。1 週間ごとに小さな目標を決める方が、一度にすべてをやろうとするよりも進みやすくなります。</li>' +
-          '<li>行き詰まりを感じたときは、無理に頑張るよりも、まず生活リズムや睡眠、身体のコンディションを整えることが大切です。身体がゆるむと、心も自然とほどけていきます。</li>' +
-          '<li>もし可能であれば、毎週「' + topic +
-          '」だけのための時間を少なくとも 2 コマ確保し、自分との約束として扱ってみてください。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">あなたのリソース</h3>' +
-        '<ul>' +
-          '<li>細部への直感と敏感さは、レーダーのように働き、明らかに合わない選択肢を避ける助けになります。</li>' +
-          '<li>誰かが一緒に話を聞いてくれたり、行動を伴走してくれたりするとき、あなたはより継続しやすくなります。すべてを一人で背負う必要はありません。</li>' +
-          '<li>これまでの経験（うまくいったことも、失敗したことも）は、振り返りに使える大切なデータベースです。恥ずかしさの源ではなく、学びの素材として扱ってみてください。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">消耗ポイントと境界線</h3>' +
-        '<ul>' +
-          '<li>長時間のスマホ閲覧や、他人のペースと自分を比べ続けることは、「自分はまだ足りない」という感覚を強め、見えない内側の消耗につながります。</li>' +
-          '<li>人からの頼みごとを受けすぎて、自分の計画のための時間を忘れてしまうことは、この時期もっともバランスを崩しやすいポイントです。</li>' +
-          '<li>「このことは三つの小さなステップに分けられる」と自分に言い聞かせる練習をしてみてください。一度の完璧さを求める必要はありません。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">方法と限界</h3>' +
-        '<p>このリーディングは、<b>あなたの生年月日と現在のテーマ</b>にもとづくローカルなルールベースで作成されています。オンライン AI は使っておらず、まだ完全なホロスコープや年ごとの運気などは統合されていません。</p>' +
-        '<p>あくまで「やさしいスタート地点」として、自分のリズムや使えるリソースを見つめ直すために活用してください。今後、完全なチャートや動的な運気情報が加われば、より細やかでリアルな内容にアップデートされていきます。</p>'
-      );
-    }
-
-    // === Thai ===
-    function thTH() {
-      const namePart = namePrefix('th');
-      return (
-        '<h3 class="ai-head">ภาพรวมพลังงาน</h3>' +
-        '<p>' + namePart + 'เลขเส้นทางชีวิต (Life Path) ของคุณคือ <b>' + lp +
-        '</b> (' + lpLabel + ') สำหรับเรื่องของ “‘' + topic +
-        '” ช่วงนี้จุดสำคัญไม่ใช่การฝืนให้เกิดการเปลี่ยนแปลงครั้งใหญ่ แต่คือการค่อย ๆ เปลี่ยนความคิดที่มีอยู่แล้วให้กลายเป็นการลงมือทำเล็ก ๆ อย่างต่อเนื่อง</p>' +
-
-        '<h3 class="ai-head">จังหวะใน 7 วันข้างหน้า</h3>' +
-        '<ul>' +
-          '<li><b>2–3 วันแรก:</b> เหมาะกับการเคลียร์งานและจัดระเบียบชีวิต เช่น เก็บโต๊ะ ทำความสะอาดไฟล์ หรือจัดลิสต์งานเล็ก ๆ งานง่าย ๆ จะช่วยให้คุณวอร์มอัพพลังงานได้ดี</li>' +
-          '<li><b>2–3 วันตรงกลาง:</b> เลือกการกระทำ 1–2 อย่างที่เกี่ยวข้องกับ “‘' + topic +
-          '” โดยตรง เช่น ส่งข้อความ พูดคุยกับใครสักคน หรือทดลองลงมือทำอะไรเล็ก ๆ หนึ่งครั้ง</li>' +
-          '<li><b>1–2 วันสุดท้าย:</b> เป็นช่วงสรุปและทบทวน ลองเขียน 3 อย่างที่คุณทำได้ดีในช่วงนี้ แทนที่จะโฟกัสแต่สิ่งที่ยังทำไม่เสร็จ</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">แนวโน้มใน 30 วัน</h3>' +
-        '<ul>' +
-          '<li>จังหวะโดยรวมเป็นแบบค่อยเป็นค่อยไป เหมาะกับการแบ่งเป้าหมายออกเป็นเป้าหมายย่อยรายสัปดาห์ มากกว่าการอัดทุกอย่างไว้ในสัปดาห์เดียว</li>' +
-          '<li>ถ้ารู้สึกติดขัด แทนที่จะฝืนทำต่อ ให้ลองปรับตารางชีวิต การนอน และสภาพร่างกายก่อน เมื่อร่างกายรู้สึกปลอดภัยขึ้น ใจก็จะผ่อนคลายตาม</li>' +
-          '<li>ถ้าเป็นไปได้ ลองกันเวลาอย่างน้อยสัปดาห์ละ 2 ช่วงให้กับเรื่อง “‘' + topic +
-          '” โดยเฉพาะ และถือว่าเป็นนัดสำคัญกับตัวเอง</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">จุดแข็งและทรัพยากรของคุณ</h3>' +
-        '<ul>' +
-          '<li>ความรู้สึกไวต่อรายละเอียดของคุณเปรียบเสมือนเรดาร์ ที่ช่วยให้คุณมองเห็นและหลีกเลี่ยงตัวเลือกที่ไม่เหมาะกับตัวเองได้ทัน</li>' +
-          '<li>เมื่อมีคนพร้อมคุยหรือเดินไปกับคุณในการลงมือทำ คุณจะรักษาความต่อเนื่องได้ง่ายขึ้น คุณไม่จำเป็นต้องแบกทุกอย่างไว้คนเดียว</li>' +
-          '<li>ประสบการณ์ในอดีต ทั้งที่สำเร็จและพลาด ล้วนเป็นฐานข้อมูลที่มีค่า ใช้ทบทวนและเรียนรู้ได้ แทนที่จะมองเป็นเรื่องน่าอาย</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">จุดที่ทำให้พลังงานรั่ว และขอบเขต</h3>' +
-        '<ul>' +
-          '<li>การเล่นโทรศัพท์นาน ๆ และเปรียบเทียบตัวเองกับคนอื่นตลอดเวลา จะทำให้ความรู้สึกว่า “ยังไม่ดีพอ” ชัดขึ้นเรื่อย ๆ จนกลายเป็นการกัดกินพลังงานภายในแบบที่มองไม่เห็น</li>' +
-          '<li>การรับปากคนอื่นมากเกินไปจนลืมกันเวลาให้แผนของตัวเอง เป็นจุดที่ทำให้เสียสมดุลได้ง่ายที่สุดในช่วงนี้</li>' +
-          '<li>ลองฝึกบอกตัวเองว่า “เรื่องนี้ฉันแบ่งทำได้เป็น 3 ขั้นตอนเล็ก ๆ” แทนการคาดหวังให้ทุกอย่างสมบูรณ์แบบในครั้งเดียว</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">วิธีการและขอบเขตของระบบนี้</h3>' +
-        '<p>คำอธิบายนี้สร้างจาก <b>วันเดือนปีเกิดและหัวข้อที่คุณกำลังโฟกัส</b> ด้วยกฎแบบออฟไลน์ในระบบ ไม่ได้ใช้ AI ที่เชื่อมต่ออินเทอร์เน็ต และยังไม่ได้รวมดวงแบบเต็มหรือดวงรายปีเข้ามาด้วย</p>' +
-        '<p>ให้มองว่ามันเป็น “จุดเริ่มต้นที่อ่อนโยน” เพื่อให้คุณเห็นจังหวะชีวิตและทรัพยากรของตัวเองชัดขึ้น ในอนาคตเมื่อมีการเพิ่มดวงเต็มและจังหวะรายปีเข้ามา รายงานจะละเอียดและใกล้เคียงชีวิตจริงของคุณมากขึ้น</p>'
-      );
-    }
-
-    // === Bahasa Melayu ===
-    function msMY() {
-      const namePart = namePrefix('ms');
-      return (
-        '<h3 class="ai-head">Gambaran Tenaga</h3>' +
-        '<p>' + namePart + 'nombor Life Path anda ialah <b>' + lp +
-        '</b> (' + lpLabel + '). Untuk fokus tentang “‘' + topic +
-        '” sekarang, yang penting bukan memaksa satu lonjakan besar, tetapi menukar idea yang sudah ada dalam fikiran menjadi tindakan kecil yang konsisten.</p>' +
-
-        '<h3 class="ai-head">Ritma 7 Hari</h3>' +
-        '<ul>' +
-          '<li><b>2–3 hari pertama:</b> Sesuai untuk menyusun semula kerja dan ruang hidup: kemas meja, fail, dan senarai tugasan. Tugasan kecil membantu memanaskan semula tenaga anda.</li>' +
-          '<li><b>2–3 hari di tengah:</b> Pilih 1–2 tindakan yang berkait terus dengan “‘' + topic +
-          '” – contohnya menghantar mesej, berbual dengan seseorang, atau mencuba satu langkah kecil yang baru.</li>' +
-          '<li><b>1–2 hari terakhir:</b> Ini fasa penutup dan refleksi. Tulis tiga perkara yang anda lakukan dengan baik dalam tempoh ini, dan jangan hanya melihat apa yang belum sempat dibuat.</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">Aliran 30 Hari</h3>' +
-        '<ul>' +
-          '<li>Ritma keseluruhan adalah perlahan tetapi berterusan. Lebih baik menetapkan satu sasaran kecil setiap minggu daripada menekan semua perkara ke dalam satu minggu。</li>' +
-          '<li>Apabila anda rasa tersekat, daripada memaksa diri, cuba ubah rutin harian, waktu tidur, dan keadaan badan anda dahulu. Bila badan rasa lebih selamat dan selesa, minda juga akan lebih tenang。</li>' +
-          '<li>Jika boleh, simpan sekurang-kurangnya dua slot masa tetap setiap minggu hanya untuk “‘' + topic +
-          '” dan anggap itu sebagai janji temu dengan diri sendiri。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">Sumber Kekuatan Anda</h3>' +
-        '<ul>' +
-          '<li>Kepekaan dan intuisi anda terhadap butiran kecil bertindak seperti radar yang membantu mengelakkan pilihan yang jelas tidak sesuai。</li>' +
-          '<li>Apabila ada seseorang yang sanggup mendengar dan menemani anda bertindak, anda lebih mudah untuk kekal konsisten。 Anda tidak perlu memikul semuanya seorang diri。</li>' +
-          '<li>Pengalaman lepas anda – sama ada kejayaan atau kesilapan – ialah pangkalan data yang bernilai。 Gunakannya untuk muhasabah, bukannya sebagai sebab untuk rasa malu。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">Kebocoran Tenaga & Sempadan</h3>' +
-        '<ul>' +
-          '<li>Melayari telefon terlalu lama dan kerap membandingkan diri dengan orang lain akan menguatkan rasa “saya belum cukup bagus”, dan ini menjadi tekanan dalaman yang tidak kelihatan。</li>' +
-          '<li>Sering berkata ya kepada permintaan orang lain sehingga terlupa memperuntukkan masa untuk rancangan sendiri adalah cara paling mudah hilang keseimbangan dalam fasa ini。</li>' +
-          '<li>Cuba latih diri berkata: “Saya boleh pecahkan perkara ini kepada tiga langkah kecil,” dan bukan mengharapkan semuanya sempurna dalam satu percubaan。</li>' +
-        '</ul>' +
-
-        '<h3 class="ai-head">Kaedah & Had Sistem</h3>' +
-        '<p>Huraian ini dijana berdasarkan <b>tarikh lahir dan fokus semasa</b> menggunakan logik berasaskan peraturan secara tempatan。 Ia tidak menggunakan AI yang bersambung ke internet, dan belum menggabungkan carta penuh atau kitaran tahunan。</p>' +
-        '<p>Anggaplah ia sebagai titik permulaan yang lembut untuk melihat ritma dan sumber yang anda ada dengan lebih jelas。 Apabila carta penuh dan aliran tahunan dinamik ditambah pada masa depan, laporan akan menjadi lebih terperinci dan lebih hampir dengan keadaan sebenar hidup anda。</p>'
-      );
-    }
-
-    // Language dispatch
-    switch (lang) {
-      case 'zh-TW':
-        return zhTW();
-      case 'en':
-      case 'en-US':
-        return enUS();
-      case 'ja':
-      case 'ja-JP':
-        return jaJP();
-      case 'th':
-      case 'th-TH':
-        return thTH();
-      case 'ms':
-      case 'ms-MY':
-        return msMY();
-      case 'zh-CN':
-      default:
-        return zhCN();
-    }
+    if (remindEl) remindEl.textContent = meaning.reminder;
   }
 
   /* ====== 生成流程：纯本地 ====== */
@@ -1026,9 +1021,6 @@
       return;
     }
 
-    // 使用 topic 显示标签：爱情/关系 / Love / …
-    const topicName = getTopicName(lang, topicCode);
-
     const btn = $("btnGenerate");
     const btnOrig = btn ? btn.textContent : "";
     if (btn){
@@ -1036,56 +1028,39 @@
       btn.textContent = t("generating");
     }
 
-    const energyCard = $("energyCard"), energyBox = $("energyText");
-    const aiCard = $("aiCard"), aiBox = $("aiText");
-
-    if (energyCard) energyCard.style.display = "block";
-    if (aiCard) aiCard.style.display = "block";
-
-    if (energyBox){
-      energyBox.innerHTML =
-        '<div class="skeleton">' +
-        '<div style="width:78%"></div><div style="width:92%"></div><div style="width:86%"></div>' +
-        '<div style="width:70%"></div><div style="width:55%"></div>' +
-        '</div>';
-    }
-
-    if (aiBox){
-      aiBox.innerHTML =
-        '<div class="skeleton">' +
-        '<div style="width:65%"></div><div style="width:82%"></div><div style="width:90%"></div>' +
-        '<div style="width:72%"></div><div style="width:48%"></div>' +
-        '</div>';
-    }
+    const loading = $("loading");
+    const resultCard = $("resultSection");
+    if (loading) loading.style.display = "block";
+    if (resultCard) resultCard.style.display = "none";
 
     const lp = calcLifePath(birthdate);
+    const langNow = lang;
+
     const ctx = {
-      lang,
+      lang: langNow,
       name,
       gender,
       birthdate,
       birthtime,
       birthplace,
       topic: topicCode,
-      topicName,
       question,
       lp
     };
     lastCtx = ctx;
 
     try{
-      const energyHtml = buildEnergyHtml(lang, ctx);
-      const butlerHtml = buildButlerHtml(lang, ctx);
-      if (energyBox) energyBox.innerHTML = energyHtml;
-      if (aiBox) aiBox.innerHTML = butlerHtml;
-      if (energyCard){
-        window.scrollTo({top: energyCard.offsetTop - 10, behavior:"smooth"});
+      renderResult(ctx);
+      if (resultCard){
+        resultCard.style.display = "block";
+        window.scrollTo({top: resultCard.offsetTop - 10, behavior:"smooth"});
       }
     } catch(e){
       console.error("local generate error:", e);
-      if (energyBox) energyBox.innerHTML = "<p>" + t("neterr") + "</p>";
-      if (aiBox) aiBox.innerHTML = "<p>" + t("retry") + "</p>";
+      const coreEl = $("coreEnergy");
+      if (coreEl) coreEl.textContent = t("retry");
     } finally {
+      if (loading) loading.style.display = "none";
       if (btn){
         btn.disabled = false;
         btn.textContent = btnOrig || t("btn_gen");
@@ -1109,7 +1084,7 @@
       if(/登录|登入|注册|註冊|reset|重设|重置|密码|密碼/.test(prompt)){
         return "登入与注册区块目前主要作为 UI 示意：\n\n• 账号资料会接到后台（例如 Airtable / Shopify）之后才会正式启用\n• 重设密码也会通过后台 API 处理\n\n当前版本不建议输入真实密码，仅做界面测试。";
       }
-      return "这里的「心怜管家 · Chat」是本地说明版，不连到 AI。\n\n你可以在上方表单输入生日、时间与关注主题，点「生成分析」，系统会用简单规则在你的浏览器中生成：\n• 能量报告（7 天 / 30 天节律）\n• 事业 / 感情 / 财运 / 今日待办 / 30 天建议\n\n所有内容都不会上传到服务器，仅用于示范与 UI 测试。";
+      return "这里的「心怜管家 · Chat」是本地说明版，不连到 AI。\n\n你可以在上方表单输入生日与关注主题，点「生成分析」，系统会用简单规则在你的浏览器中生成：\n• 生命路径与核心能量\n• 当前周期与行动提醒\n\n所有内容都不会上传到服务器，仅用于示范与 UI 测试。";
     } else {
       if(/vip|price|pricing|member|membership/.test(p)){
         return "This is a demo page for the upcoming membership system.\n\n• Yearly plan: deeper destiny reports\n• Monthly VIP: destiny space + Xinlian space + courses\n\nExact pricing and activation will be shown on the main shop site.";
@@ -1120,7 +1095,7 @@
       if(/login|sign in|sign-in|register|password|reset/.test(p)){
         return "Login / register fields here are UI placeholders.\n\nThey will connect to a real backend (e.g. Airtable / Shopify / custom API) in the future. For now, please avoid using real passwords and treat this as a design preview.";
       }
-      return "This “Xinlian Butler · Chat” is a local help bot only.\n\nYou can fill in your birthdate and focus topic above and click “Generate Reading”. The page will build:\n• An Energy Report (7-day and 30-day rhythm)\n• Career, Love, Money, Today’s To-Dos and 30-day suggestions\n\nEverything is computed locally in your browser — no external AI calls are made in this version.";
+      return "This “Xinlian Butler · Chat” is a local help bot only.\n\nFill in your birthdate and focus topic above and click “Generate Reading”. The page will build:\n• A Life Path based energy overview\n• Current cycle, action tips and reminders\n\nEverything is computed locally in your browser — no external AI calls are made in this version.";
     }
   }
 
@@ -1202,7 +1177,6 @@
     applyChatI18n();
     mountChat();
 
-    // 绑定真正存在的按钮 id = btnGenerate
     const goBtn = $("btnGenerate");
     if (goBtn) goBtn.addEventListener("click", generate);
 
@@ -1214,14 +1188,10 @@
           if (el.tagName === "SELECT") el.selectedIndex = 0;
           else el.value = "";
         });
-        const energyCard = $("energyCard");
-        const aiCard = $("aiCard");
-        if (energyCard){ energyCard.style.display="none"; }
-        if (aiCard){ aiCard.style.display="none"; }
-        const energyBox = $("energyText");
-        const aiBox = $("aiText");
-        if (energyBox) energyBox.innerHTML = "";
-        if (aiBox) aiBox.innerHTML = "";
+        const resultCard = $("resultSection");
+        if (resultCard){ resultCard.style.display="none"; }
+        const loading = $("loading");
+        if (loading){ loading.style.display="none"; }
         const err = $("err");
         if (err) err.style.display="none";
         lastCtx = null;
@@ -1247,24 +1217,14 @@
 
         if (lastCtx) {
           lastCtx.lang = newLang;
-          // 同步更新 topicName
           lastCtx.topicName = getTopicName(newLang, lastCtx.topic || "other");
 
-          const energyCard = $("energyCard");
-          const aiCard = $("aiCard");
-          const energyBox = $("energyText");
-          const aiBox = $("aiText");
-
-          if (
-            energyCard && aiCard && energyBox && aiBox &&
-            energyCard.style.display !== "none" &&
-            aiCard.style.display     !== "none"
-          ) {
+          const resultCard = $("resultSection");
+          if (resultCard && resultCard.style.display !== "none") {
             try {
-              energyBox.innerHTML = buildEnergyHtml(newLang, lastCtx);
-              aiBox.innerHTML     = buildButlerHtml(newLang, lastCtx);
+              renderResult(lastCtx);
             } catch (e) {
-              console.warn("[i18n→report] rebuild failed:", e);
+              console.warn("[i18n→result] rebuild failed:", e);
             }
           }
         }
@@ -1274,20 +1234,4 @@
 })();
 </script>
 </body>
-</html>  
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+</html>
