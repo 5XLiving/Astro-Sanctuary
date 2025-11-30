@@ -431,73 +431,6 @@ body::before{
   to { transform: rotate(360deg); }
 }
 
-/* —— 卡片翻转效果 —— */
-.card-flip {
-  perspective: 1000px;
-}
-
-.card-inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  text-align: center;
-  transition: transform 0.6s;
-  transform-style: preserve-3d;
-}
-
-.card.flipped .card-inner {
-  transform: rotateY(180deg);
-}
-
-.card-front, .card-back {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  -webkit-backface-visibility: hidden;
-  backface-visibility: hidden;
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.card-back {
-  background: linear-gradient(135deg, #1a2332, #0f1622);
-  transform: rotateY(180deg);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #34455a;
-}
-
-.card-back::before {
-  content: "?";
-  font-size: 2rem;
-  color: var(--gold);
-  font-weight: bold;
-}
-
-/* —— 响应式调整 —— */
-@media (max-width: 768px) {
-  .board.spread-5 {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-    grid-template-areas: 
-      "top"
-      "left"
-      "center"
-      "right"
-      "bottom";
-    gap: 10px;
-  }
-  
-  .controls {
-    flex-direction: column;
-  }
-  
-  .controls input, .controls select, .controls button {
-    min-width: 100%;
-  }
-}
-
 /* —— 工具提示 —— */
 .tooltip {
   position: relative;
@@ -543,6 +476,29 @@ body::before{
   background: linear-gradient(90deg, var(--gold), var(--accent));
   width: 0%;
   transition: width 0.5s ease;
+}
+
+/* —— 响应式调整 —— */
+@media (max-width: 768px) {
+  .board.spread-5 {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    grid-template-areas: 
+      "top"
+      "left"
+      "center"
+      "right"
+      "bottom";
+    gap: 10px;
+  }
+  
+  .controls {
+    flex-direction: column;
+  }
+  
+  .controls input, .controls select, .controls button {
+    min-width: 100%;
+  }
 }
 </style>
 </head>
@@ -631,734 +587,797 @@ body::before{
 </div>
 
 <script>
-/* ===========================
-   I18N —— 五语（简中 / 繁中 / 英 / 泰 / 马来）
-=========================== */
-const I18N = {
-  'zh-CN': { 
-    ui:{ 
-      brand:'5xLiving · 命理心怜空间 · Soul Sanctuary', 
-      label_lang:'语言', 
-      page_title:'塔罗牌占卜', 
-      q_ph:'请输入你的问题（必填，决定解读方向）', 
-      s1:'单张', 
-      s3:'三张（过去 / 现在 / 未来）', 
-      s5:'十字排法（5张）', 
-      s10:'凯尔特十字（10张）', 
-      draw_btn:'抽牌', 
-      tip_focus:'（提示：输入问题会让解读更聚焦）', 
-      reading_title:'解读与建议', 
-      disclaimer:'说明：塔罗为指引工具，非医学/法律/金融建议，请以理性判断与自我意愿为先。', 
-      you:'你', 
-      reading:'解读', 
-      no_q:'（未填写问题）' 
+// 修复DOM元素获取问题 - 确保DOM加载完成后再执行
+document.addEventListener('DOMContentLoaded', function() {
+  /* ===========================
+     I18N —— 五语（简中 / 繁中 / 英 / 泰 / 马来）
+  =========================== */
+  const I18N = {
+    'zh-CN': { 
+      ui:{ 
+        brand:'5xLiving · 命理心怜空间 · Soul Sanctuary', 
+        label_lang:'语言', 
+        page_title:'塔罗牌占卜', 
+        q_ph:'请输入你的问题（必填，决定解读方向）', 
+        s1:'单张', 
+        s3:'三张（过去 / 现在 / 未来）', 
+        s5:'十字排法（5张）', 
+        s10:'凯尔特十字（10张）', 
+        draw_btn:'抽牌', 
+        tip_focus:'（提示：输入问题会让解读更聚焦）', 
+        reading_title:'解读与建议', 
+        disclaimer:'说明：塔罗为指引工具，非医学/法律/金融建议，请以理性判断与自我意愿为先。', 
+        you:'你', 
+        reading:'解读', 
+        no_q:'（未填写问题）' 
+      },
+      pos:{
+        single:'当下核心', 
+        past:'过去', 
+        present:'现在', 
+        future:'未来', 
+        top:'指引/主题', 
+        left:'过去根源', 
+        center:'当下核心', 
+        right:'外在影响', 
+        bottom:'未来发展', 
+        p1:'当下', 
+        p2:'阻碍', 
+        p3:'潜意识', 
+        p4:'过去', 
+        p5:'显意识', 
+        p6:'未来', 
+        p7:'自我', 
+        p8:'环境', 
+        p9:'希望/恐惧', 
+        p10:'结果'
+      },
+      suits:{ 
+        wands:{name:'权杖',domain:'行动/热情'}, 
+        cups:{name:'圣杯',domain:'情感/关系'}, 
+        swords:{name:'宝剑',domain:'思维/沟通'}, 
+        pentacles:{name:'钱币',domain:'现实/资源'} 
+      },
+      ranks:{ 
+        ace:'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九','10':'十', 
+        page:'侍从', knight:'骑士', queen:'皇后', king:'国王', 
+        tone:{ 
+          ace:'起点/潜能','2':'对话/选择','3':'协作/成长','4':'结构/稳定','5':'挑战/波动','6':'交流/支持','7':'评估/耐心','8':'推进/效率','9':'成果/负担','10':'阶段完成', 
+          page:'讯息/学习', knight:'行动/推动', queen:'成熟/滋养', king:'掌控/定调'
+        } 
+      },
+      majors:[ 
+        ['愚者','自由/跃迁','拥抱未知，轻装启程'],
+        ['魔术师','意志/显化','集中资源，立即行动'],
+        ['女祭司','直觉/潜意识','先观察，后表态'],
+        ['女皇','滋养/丰盛','以温柔与照料促进成长'],
+        ['皇帝','秩序/结构','定规则、立边界、给安全感'],
+        ['教皇','规范/传承','遵循制度与长辈建议'],
+        ['恋人','选择/连结','对齐价值观再承诺'],
+        ['战车','推进/胜负','定目标，强势推进'],
+        ['力量','勇气/温柔','以柔克刚，稳定耐心'],
+        ['隐者','内省/独处','收心审视，独立判断'],
+        ['命运之轮','周期/机缘','顺势而为，抓时机'],
+        ['正义','衡量/公平','以事实与边界解决'],
+        ['倒吊人','停止/换角','暂缓推进，换位思考'],
+        ['死神','结束/重生','果断止损，迎接新生'],
+        ['节制','调和/节律','降强度，稳节奏'],
+        ['恶魔','执著/诱惑','辨依赖，断不良循环'],
+        ['高塔','突变/瓦解','接纳变化，快速重组'],
+        ['星星','希望/复原','重建信任，温柔修复'],
+        ['月亮','迷雾/不安','推迟重大决定，先查明'],
+        ['太阳','清晰/喜悦','公开透明，庆祝成果'],
+        ['审判','觉醒/召回','回应召唤，纠偏复盘'],
+        ['世界','完成/整合','闭环与升级，开启新篇'] 
+      ],
+      tags:{upright:'正位', reversed:'逆位'}, 
+      nextSteps:'<b>下一步（48 小时内）：</b><br>① 写下 1 条小目标；② 安排 1 个具体行动；③ 用 3 个客观指标衡量。',
+      domainAdvice:{ 
+        general:{
+          majorRev:'先稳住再决策', 
+          majorOk:'小步验证，逐步推进', 
+          wands:'放缓节奏，聚焦一事', 
+          cups:'优先关系质量', 
+          swords:'先信息对齐', 
+          pentacles:'先做可落地配置'
+        } 
+      }
     },
-    pos:{
-      single:'当下核心', 
-      past:'过去', 
-      present:'现在', 
-      future:'未来', 
-      top:'指引/主题', 
-      left:'过去根源', 
-      center:'当下核心', 
-      right:'外在影响', 
-      bottom:'未来发展', 
-      p1:'当下', 
-      p2:'阻碍', 
-      p3:'潜意识', 
-      p4:'过去', 
-      p5:'显意识', 
-      p6:'未来', 
-      p7:'自我', 
-      p8:'环境', 
-      p9:'希望/恐惧', 
-      p10:'结果'
-    },
-    suits:{ 
-      wands:{name:'权杖',domain:'行动/热情'}, 
-      cups:{name:'圣杯',domain:'情感/关系'}, 
-      swords:{name:'宝剑',domain:'思维/沟通'}, 
-      pentacles:{name:'钱币',domain:'现实/资源'} 
-    },
-    ranks:{ 
-      ace:'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九','10':'十', 
-      page:'侍从', knight:'骑士', queen:'皇后', king:'国王', 
-      tone:{ 
-        ace:'起点/潜能','2':'对话/选择','3':'协作/成长','4':'结构/稳定','5':'挑战/波动','6':'交流/支持','7':'评估/耐心','8':'推进/效率','9':'成果/负担','10':'阶段完成', 
-        page:'讯息/学习', knight:'行动/推动', queen:'成熟/滋养', king:'掌控/定调'
+
+    'zh-TW': { 
+      ui:{ 
+        brand:'5xLiving · 命理心憐空間 · Soul Sanctuary', 
+        label_lang:'語言', 
+        page_title:'塔羅牌占卜', 
+        q_ph:'請輸入你的問題（必填，決定解讀方向）', 
+        s1:'單張', 
+        s3:'三張（過去 / 現在 / 未來）', 
+        s5:'十字排法（5張）', 
+        s10:'凱爾特十字（10張）', 
+        draw_btn:'抽牌', 
+        tip_focus:'（提示：輸入問題會讓解讀更聚焦）', 
+        reading_title:'解讀與建議', 
+        disclaimer:'說明：塔羅為指引工具，非醫學/法律/金融建議，請以理性判斷為先。', 
+        you:'你', 
+        reading:'解讀', 
+        no_q:'（未填寫問題）' 
+      },
+      pos:{
+        single:'當下核心', 
+        past:'過去', 
+        present:'現在', 
+        future:'未來', 
+        top:'指引/主題', 
+        left:'過去根源', 
+        center:'當下核心', 
+        right:'外在影響', 
+        bottom:'未來發展', 
+        p1:'當下', 
+        p2:'阻礙', 
+        p3:'潛意識', 
+        p4:'過去', 
+        p5:'顯意識', 
+        p6:'未來', 
+        p7:'自我', 
+        p8:'環境', 
+        p9:'希望/恐懼', 
+        p10:'結果'
+      },
+      suits:{ 
+        wands:{name:'權杖',domain:'行動/熱情'}, 
+        cups:{name:'聖杯',domain:'情感/關係'}, 
+        swords:{name:'寶劍',domain:'思維/溝通'}, 
+        pentacles:{name:'錢幣',domain:'現實/資源'} 
+      },
+      ranks:{ 
+        ace:'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九','10':'十', 
+        page:'侍從', knight:'騎士', queen:'皇后', king:'國王', 
+        tone:{ 
+          ace:'起點/潛能','2':'對話/選擇','3':'協作/成長','4':'結構/穩定','5':'挑戰/波動','6':'交流/支持','7':'評估/耐心','8':'推進/效率','9':'成果/負擔','10':'階段完成', 
+          page:'訊息/學習', knight:'行動/推動', queen:'成熟/滋養', king:'掌控/定調'
+        } 
+      },
+      majors: null, 
+      tags:{upright:'正位', reversed:'逆位'}, 
+      nextSteps:'<b>48 小時內：</b>① 寫下一個小目標；② 安排一個具體行動；③ 設 3 個衡量指標。', 
+      domainAdvice:{ 
+        general:{
+          majorRev:'先穩住再決策', 
+          majorOk:'小步驗證逐步推進', 
+          wands:'放慢節奏', 
+          cups:'重視關係品質', 
+          swords:'先資訊對齊', 
+          pentacles:'資源配置先行'
+        } 
       } 
     },
-    majors:[ 
-      ['愚者','自由/跃迁','拥抱未知，轻装启程'],
-      ['魔术师','意志/显化','集中资源，立即行动'],
-      ['女祭司','直觉/潜意识','先观察，后表态'],
-      ['女皇','滋养/丰盛','以温柔与照料促进成长'],
-      ['皇帝','秩序/结构','定规则、立边界、给安全感'],
-      ['教皇','规范/传承','遵循制度与长辈建议'],
-      ['恋人','选择/连结','对齐价值观再承诺'],
-      ['战车','推进/胜负','定目标，强势推进'],
-      ['力量','勇气/温柔','以柔克刚，稳定耐心'],
-      ['隐者','内省/独处','收心审视，独立判断'],
-      ['命运之轮','周期/机缘','顺势而为，抓时机'],
-      ['正义','衡量/公平','以事实与边界解决'],
-      ['倒吊人','停止/换角','暂缓推进，换位思考'],
-      ['死神','结束/重生','果断止损，迎接新生'],
-      ['节制','调和/节律','降强度，稳节奏'],
-      ['恶魔','执著/诱惑','辨依赖，断不良循环'],
-      ['高塔','突变/瓦解','接纳变化，快速重组'],
-      ['星星','希望/复原','重建信任，温柔修复'],
-      ['月亮','迷雾/不安','推迟重大决定，先查明'],
-      ['太阳','清晰/喜悦','公开透明，庆祝成果'],
-      ['审判','觉醒/召回','回应召唤，纠偏复盘'],
-      ['世界','完成/整合','闭环与升级，开启新篇'] 
-    ],
-    tags:{upright:'正位', reversed:'逆位'}, 
-    nextSteps:'<b>下一步（48 小时内）：</b><br>① 写下 1 条小目标；② 安排 1 个具体行动；③ 用 3 个客观指标衡量。',
-    domainAdvice:{ 
-      general:{
-        majorRev:'先稳住再决策', 
-        majorOk:'小步验证，逐步推进', 
-        wands:'放缓节奏，聚焦一事', 
-        cups:'优先关系质量', 
-        swords:'先信息对齐', 
-        pentacles:'先做可落地配置'
+
+    'en-US': { 
+      ui:{ 
+        brand:'5xLiving · Soul Sanctuary', 
+        label_lang:'Language', 
+        page_title:'Tarot Reading', 
+        q_ph:'Type your question (focuses the reading)', 
+        s1:'Single', 
+        s3:'Three (Past / Present / Future)', 
+        s5:'Cross (5)', 
+        s10:'Celtic Cross (10)', 
+        draw_btn:'Draw', 
+        tip_focus:'(Tip: a clear question focuses the reading)', 
+        reading_title:'Insights & Advice', 
+        disclaimer:'Tarot offers guidance, not medical/legal/financial advice. Use your judgment.', 
+        you:'You', 
+        reading:'Reading', 
+        no_q:'(No question)' 
+      },
+      pos:{
+        single:'Core Now', 
+        past:'Past', 
+        present:'Present', 
+        future:'Future', 
+        top:'Theme/Guidance', 
+        left:'Roots', 
+        center:'Core Now', 
+        right:'External', 
+        bottom:'Development', 
+        p1:'Present', 
+        p2:'Obstacle', 
+        p3:'Subconscious', 
+        p4:'Past', 
+        p5:'Conscious', 
+        p6:'Future', 
+        p7:'Self', 
+        p8:'Environment', 
+        p9:'Hopes/Fears', 
+        p10:'Outcome'
+      },
+      suits:{ 
+        wands:{name:'Wands',domain:'Action/Passion'}, 
+        cups:{name:'Cups',domain:'Emotion/Relations'}, 
+        swords:{name:'Swords',domain:'Mind/Communication'}, 
+        pentacles:{name:'Pentacles',domain:'Material/Resources'} 
+      },
+      ranks:{ 
+        ace:'Ace','2':'Two','3':'Three','4':'Four','5':'Five','6':'Six','7':'Seven','8':'Eight','9':'Nine','10':'Ten', 
+        page:'Page', knight:'Knight', queen:'Queen', king:'King', 
+        tone:{ 
+          ace:'Seed/Potential','2':'Duality/Choice','3':'Collab/Growth','4':'Structure/Stability','5':'Challenge/Flux','6':'Exchange/Support','7':'Evaluate/Patience','8':'Momentum/Efficiency','9':'Result/Burden','10':'Completion', 
+          page:'Message/Learning', knight:'Action/Drive', queen:'Maturity/Nurture', king:'Authority/Setting Tone'
+        } 
+      },
+      majors:[ 
+        ['The Fool','Freedom/Leap','Embrace the unknown; travel light'],
+        ['The Magician','Will/Manifest','Align resources; act now'],
+        ['The High Priestess','Intuition/Subconscious','Observe first, speak later'],
+        ['The Empress','Nurture/Abundance','Gentle care grows results'],
+        ['The Emperor','Order/Structure','Set rules and safety'],
+        ['The Hierophant','Norms/Tradition','Follow guidance and standards'],
+        ['The Lovers','Choice/Union','Align values before commitment'],
+        ['The Chariot','Push/Win','Pick a target; drive forward'],
+        ['Strength','Courage/Gentleness','Soft power, steady patience'],
+        ['The Hermit','Introspect/Alone','Withdraw to assess'],
+        ['Wheel of Fortune','Cycle/Timing','Ride the turn; seize timing'],
+        ['Justice','Measure/Fairness','Facts and boundaries solve it'],
+        ['The Hanged Man','Pause/Reframe','Wait; see from another angle'],
+        ['Death','Ending/Rebirth','Cut losses; welcome renewal'],
+        ['Temperance','Blend/Rhythm','Lower intensity; steady cadence'],
+        ['The Devil','Attachment/Temptation','Name the bind; break the loop'],
+        ['The Tower','Shock/Collapse','Accept change; rebuild swiftly'],
+        ['The Star','Hope/Recovery','Restore trust; heal gently'],
+        ['The Moon','Fog/Anxiety','Delay big moves; verify facts'],
+        ['The Sun','Clarity/Joy','Be open; celebrate wins'],
+        ['Judgement','Awakening/Call','Answer the call; correct course'],
+        ['The World','Completion/Integration','Close the loop; level up'] 
+      ], 
+      tags:{upright:'Upright', reversed:'Reversed'}, 
+      nextSteps:'<b>Next 48h:</b> (1) Write one small goal; (2) Schedule one concrete action; (3) Track 3 metrics.', 
+      domainAdvice:{ 
+        general:{
+          majorRev:'Stabilize before deciding', 
+          majorOk:'Validate in small steps', 
+          wands:'Slow down; single-task', 
+          cups:'Prioritize relationship quality', 
+          swords:'Align information first', 
+          pentacles:'Resource a concrete plan first'
+        } 
+      } 
+    },
+
+    'th-TH': { 
+      ui:{ 
+        brand:'5xLiving · Soul Sanctuary', 
+        label_lang:'ภาษา', 
+        page_title:'ไพ่ทาโรต์', 
+        q_ph:'พิมพ์คำถามของคุณ (ช่วยโฟกัสคำทำนาย)', 
+        s1:'ใบเดียว', 
+        s3:'สามใบ (อดีต / ปัจจุบัน / อนาคต)', 
+        s5:'กางเขน (5 ใบ)', 
+        s10:'Celtic Cross (10)', 
+        draw_btn:'สุ่มไพ่', 
+        tip_focus:'(เคล็ดลับ: คำถามชัด โฟกัสดี)', 
+        reading_title:'คำแปลและคำแนะนำ', 
+        disclaimer:'ทาโรต์ให้คำแนะนำ ไม่ใช่คำปรึกษาทางแพทย์/กฎหมาย/การเงิน โปรดใช้วิจารณญาณ', 
+        you:'คุณ', 
+        reading:'คำอ่าน', 
+        no_q:'(ไม่มีคำถาม)' 
+      }, 
+      pos:null, 
+      suits:null, 
+      ranks:null, 
+      majors:null, 
+      tags:{upright:'Upright', reversed:'Reversed'}, 
+      nextSteps:'<b>ภายใน 48 ชม.:</b> ตั้ง 1 เป้าหมายเล็ก ๆ วาง 1 การกระทำ และติดตาม 3 ตัวชี้วัด', 
+      domainAdvice:{ 
+        general:{
+          majorRev:'ประคองให้มั่นคงก่อนตัดสินใจ', 
+          majorOk:'ค่อย ๆ ทดลองเป็นขั้นตอน'
+        } 
+      } 
+    },
+
+    'ms-MY': { 
+      ui:{ 
+        brand:'5xLiving · Soul Sanctuary', 
+        label_lang:'Bahasa', 
+        page_title:'Bacaan Tarot', 
+        q_ph:'Taip soalan anda (memfokuskan bacaan)', 
+        s1:'Satu', 
+        s3:'Tiga (Lalu / Kini / Hadapan)', 
+        s5:'Salib (5)', 
+        s10:'Celtic Cross (10)', 
+        draw_btn:'Tarik', 
+        tip_focus:'(Tip: soalan jelas, bacaan lebih fokus)', 
+        reading_title:'Wawasan & Nasihat', 
+        disclaimer:'Tarot ialah panduan, bukan nasihat perubatan/undang-undang/kewangan. Guna pertimbangan sendiri.', 
+        you:'Anda', 
+        reading:'Bacaan', 
+        no_q:'(Tiada soalan)' 
+      }, 
+      pos:null, 
+      suits:null, 
+      ranks:null, 
+      majors:null, 
+      tags:{upright:'Upright', reversed:'Reversed'}, 
+      nextSteps:'<b>48j akan datang:</b> Tetapkan 1 matlamat kecil, jadualkan 1 tindakan, jejak 3 metrik.', 
+      domainAdvice:{ 
+        general:{
+          majorRev:'Stabilkan dahulu sebelum buat keputusan', 
+          majorOk:'Sahkan langkah kecil dahulu'
+        } 
       } 
     }
-  },
-
-  'zh-TW': { 
-    ui:{ 
-      brand:'5xLiving · 命理心憐空間 · Soul Sanctuary', 
-      label_lang:'語言', 
-      page_title:'塔羅牌占卜', 
-      q_ph:'請輸入你的問題（必填，決定解讀方向）', 
-      s1:'單張', 
-      s3:'三張（過去 / 現在 / 未來）', 
-      s5:'十字排法（5張）', 
-      s10:'凱爾特十字（10張）', 
-      draw_btn:'抽牌', 
-      tip_focus:'（提示：輸入問題會讓解讀更聚焦）', 
-      reading_title:'解讀與建議', 
-      disclaimer:'說明：塔羅為指引工具，非醫學/法律/金融建議，請以理性判斷為先。', 
-      you:'你', 
-      reading:'解讀', 
-      no_q:'（未填寫問題）' 
-    },
-    pos:{
-      single:'當下核心', 
-      past:'過去', 
-      present:'現在', 
-      future:'未來', 
-      top:'指引/主題', 
-      left:'過去根源', 
-      center:'當下核心', 
-      right:'外在影響', 
-      bottom:'未來發展', 
-      p1:'當下', 
-      p2:'阻礙', 
-      p3:'潛意識', 
-      p4:'過去', 
-      p5:'顯意識', 
-      p6:'未來', 
-      p7:'自我', 
-      p8:'環境', 
-      p9:'希望/恐懼', 
-      p10:'結果'
-    },
-    suits:{ 
-      wands:{name:'權杖',domain:'行動/熱情'}, 
-      cups:{name:'聖杯',domain:'情感/關係'}, 
-      swords:{name:'寶劍',domain:'思維/溝通'}, 
-      pentacles:{name:'錢幣',domain:'現實/資源'} 
-    },
-    ranks:{ 
-      ace:'一','2':'二','3':'三','4':'四','5':'五','6':'六','7':'七','8':'八','9':'九','10':'十', 
-      page:'侍從', knight:'騎士', queen:'皇后', king:'國王', 
-      tone:{ 
-        ace:'起點/潛能','2':'對話/選擇','3':'協作/成長','4':'結構/穩定','5':'挑戰/波動','6':'交流/支持','7':'評估/耐心','8':'推進/效率','9':'成果/負擔','10':'階段完成', 
-        page:'訊息/學習', knight:'行動/推動', queen:'成熟/滋養', king:'掌控/定調'
-      } 
-    },
-    majors: null, 
-    tags:{upright:'正位', reversed:'逆位'}, 
-    nextSteps:'<b>48 小時內：</b>① 寫下一個小目標；② 安排一個具體行動；③ 設 3 個衡量指標。', 
-    domainAdvice:{ 
-      general:{
-        majorRev:'先穩住再決策', 
-        majorOk:'小步驗證逐步推進', 
-        wands:'放慢節奏', 
-        cups:'重視關係品質', 
-        swords:'先資訊對齊', 
-        pentacles:'資源配置先行'
-      } 
-    } 
-  },
-
-  'en-US': { 
-    ui:{ 
-      brand:'5xLiving · Soul Sanctuary', 
-      label_lang:'Language', 
-      page_title:'Tarot Reading', 
-      q_ph:'Type your question (focuses the reading)', 
-      s1:'Single', 
-      s3:'Three (Past / Present / Future)', 
-      s5:'Cross (5)', 
-      s10:'Celtic Cross (10)', 
-      draw_btn:'Draw', 
-      tip_focus:'(Tip: a clear question focuses the reading)', 
-      reading_title:'Insights & Advice', 
-      disclaimer:'Tarot offers guidance, not medical/legal/financial advice. Use your judgment.', 
-      you:'You', 
-      reading:'Reading', 
-      no_q:'(No question)' 
-    },
-    pos:{
-      single:'Core Now', 
-      past:'Past', 
-      present:'Present', 
-      future:'Future', 
-      top:'Theme/Guidance', 
-      left:'Roots', 
-      center:'Core Now', 
-      right:'External', 
-      bottom:'Development', 
-      p1:'Present', 
-      p2:'Obstacle', 
-      p3:'Subconscious', 
-      p4:'Past', 
-      p5:'Conscious', 
-      p6:'Future', 
-      p7:'Self', 
-      p8:'Environment', 
-      p9:'Hopes/Fears', 
-      p10:'Outcome'
-    },
-    suits:{ 
-      wands:{name:'Wands',domain:'Action/Passion'}, 
-      cups:{name:'Cups',domain:'Emotion/Relations'}, 
-      swords:{name:'Swords',domain:'Mind/Communication'}, 
-      pentacles:{name:'Pentacles',domain:'Material/Resources'} 
-    },
-    ranks:{ 
-      ace:'Ace','2':'Two','3':'Three','4':'Four','5':'Five','6':'Six','7':'Seven','8':'Eight','9':'Nine','10':'Ten', 
-      page:'Page', knight:'Knight', queen:'Queen', king:'King', 
-      tone:{ 
-        ace:'Seed/Potential','2':'Duality/Choice','3':'Collab/Growth','4':'Structure/Stability','5':'Challenge/Flux','6':'Exchange/Support','7':'Evaluate/Patience','8':'Momentum/Efficiency','9':'Result/Burden','10':'Completion', 
-        page:'Message/Learning', knight:'Action/Drive', queen:'Maturity/Nurture', king:'Authority/Setting Tone'
-      } 
-    },
-    majors:[ 
-      ['The Fool','Freedom/Leap','Embrace the unknown; travel light'],
-      ['The Magician','Will/Manifest','Align resources; act now'],
-      ['The High Priestess','Intuition/Subconscious','Observe first, speak later'],
-      ['The Empress','Nurture/Abundance','Gentle care grows results'],
-      ['The Emperor','Order/Structure','Set rules and safety'],
-      ['The Hierophant','Norms/Tradition','Follow guidance and standards'],
-      ['The Lovers','Choice/Union','Align values before commitment'],
-      ['The Chariot','Push/Win','Pick a target; drive forward'],
-      ['Strength','Courage/Gentleness','Soft power, steady patience'],
-      ['The Hermit','Introspect/Alone','Withdraw to assess'],
-      ['Wheel of Fortune','Cycle/Timing','Ride the turn; seize timing'],
-      ['Justice','Measure/Fairness','Facts and boundaries solve it'],
-      ['The Hanged Man','Pause/Reframe','Wait; see from another angle'],
-      ['Death','Ending/Rebirth','Cut losses; welcome renewal'],
-      ['Temperance','Blend/Rhythm','Lower intensity; steady cadence'],
-      ['The Devil','Attachment/Temptation','Name the bind; break the loop'],
-      ['The Tower','Shock/Collapse','Accept change; rebuild swiftly'],
-      ['The Star','Hope/Recovery','Restore trust; heal gently'],
-      ['The Moon','Fog/Anxiety','Delay big moves; verify facts'],
-      ['The Sun','Clarity/Joy','Be open; celebrate wins'],
-      ['Judgement','Awakening/Call','Answer the call; correct course'],
-      ['The World','Completion/Integration','Close the loop; level up'] 
-    ], 
-    tags:{upright:'Upright', reversed:'Reversed'}, 
-    nextSteps:'<b>Next 48h:</b> (1) Write one small goal; (2) Schedule one concrete action; (3) Track 3 metrics.', 
-    domainAdvice:{ 
-      general:{
-        majorRev:'Stabilize before deciding', 
-        majorOk:'Validate in small steps', 
-        wands:'Slow down; single-task', 
-        cups:'Prioritize relationship quality', 
-        swords:'Align information first', 
-        pentacles:'Resource a concrete plan first'
-      } 
-    } 
-  },
-
-  'th-TH': { 
-    ui:{ 
-      brand:'5xLiving · Soul Sanctuary', 
-      label_lang:'ภาษา', 
-      page_title:'ไพ่ทาโรต์', 
-      q_ph:'พิมพ์คำถามของคุณ (ช่วยโฟกัสคำทำนาย)', 
-      s1:'ใบเดียว', 
-      s3:'สามใบ (อดีต / ปัจจุบัน / อนาคต)', 
-      s5:'กางเขน (5 ใบ)', 
-      s10:'Celtic Cross (10)', 
-      draw_btn:'สุ่มไพ่', 
-      tip_focus:'(เคล็ดลับ: คำถามชัด โฟกัสดี)', 
-      reading_title:'คำแปลและคำแนะนำ', 
-      disclaimer:'ทาโรต์ให้คำแนะนำ ไม่ใช่คำปรึกษาทางแพทย์/กฎหมาย/การเงิน โปรดใช้วิจารณญาณ', 
-      you:'คุณ', 
-      reading:'คำอ่าน', 
-      no_q:'(ไม่มีคำถาม)' 
-    }, 
-    pos:null, 
-    suits:null, 
-    ranks:null, 
-    majors:null, 
-    tags:{upright:'Upright', reversed:'Reversed'}, 
-    nextSteps:'<b>ภายใน 48 ชม.:</b> ตั้ง 1 เป้าหมายเล็ก ๆ วาง 1 การกระทำ และติดตาม 3 ตัวชี้วัด', 
-    domainAdvice:{ 
-      general:{
-        majorRev:'ประคองให้มั่นคงก่อนตัดสินใจ', 
-        majorOk:'ค่อย ๆ ทดลองเป็นขั้นตอน'
-      } 
-    } 
-  },
-
-  'ms-MY': { 
-    ui:{ 
-      brand:'5xLiving · Soul Sanctuary', 
-      label_lang:'Bahasa', 
-      page_title:'Bacaan Tarot', 
-      q_ph:'Taip soalan anda (memfokuskan bacaan)', 
-      s1:'Satu', 
-      s3:'Tiga (Lalu / Kini / Hadapan)', 
-      s5:'Salib (5)', 
-      s10:'Celtic Cross (10)', 
-      draw_btn:'Tarik', 
-      tip_focus:'(Tip: soalan jelas, bacaan lebih fokus)', 
-      reading_title:'Wawasan & Nasihat', 
-      disclaimer:'Tarot ialah panduan, bukan nasihat perubatan/undang-undang/kewangan. Guna pertimbangan sendiri.', 
-      you:'Anda', 
-      reading:'Bacaan', 
-      no_q:'(Tiada soalan)' 
-    }, 
-    pos:null, 
-    suits:null, 
-    ranks:null, 
-    majors:null, 
-    tags:{upright:'Upright', reversed:'Reversed'}, 
-    nextSteps:'<b>48j akan datang:</b> Tetapkan 1 matlamat kecil, jadualkan 1 tindakan, jejak 3 metrik.', 
-    domainAdvice:{ 
-      general:{
-        majorRev:'Stabilkan dahulu sebelum buat keputusan', 
-        majorOk:'Sahkan langkah kecil dahulu'
-      } 
-    } 
-  }
-};
-
-// 若某语言未完整定义 pos/suits/ranks/majors，则回退到英文
-function withFallback(lang){
-  const base = JSON.parse(JSON.stringify(I18N[lang]));
-  const en = I18N['en-US'];
-  ['pos','suits','ranks','majors','tags','domainAdvice'].forEach(k=>{ if(base[k]==null) base[k]=en[k]; });
-  return base;
-}
-
-/* 小工具 */
-const $ = s => document.querySelector(s); 
-const $$ = s => Array.from(document.querySelectorAll(s)); 
-const rnd = n => Math.floor(Math.random()*n);
-const FALLBACK = 'zh-CN';
-
-function detectLang(){ 
-  const nav=(navigator.language||'').toLowerCase(); 
-  if(nav.startsWith('zh-tw')) return 'zh-TW'; 
-  if(nav.startsWith('zh')) return 'zh-CN'; 
-  if(nav.startsWith('th')) return 'th-TH'; 
-  if(nav.startsWith('ms')) return 'ms-MY'; 
-  if(nav.startsWith('en')) return 'en-US'; 
-  return FALLBACK; 
-}
-
-let CUR = detectLang();
-const langSel = document.getElementById('langSel'); 
-langSel.value = CUR;
-
-function t(path, dflt=''){ 
-  const parts = path.split('.'); 
-  let node = withFallback(CUR); 
-  for(const p of parts){ 
-    if(!node) break; 
-    node=node[p]; 
-  } 
-  return node==null ? dflt : node; 
-}
-
-function applyStaticUI(){
-  document.querySelector('.title').innerHTML = `<a href="#">${t('ui.brand','5xLiving')}</a>`;
-  document.querySelector('.lang label').textContent = t('ui.label_lang','语言');
-  document.querySelector('[data-i18n="page_title"]').textContent = t('ui.page_title');
-  document.getElementById('go').querySelector('#btnText').textContent = t('ui.draw_btn');
-  const spread = document.getElementById('spread');
-  spread.options[0].textContent = t('ui.s1');
-  spread.options[1].textContent = t('ui.s3');
-  spread.options[2].textContent = t('ui.s5');
-  spread.options[3].textContent = t('ui.s10');
-  document.getElementById('question').setAttribute('placeholder', t('ui.q_ph'));
-  const disclaimer = document.querySelector('[data-i18n="disclaimer"]'); 
-  if(disclaimer) disclaimer.textContent = t('ui.disclaimer');
-}
-
-/* 牌库 */
-const SUITS = ['wands','cups','swords','pentacles'];
-const RANKS = ['ace','2','3','4','5','6','7','8','9','10','page','knight','queen','king'];
-const MAJORS = Array.from({length:22},(_,i)=>i);
-let IMG_BASE = '/img/tarot';
-
-function buildDeck(){ 
-  const deck=[]; 
-  MAJORS.forEach(i=> deck.push({id:`major_${String(i).padStart(2,'0')}`, group:'major', idx:i})); 
-  SUITS.forEach(s=> RANKS.forEach(r=> deck.push({id:`${s}_${r}`, group:'minor', suit:s, rank:r}))); 
-  return deck; 
-}
-
-const DECK = buildDeck();
-
-function draw(n){ 
-  const pool=[...DECK], picks=[]; 
-  for(let i=0;i<n;i++){ 
-    const idx=rnd(pool.length); 
-    const card=pool.splice(idx,1)[0]; 
-    card.reversed=Math.random()<0.5; 
-    picks.push(card);
-  } 
-  return picks; 
-}
-
-function imgFor(card){ 
-  return `${IMG_BASE}/${card.id}.webp`; 
-}
-
-/* 文案辅助 */
-function dataPack(){ return withFallback(CUR); }
-
-function cardName(card){ 
-  const pack=dataPack(); 
-  if(card.group==='major'){ 
-    return pack.majors[card.idx][0]; 
-  } 
-  const s=pack.suits[card.suit]; 
-  const r=pack.ranks[card.rank] || card.rank.toUpperCase(); 
-  return `${s.name}${r}`; 
-}
-
-function previewLine(card){ 
-  const pack=dataPack(); 
-  if(card.group==='major'){ 
-    const row=pack.majors[card.idx]; 
-    return `${row[1]} · ${row[2]}`; 
-  } 
-  const s=pack.suits[card.suit]; 
-  const tone=pack.ranks.tone[card.rank]; 
-  return `${s.name}（${s.domain}）· ${tone}`; 
-}
-
-function posLabel(key){ 
-  const pack=dataPack(); 
-  return pack.pos[key] || key; 
-}
-
-function tagFor(rev){ 
-  const pack=dataPack(); 
-  return rev ? pack.tags.reversed : pack.tags.upright; 
-}
-
-/* 渲染 */
-function cardNode(card, cls, posKey, index){ 
-  const div=document.createElement('div'); 
-  div.className=`card ${cls||''}`; 
-  div.setAttribute('data-card-id', card.id); 
-  div.setAttribute('data-reversed', card.reversed?'true':'false');
-  div.style.animationDelay = `${index * 0.1}s`;
-  
-  const wrap=document.createElement('div'); 
-  wrap.className='imgwrap'; 
-  if(card.reversed) wrap.style.transform='rotate(180deg)'; 
-  
-  const img=document.createElement('img'); 
-  img.className='card-img'; 
-  img.src=imgFor(card); 
-  img.alt=cardName(card); 
-  img.onerror=()=>{
-    img.onerror=null; 
-    img.src=`${IMG_BASE}/back.webp`;
-  }; 
-  
-  wrap.appendChild(img); 
-  
-  const cap=document.createElement('div'); 
-  cap.className='cap'; 
-  cap.textContent = `【${posLabel(posKey)}】${cardName(card)}（${tagFor(card.reversed)}）`; 
-  
-  const mean=document.createElement('div'); 
-  mean.className='mean'; 
-  mean.textContent = previewLine(card); 
-  
-  div.appendChild(wrap); 
-  div.appendChild(cap); 
-  div.appendChild(mean); 
-  
-  // 添加卡片悬停提示
-  const tooltip = document.createElement('div');
-  tooltip.className = 'tooltip';
-  tooltip.innerHTML = '<span class="tooltiptext">点击查看详细解读</span>';
-  div.appendChild(tooltip);
-  
-  return div; 
-}
-
-const SPREADS={
-  1:{layout:'spread-1',positions:[{key:'single'}]},
-  3:{layout:'spread-3',positions:[{key:'past'},{key:'present'},{key:'future'}]},
-  5:{layout:'spread-5',positions:[{key:'top',cls:'pos-top'},{key:'left',cls:'pos-left'},{key:'center',cls:'pos-center'},{key:'right',cls:'pos-right'},{key:'bottom',cls:'pos-bottom'}]},
-  10:{layout:'spread-10',positions:[{key:'p1'},{key:'p2'},{key:'p3'},{key:'p4'},{key:'p5'},{key:'p6'},{key:'p7'},{key:'p8'},{key:'p9'},{key:'p10'}]}
-};
-
-function renderBoard(n,cards){ 
-  const board=document.getElementById('board'); 
-  board.className='board'; 
-  const conf=SPREADS[n]; 
-  if(!conf){ 
-    board.innerHTML=''; 
-    return;
-  } 
-  
-  board.classList.add(conf.layout); 
-  
-  if(n===10){ 
-    board.innerHTML='<div class="row row-1"></div><div class="row row-2"></div><div class="row row-3"></div>'; 
-    const rows=$$('#board .row'); 
-    const slots=[3,3,4]; 
-    let k=0; 
-    slots.forEach((count,rowi)=>{ 
-      for(let j=0;j<count;j++){ 
-        const c=cards[k++]; 
-        const posKey=conf.positions[k-1].key; 
-        rows[rowi].appendChild(cardNode(c,`c${k}`,posKey, k-1)); 
-      } 
-    }); 
-  } else { 
-    board.innerHTML=''; 
-    cards.forEach((c,i)=>{ 
-      const pos=conf.positions[i]; 
-      const cardEl = cardNode(c,`c${i+1} ${pos.cls||''}`,pos.key, i);
-      cardEl.classList.add('card-drawn');
-      board.appendChild(cardEl); 
-    }); 
-  } 
-}
-
-function renderReading(question,n,cards){ 
-  const pack=dataPack(); 
-  const posKeys=(n===10)?['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10']:(n===5)?['top','left','center','right','bottom']:(n===3)?['past','present','future']:['single']; 
-  const domAdv=pack.domainAdvice.general; 
-  
-  const seg=cards.map((card,i)=>{ 
-    const title=`【${posLabel(posKeys[i])}】${cardName(card)}（${tagFor(card.reversed)}）`; 
-    const arch=previewLine(card); 
-    return `<div style="margin:8px 0 12px"><div style="font-weight:700">${title}</div><div class="muted" style="margin:4px 0">${arch}</div><ul style="margin:6px 0 0 18px"><li>${card.group==='major'? (card.reversed?domAdv.majorRev:domAdv.majorOk) : (domAdv[card.suit]||domAdv.majorOk)}</li></ul></div>`; 
-  }).join(''); 
-  
-  const you=pack.ui.you||'You'; 
-  const read=pack.ui.reading||'Reading'; 
-  
-  return `<div class="chat"><div class="msg user"><div class="meta">${you}</div>${escapeHTML(question||'')}</div><div class="msg assistant"><div class="meta">${read}</div>${seg}<hr style="border:0;border-top:1px solid #273245;margin:12px 0">${pack.nextSteps||''}</div></div>`; 
-}
-
-function escapeHTML(s){
-  return (s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
-}
-
-/* 事件绑定 */
-const goBtn=$('#go'); 
-const spreadSel=$('#spread'); 
-const qInput=$('#question'); 
-const qDisplay=$('#qdisplay'); 
-const readingPanel=$('#reading'); 
-const readingText=$('#readingText');
-const btnText = $('#btnText');
-const btnLoading = $('#btnLoading');
-const progressBar = $('#progressBar');
-const progressFill = $('#progressFill');
-const saveReadingBtn = $('#saveReading');
-const shareReadingBtn = $('#shareReading');
-
-// 问题输入监听
-qInput.addEventListener('input', ()=>{ 
-  qDisplay.textContent = qInput.value ? 
-    ((['en-US','th-TH','ms-MY'].includes(CUR)?'Question: ':'问题：') + qInput.value) : 
-    t('ui.tip_focus'); 
-});
-
-// 抽牌按钮点击事件
-goBtn.addEventListener('click', ()=>{
-  const n=parseInt(spreadSel.value,10); 
-  
-  // 显示加载状态
-  btnText.style.display = 'none';
-  btnLoading.style.display = 'inline-block';
-  progressBar.style.display = 'block';
-  
-  // 模拟进度条
-  let progress = 0;
-  const progressInterval = setInterval(() => {
-    progress += 5;
-    progressFill.style.width = `${progress}%`;
-    
-    if (progress >= 100) {
-      clearInterval(progressInterval);
-      
-      // 执行抽牌
-      const picks=draw(n); 
-      window.__LAST_PICKS=picks; 
-      renderBoard(n,picks); 
-      
-      const q=qInput.value||t('ui.no_q'); 
-      const html=renderReading(q,n,picks); 
-      readingText.innerHTML=html; 
-      readingPanel.style.display='block';
-      
-      // 恢复按钮状态
-      btnText.style.display = 'inline-block';
-      btnLoading.style.display = 'none';
-      progressBar.style.display = 'none';
-      progressFill.style.width = '0%';
-      
-      // 滚动到解读区域
-      readingPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, 50);
-});
-
-// 保存解读功能
-saveReadingBtn.addEventListener('click', () => {
-  const readingContent = readingText.innerHTML;
-  const question = qInput.value || t('ui.no_q');
-  const spread = spreadSel.options[spreadSel.selectedIndex].text;
-  
-  const data = {
-    question,
-    spread,
-    content: readingContent,
-    date: new Date().toLocaleString()
   };
-  
-  // 在实际应用中，这里应该发送到服务器保存
-  // 这里仅做演示
-  localStorage.setItem('lastTarotReading', JSON.stringify(data));
-  
-  alert('解读已保存到本地存储');
-});
 
-// 分享功能
-shareReadingBtn.addEventListener('click', () => {
-  if (navigator.share) {
-    const question = qInput.value || t('ui.no_q');
-    navigator.share({
-      title: '塔罗牌占卜结果',
-      text: `我的塔罗牌占卜问题：${question}`,
-      url: window.location.href
+  // 若某语言未完整定义 pos/suits/ranks/majors，则回退到英文
+  function withFallback(lang){
+    const base = JSON.parse(JSON.stringify(I18N[lang]));
+    const en = I18N['en-US'];
+    ['pos','suits','ranks','majors','tags','domainAdvice'].forEach(k=>{ if(base[k]==null) base[k]=en[k]; });
+    return base;
+  }
+
+  /* 小工具 */
+  const $ = s => document.querySelector(s); 
+  const $$ = s => Array.from(document.querySelectorAll(s)); 
+  const rnd = n => Math.floor(Math.random()*n);
+  const FALLBACK = 'zh-CN';
+
+  function detectLang(){ 
+    const nav=(navigator.language||'').toLowerCase(); 
+    if(nav.startsWith('zh-tw')) return 'zh-TW'; 
+    if(nav.startsWith('zh')) return 'zh-CN'; 
+    if(nav.startsWith('th')) return 'th-TH'; 
+    if(nav.startsWith('ms')) return 'ms-MY'; 
+    if(nav.startsWith('en')) return 'en-US'; 
+    return FALLBACK; 
+  }
+
+  let CUR = detectLang();
+  const langSel = document.getElementById('langSelect'); 
+  if (langSel) {
+    langSel.value = CUR;
+  }
+
+  function t(path, dflt=''){ 
+    const parts = path.split('.'); 
+    let node = withFallback(CUR); 
+    for(const p of parts){ 
+      if(!node) break; 
+      node=node[p]; 
+    } 
+    return node==null ? dflt : node; 
+  }
+
+  function applyStaticUI(){
+    const titleElement = document.querySelector('.title');
+    if (titleElement) {
+      titleElement.innerHTML = `<a href="#">${t('ui.brand','5xLiving')}</a>`;
+    }
+    
+    const langLabel = document.querySelector('.lang label');
+    if (langLabel) {
+      langLabel.textContent = t('ui.label_lang','语言');
+    }
+    
+    const pageTitle = document.querySelector('[data-i18n="page_title"]');
+    if (pageTitle) {
+      pageTitle.textContent = t('ui.page_title');
+    }
+    
+    const goBtn = document.getElementById('go');
+    if (goBtn) {
+      const btnText = goBtn.querySelector('#btnText');
+      if (btnText) {
+        btnText.textContent = t('ui.draw_btn');
+      }
+    }
+    
+    const spread = document.getElementById('spread');
+    if (spread) {
+      spread.options[0].textContent = t('ui.s1');
+      spread.options[1].textContent = t('ui.s3');
+      spread.options[2].textContent = t('ui.s5');
+      spread.options[3].textContent = t('ui.s10');
+    }
+    
+    const questionInput = document.getElementById('question');
+    if (questionInput) {
+      questionInput.setAttribute('placeholder', t('ui.q_ph'));
+    }
+    
+    const disclaimer = document.querySelector('[data-i18n="disclaimer"]'); 
+    if(disclaimer) disclaimer.textContent = t('ui.disclaimer');
+  }
+
+  /* 牌库 */
+  const SUITS = ['wands','cups','swords','pentacles'];
+  const RANKS = ['ace','2','3','4','5','6','7','8','9','10','page','knight','queen','king'];
+  const MAJORS = Array.from({length:22},(_,i)=>i);
+  let IMG_BASE = '/img/tarot';
+
+  function buildDeck(){ 
+    const deck=[]; 
+    MAJORS.forEach(i=> deck.push({id:`major_${String(i).padStart(2,'0')}`, group:'major', idx:i})); 
+    SUITS.forEach(s=> RANKS.forEach(r=> deck.push({id:`${s}_${r}`, group:'minor', suit:s, rank:r}))); 
+    return deck; 
+  }
+
+  const DECK = buildDeck();
+
+  function draw(n){ 
+    const pool=[...DECK], picks=[]; 
+    for(let i=0;i<n;i++){ 
+      const idx=rnd(pool.length); 
+      const card=pool.splice(idx,1)[0]; 
+      card.reversed=Math.random()<0.5; 
+      picks.push(card);
+    } 
+    return picks; 
+  }
+
+  function imgFor(card){ 
+    return `${IMG_BASE}/${card.id}.webp`; 
+  }
+
+  /* 文案辅助 */
+  function dataPack(){ return withFallback(CUR); }
+
+  function cardName(card){ 
+    const pack=dataPack(); 
+    if(card.group==='major'){ 
+      return pack.majors[card.idx][0]; 
+    } 
+    const s=pack.suits[card.suit]; 
+    const r=pack.ranks[card.rank] || card.rank.toUpperCase(); 
+    return `${s.name}${r}`; 
+  }
+
+  function previewLine(card){ 
+    const pack=dataPack(); 
+    if(card.group==='major'){ 
+      const row=pack.majors[card.idx]; 
+      return `${row[1]} · ${row[2]}`; 
+    } 
+    const s=pack.suits[card.suit]; 
+    const tone=pack.ranks.tone[card.rank]; 
+    return `${s.name}（${s.domain}）· ${tone}`; 
+  }
+
+  function posLabel(key){ 
+    const pack=dataPack(); 
+    return pack.pos[key] || key; 
+  }
+
+  function tagFor(rev){ 
+    const pack=dataPack(); 
+    return rev ? pack.tags.reversed : pack.tags.upright; 
+  }
+
+  /* 渲染 */
+  function cardNode(card, cls, posKey, index){ 
+    const div=document.createElement('div'); 
+    div.className=`card ${cls||''}`; 
+    div.setAttribute('data-card-id', card.id); 
+    div.setAttribute('data-reversed', card.reversed?'true':'false');
+    div.style.animationDelay = `${index * 0.1}s`;
+    
+    const wrap=document.createElement('div'); 
+    wrap.className='imgwrap'; 
+    if(card.reversed) wrap.style.transform='rotate(180deg)'; 
+    
+    const img=document.createElement('img'); 
+    img.className='card-img'; 
+    img.src=imgFor(card); 
+    img.alt=cardName(card); 
+    img.onerror=()=>{
+      img.onerror=null; 
+      img.src=`${IMG_BASE}/back.webp`;
+    }; 
+    
+    wrap.appendChild(img); 
+    
+    const cap=document.createElement('div'); 
+    cap.className='cap'; 
+    cap.textContent = `【${posLabel(posKey)}】${cardName(card)}（${tagFor(card.reversed)}）`; 
+    
+    const mean=document.createElement('div'); 
+    mean.className='mean'; 
+    mean.textContent = previewLine(card); 
+    
+    div.appendChild(wrap); 
+    div.appendChild(cap); 
+    div.appendChild(mean); 
+    
+    // 添加卡片悬停提示
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    tooltip.innerHTML = '<span class="tooltiptext">点击查看详细解读</span>';
+    div.appendChild(tooltip);
+    
+    return div; 
+  }
+
+  const SPREADS={
+    1:{layout:'spread-1',positions:[{key:'single'}]},
+    3:{layout:'spread-3',positions:[{key:'past'},{key:'present'},{key:'future'}]},
+    5:{layout:'spread-5',positions:[{key:'top',cls:'pos-top'},{key:'left',cls:'pos-left'},{key:'center',cls:'pos-center'},{key:'right',cls:'pos-right'},{key:'bottom',cls:'pos-bottom'}]},
+    10:{layout:'spread-10',positions:[{key:'p1'},{key:'p2'},{key:'p3'},{key:'p4'},{key:'p5'},{key:'p6'},{key:'p7'},{key:'p8'},{key:'p9'},{key:'p10'}]}
+  };
+
+  function renderBoard(n,cards){ 
+    const board=document.getElementById('board'); 
+    if (!board) return;
+    
+    board.className='board'; 
+    const conf=SPREADS[n]; 
+    if(!conf){ 
+      board.innerHTML=''; 
+      return;
+    } 
+    
+    board.classList.add(conf.layout); 
+    
+    if(n===10){ 
+      board.innerHTML='<div class="row row-1"></div><div class="row row-2"></div><div class="row row-3"></div>'; 
+      const rows=$$('#board .row'); 
+      const slots=[3,3,4]; 
+      let k=0; 
+      slots.forEach((count,rowi)=>{ 
+        for(let j=0;j<count;j++){ 
+          const c=cards[k++]; 
+          const posKey=conf.positions[k-1].key; 
+          rows[rowi].appendChild(cardNode(c,`c${k}`,posKey, k-1)); 
+        } 
+      }); 
+    } else { 
+      board.innerHTML=''; 
+      cards.forEach((c,i)=>{ 
+        const pos=conf.positions[i]; 
+        const cardEl = cardNode(c,`c${i+1} ${pos.cls||''}`,pos.key, i);
+        cardEl.classList.add('card-drawn');
+        board.appendChild(cardEl); 
+      }); 
+    } 
+  }
+
+  function renderReading(question,n,cards){ 
+    const pack=dataPack(); 
+    const posKeys=(n===10)?['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10']:(n===5)?['top','left','center','right','bottom']:(n===3)?['past','present','future']:['single']; 
+    const domAdv=pack.domainAdvice.general; 
+    
+    const seg=cards.map((card,i)=>{ 
+      const title=`【${posLabel(posKeys[i])}】${cardName(card)}（${tagFor(card.reversed)}）`; 
+      const arch=previewLine(card); 
+      return `<div style="margin:8px 0 12px"><div style="font-weight:700">${title}</div><div class="muted" style="margin:4px 0">${arch}</div><ul style="margin:6px 0 0 18px"><li>${card.group==='major'? (card.reversed?domAdv.majorRev:domAdv.majorOk) : (domAdv[card.suit]||domAdv.majorOk)}</li></ul></div>`; 
+    }).join(''); 
+    
+    const you=pack.ui.you||'You'; 
+    const read=pack.ui.reading||'Reading'; 
+    
+    return `<div class="chat"><div class="msg user"><div class="meta">${you}</div>${escapeHTML(question||'')}</div><div class="msg assistant"><div class="meta">${read}</div>${seg}<hr style="border:0;border-top:1px solid #273245;margin:12px 0">${pack.nextSteps||''}</div></div>`; 
+  }
+
+  function escapeHTML(s){
+    return (s||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[m]));
+  }
+
+  /* 事件绑定 */
+  const goBtn=document.getElementById('go'); 
+  const spreadSel=document.getElementById('spread'); 
+  const qInput=document.getElementById('question'); 
+  const qDisplay=document.getElementById('qdisplay'); 
+  const readingPanel=document.getElementById('reading'); 
+  const readingText=document.getElementById('readingText');
+  const btnText = document.getElementById('btnText');
+  const btnLoading = document.getElementById('btnLoading');
+  const progressBar = document.getElementById('progressBar');
+  const progressFill = document.getElementById('progressFill');
+  const saveReadingBtn = document.getElementById('saveReading');
+  const shareReadingBtn = document.getElementById('shareReading');
+
+  // 问题输入监听
+  if (qInput && qDisplay) {
+    qInput.addEventListener('input', ()=>{ 
+      qDisplay.textContent = qInput.value ? 
+        ((['en-US','th-TH','ms-MY'].includes(CUR)?'Question: ':'问题：') + qInput.value) : 
+        t('ui.tip_focus'); 
     });
-  } else {
-    // 备用分享方式
-    alert('分享功能需要现代浏览器支持，请手动复制链接分享');
   }
-});
 
-function refreshAll(){ 
-  applyStaticUI(); 
-  const picks=window.__LAST_PICKS||null; 
-  if(picks){ 
-    const n=parseInt(spreadSel.value,10); 
-    renderBoard(n,picks); 
-    const q=qInput.value||''; 
-    readingText.innerHTML=renderReading(q,n,picks); 
-    readingPanel.style.display='block'; 
-  } 
-}
-
-langSel.addEventListener('change', ()=>{ 
-  CUR = langSel.value in I18N ? langSel.value : FALLBACK; 
-  refreshAll(); 
-});
-
-// 滚动时头部效果
-window.addEventListener('scroll', () => {
-  const header = document.querySelector('.site-header');
-  if (window.scrollY > 50) {
-    header.classList.add('scrolled');
-  } else {
-    header.classList.remove('scrolled');
+  // 抽牌按钮点击事件
+  if (goBtn) {
+    goBtn.addEventListener('click', ()=>{
+      const n=parseInt(spreadSel.value,10); 
+      
+      // 显示加载状态
+      if (btnText) btnText.style.display = 'none';
+      if (btnLoading) btnLoading.style.display = 'inline-block';
+      if (progressBar) progressBar.style.display = 'block';
+      
+      // 模拟进度条
+      let progress = 0;
+      const progressInterval = setInterval(() => {
+        progress += 5;
+        if (progressFill) progressFill.style.width = `${progress}%`;
+        
+        if (progress >= 100) {
+          clearInterval(progressInterval);
+          
+          // 执行抽牌
+          const picks=draw(n); 
+          window.__LAST_PICKS=picks; 
+          renderBoard(n,picks); 
+          
+          const q=qInput ? qInput.value||t('ui.no_q') : t('ui.no_q'); 
+          const html=renderReading(q,n,picks); 
+          if (readingText) readingText.innerHTML=html; 
+          if (readingPanel) readingPanel.style.display='block';
+          
+          // 恢复按钮状态
+          if (btnText) btnText.style.display = 'inline-block';
+          if (btnLoading) btnLoading.style.display = 'none';
+          if (progressBar) progressBar.style.display = 'none';
+          if (progressFill) progressFill.style.width = '0%';
+          
+          // 滚动到解读区域
+          if (readingPanel) {
+            readingPanel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      }, 50);
+    });
   }
-});
 
-// 初始化
-refreshAll();
-
-/* —— GPT / 心怜管家 —— */
-const chatFab=$('#chatFab'), 
-      chatPanel=$('#chatPanel'), 
-      chatClose=$('#chatClose'), 
-      chatInput=$('#chatInput'), 
-      chatSend=$('#chatSend'), 
-      chatBody=$('#chatBody');
-
-chatFab.addEventListener('click', ()=> {
-  chatPanel.setAttribute('aria-hidden','false');
-  chatInput.focus();
-});
-
-chatClose.addEventListener('click', ()=> chatPanel.setAttribute('aria-hidden','true'));
-
-function addMsg(who,text){ 
-  const div=document.createElement('div'); 
-  div.className='ss-msg' + (who==='You'?' me':''); 
-  div.innerHTML=`<div class="meta">${who}</div>` + escapeHTML(text); 
-  chatBody.appendChild(div); 
-  chatBody.scrollTop = chatBody.scrollHeight; 
-}
-
-function sendGPT(text){ 
-  // 模拟AI回复
-  addMsg('心怜管家', '正在分析您的塔罗牌解读...');
-  
-  setTimeout(()=> {
-    const responses = [
-      "根据您的牌面，我建议您关注内在的平衡与和谐。",
-      "这张牌提示您需要更多的耐心和等待时机。",
-      "从牌面来看，现在是采取行动的好时机。",
-      "您的问题与情感关系有关，建议多沟通表达。",
-      "这张牌象征着新的开始和机遇，请保持开放心态。"
-    ];
-    const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-    addMsg('心怜管家', randomResponse);
-  }, 1500);
-}
-
-chatSend.addEventListener('click', ()=>{ 
-  const v=(chatInput.value||'').trim(); 
-  if(!v) return; 
-  chatInput.value=''; 
-  addMsg('You',v); 
-  sendGPT(v); 
-});
-
-chatInput.addEventListener('keydown', (e)=>{ 
-  if(e.key==='Enter'){ 
-    e.preventDefault(); 
-    chatSend.click(); 
-  } 
-});
-
-// 点击外部关闭聊天窗口
-document.addEventListener('click', (e) => {
-  if (!chatPanel.contains(e.target) && !chatFab.contains(e.target) && chatPanel.getAttribute('aria-hidden') === 'false') {
-    chatPanel.setAttribute('aria-hidden', 'true');
+  // 保存解读功能
+  if (saveReadingBtn) {
+    saveReadingBtn.addEventListener('click', () => {
+      const readingContent = readingText ? readingText.innerHTML : '';
+      const question = qInput ? qInput.value || t('ui.no_q') : t('ui.no_q');
+      const spread = spreadSel ? spreadSel.options[spreadSel.selectedIndex].text : '';
+      
+      const data = {
+        question,
+        spread,
+        content: readingContent,
+        date: new Date().toLocaleString()
+      };
+      
+      // 在实际应用中，这里应该发送到服务器保存
+      // 这里仅做演示
+      localStorage.setItem('lastTarotReading', JSON.stringify(data));
+      
+      alert('解读已保存到本地存储');
+    });
   }
+
+  // 分享功能
+  if (shareReadingBtn) {
+    shareReadingBtn.addEventListener('click', () => {
+      if (navigator.share) {
+        const question = qInput ? qInput.value || t('ui.no_q') : t('ui.no_q');
+        navigator.share({
+          title: '塔罗牌占卜结果',
+          text: `我的塔罗牌占卜问题：${question}`,
+          url: window.location.href
+        });
+      } else {
+        // 备用分享方式
+        alert('分享功能需要现代浏览器支持，请手动复制链接分享');
+      }
+    });
+  }
+
+  function refreshAll(){ 
+    applyStaticUI(); 
+    const picks=window.__LAST_PICKS||null; 
+    if(picks){ 
+      const n=parseInt(spreadSel.value,10); 
+      renderBoard(n,picks); 
+      const q=qInput ? qInput.value||'' : ''; 
+      if (readingText) readingText.innerHTML=renderReading(q,n,picks); 
+      if (readingPanel) readingPanel.style.display='block'; 
+    } 
+  }
+
+  if (langSel) {
+    langSel.addEventListener('change', ()=>{ 
+      CUR = langSel.value in I18N ? langSel.value : FALLBACK; 
+      refreshAll(); 
+    });
+  }
+
+  // 滚动时头部效果
+  window.addEventListener('scroll', () => {
+    const header = document.querySelector('.site-header');
+    if (header) {
+      if (window.scrollY > 50) {
+        header.classList.add('scrolled');
+      } else {
+        header.classList.remove('scrolled');
+      }
+    }
+  });
+
+  // 初始化
+  refreshAll();
+
+  /* —— GPT / 心怜管家 —— */
+  const chatFab=document.getElementById('chatFab'), 
+        chatPanel=document.getElementById('chatPanel'), 
+        chatClose=document.getElementById('chatClose'), 
+        chatInput=document.getElementById('chatInput'), 
+        chatSend=document.getElementById('chatSend'), 
+        chatBody=document.getElementById('chatBody');
+
+  if (chatFab) {
+    chatFab.addEventListener('click', ()=> {
+      if (chatPanel) {
+        chatPanel.setAttribute('aria-hidden','false');
+        if (chatInput) chatInput.focus();
+      }
+    });
+  }
+
+  if (chatClose) {
+    chatClose.addEventListener('click', ()=> {
+      if (chatPanel) chatPanel.setAttribute('aria-hidden','true');
+    });
+  }
+
+  function addMsg(who,text){ 
+    if (!chatBody) return;
+    
+    const div=document.createElement('div'); 
+    div.className='ss-msg' + (who==='You'?' me':''); 
+    div.innerHTML=`<div class="meta">${who}</div>` + escapeHTML(text); 
+    chatBody.appendChild(div); 
+    chatBody.scrollTop = chatBody.scrollHeight; 
+  }
+
+  function sendGPT(text){ 
+    // 模拟AI回复
+    addMsg('心怜管家', '正在分析您的塔罗牌解读...');
+    
+    setTimeout(()=> {
+      const responses = [
+        "根据您的牌面，我建议您关注内在的平衡与和谐。",
+        "这张牌提示您需要更多的耐心和等待时机。",
+        "从牌面来看，现在是采取行动的好时机。",
+        "您的问题与情感关系有关，建议多沟通表达。",
+        "这张牌象征着新的开始和机遇，请保持开放心态。"
+      ];
+      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
+      addMsg('心怜管家', randomResponse);
+    }, 1500);
+  }
+
+  if (chatSend) {
+    chatSend.addEventListener('click', ()=>{ 
+      const v=chatInput ? (chatInput.value||'').trim() : ''; 
+      if(!v) return; 
+      if (chatInput) chatInput.value=''; 
+      addMsg('You',v); 
+      sendGPT(v); 
+    });
+  }
+
+  if (chatInput) {
+    chatInput.addEventListener('keydown', (e)=>{ 
+      if(e.key==='Enter'){ 
+        e.preventDefault(); 
+        if (chatSend) chatSend.click(); 
+      } 
+    });
+  }
+
+  // 点击外部关闭聊天窗口
+  document.addEventListener('click', (e) => {
+    if (chatPanel && chatPanel.getAttribute('aria-hidden') === 'false') {
+      if (!chatPanel.contains(e.target) && !chatFab.contains(e.target)) {
+        chatPanel.setAttribute('aria-hidden', 'true');
+      }
+    }
+  });
 });
 </script>
 </body>
