@@ -919,66 +919,39 @@ $('clear').addEventListener('click',()=>{
 });
 
 /* ===== 交互：生成分析 ===== */
-$('go').addEventListener('click', async ()=>{
+$('go').addEventListener('click', () => {
   const lang = getLang();
   const L = i18n[lang] || i18n["zh-CN"];
   const birthEl = $('birthdate');
-  const date = birthEl.value.trim();
+  const date = (birthEl.value || '').trim();
 
-  if(!date){
+  if (!date) {
     alert(L.please_birth || '请先选择出生日期');
     birthEl.focus();
     return;
   }
 
   const num = calcHonmei(date);
-  if(!num){
+  if (!num) {
     alert(L.bad_date || '日期格式有误');
     return;
   }
 
-  const topic = $('topic').value;
+  const topic    = $('topic').value;
   const question = $('question').value.trim();
-  const star = STARS[num];
 
   __STAR_STATE = { num, date, topic, question };
 
-  // 渲染主星卡片
+  // 只保留【主星】结果
   renderStar(num);
 
-  // 准备 AI 卡片
+  // 完全关闭 AI 区块：隐藏并清空
   const aiCard = $('aiCard');
   const aiText = $('aiText');
   const aiReco = $('aiReco');
-  aiCard.style.display = 'block';
-  aiText.textContent = L.generating || '正在生成解读…';
-  aiReco.innerHTML = '';
-
-  // 渲染芯片（多语言标签）
-  renderChips();
-
-  const langNameMap = {
-    "zh-CN":"简体中文",
-    "zh-TW":"繁體中文",
-    "en":"English",
-    "ja-JP":"日本語",
-    "th-TH":"ภาษาไทย",
-    "ms":"Bahasa Melayu"
-  };
-  const langName = langNameMap[lang] || '简体中文';
-
-  const prompt = buildPrompt({langName, star, topic, question});
-
-  $('go').disabled = true;
-  try{
-    const text = await askAI(prompt);
-    aiText.textContent = text || (L.retry || '抱歉，暂时无法生成，请稍后再试。');
-  }catch(e){
-    console.warn('[ki] askAI error', e);
-    aiText.textContent = L.neterr || '网络异常，请稍后再试。';
-  }finally{
-    $('go').disabled = false;
-  }
+  if (aiCard) aiCard.style.display = 'none';
+  if (aiText) aiText.textContent = '';
+  if (aiReco) aiReco.innerHTML = '';
 });
 
 /* ===== 语言切换初始化 ===== */
@@ -1077,5 +1050,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
 </script>
 </body>
 </html>
+
 
 
