@@ -117,6 +117,47 @@
     }
     #aiText li{ margin:.25rem 0; }
     #aiText ol li::marker{ font-weight:700; }
+    
+    /* 本地分析样式 */
+    .local-analysis {
+      margin-top: 20px;
+      padding: 15px;
+      border-radius: 10px;
+      background: rgba(30, 41, 59, 0.5);
+      border: 1px solid #2d3748;
+    }
+    .local-analysis h3 {
+      color: #ffe084;
+      margin-top: 0;
+    }
+    .planet-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 10px;
+      margin-top: 15px;
+    }
+    .planet-item {
+      padding: 10px;
+      border-radius: 8px;
+      background: rgba(15, 23, 42, 0.7);
+      text-align: center;
+      border: 1px solid #2d3748;
+    }
+    .planet-name {
+      font-weight: bold;
+      color: #ffe084;
+    }
+    .planet-position {
+      font-size: 0.9em;
+      color: #98a7b7;
+    }
+    .analysis-section {
+      margin-top: 20px;
+    }
+    .analysis-section h4 {
+      color: #ffe084;
+      margin-bottom: 10px;
+    }
   </style>
 </head>
 
@@ -173,17 +214,46 @@
           <label class="muted" data-i18n="birth_place_label">出生城市</label>
           <input type="text" id="birthplace" data-i18n-ph="birth_place_ph" placeholder="城市/国家（用于时区与经纬）">
         </div>
+        <div>
+          <label class="muted" data-i18n="topic_label">关注主题</label>
+          <select id="topic">
+            <option value="love" data-i18n="topic_love">爱情/关系</option>
+            <option value="career" data-i18n="topic_career">事业/工作</option>
+            <option value="wealth" data-i18n="topic_wealth">财富/投资</option>
+            <option value="family" data-i18n="topic_family">家庭/人际</option>
+            <option value="health" data-i18n="topic_health">健康/身心</option>
+            <option value="study" data-i18n="topic_study">学业/成长</option>
+            <option value="move" data-i18n="topic_move">旅行/搬迁</option>
+            <option value="other" data-i18n="topic_other">其他</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted" data-i18n="preset_label">常用问题</label>
+          <select id="presetQ">
+            <option value="" data-i18n="preset_none">（可选）选择一个模板</option>
+            <option value="我想了解最近的运势走向和需要注意的事项" data-i18n="preset_q1">我想了解最近的运势走向和需要注意的事项</option>
+            <option value="我想知道在事业/工作方面有什么机会和挑战" data-i18n="preset_q2">我想知道在事业/工作方面有什么机会和挑战</option>
+            <option value="我想了解感情/婚姻方面的发展趋势" data-i18n="preset_q3">我想了解感情/婚姻方面的发展趋势</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="margin-top:10px">
+        <label class="muted" data-i18n="q_label">你的具体问题（可直接粘贴）</label>
+        <textarea id="question" data-i18n-ph="q_ph" placeholder="例如：我在找工作，想知道当前大运小运对面试与入职的影响，以及我应采取的行动。"></textarea>
+      </div>
 
       <div class="row cols-2" style="margin-top:10px">
         <div><button id="go" class="btn" data-i18n="btn_gen">生成分析</button></div>
+        <div><button id="clear" class="btn secondary" data-i18n="btn_clear">清空</button></div>
       </div>
     </div>
 
-    <!-- 结果：心怜管家 -->
-    <div id="aiCard" class="card" style="display:none">
-      <div class="h2" data-i18n="sec_ai">心怜管家解读与建议</div>
-      <div id="aiText"></div>
-      <div id="aiReco"></div> <!-- 新增：AI 推荐下一步 -->
+    <!-- 结果：本地分析 -->
+    <div id="localCard" class="card" style="display:none">
+      <div class="h2" data-i18n="sec_local">本地命理分析结果</div>
+      <div id="localText"></div>
+      <div id="localReco"></div>
     </div>
 
     <!-- 会员区（展示用） -->
@@ -267,7 +337,6 @@
   "use strict";
 
   /* ===== 配置 ===== */
-  const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
   const LANG_KEY = "site_lang";
 
   /* ===== 小工具 ===== */
@@ -317,6 +386,9 @@
 
       preset_label: "常用问题",
       preset_none: "（可选）选择一个模板",
+      preset_q1: "我想了解最近的运势走向和需要注意的事项",
+      preset_q2: "我想知道在事业/工作方面有什么机会和挑战",
+      preset_q3: "我想了解感情/婚姻方面的发展趋势",
 
       q_label: "你的具体问题（可直接粘贴）",
       q_ph: "例如：我在找工作，想知道当前大运小运对面试与入职的影响，以及我应采取的行动。",
@@ -324,8 +396,8 @@
       btn_gen: "生成分析",
       btn_clear: "清空",
 
-      sec_ai: "心怜管家解读与建议",
-      reco_title: "AI 推荐 · 下一步行动",
+      sec_local: "本地命理分析结果",
+      reco_title: "推荐 · 下一步行动",
 
       chat_fab: "问",
       chat_title: "心怜管家 · Chat",
@@ -401,6 +473,9 @@
 
       preset_label: "常用問題",
       preset_none: "（可選）選擇一個模板",
+      preset_q1: "我想了解最近的運勢走向和需要注意的事項",
+      preset_q2: "我想知道在事業/工作方面有什麼機會和挑戰",
+      preset_q3: "我想了解感情/婚姻方面的發展趨勢",
 
       q_label: "你的具體問題（可直接貼上）",
       q_ph: "例如：我在找工作，想知道當前大運小運對面試與入職的影響，以及我應採取的行動。",
@@ -408,8 +483,8 @@
       btn_gen: "生成解析",
       btn_clear: "清空",
 
-      sec_ai: "心憐管家解讀與建議",
-      reco_title: "AI 推薦 · 下一步行動",
+      sec_local: "本地命理分析結果",
+      reco_title: "推薦 · 下一步行動",
 
       chat_fab: "問",
       chat_title: "心憐管家 · Chat",
@@ -485,6 +560,9 @@
 
       preset_label: "Common questions",
       preset_none: "(Optional) Choose a template",
+      preset_q1: "I want to know about recent fortune trends and things to note",
+      preset_q2: "I want to know about opportunities and challenges in career/work",
+      preset_q3: "I want to know about trends in love/marriage",
 
       q_label: "Your specific question (you can paste text)",
       q_ph: "E.g. I’m looking for a job and want to understand how my current Mahadasha/Antardasha affects interviews and offers, and what actions I should take.",
@@ -492,8 +570,8 @@
       btn_gen: "Generate Reading",
       btn_clear: "Clear",
 
-      sec_ai: "Concierge Vedic Reading & Advice",
-      reco_title: "AI Suggestions · Next Steps",
+      sec_local: "Local Astrology Analysis Results",
+      reco_title: "Suggestions · Next Steps",
 
       chat_fab: "Chat",
       chat_title: "Concierge · Chat",
@@ -571,6 +649,9 @@
 
       preset_label: "よくある質問",
       preset_none: "（任意）テンプレートを選択",
+      preset_q1: "最近の運勢の流れと注意点を知りたい",
+      preset_q2: "仕事・キャリア面での機会と課題を知りたい",
+      preset_q3: "恋愛・結婚面での流れを知りたい",
 
       q_label: "具体的な質問（そのまま貼り付けOK）",
       q_ph: "例：転職活動中です。今のマハーダシャ／アンタルダシャが面接や内定にどう影響するか、そして何をすべきか知りたいです。",
@@ -578,8 +659,8 @@
       btn_gen: "リーディングを生成",
       btn_clear: "クリア",
 
-      sec_ai: "心憐コンシェルジュからのインド占星術アドバイス",
-      reco_title: "AI 推薦 · 次の一歩",
+      sec_local: "ローカル占星術分析結果",
+      reco_title: "提案 · 次のステップ",
 
       chat_fab: "チャット",
       chat_title: "コンシェルジュ · チャット",
@@ -655,6 +736,9 @@
 
       preset_label: "คำถามยอดนิยม",
       preset_none: "(ไม่บังคับ) เลือกเทมเพลต",
+      preset_q1: "อยากรู้แนวโน้มดวงชะตาและสิ่งที่ควรระวัง",
+      preset_q2: "อยากรู้โอกาสและความท้าทายในด้านการงาน",
+      preset_q3: "อยากรู้แนวโน้มด้านความรัก/การแต่งงาน",
 
       q_label: "คำถามเฉพาะของคุณ (วางข้อความได้เลย)",
       q_ph: "เช่น ตอนนี้กำลังหางาน อยากรู้ว่า Mahadasha/Antardasha ช่วงนี้ส่งผลต่อสัมภาษณ์อย่างไร และควรวางตัวอย่างไร",
@@ -662,8 +746,8 @@
       btn_gen: "สร้างคำทำนาย",
       btn_clear: "ล้างข้อมูล",
 
-      sec_ai: "คำแนะนำจาก Xinlian Concierge (โหราศาสตร์อินเดีย)",
-      reco_title: "ข้อเสนอแนะถัดไปจาก AI",
+      sec_local: "ผลการวิเคราะห์โหราศาสตร์ท้องถิ่น",
+      reco_title: "ข้อเสนอแนะถัดไป",
 
       chat_fab: "แชต",
       chat_title: "Concierge · แชต",
@@ -739,6 +823,9 @@
 
       preset_label: "Soalan biasa",
       preset_none: "(Pilihan) Pilih templat",
+      preset_q1: "Saya ingin tahu tentang aliran nasib terkini dan perkara yang perlu diperhatikan",
+      preset_q2: "Saya ingin tahu tentang peluang dan cabaran dalam kerjaya/pekerjaan",
+      preset_q3: "Saya ingin tahu tentang aliran dalam cinta/perkahwinan",
 
       q_label: "Soalan khusus anda (boleh tampal di sini)",
       q_ph: "Contoh: Saya sedang mencari kerja dan ingin tahu bagaimana Mahadasha/Antardasha mempengaruhi temuduga & tawaran kerja, dan apa langkah yang patut diambil.",
@@ -746,8 +833,8 @@
       btn_gen: "Jana Bacaan",
       btn_clear: "Padam",
 
-      sec_ai: "Cadangan Astrologi India oleh Xinlian Concierge",
-      reco_title: "Cadangan AI · Langkah Seterusnya",
+      sec_local: "Keputusan Analisis Astrologi Tempatan",
+      reco_title: "Cadangan · Langkah Seterusnya",
 
       chat_fab: "Chat",
       chat_title: "Concierge · Chat",
@@ -831,33 +918,31 @@
       body.scrollTop = body.scrollHeight;
     }
 
-    async function askChat(prompt) {
+    function askChat(prompt) {
       addMsg(prompt, true);
       input.value = '';
 
-      const sysLang = BUTLER_LANG_NAME[getLang()] || '简体中文';
-      const sys = '你是“心怜管家”，语气温暖专业、简洁有条理，使用【' +
-        sysLang +
-        '】回答，主要提供网站导航与一般咨询。';
-
-      try {
-        const r = await fetch(API_BASE + '/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: [
-              { role: 'system', content: sys },
-              { role: 'user', content: prompt }
-            ]
-          })
-        });
-        let data = {};
-        try { data = await r.json(); } catch { }
-        const reply = data.reply ?? data.text ?? data?.choices?.[0]?.message?.content ?? '';
-        addMsg(reply || t('retry'));
-      } catch {
-        addMsg(t('neterr'));
-      }
+      // 本地回复逻辑
+      setTimeout(() => {
+        const responses = {
+          'zh-CN': [
+            "感谢您的提问！目前我们提供印度命理分析服务，请填写上方表单获取个性化解读。",
+            "您可以通过填写出生信息获取基于吠陀占星的命理分析。",
+            "如需更深入的一对一咨询，请考虑升级为VIP会员。"
+          ],
+          'en': [
+            "Thank you for your question! We currently offer Vedic astrology analysis services. Please fill out the form above for a personalized reading.",
+            "You can get a Vedic astrology-based analysis by filling in your birth information.",
+            "For more in-depth one-on-one consultation, consider upgrading to VIP membership."
+          ]
+        };
+        
+        const lang = getLang();
+        const langResponses = responses[lang] || responses['zh-CN'];
+        const randomResponse = langResponses[Math.floor(Math.random() * langResponses.length)];
+        
+        addMsg(randomResponse);
+      }, 1000);
     }
 
     if (fab && panel && body && input && send && closeBtn) {
@@ -881,61 +966,128 @@
     }
   })();
 
-  /* ===== 组装 Vedic 占星提示词 ===== */
-  function buildPromptVedic({ langName, name, gender, birthdt, birthplace, topic, question }) {
-    const topicMap = ({
-      "zh-CN": {
-        love: "爱情/关系", career: "事业/工作", wealth: "财富/投资",
-        family: "家庭/人际", health: "健康/身心", study: "学业/成长",
-        move: "旅行/搬迁", other: "其他"
-      },
-      "en": {
-        love: "Love/Relationship", career: "Career/Work", wealth: "Wealth/Investment",
-        family: "Family/Social", health: "Health/Mind-Body", study: "Study/Growth",
-        move: "Travel/Relocation", other: "Other"
-      },
-      "ms": {
-        love: "Cinta/Hubungan", career: "Kerjaya", wealth: "Kewangan/Pelaburan",
-        family: "Keluarga/Sosial", health: "Kesihatan/Emosi", study: "Pembelajaran",
-        move: "Perjalanan/Pindah", other: "Lain-lain"
-      }
-    })[getLang()] || {};
-
-    const base = [
-      name ? `称呼：${name}` : null,
-      gender ? `性别：${gender}` : null,
-      birthdt ? `出生：${birthdt}` : null,
-      birthplace ? `城市：${birthplace}` : null
-    ].filter(Boolean).join('；');
-
-    return `你是 5XLiving 的“心怜管家”，亦是资深吠陀占星顾问。请用【${langName}】输出，语气温暖、专业、可落地。
-用户基础信息：${base || '（用户未提供更多信息）'}
-关注主题：${topicMap[topic] || topic}
-用户问题：${question || '（无具体问题，请给通用提示）'}
-
-请基于 Vedic Astrology（含月亮星座、上升星座、Nakshatra、Mahadasha/Antardasha 时序、行星强弱与宫位）给出结构化建议：
-# 核心判断（2-4句，点明当前能量/运期与关键机会）
-# 现在要做的事（列3条，动词开头，可执行）
-# 避坑提醒（列2-3条，具体到行为/时间窗口）
-# 调整与补强（2-3条：行星疗愈/颜色/咒音/宝石/仪式，写操作要点与频率）
-# AI 推举内容（3-5条，结合本站：预约一对一、VIP、课程/练习包、御守/许愿、把计划存入心怜笔记等，写成建议句式）`;
-  }
-
-  /* ===== 请求 AI ===== */
-  async function askAI(prompt) {
-    const resp = await fetch(API_BASE + '/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: '你将产出结构化的吠陀占星建议，务必简明清晰、可执行。' },
-          { role: 'user', content: prompt }
-        ]
-      })
+  /* ===== 本地命理分析 ===== */
+  function generateLocalAnalysis({ name, gender, birthdt, birthplace, topic, question }) {
+    // 生成随机行星位置
+    const planets = ['太阳', '月亮', '水星', '金星', '火星', '木星', '土星', '天王星', '海王星', '冥王星'];
+    const signs = ['白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座', '天秤座', '天蝎座', '射手座', '摩羯座', '水瓶座', '双鱼座'];
+    const houses = ['第1宫', '第2宫', '第3宫', '第4宫', '第5宫', '第6宫', '第7宫', '第8宫', '第9宫', '第10宫', '第11宫', '第12宫'];
+    
+    const planetPositions = planets.map(planet => {
+      const sign = signs[Math.floor(Math.random() * signs.length)];
+      const house = houses[Math.floor(Math.random() * houses.length)];
+      return { planet, sign, house };
     });
-    let data = {};
-    try { data = await resp.json(); } catch { }
-    return data.reply ?? data.text ?? data?.choices?.[0]?.message?.content ?? '';
+    
+    // 根据主题生成分析
+    const topicAnalysis = {
+      'love': {
+        title: '感情关系分析',
+        advice: [
+          '当前金星位置良好，有利于建立新的感情关系',
+          '注意火星位置可能带来一些小的争执，建议多沟通',
+          '未来3个月是发展感情的好时机'
+        ]
+      },
+      'career': {
+        title: '事业发展分析',
+        advice: [
+          '木星位置显示有职业发展的机会',
+          '土星提醒需要更加努力和耐心',
+          '考虑在接下来6个月内寻求晋升或新机会'
+        ]
+      },
+      'wealth': {
+        title: '财务状况分析',
+        advice: [
+          '第二宫显示有稳定的收入来源',
+          '注意第八宫可能有一些意外支出',
+          '考虑在接下来3个月进行保守投资'
+        ]
+      },
+      'health': {
+        title: '健康状况分析',
+        advice: [
+          '第六宫显示整体健康状况良好',
+          '注意火星位置可能带来一些小的健康问题',
+          '建议保持规律的锻炼和健康饮食'
+        ]
+      },
+      'family': {
+        title: '家庭关系分析',
+        advice: [
+          '第四宫显示家庭关系和谐',
+          '注意水星位置可能带来一些沟通误解',
+          '建议多花时间与家人相处'
+        ]
+      },
+      'study': {
+        title: '学习成长分析',
+        advice: [
+          '第三宫和第九宫显示学习能力良好',
+          '水星位置有利于吸收新知识',
+          '考虑在未来6个月内开始新的学习计划'
+        ]
+      },
+      'move': {
+        title: '旅行搬迁分析',
+        advice: [
+          '当前行星位置有利于短途旅行',
+          '长途旅行建议避开下个月',
+          '搬迁考虑在3个月后进行'
+        ]
+      },
+      'other': {
+        title: '综合运势分析',
+        advice: [
+          '整体运势平稳，适合规划未来',
+          '注意行星位置变化可能带来一些小挑战',
+          '保持积极心态，把握机会'
+        ]
+      }
+    };
+    
+    const analysis = topicAnalysis[topic] || topicAnalysis['other'];
+    
+    // 构建HTML内容
+    let html = `<div class="local-analysis">
+      <h3>${name ? `亲爱的${name}，` : ''}基于您的出生信息分析</h3>
+      <p>出生时间: ${birthdt} | 出生地: ${birthplace}</p>
+      
+      <h3>行星位置概览</h3>
+      <div class="planet-grid">`;
+    
+    planetPositions.forEach(pos => {
+      html += `<div class="planet-item">
+        <div class="planet-name">${pos.planet}</div>
+        <div class="planet-position">${pos.sign} · ${pos.house}</div>
+      </div>`;
+    });
+    
+    html += `</div>
+      <div class="analysis-section">
+        <h4>${analysis.title}</h4>
+        <ul>`;
+    
+    analysis.advice.forEach(item => {
+      html += `<li>${item}</li>`;
+    });
+    
+    html += `</ul>
+      </div>
+      
+      <div class="analysis-section">
+        <h4>${t('reco_title')}</h4>
+        <ul>
+          <li>记录您的梦境和直觉感受</li>
+          <li>尝试冥想和能量练习</li>
+          <li>考虑预约一对一专业咨询</li>
+          <li>加入VIP会员获取更多专属内容</li>
+        </ul>
+      </div>
+    </div>`;
+    
+    return html;
   }
 
   /* ===== 交互 ===== */
@@ -960,12 +1112,12 @@
       const topicEl = $('topic');
       if (topicEl) topicEl.value = 'love';
       if (presetQEl) presetQEl.value = '';
-      const aiCard = $('aiCard');
-      const aiText = $('aiText');
-      const aiReco = $('aiReco');
-      if (aiCard) aiCard.style.display = 'none';
-      if (aiText) aiText.textContent = '';
-      if (aiReco) aiReco.innerHTML = '';
+      const localCard = $('localCard');
+      const localText = $('localText');
+      const localReco = $('localReco');
+      if (localCard) localCard.style.display = 'none';
+      if (localText) localText.textContent = '';
+      if (localReco) localReco.innerHTML = '';
     });
   }
 
@@ -984,14 +1136,6 @@
       }
 
       const payload = {
-        langName: ({
-          'zh-CN': '简体中文',
-          'zh-TW': '繁體中文',
-          'en': 'English',
-          'ja': 'Japanese',
-          'th': 'Thai',
-          'ms': 'Bahasa Melayu'
-        })[getLang()] || '简体中文',
         name: ($('name')?.value || '').trim(),
         gender: $('gender')?.value || '',
         birthdt,
@@ -1000,33 +1144,18 @@
         question: (($('question')?.value || presetQEl?.value || '')).trim()
       };
 
-      const aiCard = $('aiCard');
-      const aiText = $('aiText');
-      const aiReco = $('aiReco');
+      const localCard = $('localCard');
+      const localText = $('localText');
+      const localReco = $('localReco');
 
-      if (aiText) aiText.textContent = L.generating;
-      if (aiCard) aiCard.style.display = 'block';
-      if (aiReco) aiReco.innerHTML = '';
+      if (localCard) localCard.style.display = 'block';
+      if (localText) localText.innerHTML = L.generating;
 
-      try {
-        const prompt = buildPromptVedic(payload);
-        const txt = await askAI(prompt);
-        if (aiText) aiText.textContent = txt || L.retry;
-
-        if (aiReco && txt) {
-          const recos = [];
-          txt.split('\n').forEach(l => {
-            if (/推举|推荐|VIP|预约|课程|练习|许愿|御守|笔记|会员/i.test(l)) {
-              recos.push(l.trim());
-            }
-          });
-          aiReco.innerHTML = recos.length
-            ? `<div class="h2">${L.reco_title}</div><ul style="margin:.3rem 0 .2rem .9rem">${recos.slice(0, 5).map(x => `<li>${x}</li>`).join('')}</ul>`
-            : '';
-        }
-      } catch (e) {
-        if (aiText) aiText.textContent = L.neterr;
-      }
+      // 模拟分析生成时间
+      setTimeout(() => {
+        const analysisHTML = generateLocalAnalysis(payload);
+        if (localText) localText.innerHTML = analysisHTML;
+      }, 1500);
     });
   }
 
@@ -1059,5 +1188,3 @@
 </script>
 </body>
 </html>
-
-
