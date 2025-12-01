@@ -2232,28 +2232,31 @@ ${starText}
 function renderStarBasic(num){
   const lang = getLang();
   const L = i18n[lang] || i18n["zh-CN"];
-  const star = STARS[num];
+
+  // 如果 STARS_DEEP 已经改成多语言结构，就从里面拿
+  const star = STARS_DEEP[num];
   if (!star) return;
 
-  // 名称还用原来的中文 + 日文罗马音
-  $('starName').textContent = star.zh;
-  $('starJP').textContent   = star.jp;
+  // 语言优先：当前语言 > zh-CN
+  const s = star[lang] || star["zh-CN"];
 
-  // 五行 / 颜色 / 关键词 / 简介，允许被语言覆写
-  const elem  = star.elem.zh;
-  const color = star.color.zh;
-  const keysArr = star.key.zh;
-  const about = star.about.zh;
+  // 名称 & 日文罗马音
+  $('starName').textContent = s.name;   // e.g. "二黑土星"
+  $('starJP').textContent   = s.jp;     // e.g. "Jikoku Dosei"
 
-  const kws = Array.isArray(keysArr) ? keysArr.join(' / ') : keysArr;
+  // 五行 / 颜色 / 关键词 / 简介（都从当前语言结构拿）
+  const elem     = s.element;                  // string
+  const color    = s.color;                    // string
+  const keysArr  = Array.isArray(s.keywords) ? s.keywords : [];
+  const about    = s.personalityShort || s.personality || '';
 
   $('starBadges').innerHTML =
     `<span class="badge">${L.badge_elem}：${elem}</span>`+
     `<span class="badge">${L.badge_color}：${color}</span>`+
-    `<span class="badge">${L.badge_kw}：${kws}</span>`;
+    `<span class="badge">${L.badge_kw}：${keysArr.join(' / ')}</span>`;
 
   $('starAbout').textContent = `${L.about_label}：${about}`;
-  $('starCard').style.display='block';
+  $('starCard').style.display = 'block';
 }
   
 /* 保存当前状态，切语言时用 */
@@ -2434,6 +2437,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 </script>
 </body>
 </html>
+
 
 
 
