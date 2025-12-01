@@ -1511,12 +1511,75 @@ const STARS = {
   9:{zh:'九紫火星',jp:'Kyūshi Kasei',elem:'火',color:'紫',key:['光彩','灵感','传播'],about:'热情外放、灵感多，适合登台表达与IP打造。'}
 };
 
-/* ===== 九星深度数据（简版：1–9，中英） ===== */
-/* （这一段就是你贴上来的 STARS_DEEP，原样保留） */
-const STARS_DEEP = { /* ……此处保持你原本的 STARS_DEEP 定义，完整复制…… */ };
-/* 为了不撑爆讯息，这里直接说明：
-   👉 请把你上面已经写好的 STARS_DEEP = {1:{…},2:{…},…9:{…}} 整段原样贴回来。
-   逻辑上不需要修改，我下面的函数都兼容那一份结构。 */
+const STARS_DEEP = {
+  1: {
+    element: "水",
+    color: "白、蓝、黑",
+    directions: {
+      favorable: ["北", "东南"],
+      avoid: ["西南", "东"]
+    },
+    elements: { 木: 1, 火: 0, 土: 2, 金: 1, 水: 4 },
+    text: {
+      "zh-CN": {
+        personality: "一白水星的人敏感细腻，直觉力强...",
+        talents: ["强大的直觉能力", "优秀的沟通技巧"],
+        challenges: "容易过度敏感...",
+        career: "适合需要直觉和沟通的工作...",
+        career_analysis: {
+          strengths: ["直觉敏锐", "沟通能力强"],
+          opportunities: ["心理咨询", "媒体行业"],
+          risks: ["情绪波动", "决策犹豫"],
+          actions: ["发挥直觉优势", "建立稳定情绪"]
+        },
+        relationship_analysis: {
+          strengths: ["善解人意", "体贴温柔"],
+          opportunities: ["建立深度关系", "情感交流"],
+          risks: ["过度依赖", "情感消耗"],
+          actions: ["保持情感边界", "学习表达需求"]
+        },
+        health_analysis: {
+          strengths: ["恢复力强", "适应性好"],
+          opportunities: ["冥想练习", "水上运动"],
+          risks: ["情绪压力", "肾脏问题"],
+          actions: ["定期放松", "保持水分"]
+        }
+      },
+      "en": {
+        personality: "Ippaku Suisei (White Water Star) individuals are sensitive and intuitive...",
+        talents: ["Strong intuitive abilities", "Excellent communication skills"],
+        challenges: "Tend to be overly sensitive...",
+        career: "Suitable for jobs requiring intuition and communication...",
+        career_analysis: {
+          strengths: ["Keen intuition", "Strong communication"],
+          opportunities: ["Counseling", "Media industry"],
+          risks: ["Emotional fluctuations", "Indecisiveness"],
+          actions: ["Leverage intuitive strengths", "Establish emotional stability"]
+        },
+        relationship_analysis: {
+          strengths: ["Empathetic", "Caring and gentle"],
+          opportunities: ["Build deep connections", "Emotional exchange"],
+          risks: ["Over-dependence", "Emotional exhaustion"],
+          actions: ["Maintain emotional boundaries", "Learn to express needs"]
+        },
+        health_analysis: {
+          strengths: ["Strong recovery", "Good adaptability"],
+          opportunities: ["Meditation practice", "Water sports"],
+          risks: ["Emotional stress", "Kidney issues"],
+          actions: ["Regular relaxation", "Stay hydrated"]
+        }
+      },
+      "ja-JP": {
+        personality: "一白水星の人は感受性が強く、直観力に優れています...",
+        talents: ["優れた直観力", "コミュニケーション能力"],
+        challenges: "過度に敏感になりやすい...",
+        // ... 其他日文翻译
+      }
+      // 其他语言类似...
+    }
+  },
+  // ... 其他星号类似
+};
 
 /* 语言映射（给 STARS_DEEP 用） */
 function mapStarLang(raw) {
@@ -2060,14 +2123,18 @@ function buildKyuuseiReport(){
 }
 
 /* 语言切换时重渲染全部内容 */
+// 重新渲染从当前上下文
 function rerenderFromCtx(){
-  applyI18n();
+  applyI18n(); // 更新所有文本
   updateNowInfo();
   renderChips();
+  
   const ctx = window._lastKyuuseiCtx;
   if (!ctx) return;
+  
   const deep = STARS_DEEP[ctx.starNum];
   const deepLang = getStarText(ctx.starNum);
+  
   // 更新类型标签（多语言）
   const typeKeyMap = {
     comprehensive:'analysis_type_comprehensive',
@@ -2077,11 +2144,160 @@ function rerenderFromCtx(){
   };
   ctx.analysisTypeLabel = t(typeKeyMap[ctx.analysisType] || 'analysis_type_comprehensive');
 
+  // 重新渲染所有部分
   renderStarSection(ctx, deep, deepLang);
   renderDeepSection(ctx, deepLang);
   renderSpecializedSection(ctx, deepLang);
   buildFortuneTimeline(ctx);
   buildAdvice(ctx);
+  
+  // 更新专项分析的标题
+  updateSpecializedTitles();
+}
+
+// 更新专项分析的多语言标题
+function updateSpecializedTitles() {
+  const sub1 = $('specializedSubtitle1');
+  const sub2 = $('specializedSubtitle2');
+  const sub3 = $('specializedSubtitle3');
+  const sub4 = $('specializedSubtitle4');
+  
+  if (sub1) sub1.textContent = t('spec_core');
+  if (sub2) sub2.textContent = t('spec_opportunity');
+  if (sub3) sub3.textContent = t('spec_risk');
+  if (sub4) sub4.textContent = t('spec_action');
+}
+
+// 修改专项分析部分的渲染函数
+function renderSpecializedSection(ctx, deepLang){
+  const card = $('specializedCard');
+  if (!card) return;
+
+  if (ctx.analysisType === 'comprehensive' || !deepLang){
+    card.style.display = 'none';
+    return;
+  }
+
+  const titleEl = $('specializedTitle');
+  const sub1 = $('specializedSubtitle1');
+  const sub2 = $('specializedSubtitle2');
+  const sub3 = $('specializedSubtitle3');
+  const sub4 = $('specializedSubtitle4');
+  const c1 = $('specializedContent1');
+  const c2 = $('specializedContent2');
+  const c3 = $('specializedContent3');
+  const c4 = $('specializedContent4');
+
+  if (!titleEl || !sub1 || !sub2 || !sub3 || !sub4 || !c1 || !c2 || !c3 || !c4){
+    card.style.display = 'none';
+    return;
+  }
+
+  titleEl.textContent = t('spec_title');
+  
+  // 更新所有子标题
+  updateSpecializedTitles();
+
+  let pack;
+  if (ctx.analysisType === 'career'){
+    pack = deepLang.career_analysis;
+    c1.textContent = deepLang.career || '';
+  }else if (ctx.analysisType === 'relationship'){
+    pack = deepLang.relationship_analysis;
+    c1.textContent = deepLang.personality || '';
+  }else if (ctx.analysisType === 'health'){
+    pack = deepLang.health_analysis;
+    c1.textContent = (pack && pack.strengths && pack.strengths.join(' / ')) || '';
+  }
+
+  if (!pack){
+    card.style.display = 'none';
+    return;
+  }
+
+  // 根据当前语言渲染列表内容
+  const lang = getLang();
+  if (lang.startsWith('zh')) {
+    c2.innerHTML = pack.opportunities ? joinList(pack.opportunities) : '';
+    c3.innerHTML = pack.risks ? joinList(pack.risks) : '';
+    c4.innerHTML = pack.actions ? joinList(pack.actions) : '';
+  } else {
+    // 对于非中文语言，使用对应的翻译
+    c2.innerHTML = pack.opportunities ? joinList(pack.opportunities) : '';
+    c3.innerHTML = pack.risks ? joinList(pack.risks) : '';
+    c4.innerHTML = pack.actions ? joinList(pack.actions) : '';
+  }
+
+  card.style.display = 'block';
+}
+
+// 修改语言切换逻辑
+document.addEventListener('DOMContentLoaded', () => {
+  // 初始语言
+  const select = $('langSelect');
+  const current = getLang();
+  document.documentElement.lang = current;
+  
+  if (select){
+    select.value = current;
+    select.addEventListener('change', e=>{
+      const v = e.target.value;
+      setLang(v);
+      rerenderFromCtx();
+      
+      // 如果有AI内容，也重新生成
+      if (window._lastKyuuseiCtx) {
+        updateAiReport(window._lastKyuuseiCtx);
+      }
+    });
+  }
+
+  renderChips();
+  applyI18n();
+  updateNowInfo();
+
+  const btn = $('go');
+  if (btn){
+    btn.addEventListener('click', buildKyuuseiReport);
+  }
+});
+
+// 修改getDeepLang函数以更好地处理多语言
+function getDeepLang(starNum){
+  const deep = STARS_DEEP[starNum];
+  if (!deep) return null;
+  
+  const lang = getLang();
+  const mapped = mapStarLang(lang);
+  
+  // 优先使用当前语言的翻译，然后回退到简体中文，最后英文
+  return deep.text[mapped] || deep.text['zh-CN'] || deep.text['en'] || null;
+}
+
+// 修改getStarText函数
+function getStarText(starNo) {
+  const star = STARS_DEEP[starNo];
+  if (!star || !star.text) return null;
+  
+  const lang = getLang();
+  const mapped = mapStarLang(lang);
+  
+  return star.text[mapped] || star.text['zh-CN'] || star.text['en'] || null;
+}
+
+// 改进语言映射函数
+function mapStarLang(raw) {
+  if (!raw) return 'zh-CN';
+  const code = raw.toLowerCase();
+  
+  if (code === 'zh-tw') return 'zh-TW'; // 如果需要繁体中文翻译
+  if (code === 'zh-cn') return 'zh-CN';
+  if (code === 'en' || code === 'en-us' || code === 'en-gb') return 'en';
+  if (code === 'ja' || code === 'ja-jp') return 'ja-JP';
+  if (code === 'th' || code === 'th-th') return 'th-TH';
+  if (code === 'ms') return 'ms';
+  
+  return 'en'; // 默认英文
 }
 
 /* DOM Ready 初始化 */
@@ -2109,18 +2325,74 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 </script>
+<script>
+  // ---- Basic helpers (self-contained) ----
+  const TZ = 'Asia/Singapore';
+  const $  = (id) => document.getElementById(id);
+
+  // One-time birth defaults (your original logic, kept intact)
+  function initBirthDefaults() {
+    const bd  = $('birthdate');
+    const bt  = $('birthtime');
+    const unk = $('timeUnknown');
+
+    const nowSG = new Date(
+      new Date().toLocaleString('en-US', { timeZone: TZ })
+    );
+
+    // Default birth date to "today" in SG time if empty
+    if (bd && !bd.value) {
+      const y = nowSG.getFullYear();
+      const m = String(nowSG.getMonth() + 1).padStart(2, '0');
+      const d = String(nowSG.getDate()).padStart(2, '0');
+      bd.value = `${y}-${m}-${d}`;
+    }
+
+    // Default birth time to "now" in SG time, unless unknown is checked
+    if (bt) {
+      const hh = String(nowSG.getHours()).padStart(2, '0');
+      const mm = String(nowSG.getMinutes()).padStart(2, '0');
+
+      if (!bt.value) bt.value = `${hh}:${mm}`;
+
+      const setUnknownState = () => {
+        const isUnknown = !!(unk && unk.checked);
+        bt.disabled = isUnknown;
+        if (isUnknown) bt.value = '';
+      };
+
+      setUnknownState();
+
+      if (unk && !unk._wired) {
+        unk._wired = true;
+        unk.addEventListener('change', () => {
+          if (unk.checked) {
+            bt.disabled = true;
+            bt.value = '';
+          } else {
+            bt.disabled = false;
+            if (!bt.value) {
+              const n = new Date(
+                new Date().toLocaleString('en-US', { timeZone: TZ })
+              );
+              bt.value =
+                `${String(n.getHours()).padStart(2, '0')}:` +
+                `${String(n.getMinutes()).padStart(2, '0')}`;
+            }
+          }
+        });
+      }
+    }
+  }
+
+  // ---- Auto-init on DOM ready ----
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      initBirthDefaults();
+    } catch (e) {
+      console.warn('[initBirthDefaults] failed:', e);
+    }
+  });
+</script>  
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
