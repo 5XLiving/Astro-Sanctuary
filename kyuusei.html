@@ -1358,68 +1358,6 @@ async function askAI(prompt, extraCtx){
   return data.reply || data.text || (data.choices && data.choices[0]?.message?.content) || "";
 }
 
-(function(){
-  const fab   = $('ssChatFab');
-  const panel = $('ssChatPanel');
-  const body  = $('ssChatBody');
-  const input = $('ssChatInput');
-  const send  = $('ssChatSend');
-  const closeBtn = $('ssChatClose');
-
-  if (!fab || !panel || !body || !input || !send || !closeBtn) return;
-
-  function appendBubble(text, role){
-    const div = document.createElement('div');
-    div.className = 'chat-bubble ' + (role === 'user' ? 'user' : 'bot');
-    div.textContent = text;
-    body.appendChild(div);
-    body.scrollTop = body.scrollHeight;
-  }
-
-  function togglePanel(show){
-    if (typeof show === 'boolean') {
-      panel.style.display = show ? 'block' : 'none';
-    } else {
-      panel.style.display = (panel.style.display === 'block' ? 'none' : 'block');
-    }
-  }
-
-  fab.addEventListener('click', () => togglePanel());
-  closeBtn.addEventListener('click', () => togglePanel(false));
-
-  async function doSend(){
-    const text = input.value.trim();
-    if (!text) return;
-
-    appendBubble(text, 'user');
-    input.value = '';
-    send.disabled = true;
-
-    const waitText = t('generating') || '正在生成解读…';
-    appendBubble(waitText, 'bot');
-
-    try{
-      const reply = await askAI(text);
-      body.removeChild(body.lastChild);
-      appendBubble(reply || (t('retry') || '暂时无法回复，请稍后再试。'), 'bot');
-    }catch(e){
-      console.warn('[chat] error:', e);
-      body.removeChild(body.lastChild);
-      appendBubble(t('neterr') || '网络异常，请稍后再试。', 'bot');
-    }finally{
-      send.disabled = false;
-    }
-  }
-
-  send.addEventListener('click', doSend);
-  input.addEventListener('keydown', e=>{
-    if (e.key === 'Enter' && !e.shiftKey){
-      e.preventDefault();
-      doSend();
-    }
-  });
-})();  
-
 /* ===== Butler AI: 芯片渲染 ===== */
 function renderChips() {
   let box = $('aiChips');
@@ -1511,6 +1449,7 @@ const STARS = {
   9:{zh:'九紫火星',jp:'Kyūshi Kasei',elem:'火',color:'紫',key:['光彩','灵感','传播'],about:'热情外放、灵感多，适合登台表达与IP打造。'}
 };
 
+/* ===== 九星深度数据 ===== */
 const STARS_DEEP = {
   1: {
     element: "水",
@@ -1569,43 +1508,35 @@ const STARS_DEEP = {
           actions: ["Regular relaxation", "Stay hydrated"]
         }
       },
-      "ja-JP": {
-        personality: "一白水星の人は感受性が強く、直観力に優れています...",
-        talents: ["優れた直観力", "コミュニケーション能力"],
-        challenges: "過度に敏感になりやすい...",
-        // ... 其他日文翻译
-      }
       // 其他语言类似...
     }
   },
   // ... 其他星号类似
 };
 
-/* 语言映射（给 STARS_DEEP 用） */
+/* 语言映射函数 */
 function mapStarLang(raw) {
   if (!raw) return 'zh-CN';
   const code = raw.toLowerCase();
+  
   if (code === 'zh-tw') return 'zh-CN';   // 暂时用简体
   if (code === 'zh-cn') return 'zh-CN';
   if (code === 'en' || code === 'en-us' || code === 'en-gb') return 'en';
   // 其他全部 fallback 英文
   return 'en';
 }
-function getCurrentLangCode() {
-  const ls = localStorage.getItem(LANG_KEY);
-  if (ls) return ls;
-  return document.documentElement.lang || 'zh-CN';
-}
+
 function getStarText(starNo) {
   const star = STARS_DEEP[starNo];
   if (!star || !star.text) return null;
-  const mapped = mapStarLang(getCurrentLangCode());
+  const mapped = mapStarLang(getLang());
   return star.text[mapped] || star.text['zh-CN'] || star.text['en'] || null;
 }
+
 function getDeepLang(starNum){
   const deep = STARS_DEEP[starNum];
   if (!deep) return null;
-  const mapped = mapStarLang(getCurrentLangCode());
+  const mapped = mapStarLang(getLang());
   return deep.text[mapped] || deep.text['zh-CN'] || deep.text['en'] || null;
 }
 
@@ -1727,7 +1658,7 @@ function buildFortuneTimeline(ctx){
     );
   }else if (elem === '土'){
     msgs = pack(
-      '过去几年你主要在“打地基”，很多成果尚在暗处酝酿。',
+      '过去几年你主要在"打地基"，很多成果尚在暗处酝酿。',
       '适合检视资产、习惯与人际结构，删减无用负担，为下一轮累积腾出空间。',
       '稳健向上，若愿意在稳定中做出有限度的改变，将迎来质变级别的成长。'
     );
@@ -1735,17 +1666,17 @@ function buildFortuneTimeline(ctx){
     msgs = pack(
       '你已经尝试了不少新方向，有成功也有踩雷，经验开始成形。',
       '适合收敛战线，挑出最想深耕的两三件事，集中资源突破。',
-      '若能坚持一条主线，未来几年有机会在专业或事业上“长成一棵树”。'
+      '若能坚持一条主线，未来几年有机会在专业或事业上"长成一棵树"。'
     );
   }else if (elem === '金'){
     msgs = pack(
       '你被迫面对规则、责任与框架，有些地方需要你站出来表态。',
       '适合重新定义自己的边界与原则，练习既不委屈自己，也不过度要求他人。',
-      '若能建立一套兼顾效率与人情的做事方式，你会被看见为“值得托付的人”。'
+      '若能建立一套兼顾效率与人情的做事方式，你会被看见为"值得托付的人"。'
     );
   }else if (elem === '火'){
     msgs = pack(
-      '你的曝光与关注度有起有落，也在反复确认“我想被看见什么”。',
+      '你的曝光与关注度有起有落，也在反复确认"我想被看见什么"。',
       '适合整理个人品牌与表达方式，把真正想传递的核心信息说清楚。',
       '未来几年只要方向对、节奏稳，你的光会照到更远的地方。'
     );
@@ -1797,7 +1728,7 @@ function buildAdvice(ctx){
     let txt;
     if (deep && deep.color){
       if (lang.startsWith('zh')){
-        txt = `主调颜色：${deep.color}。日常可多运用对应色系在穿着、小物与工作环境中（如文件夹、手机壳、座位附近的小物件），营造“看见就安心”的能量锚点。`;
+        txt = `主调颜色：${deep.color}。日常可多运用对应色系在穿着、小物与工作环境中（如文件夹、手机壳、座位附近的小物件），营造"看见就安心"的能量锚点。`;
       }else{
         txt = `Main colours: ${deep.color}. Use these tones more often in clothes, accessories and workspace details (files, phone case, desk items) as visual anchors to stabilise your qi.`;
       }
@@ -1832,8 +1763,8 @@ function buildAdvice(ctx){
       careerBox.innerHTML = html;
     }else{
       careerBox.textContent = lang.startsWith('zh')
-        ? '目前适合走“一个主线 + 少量侧项目”的结构，工作上先确定最想被看见的定位，再决定要不要接额外的案子或兼职。'
-        : 'You are currently suited to “one main track + a few side projects”. First clarify how you want to be seen professionally, then decide which extra projects to accept.';
+        ? '目前适合走"一个主线 + 少量侧项目"的结构，工作上先确定最想被看见的定位，再决定要不要接额外的案子或兼职。'
+        : 'You are currently suited to "one main track + a few side projects". First clarify how you want to be seen professionally, then decide which extra projects to accept.';
     }
   }
 
@@ -1855,7 +1786,7 @@ function buildAdvice(ctx){
       relBox.innerHTML = html;
     }else{
       relBox.textContent = lang.startsWith('zh')
-        ? '人际与亲密关系上，建议先沟通“相处节奏”和“界线”，再谈价值观或未来规划，会比较顺。'
+        ? '人际与亲密关系上，建议先沟通"相处节奏"和"界线"，再谈价值观或未来规划，会比较顺。'
         : 'In relationships, first discuss pace and boundaries, then values and future plans. That sequence usually flows better for you.';
     }
   }
@@ -1958,6 +1889,19 @@ function renderDeepSection(ctx, deepLang){
   card.style.display = 'block';
 }
 
+/* 更新专项分析的多语言标题 */
+function updateSpecializedTitles() {
+  const sub1 = $('specializedSubtitle1');
+  const sub2 = $('specializedSubtitle2');
+  const sub3 = $('specializedSubtitle3');
+  const sub4 = $('specializedSubtitle4');
+  
+  if (sub1) sub1.textContent = t('spec_core');
+  if (sub2) sub2.textContent = t('spec_opportunity');
+  if (sub3) sub3.textContent = t('spec_risk');
+  if (sub4) sub4.textContent = t('spec_action');
+}
+
 /* 专项分析卡（按类型切换） */
 function renderSpecializedSection(ctx, deepLang){
   const card = $('specializedCard');
@@ -1984,28 +1928,19 @@ function renderSpecializedSection(ctx, deepLang){
   }
 
   titleEl.textContent = t('spec_title');
+  
+  // 更新所有子标题
+  updateSpecializedTitles();
 
   let pack;
   if (ctx.analysisType === 'career'){
     pack = deepLang.career_analysis;
-    sub1.textContent = t('spec_core');
-    sub2.textContent = t('spec_opportunity');
-    sub3.textContent = t('spec_risk');
-    sub4.textContent = t('spec_action');
     c1.textContent = deepLang.career || '';
   }else if (ctx.analysisType === 'relationship'){
     pack = deepLang.relationship_analysis;
-    sub1.textContent = t('spec_core');
-    sub2.textContent = t('spec_opportunity');
-    sub3.textContent = t('spec_risk');
-    sub4.textContent = t('spec_action');
     c1.textContent = deepLang.personality || '';
   }else if (ctx.analysisType === 'health'){
     pack = deepLang.health_analysis;
-    sub1.textContent = t('spec_core');
-    sub2.textContent = t('spec_opportunity');
-    sub3.textContent = t('spec_risk');
-    sub4.textContent = t('spec_action');
     c1.textContent = (pack && pack.strengths && pack.strengths.join(' / ')) || '';
   }
 
@@ -2044,8 +1979,8 @@ async function updateAiReport(ctx){
 `;
 
     const prompt = lang.startsWith('zh')
-      ? "请扮演温柔、务实的命理顾问，从上面的九星信息出发，写一份“九星气学深度报告精简版”。结构包含：1）核心画像；2）今年～明年的重点提醒；3）可以马上执行的 3–5 条调整建议。语言贴近日常口语、不要太玄。"
-      : "Based on the Nine Star Ki information above, write a concise “Deep Kyuusei Brief”: (1) core portrait, (2) key focus from now to the next 12 months, (3) 3–5 actionable suggestions. Keep it warm, practical and down-to-earth.";
+      ? "请扮演温柔、务实的命理顾问，从上面的九星信息出发，写一份'九星气学深度报告精简版'。结构包含：1）核心画像；2）今年～明年的重点提醒；3）可以马上执行的 3–5 条调整建议。语言贴近日常口语、不要太玄。"
+      : "Based on the Nine Star Ki information above, write a concise 'Deep Kyuusei Brief': (1) core portrait, (2) key focus from now to the next 12 months, (3) 3–5 actionable suggestions. Keep it warm, practical and down-to-earth.";
 
     const reply = await askAI(prompt, extra);
     aiBox.textContent = reply || (t('retry') || '暂时无法生成，请稍后再试。');
@@ -2123,9 +2058,8 @@ function buildKyuuseiReport(){
 }
 
 /* 语言切换时重渲染全部内容 */
-// 重新渲染从当前上下文
 function rerenderFromCtx(){
-  applyI18n(); // 更新所有文本
+  applyI18n();
   updateNowInfo();
   renderChips();
   
@@ -2150,94 +2084,75 @@ function rerenderFromCtx(){
   renderSpecializedSection(ctx, deepLang);
   buildFortuneTimeline(ctx);
   buildAdvice(ctx);
-  
-  // 更新专项分析的标题
-  updateSpecializedTitles();
 }
 
-// 更新专项分析的多语言标题
-function updateSpecializedTitles() {
-  const sub1 = $('specializedSubtitle1');
-  const sub2 = $('specializedSubtitle2');
-  const sub3 = $('specializedSubtitle3');
-  const sub4 = $('specializedSubtitle4');
-  
-  if (sub1) sub1.textContent = t('spec_core');
-  if (sub2) sub2.textContent = t('spec_opportunity');
-  if (sub3) sub3.textContent = t('spec_risk');
-  if (sub4) sub4.textContent = t('spec_action');
-}
-
-// 修改专项分析部分的渲染函数
-function renderSpecializedSection(ctx, deepLang){
-  const card = $('specializedCard');
-  if (!card) return;
-
-  if (ctx.analysisType === 'comprehensive' || !deepLang){
-    card.style.display = 'none';
-    return;
-  }
-
-  const titleEl = $('specializedTitle');
-  const sub1 = $('specializedSubtitle1');
-  const sub2 = $('specializedSubtitle2');
-  const sub3 = $('specializedSubtitle3');
-  const sub4 = $('specializedSubtitle4');
-  const c1 = $('specializedContent1');
-  const c2 = $('specializedContent2');
-  const c3 = $('specializedContent3');
-  const c4 = $('specializedContent4');
-
-  if (!titleEl || !sub1 || !sub2 || !sub3 || !sub4 || !c1 || !c2 || !c3 || !c4){
-    card.style.display = 'none';
-    return;
-  }
-
-  titleEl.textContent = t('spec_title');
-  
-  // 更新所有子标题
-  updateSpecializedTitles();
-
-  let pack;
-  if (ctx.analysisType === 'career'){
-    pack = deepLang.career_analysis;
-    c1.textContent = deepLang.career || '';
-  }else if (ctx.analysisType === 'relationship'){
-    pack = deepLang.relationship_analysis;
-    c1.textContent = deepLang.personality || '';
-  }else if (ctx.analysisType === 'health'){
-    pack = deepLang.health_analysis;
-    c1.textContent = (pack && pack.strengths && pack.strengths.join(' / ')) || '';
-  }
-
-  if (!pack){
-    card.style.display = 'none';
-    return;
-  }
-
-  // 根据当前语言渲染列表内容
-  const lang = getLang();
-  if (lang.startsWith('zh')) {
-    c2.innerHTML = pack.opportunities ? joinList(pack.opportunities) : '';
-    c3.innerHTML = pack.risks ? joinList(pack.risks) : '';
-    c4.innerHTML = pack.actions ? joinList(pack.actions) : '';
-  } else {
-    // 对于非中文语言，使用对应的翻译
-    c2.innerHTML = pack.opportunities ? joinList(pack.opportunities) : '';
-    c3.innerHTML = pack.risks ? joinList(pack.risks) : '';
-    c4.innerHTML = pack.actions ? joinList(pack.actions) : '';
-  }
-
-  card.style.display = 'block';
-}
-
-// 修改语言切换逻辑
+/* DOM Ready 初始化 */
 document.addEventListener('DOMContentLoaded', () => {
+  // 初始化聊天功能
+  const fab   = $('ssChatFab');
+  const panel = $('ssChatPanel');
+  const body  = $('ssChatBody');
+  const input = $('ssChatInput');
+  const send  = $('ssChatSend');
+  const closeBtn = $('ssChatClose');
+
+  if (fab && panel && body && input && send && closeBtn) {
+    function appendBubble(text, role){
+      const div = document.createElement('div');
+      div.className = 'chat-bubble ' + (role === 'user' ? 'user' : 'bot');
+      div.textContent = text;
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    function togglePanel(show){
+      if (typeof show === 'boolean') {
+        panel.style.display = show ? 'block' : 'none';
+      } else {
+        panel.style.display = (panel.style.display === 'block' ? 'none' : 'block');
+      }
+    }
+
+    fab.addEventListener('click', () => togglePanel());
+    closeBtn.addEventListener('click', () => togglePanel(false));
+
+    async function doSend(){
+      const text = input.value.trim();
+      if (!text) return;
+
+      appendBubble(text, 'user');
+      input.value = '';
+      send.disabled = true;
+
+      const waitText = t('generating') || '正在生成解读…';
+      appendBubble(waitText, 'bot');
+
+      try{
+        const reply = await askAI(text);
+        body.removeChild(body.lastChild);
+        appendBubble(reply || (t('retry') || '暂时无法回复，请稍后再试。'), 'bot');
+      }catch(e){
+        console.warn('[chat] error:', e);
+        body.removeChild(body.lastChild);
+        appendBubble(t('neterr') || '网络异常，请稍后再试。', 'bot');
+      }finally{
+        send.disabled = false;
+      }
+    }
+
+    send.addEventListener('click', doSend);
+    input.addEventListener('keydown', e=>{
+      if (e.key === 'Enter' && !e.shiftKey){
+        e.preventDefault();
+        doSend();
+      }
+    });
+  }
+
   // 初始语言
   const select = $('langSelect');
   const current = getLang();
   document.documentElement.lang = current;
-  
   if (select){
     select.value = current;
     select.addEventListener('change', e=>{
@@ -2261,138 +2176,7 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', buildKyuuseiReport);
   }
 });
-
-// 修改getDeepLang函数以更好地处理多语言
-function getDeepLang(starNum){
-  const deep = STARS_DEEP[starNum];
-  if (!deep) return null;
-  
-  const lang = getLang();
-  const mapped = mapStarLang(lang);
-  
-  // 优先使用当前语言的翻译，然后回退到简体中文，最后英文
-  return deep.text[mapped] || deep.text['zh-CN'] || deep.text['en'] || null;
-}
-
-// 修改getStarText函数
-function getStarText(starNo) {
-  const star = STARS_DEEP[starNo];
-  if (!star || !star.text) return null;
-  
-  const lang = getLang();
-  const mapped = mapStarLang(lang);
-  
-  return star.text[mapped] || star.text['zh-CN'] || star.text['en'] || null;
-}
-
-// 改进语言映射函数
-function mapStarLang(raw) {
-  if (!raw) return 'zh-CN';
-  const code = raw.toLowerCase();
-  
-  if (code === 'zh-tw') return 'zh-TW'; // 如果需要繁体中文翻译
-  if (code === 'zh-cn') return 'zh-CN';
-  if (code === 'en' || code === 'en-us' || code === 'en-gb') return 'en';
-  if (code === 'ja' || code === 'ja-jp') return 'ja-JP';
-  if (code === 'th' || code === 'th-th') return 'th-TH';
-  if (code === 'ms') return 'ms';
-  
-  return 'en'; // 默认英文
-}
-
-/* DOM Ready 初始化 */
-document.addEventListener('DOMContentLoaded', () => {
-  // 初始语言
-  const select = $('langSelect');
-  const current = getLang();
-  document.documentElement.lang = current;
-  if (select){
-    select.value = current;
-    select.addEventListener('change', e=>{
-      const v = e.target.value;
-      setLang(v);
-      rerenderFromCtx();
-    });
-  }
-
-  renderChips();
-  applyI18n();
-  updateNowInfo();
-
-  const btn = $('go');
-  if (btn){
-    btn.addEventListener('click', buildKyuuseiReport);
-  }
-});
-</script>
-<script>
-  // ---- Basic helpers (self-contained) ----
-  const TZ = 'Asia/Singapore';
-  const $  = (id) => document.getElementById(id);
-
-  // One-time birth defaults (your original logic, kept intact)
-  function initBirthDefaults() {
-    const bd  = $('birthdate');
-    const bt  = $('birthtime');
-    const unk = $('timeUnknown');
-
-    const nowSG = new Date(
-      new Date().toLocaleString('en-US', { timeZone: TZ })
-    );
-
-    // Default birth date to "today" in SG time if empty
-    if (bd && !bd.value) {
-      const y = nowSG.getFullYear();
-      const m = String(nowSG.getMonth() + 1).padStart(2, '0');
-      const d = String(nowSG.getDate()).padStart(2, '0');
-      bd.value = `${y}-${m}-${d}`;
-    }
-
-    // Default birth time to "now" in SG time, unless unknown is checked
-    if (bt) {
-      const hh = String(nowSG.getHours()).padStart(2, '0');
-      const mm = String(nowSG.getMinutes()).padStart(2, '0');
-
-      if (!bt.value) bt.value = `${hh}:${mm}`;
-
-      const setUnknownState = () => {
-        const isUnknown = !!(unk && unk.checked);
-        bt.disabled = isUnknown;
-        if (isUnknown) bt.value = '';
-      };
-
-      setUnknownState();
-
-      if (unk && !unk._wired) {
-        unk._wired = true;
-        unk.addEventListener('change', () => {
-          if (unk.checked) {
-            bt.disabled = true;
-            bt.value = '';
-          } else {
-            bt.disabled = false;
-            if (!bt.value) {
-              const n = new Date(
-                new Date().toLocaleString('en-US', { timeZone: TZ })
-              );
-              bt.value =
-                `${String(n.getHours()).padStart(2, '0')}:` +
-                `${String(n.getMinutes()).padStart(2, '0')}`;
-            }
-          }
-        });
-      }
-    }
-  }
-
-  // ---- Auto-init on DOM ready ----
-  document.addEventListener('DOMContentLoaded', () => {
-    try {
-      initBirthDefaults();
-    } catch (e) {
-      console.warn('[initBirthDefaults] failed:', e);
-    }
-  });
 </script>  
 </body>
 </html>
+
