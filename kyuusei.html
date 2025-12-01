@@ -1570,13 +1570,106 @@ function buildElementAnalysis(ctx, deep){
   }
 }
 
-/* 运势时间线 */
 function buildFortuneTimeline(ctx){
   const box = $('fortuneTimeline');
   if (!box) return;
   box.innerHTML = '';
+
   const now = new Date();
   const y = now.getFullYear();
+  const elem = ctx.mainElement || '';
+  const lang = getLang();
+  const isZh = lang.startsWith('zh');
+  const isEn = lang === 'en' || lang.startsWith('en-');
+
+  // 简单多语言映射：没有翻译的语言全部先用英文版
+  function pickText(pack){
+    if (!pack) return ['','',''];
+    if (isZh && pack.zh) return pack.zh;
+    return pack.en || pack.zh || ['', '', ''];
+  }
+
+  const MSG = {
+    '水': {
+      zh: [
+        '你经历了多次环境与人际结构的调整，学习在变化中保持弹性。',
+        '适合重新整理人脉与合作方式，把分散的注意力收回到少数重要关系上。',
+        '情感与合作将更稳定，若善用直觉，有机会切入更适合你的领域。'
+      ],
+      en: [
+        'In the last few years you have gone through several changes in environment and relationships, learning to stay flexible in motion.',
+        'Now is a good time to reorganise your network and collaboration style, bringing scattered attention back to a few key connections.',
+        'Relationships and collaboration can stabilise; if you trust your intuition, you can move into fields that fit you better.'
+      ]
+    },
+    '土': {
+      zh: [
+        '过去几年你主要在“打地基”，很多成果尚在暗处酝酿。',
+        '适合检视资产、习惯与人际结构，删减无用负担，为下一轮累积腾出空间。',
+        '稳健向上，若愿意在稳定中做出有限度的改变，将迎来质变级别的成长。'
+      ],
+      en: [
+        'In the last few years you have mainly been “laying foundations”; many results are still ripening behind the scenes.',
+        'Now is the time to review assets, habits and relationship structures, cutting away what no longer serves to make room for the next stage of growth.',
+        'The trend is steadily upward; with measured changes on top of a stable base, you can trigger breakthrough-level growth.'
+      ]
+    },
+    '木': {
+      zh: [
+        '你已经尝试了不少新方向，有成功也有踩雷，经验开始成形。',
+        '适合收敛战线，挑出最想深耕的两三件事，集中资源突破。',
+        '若能坚持一条主线，未来几年有机会在专业或事业上“长成一棵树”。'
+      ],
+      en: [
+        'You have tried many new directions; some worked, some did not, but experience is taking shape.',
+        'Now is the time to narrow your focus to two or three key paths and invest your energy there.',
+        'If you stay with one main line, in the next few years you can “grow into a tree” in your field.'
+      ]
+    },
+    '金': {
+      zh: [
+        '你被迫面对规则、责任与框架，有些地方需要你站出来表态。',
+        '适合重新定义自己的边界与原则，练习既不委屈自己，也不过度要求他人。',
+        '若能建立一套兼顾效率与人情的做事方式，你会被看见为“值得托付的人”。'
+      ],
+      en: [
+        'You have been pushed to confront rules, responsibilities and structures; some areas require you to take a stand.',
+        'Now is a good moment to redefine your boundaries and principles, learning not to sacrifice yourself nor over-demand others.',
+        'If you build a working style that balances efficiency and human warmth, people will see you as someone they can rely on.'
+      ]
+    },
+    '火': {
+      zh: [
+        '你的曝光与关注度有起有落，也在反复确认“我想被看见什么”。',
+        '适合整理个人品牌与表达方式，把真正想传递的核心信息说清楚。',
+        '未来几年只要方向对、节奏稳，你的光会照到更远的地方。'
+      ],
+      en: [
+        'Your visibility and attention from others have gone up and down while you repeatedly ask “what do I actually want to show?”.',
+        'Now is the time to tidy up your personal brand and expression style, clarifying the core message you wish to send.',
+        'In the next few years, as long as your direction is right and your pace is steady, your light can reach much further.'
+      ]
+    },
+    'default': {
+      zh: [
+        '你在尝试与调整中前进。',
+        '适合重新盘点自己真正想守护的方向。',
+        '未来几年是再定位与再出发的重要阶段。'
+      ],
+      en: [
+        'You are moving forward through trial and adjustment.',
+        'Now is a good time to review what you truly want to protect and invest in.',
+        'The coming years are important for re-positioning yourself and starting again with clearer intention.'
+      ]
+    }
+  };
+
+  const pack = MSG[elem] || MSG['default'];
+  const [pastMsg, nowMsg, futureMsg] = pickText(pack);
+
+  const labelsZh = ['过去三年', '现在 & 未来12个月', '未来2–3年'];
+  const labelsEn = ['Past 3 years', 'Now – next 12 months', 'Next 2–3 years'];
+  const labelSet = lang.startsWith('zh') ? labelsZh : labelsEn;
 
   function mkItem(period, text){
     const item = document.createElement('div');
@@ -1588,79 +1681,9 @@ function buildFortuneTimeline(ctx){
     box.appendChild(item);
   }
 
-  const elem = ctx.mainElement || '';
-  const lang = getLang();
-
-  function pack(past, nowT, future){
-    if (lang.startsWith('zh')) return [past, nowT, future];
-    if (lang === 'ja-JP') return [
-      '過去3年：' + past,
-      '現在〜1年：' + nowT,
-      '今後2〜3年：' + future
-    ];
-    if (lang === 'th-TH') return [
-      '3 ปีที่ผ่านมา: ' + past,
-      '12 เดือนจากนี้: ' + nowT,
-      '2–3 ปีข้างหน้า: ' + future
-    ];
-    if (lang === 'ms') return [
-      '3 tahun lalu: ' + past,
-      '12 bulan kini: ' + nowT,
-      '2–3 tahun akan datang: ' + future
-    ];
-    return [
-      'Past 3 years: ' + past,
-      'Now – next 12 months: ' + nowT,
-      'Next 2–3 years: ' + future
-    ];
-  }
-
-  let msgs;
-  if (elem === '水'){
-    msgs = pack(
-      '你经历了多次环境与人际结构的调整，学习在变化中保持弹性。',
-      '适合重新整理人脉与合作方式，把分散的注意力收回到少数重要关系上。',
-      '情感与合作将更稳定，若善用直觉，有机会切入更适合你的领域。'
-    );
-  }else if (elem === '土'){
-    msgs = pack(
-      '过去几年你主要在“打地基”，很多成果尚在暗处酝酿。',
-      '适合检视资产、习惯与人际结构，删减无用负担，为下一轮累积腾出空间。',
-      '稳健向上，若愿意在稳定中做出有限度的改变，将迎来质变级别的成长。'
-    );
-  }else if (elem === '木'){
-    msgs = pack(
-      '你已经尝试了不少新方向，有成功也有踩雷，经验开始成形。',
-      '适合收敛战线，挑出最想深耕的两三件事，集中资源突破。',
-      '若能坚持一条主线，未来几年有机会在专业或事业上“长成一棵树”。'
-    );
-  }else if (elem === '金'){
-    msgs = pack(
-      '你被迫面对规则、责任与框架，有些地方需要你站出来表态。',
-      '适合重新定义自己的边界与原则，练习既不委屈自己，也不过度要求他人。',
-      '若能建立一套兼顾效率与人情的做事方式，你会被看见为“值得托付的人”。'
-    );
-  }else if (elem === '火'){
-    msgs = pack(
-      '你的曝光与关注度有起有落，也在反复确认“我想被看见什么”。',
-      '适合整理个人品牌与表达方式，把真正想传递的核心信息说清楚。',
-      '未来几年只要方向对、节奏稳，你的光会照到更远的地方。'
-    );
-  }else{
-    msgs = pack(
-      '你在尝试与调整中前进。',
-      '适合重新盘点自己真正想守护的方向。',
-      '未来几年是再定位与再出发的重要阶段。'
-    );
-  }
-
-  const labelsZh = ['过去三年', '现在 & 未来12个月', '未来2–3年'];
-  const labelsEn = ['Past 3 years', 'Now – next 12 months', 'Next 2–3 years'];
-  const labelSet = lang.startsWith('zh') ? labelsZh : labelsEn;
-
-  mkItem(`${labelSet[0]}（≈ ${y-3} – ${y-1}）`, msgs[0]);
-  mkItem(`${labelSet[1]}（≈ ${y} – ${y+1}）`, msgs[1]);
-  mkItem(`${labelSet[2]}（≈ ${y+1} – ${y+3}）`, msgs[2]);
+  mkItem(`${labelSet[0]}（≈ ${y-3} – ${y-1}）`, pastMsg);
+  mkItem(`${labelSet[1]}（≈ ${y} – ${y+1}）`, nowMsg);
+  mkItem(`${labelSet[2]}（≈ ${y+1} – ${y+3}）`, futureMsg);
 }
 
 /* 专业建议 4 卡片 */
@@ -1764,6 +1787,7 @@ function renderStarSection(ctx, deep, deepLang){
   if (!card) return;
 
   const star = STARS[ctx.starNum] || null;
+  const langCode = getLang();
 
   const starNameEl = $('starName');
   const starJPEl = $('starJP');
@@ -1771,8 +1795,21 @@ function renderStarSection(ctx, deep, deepLang){
   const starAbout = $('starAbout');
   const indicator = $('analysisTypeIndicator');
 
-  if (starNameEl) starNameEl.textContent = star ? star.zh : ('Star ' + ctx.starNum);
-  if (starJPEl) starJPEl.textContent = star ? star.jp : '';
+  // ⬇⬇ 这里是关键：根据界面语言切换主显示
+  if (starNameEl && star) {
+    if (langCode.startsWith('zh')) {
+      // 中文界面：主显示中文名，括号里放日文
+      starNameEl.textContent = star.zh;
+      if (starJPEl) starJPEl.textContent = star.jp || '';
+    } else {
+      // 非中文界面：主显示日文 / 罗马音，括号里放中文
+      starNameEl.textContent = star.jp || star.zh;
+      if (starJPEl) starJPEl.textContent = star.zh;
+    }
+  } else {
+    if (starNameEl) starNameEl.textContent = 'Star ' + ctx.starNum;
+    if (starJPEl) starJPEl.textContent = '';
+  }
 
   if (indicator){
     indicator.textContent = ctx.analysisTypeLabel || '';
@@ -1786,13 +1823,18 @@ function renderStarSection(ctx, deep, deepLang){
       if (!value) return;
       const span = document.createElement('span');
       span.className = 'badge';
-      span.textContent = `${t(labelKey)}：${value}`;
+      // 非中文界面，把关键词之间用逗号分隔，看起来比较像英文
+      const v = Array.isArray(value) && !langCode.startsWith('zh')
+        ? value.join(', ')
+        : value;
+      span.textContent = `${t(labelKey)}：${v}`;
       frag.appendChild(span);
     };
+
     mk('badge_elem', (deep && deep.element) || (star && star.elem) || '');
     mk('badge_color', (deep && deep.color) || (star && star.color) || '');
     if (star && star.key && star.key.length){
-      mk('badge_kw', star.key.join('、'));
+      mk('badge_kw', star.key);
     }
     starBadges.appendChild(frag);
   }
@@ -2094,5 +2136,6 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
 
 
