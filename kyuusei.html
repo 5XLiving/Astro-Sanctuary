@@ -1207,7 +1207,7 @@ const i18n = {
     vip_name:"Analisis nama: nama syarikat, nama bayi & penukaran nama untuk menaikkan tuah",
     vip_fengshui:"Sudut rezeki + feng shui: susun atur rumah / pejabat selaras dengan takdir",
     vip_record:"Rekod spiritual: gambar, mimpi, rakaman suara, doa & hajat",
-    vip_course:"Kursus: Bazi / Tarot / Astrologi / Numerologi / Human Design",
+    vip_course:"Kursus: Bazi / Tarot / Astrologi / Human Design",
     vip_memorial:"Sistem peringatan keluarga: ruang kenangan rohani untuk orang tersayang",
     vip_tasks:"Latihan tenaga mingguan / tugasan ritual",
     vip_shop:"Diskaun khas ahli & jimat perlindungan tempahan khas",
@@ -1239,11 +1239,13 @@ const i18n = {
   }
 };
 
+/* 简单翻译函数 */
 function t(key){
   const L = i18n[getLang()] || i18n["zh-CN"];
   return L[key] || (i18n["zh-CN"][key] || key);
 }
 
+/* 应用到 DOM */
 function applyI18n(){
   document.querySelectorAll("[data-i18n]").forEach(el=>{
     const key = el.getAttribute("data-i18n");
@@ -1258,6 +1260,32 @@ function applyI18n(){
 }
 
 /* ===== 浮动 Chat 逻辑 ===== */
+async function askAI(prompt, extraCtx){
+  const lang = getLang();
+  const payload = {
+    lang,
+    source: 'kyuusei-deep',
+    messages: [
+      {
+        role: "system",
+        content: "You are Xinlian Butler, a gentle metaphysics & life advisor for 5XLiving, combining Nine Star Ki, Bazi style language and practical, grounded advice."
+      },
+      {
+        role: "user",
+        content: (extraCtx || "") + "\n\n" + prompt
+      }
+    ]
+  };
+  const res = await fetch(API_BASE + "/api/chat", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error("bad status " + res.status);
+  const data = await res.json();
+  return data.reply || data.text || (data.choices && data.choices[0]?.message?.content) || "";
+}
+
 (function(){
   const fab   = $('ssChatFab');
   const panel = $('ssChatPanel');
@@ -1295,7 +1323,8 @@ function applyI18n(){
     input.value = '';
     send.disabled = true;
 
-    appendBubble(t('generating') || '正在生成解读…', 'bot');
+    const waitText = t('generating') || '正在生成解读…';
+    appendBubble(waitText, 'bot');
 
     try{
       const reply = await askAI(text);
@@ -1326,11 +1355,11 @@ function renderChips() {
   box.innerHTML = '';
 
   const chips = [
-    { key: 'chip_career', fallback: '事业' },
-    { key: 'chip_love',   fallback: '感情' },
-    { key: 'chip_money',  fallback: '财运' },
-    { key: 'chip_list',   fallback: '今日待办' },
-    { key: 'chip_30d',    fallback: '30天建议' },
+    { key: 'chip_career', fallback: '事业', intent:'career' },
+    { key: 'chip_love',   fallback: '感情', intent:'love' },
+    { key: 'chip_money',  fallback: '财运', intent:'wealth' },
+    { key: 'chip_list',   fallback: '今日待办', intent:'todo' },
+    { key: 'chip_30d',    fallback: '30天建议', intent:'30d' },
   ];
 
   chips.forEach((c) => {
@@ -1341,12 +1370,36 @@ function renderChips() {
     btn.textContent = label;
     btn.setAttribute('data-i18n', c.key);
 
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       const aiBox = $('aiText');
       if (aiBox) {
         aiBox.textContent = t('generating') || '正在生成解读…';
       }
-      // 此处可以扩展：不同 chip 发送不同 prompt
+      try{
+        if (!window._lastKyuuseiCtx) {
+          if (aiBox) aiBox.textContent = t('please_birth') || '请先选择出生日期并生成命盘。';
+          return;
+        }
+        const ctx = window._lastKyuuseiCtx;
+        const basePrompt = `
+九星气学主星：${ctx.starName} (${ctx.starJP})
+五行主元素：${ctx.mainElement}
+当前分析类型：${ctx.analysisTypeLabel}
+出生日期：${ctx.birthStr}
+`;
+        const intentTextMap = {
+          career: "请根据以上九星信息，重点从事业与财运角度给出实用建议。",
+          love: "请根据以上九星信息，重点从感情与亲密关系角度给出实用建议。",
+          wealth: "请根据以上九星信息，从财富布局与资金流动角度给出建议。",
+          todo: "请根据以上九星信息，帮我写出今天可以执行的 3–5 条小任务，帮助我调顺运势。",
+          "30d": "请根据以上九星信息，写出未来 30 天的重点提醒与行动方向。"
+        };
+        const reply = await askAI(intentTextMap[c.intent] || '', basePrompt);
+        if (aiBox) aiBox.textContent = reply || (t('retry') || '暂时无法生成，请稍后再试。');
+      }catch(e){
+        console.warn('[chips ai] error', e);
+        if ($('aiText')) $('aiText').textContent = t('neterr') || '网络异常，请稍后再试。';
+      }
     });
 
     box.appendChild(btn);
@@ -1372,1071 +1425,1050 @@ function calcHonmei(dateStr){
   return num;
 }
 
-/* ===== 九星基础画像（多语言主星卡，目前主文案仍为中文） ===== */
+/* ===== 九星基础画像 ===== */
 const STARS = {
-  1:{zh:'一白水星',jp:'Ippaku Suisei',elem:{zh:'水'},color:{zh:'白'},key:{zh:['流动','直觉','沟通']},about:{zh:'敏感细腻、共情力强，行动灵活，擅长信息与关系协调。'}},
-  2:{zh:'二黑土星',jp:'Jikoku Dosei',elem:{zh:'土'},color:{zh:'黑'},key:{zh:['滋养','承载','耐性']},about:{zh:'务实稳健、重视秩序与照料，擅长持续耕耘与落地。'}},
-  3:{zh:'三碧木星',jp:'Sanpeki Mokusei',elem:{zh:'木'},color:{zh:'碧'},key:{zh:['生发','表达','突破']},about:{zh:'好奇表达欲强，喜欢创意与开疆拓土。'}},
-  4:{zh:'四绿木星',jp:'Shiroku Mokusei',elem:{zh:'木'},color:{zh:'绿'},key:{zh:['交流','学习','旅行']},about:{zh:'温和包容、擅长倾听与知识整合，适合教育与协作。'}},
-  5:{zh:'五黄土星',jp:'Gogou Dosei',elem:{zh:'土'},color:{zh:'黄'},key:{zh:['中宫','权衡','重启']},about:{zh:'居中定盘、抗压强，擅长策略与危机管理。'}},
-  6:{zh:'六白金星',jp:'Roppaku Kinsei',elem:{zh:'金'},color:{zh:'白'},key:{zh:['秩序','领导','远见']},about:{zh:'自律果断、擅立规则与带队。'}},
-  7:{zh:'七赤金星',jp:'Shichiseki Kinsei',elem:{zh:'金'},color:{zh:'赤'},key:{zh:['社交','品味','享受']},about:{zh:'人缘好、审美在线，擅品牌与社群。'}},
-  8:{zh:'八白土星',jp:'Happaku Dosei',elem:{zh:'土'},color:{zh:'白'},key:{zh:['积累','转折','定山']},about:{zh:'稳中求变、厚积薄发，关键时刻能翻盘。'}},
-  9:{zh:'九紫火星',jp:'Kyūshi Kasei',elem:{zh:'火'},color:{zh:'紫'},key:{zh:['光彩','灵感','传播']},about:{zh:'热情外放、灵感多，适合登台表达与IP打造。'}}
+  1:{zh:'一白水星',jp:'Ippaku Suisei',elem:'水',color:'白',key:['流动','直觉','沟通'],about:'敏感细腻、共情力强，行动灵活，擅长信息与关系协调。'},
+  2:{zh:'二黑土星',jp:'Jikoku Dosei',elem:'土',color:'黑',key:['滋养','承载','耐性'],about:'务实稳健、重视秩序与照料，擅长持续耕耘与落地。'},
+  3:{zh:'三碧木星',jp:'Sanpeki Mokusei',elem:'木',color:'碧',key:['生发','表达','突破'],about:'好奇表达欲强，喜欢创意与开疆拓土。'},
+  4:{zh:'四绿木星',jp:'Shiroku Mokusei',elem:'木',color:'绿',key:['协调','交流','旅行'],about:'温和包容，擅长沟通协调与知识整合。'},
+  5:{zh:'五黄土星',jp:'Gogou Dosei',elem:'土',color:'黄',key:['中宫','权衡','重启'],about:'居中定盘、抗压强，擅长策略与危机管理。'},
+  6:{zh:'六白金星',jp:'Roppaku Kinsei',elem:'金',color:'白',key:['秩序','责任','领导'],about:'自律果断，重视规则与远景规划。'},
+  7:{zh:'七赤金星',jp:'Shichiseki Kinsei',elem:'金',color:'赤',key:['社交','品味','享受'],about:'人缘好、审美在线，适合品牌与社交场域。'},
+  8:{zh:'八白土星',jp:'Happaku Dosei',elem:'土',color:'白',key:['积累','转折','定山'],about:'稳中求变、厚积薄发，关键时刻能翻盘。'},
+  9:{zh:'九紫火星',jp:'Kyūshi Kasei',elem:'火',color:'紫',key:['光彩','灵感','传播'],about:'热情外放、灵感多，适合登台表达与IP打造。'}
 };
 
-/* ===== 九星深度数据（示例：1/2/3；正文仍为中文） ===== */
+/* ===== 九星深度数据（简版：1–9，中英） ===== */
 const STARS_DEEP = {
   1: {
     element: '水',
-    color: '白、蓝、黑',
+    color: '白 / 蓝 / 黑',
     elements: { 水: 4, 木: 2, 金: 2, 火: 1, 土: 1 },
-    directions: { favorable: ['东南', '南'], avoid: ['西南', '东北'] },
+    directions: { favorable: ['东南','南'], avoid: ['西南','东北'] },
     text: {
-      // —— 简体中文 —— //
       'zh-CN': {
         personality: '敏感细腻，直觉力强，善于沟通协调，具有流动性和适应性。',
-        talents: ['沟通协调', '直觉判断', '信息处理', '人际关系'],
-        challenges: ['情绪波动', '缺乏定力', '容易受环境影响'],
-        career: '传媒、教育、咨询、贸易、外交',
+        talents: ['沟通协调','直觉判断','信息处理','人际关系'],
+        challenges: ['情绪波动','缺乏定力','容易受环境影响'],
+        career: '传媒、教育、咨询、贸易、外交等与信息流通相关领域。',
         career_analysis: {
-          strengths: ['沟通协调能力突出', '信息处理快速', '适应性强'],
-          opportunities: ['新媒体行业', '教育培训', '国际贸易相关合作'],
-          risks: ['竞争激烈', '需要持续学习', '行业变化快'],
-          actions: ['明确一个长期深耕方向', '建立稳定人脉网络', '定期更新专业知识']
+          strengths: ['沟通协调能力突出','信息处理快速','适应性强'],
+          opportunities: ['新媒体行业','教育培训','国际贸易相关合作'],
+          risks: ['竞争激烈','需要持续学习','行业变化快'],
+          actions: ['明确一个长期深耕方向','建立稳定人脉网络','定期更新专业知识']
         },
         relationship_analysis: {
-          strengths: ['善解人意', '沟通能力强', '情感细腻'],
-          opportunities: ['拓展社交圈', '发展深度情感连接', '塑造温暖家庭氛围'],
-          risks: ['情绪敏感', '容易受伤', '对安全感要求高'],
-          actions: ['学会表达真实需求', '建立健康边界', '找到情绪宣泄出口']
+          strengths: ['善解人意','沟通能力强','情感细腻'],
+          opportunities: ['拓展社交圈','发展深度情感连接','塑造温暖家庭氛围'],
+          risks: ['情绪敏感','容易受伤','对安全感要求高'],
+          actions: ['学会表达真实需求','建立健康边界','找到情绪宣泄出口']
         },
         health_analysis: {
-          strengths: ['恢复力强', '适应能力好', '对环境变化感知敏锐'],
-          opportunities: ['水上运动', '冥想与呼吸练习', '温和伸展与瑜伽'],
-          risks: ['肾脏与泌尿系统压力', '情绪压力累积', '免疫力波动'],
-          actions: ['保持作息规律', '注意保暖与饮水', '用写作或运动释放情绪']
+          strengths: ['恢复力强','适应能力好','对环境变化感知敏锐'],
+          opportunities: ['水上运动','冥想与呼吸练习','温和伸展与瑜伽'],
+          risks: ['肾脏与泌尿系统压力','情绪压力累积','免疫力波动'],
+          actions: ['保持作息规律','注意保暖与饮水','用写作或运动释放情绪']
         }
       },
-      // —— 繁体（先简单复用简体内容，你之后要的话再微调用词） —— //
-      'zh-TW': {
-        personality: '敏感細膩，直覺力強，善於溝通協調，具有流動性和適應性。',
-        talents: ['溝通協調', '直覺判斷', '資訊處理', '人際關係'],
-        challenges: ['情緒波動', '缺乏定力', '容易受環境影響'],
-        career: '傳媒、教育、顧問、貿易、外交',
-        career_analysis: {
-          strengths: ['溝通協調能力突出', '資訊處理快速', '適應力強'],
-          opportunities: ['新媒體產業', '教育培訓', '國際貿易相關合作'],
-          risks: ['競爭激烈', '需要持續進修', '產業變化快'],
-          actions: ['明確一個長期深耕方向', '建立穩定人脈網路', '定期更新專業知識']
-        },
-        relationship_analysis: {
-          strengths: ['善解人意', '溝通能力強', '情感細膩'],
-          opportunities: ['拓展社交圈', '發展深度情感連結', '營造溫暖家庭氛圍'],
-          risks: ['情緒敏感', '容易受傷', '對安全感要求高'],
-          actions: ['學會表達真實需求', '建立健康界線', '找到情緒抒發管道']
-        },
-        health_analysis: {
-          strengths: ['恢復力強', '適應能力好', '對環境變化感知敏銳'],
-          opportunities: ['水上運動', '冥想與呼吸練習', '溫和伸展與瑜伽'],
-          risks: ['腎臟與泌尿系統壓力', '情緒壓力累積', '免疫力波動'],
-          actions: ['保持作息規律', '注意保暖與飲水', '用寫作或運動釋放情緒']
-        }
-      },
-      // —— English —— //
       'en': {
         personality: 'Sensitive and intuitive, you communicate smoothly and adapt quickly to changing environments.',
-        talents: ['Communication & coordination', 'Intuitive judgement', 'Information processing', 'Relationship skills'],
-        challenges: ['Emotional ups and downs', 'Difficulty staying focused at times', 'Easily influenced by surroundings'],
-        career: 'Media, education, consulting, trade, diplomacy',
+        talents: ['Communication & coordination','Intuitive judgement','Information processing','Relationship skills'],
+        challenges: ['Emotional ups and downs','Hard to stay centred at times','Easily influenced by surroundings'],
+        career: 'Media, education, consulting, trade and diplomacy.',
         career_analysis: {
-          strengths: ['Strong communication skills', 'Fast at handling information', 'Highly adaptable'],
-          opportunities: ['New media & online content', 'Education & training', 'International trade or cross-border work'],
-          risks: ['High competition', 'Need for continuous learning', 'Rapid industry changes'],
-          actions: ['Choose one niche to deepen', 'Build a reliable network', 'Schedule regular study / skill-up time']
+          strengths: ['Strong communication skills','Fast at handling information','Highly adaptable'],
+          opportunities: ['New media & online content','Education & training','International trade / cross-border work'],
+          risks: ['High competition','Need continuous learning','Rapid industry changes'],
+          actions: ['Choose one niche to deepen','Build a reliable network','Schedule regular study blocks']
         },
         relationship_analysis: {
-          strengths: ['Empathetic', 'Good listener & communicator', 'Emotionally delicate and caring'],
-          opportunities: ['Expand social circle', 'Create deeper emotional bonds', 'Build a warm home atmosphere'],
-          risks: ['Sensitive to rejection', 'Easily hurt by words', 'Strong need for emotional security'],
-          actions: ['Express your needs clearly', 'Set healthy boundaries', 'Use journaling or movement to release emotions']
+          strengths: ['Empathetic and caring','Good listener and communicator','Emotionally delicate'],
+          opportunities: ['Broaden your social circle','Create deeper bonds','Build a warm, supportive home'],
+          risks: ['Sensitive to rejection','Easily hurt by careless words','Strong need for emotional safety'],
+          actions: ['Express needs clearly','Set healthy boundaries','Use journaling or movement to release emotions']
         },
         health_analysis: {
-          strengths: ['Strong recovery power', 'Good adaptability', 'Sensitive body awareness'],
-          opportunities: ['Water-related exercise', 'Meditation & breathwork', 'Gentle stretching or yoga'],
-          risks: ['Kidney / urinary load', 'Stress stored in the body', 'Immune fluctuations'],
-          actions: ['Keep regular sleep', 'Stay warm and hydrated', 'Release emotions through writing or exercise']
-        }
-      },
-      // —— 日本語 —— //
-      'ja-JP': {
-        personality: '感受性が高く、直感が鋭いタイプ。人とのコミュニケーションや調整が得意で、状況の変化にも柔軟に対応できます。',
-        talents: ['コミュニケーション力', '直感的な判断', '情報処理', '人間関係づくり'],
-        challenges: ['感情の波が出やすい', '集中力が続きにくい', '環境の影響を受けやすい'],
-        career: 'メディア、教育、コンサル、貿易、外交など',
-        career_analysis: {
-          strengths: ['情報のキャッチと発信が速い', '人との調整役ができる', '環境への適応力が高い'],
-          opportunities: ['オンラインメディア・SNS関連', '教育・研修分野', '海外や貿易に関わる仕事'],
-          risks: ['競争が激しい業界', '常に新しい知識が必要', 'トレンド変化が早い'],
-          actions: ['専門分野を一つ決めて深める', '信頼できるネットワークを育てる', '学びの時間をスケジュールに組み込む']
-        },
-        relationship_analysis: {
-          strengths: ['共感力が高い', '聞き上手・話し上手', '相手の気持ちを汲み取れる'],
-          opportunities: ['新しい出会いが広がりやすい', '深い信頼関係を築ける', 'あたたかい家庭をつくりやすい'],
-          risks: ['言葉に敏感で傷つきやすい', '相手に合わせすぎる', '不安から依存が出やすい'],
-          actions: ['自分の本音をやさしく言葉にする', '境界線（バウンダリー）を意識する', '日記や運動で感情を外に流す']
-        },
-        health_analysis: {
-          strengths: ['回復力が高い', '環境の変化に対応できる', '身体のサインに気づきやすい'],
-          opportunities: ['水泳やウォーキングなどの有酸素運動', '瞑想や呼吸法', 'ゆるいストレッチやヨガ'],
-          risks: ['腎臓・泌尿器への負担', 'ストレスを溜め込みやすい', '免疫力が上下しやすい'],
-          actions: ['睡眠リズムを整える', '身体を冷やしすぎない', '感情を我慢しすぎず外に出す']
-        }
-      },
-      // —— ภาษาไทย —— //
-      'th-TH': {
-        personality: 'คุณเป็นคนที่ละเอียดอ่อน รับรู้พลังรอบตัวได้ดี ใช้สัญชาตญาณเก่ง และสื่อสารกับผู้คนได้ลื่นไหล ปรับตัวได้กับหลายสถานการณ์。',
-        talents: ['การสื่อสารและประสานงาน', 'การตัดสินใจด้วยสัญชาตญาณ', 'จัดการข้อมูลและข่าวสาร', 'สร้างความสัมพันธ์กับผู้คน'],
-        challenges: ['อารมณ์ขึ้นลงง่าย', 'โฟกัสกับสิ่งใดสิ่งหนึ่งได้ไม่นาน', 'ได้รับอิทธิพลจากสภาพแวดล้อมรอบตัวมาก'],
-        career: 'สื่อสารมวลชน การศึกษา งานที่ปรึกษา การค้าระหว่างประเทศ งานด้านการทูต',
-        career_analysis: {
-          strengths: ['สื่อสารได้ดี เข้าใจคน', 'รับและส่งต่อข้อมูลได้รวดเร็ว', 'ปรับตัวกับงานและผู้คนได้ง่าย'],
-          opportunities: ['งานออนไลน์และโซเชียลมีเดีย', 'งานสอน / จัดอบรม', 'งานที่เกี่ยวข้องกับต่างประเทศ'],
-          risks: ['การแข่งขันสูงมาก', 'ต้องเรียนรู้อย่างต่อเนื่อง', 'ทิศทางของตลาดเปลี่ยนเร็ว'],
-          actions: ['เลือกเส้นทางหลักที่อยากจริงจัง', 'สร้างเครือข่ายคนที่ไว้ใจได้', 'กันเวลาไว้สำหรับเรียนรู้สิ่งใหม่ทุกเดือน']
-        },
-        relationship_analysis: {
-          strengths: ['เข้าใจความรู้สึกคนอื่น', 'ฟังเก่งและพูดเก่ง', 'ดูแลความรู้สึกคนรอบตัวได้ดี'],
-          opportunities: ['มีโอกาสได้รู้จักผู้คนหลากหลาย', 'สร้างความสัมพันธ์ลึกซึ้งได้', 'บรรยากาศครอบครัวอบอุ่นได้ไม่ยาก'],
-          risks: ['คิดมากง่ายและเจ็บใจง่าย', 'ยอมคนอื่นมากเกินไป', 'ต้องการความมั่นคงทางใจสูง'],
-          actions: ['ลองบอกความต้องการจริง ๆ ของตัวเองอย่างนุ่มนวล', 'ตั้งขอบเขตที่ดูแลตัวเองด้วย', 'ระบายอารมณ์ผ่านการเขียนหรือการเคลื่อนไหวร่างกาย']
-        },
-        health_analysis: {
-          strengths: ['ร่างกายฟื้นตัวได้ดี', 'รับมือกับการเปลี่ยนแปลงของสภาพแวดล้อมได้', 'สังเกตสัญญาณเล็ก ๆ จากร่างกายได้ไว'],
-          opportunities: ['ออกกำลังแนวน้ำ เช่น ว่ายน้ำ เดินเล่นใกล้น้ำ', 'ฝึกหายใจลึก ๆ และทำสมาธิ', 'ยืดเหยียดเบา ๆ หรือโยคะ'],
-          risks: ['ภาระต่อไตและระบบทางเดินปัสสาวะ', 'เก็บความเครียดไว้ในใจ', 'ภูมิคุ้มกันขึ้น ๆ ลง ๆ'],
-          actions: ['พยายามเข้านอนและตื่นให้เป็นเวลา', 'ดูแลไม่ให้ตัวเองหนาวเกินไป ดื่มน้ำให้พอ', 'อย่าปล่อยให้อารมณ์ถูกกดทับนานเกินไป']
-        }
-      },
-      // —— Bahasa Melayu —— //
-      'ms': {
-        personality: 'Anda peka, berintuisi kuat dan pandai berkomunikasi. Anda mudah menyesuaikan diri dengan persekitaran yang berubah.',
-        talents: ['Komunikasi & koordinasi', 'Penilaian berasaskan intuisi', 'Mengurus maklumat', 'Membina hubungan'],
-        challenges: ['Emosi mudah turun naik', 'Sukar kekal fokus dalam jangka panjang', 'Mudah dipengaruhi suasana sekeliling'],
-        career: 'Media, pendidikan, konsultansi, perdagangan, bidang diplomasi',
-        career_analysis: {
-          strengths: ['Komunikasi yang baik', 'Pantasan memproses maklumat', 'Kebolehan menyesuaikan diri yang tinggi'],
-          opportunities: ['Industri media & kandungan dalam talian', 'Latihan & pendidikan', 'Perdagangan atau kerjasama antarabangsa'],
-          risks: ['Persaingan sengit', 'Perlu sentiasa menambah ilmu', 'Perubahan trend yang cepat'],
-          actions: ['Pilih satu bidang utama untuk didalami', 'Bina rangkaian hubungan yang kukuh', 'Tetapkan jadual pembelajaran berkala']
-        },
-        relationship_analysis: {
-          strengths: ['Empati yang tinggi', 'Pendengar yang baik dan mesra', 'Peka terhadap perasaan orang sekeliling'],
-          opportunities: ['Meluaskan rangkaian sosial', 'Membina hubungan yang lebih mendalam', 'Mewujudkan suasana keluarga yang hangat'],
-          risks: ['Mudah terasa hati', 'Cenderung mengalah demi orang lain', 'Keperluan kepada rasa selamat yang tinggi'],
-          actions: ['Belajar menyuarakan keperluan diri dengan tenang', 'Membina sempadan yang sihat', 'Lepaskan emosi melalui penulisan atau senaman']
-        },
-        health_analysis: {
-          strengths: ['Kuasa pemulihan yang baik', 'Mudah menyesuaikan diri', 'Peka terhadap isyarat tubuh'],
-          opportunities: ['Senaman berkaitan air', 'Meditasi & latihan pernafasan', 'Regangan lembut atau yoga'],
-          risks: ['Beban pada buah pinggang / sistem kencing', 'Stres yang terkumpul', 'Imuniti turun naik'],
-          actions: ['Jaga waktu tidur yang tetap', 'Pastikan badan tidak terlalu sejuk dan cukup air', 'Lepaskan emosi dengan cara yang sihat']
+          strengths: ['Strong recovery ability','Good adaptability','High body awareness'],
+          opportunities: ['Water-based exercise','Meditation & breathwork','Gentle stretching / yoga'],
+          risks: ['Kidney / urinary load','Stress stored in the body','Immune fluctuations'],
+          actions: ['Keep a stable sleep rhythm','Stay warm & hydrated','Release emotions via writing or exercise']
         }
       }
     }
   },
-
-  // ===================== 二黑土星 =====================
   2: {
     element: '土',
-    color: '黄、棕、咖啡',
+    color: '黄 / 棕',
     elements: { 土: 4, 金: 2, 火: 2, 水: 1, 木: 1 },
-    directions: { favorable: ['西南', '东北'], avoid: ['东', '东南'] },
+    directions: { favorable: ['西南','东北'], avoid: ['东','东南'] },
     text: {
       'zh-CN': {
-        personality: '务实稳重，责任心强，注重实际，具有承载力和耐心。',
-        talents: ['经营管理', '资源整合', '持续耕耘', '落地执行'],
-        challenges: ['固执保守', '缺乏变通', '容易焦虑担心'],
-        career: '房地产、农业、金融、管理、教育等偏长期经营领域',
+        personality: '务实稳重、责任心强，注重实际与长期累积，具有承载力和耐心。',
+        talents: ['经营管理','资源整合','持续耕耘','落地执行'],
+        challenges: ['略显保守','对变化敏感','容易焦虑担心'],
+        career: '房地产、农业、金融、管理、教育等偏长期经营领域。',
         career_analysis: {
-          strengths: ['管理与统筹能力强', '执行力稳定', '抗压能力佳'],
-          opportunities: ['传统行业与实业', '中高层管理岗位', '稳健型投资与资产配置'],
-          risks: ['创新意识不足', '对变化抗拒', '容易错过新赛道'],
-          actions: ['每年选择一项新技能精进', '多与不同背景的人交流', '在稳定中允许自己做小幅尝试']
+          strengths: ['管理与统筹能力强','执行力稳定','抗压能力佳'],
+          opportunities: ['传统行业与实业','中高层管理岗位','稳健型投资与资产配置'],
+          risks: ['创新意识不足','对变化抗拒','容易错过新赛道'],
+          actions: ['每年选择一项新技能精进','多与不同背景的人交流','在稳定中允许自己做小幅尝试']
         },
         relationship_analysis: {
-          strengths: ['重视家庭', '可靠有担当', '愿意付出时间与精力'],
-          opportunities: ['适合建立长期稳定关系', '有机会成为家庭支柱', '给伴侣安全感'],
-          risks: ['表达不够浪漫', '容易用「付出多少」衡量感情', '不善于示弱求助'],
-          actions: ['主动表达感谢与爱意', '学会适度撒娇与求助', '与伴侣共拟长期生活规划']
+          strengths: ['重视家庭','可靠有担当','愿意付出时间与精力'],
+          opportunities: ['适合建立长期稳定关系','有机会成为家庭支柱','给伴侣安全感'],
+          risks: ['表达不够浪漫','容易用“付出多少”衡量感情','不善于示弱求助'],
+          actions: ['主动表达感谢与爱意','学会适度求助','与伴侣共拟长期生活规划']
         },
         health_analysis: {
-          strengths: ['体质稳定', '耐力强', '恢复较慢但扎实'],
-          opportunities: ['适合力量训练与步行', '重视饮食与作息就能长期受益', '适合养生慢调节'],
-          risks: ['消化系统负担', '压力堆积成慢性问题', '体重与代谢易失衡'],
-          actions: ['规律饮食，少熬夜', '定期为自己放假与放空', '通过运动和大自然排解压力']
-        }
-      },
-      'zh-TW': {
-        personality: '務實穩重，責任感強，重視實際，具有承載力與耐心。',
-        talents: ['經營管理', '資源整合', '持續耕耘', '落地執行'],
-        challenges: ['固執保守', '缺乏變通', '容易焦慮擔心'],
-        career: '不動產、農業、金融、管理、教育等偏長期經營領域',
-        career_analysis: {
-          strengths: ['管理與統籌能力強', '執行力穩定', '抗壓能力佳'],
-          opportunities: ['傳統產業與實業', '中高階管理職', '穩健型投資與資產配置'],
-          risks: ['創新意識不足', '對變化抗拒', '容易錯過新賽道'],
-          actions: ['每年選擇一項新技能精進', '多與不同背景的人交流', '在穩定中允許自己做小幅嘗試']
-        },
-        relationship_analysis: {
-          strengths: ['重視家庭', '可靠有擔當', '願意付出時間與精力'],
-          opportunities: ['適合建立長期穩定關係', '有機會成為家庭支柱', '給伴侶安全感'],
-          risks: ['表達不夠浪漫', '容易用「付出多少」衡量感情', '不善於示弱求助'],
-          actions: ['主動表達感謝與愛意', '學會適度撒嬌與求助', '與伴侶共擬長期生活規劃']
-        },
-        health_analysis: {
-          strengths: ['體質穩定', '耐力強', '恢復較慢但扎實'],
-          opportunities: ['適合重量訓練與步行', '重視飲食與作息就能長期受益', '適合養生慢調節'],
-          risks: ['消化系統負擔', '壓力堆積成慢性問題', '體重與代謝易失衡'],
-          actions: ['規律飲食，少熬夜', '定期為自己放假與放空', '透過運動與大自然排解壓力']
+          strengths: ['体质稳定','耐力强','恢复虽慢但扎实'],
+          opportunities: ['适合力量训练与步行','重视饮食作息即可长期受益','适合养生慢调节'],
+          risks: ['消化系统负担','压力堆积成慢性问题','体重与代谢易失衡'],
+          actions: ['规律饮食少熬夜','定期为自己放假放空','通过运动和大自然排解压力']
         }
       },
       'en': {
-        personality: 'Practical, steady and highly responsible. You value tangible results and can carry long-term duties.',
-        talents: ['Management & organisation', 'Resource integration', 'Long-term effort', 'Solid execution'],
-        challenges: ['Can be conservative or stubborn', 'Slow to change direction', 'Prone to worry and overthinking'],
-        career: 'Real estate, agriculture, finance, management, education and other long-term fields',
+        personality: 'Practical, steady and highly responsible, with strong endurance for long-term projects.',
+        talents: ['Management & organisation','Resource integration','Long-term effort','Solid execution'],
+        challenges: ['Can be conservative','Slow to change direction','Prone to worry'],
+        career: 'Real estate, agriculture, finance, management, education and other long-term fields.',
         career_analysis: {
-          strengths: ['Strong management ability', 'Reliable execution', 'High stress tolerance'],
-          opportunities: ['Traditional industries and real economy', 'Mid-to-senior management roles', 'Stable, long-term investments'],
-          risks: ['Lack of innovation', 'Resistance to change', 'May miss new opportunities or markets'],
-          actions: ['Learn at least one new skill each year', 'Talk to people from different industries', 'Allow small experiments within a stable base']
+          strengths: ['Strong management ability','Reliable execution','High stress tolerance'],
+          opportunities: ['Traditional industries / real economy','Mid-to-senior management roles','Stable, long-term investments'],
+          risks: ['Lack of innovation','Resistance to change','May miss new opportunities'],
+          actions: ['Learn one new skill every year','Connect with people from different industries','Allow small experiments within a stable base']
         },
         relationship_analysis: {
-          strengths: ['Family-oriented', 'Reliable and committed', 'Willing to work hard for loved ones'],
-          opportunities: ['Well-suited for long-term partnerships', 'Likely to become a family pillar', 'Can give strong sense of security'],
-          risks: ['Not naturally romantic', 'Tends to measure love by effort', 'Hesitant to show vulnerability'],
-          actions: ['Express gratitude and affection more often', 'Practice asking for support', 'Co-create long-term plans with your partner']
+          strengths: ['Family-oriented','Reliable and committed','Willing to work hard for loved ones'],
+          opportunities: ['Suited for long-term partnerships','Likely to become a family pillar','Provides strong sense of security'],
+          risks: ['Not naturally romantic','Tends to measure love by effort','Hesitant to show vulnerability'],
+          actions: ['Express gratitude & affection more often','Practice asking for support','Co-create long-term plans with your partner']
         },
         health_analysis: {
-          strengths: ['Stable constitution', 'Good endurance', 'Solid but slower recovery'],
-          opportunities: ['Strength training and walking', 'Balanced diet and routine bring long-term benefit', 'Suited to steady wellness practices'],
-          risks: ['Digestive load', 'Stress accumulating into chronic issues', 'Metabolism and weight easily imbalanced'],
-          actions: ['Keep meals regular and avoid late nights', 'Schedule real rest days', 'Use nature and exercise to release stress']
-        }
-      },
-      // —— 二黑 + 泰文：用你原来 override 的语气，直接平移 —— //
-      'th-TH': {
-        personality: 'คุณเป็นคนจริงจัง มั่นคง รับผิดชอบสูง และให้ความสำคัญกับผลลัพธ์ที่จับต้องได้ มีพลังในการรับภาระระยะยาวและดูแลคนรอบข้างได้ดี。',
-        talents: ['การบริหารจัดการ', 'การรวมทรัพยากร', 'ทำงานระยะยาวไม่ทิ้งกลางทาง', 'การลงมือให้เกิดผลจริง'],
-        challenges: ['ยึดติดรูปแบบเดิม', 'เปลี่ยนแปลงได้ช้า', 'เก็บความกังวลไว้กับตัวเอง'],
-        career: 'อสังหาริมทรัพย์ เกษตร การเงิน การจัดการ การศึกษา หรือธุรกิจที่ต้องสร้างฐานระยะยาว',
-        career_analysis: {
-          strengths: ['เก่งเรื่องจัดระบบและดูแลงานในระยะยาว', 'รับผิดชอบสูง เชื่อถือได้', 'เหมาะกับงานที่ต้องสร้างฐานมั่นคง'],
-          opportunities: ['ธุรกิจดั้งเดิมหรือธุรกิจครอบครัว', 'งานบริหารระดับหัวหน้า / ผู้จัดการ', 'การลงทุนแบบค่อยเป็นค่อยไป มีหลักฐานชัดเจน'],
-          risks: ['กลัวการเปลี่ยนแปลงเกินไป', 'ไม่ค่อยกล้าออกจากคอมฟอร์ตโซน', 'อาจพลาดโอกาสในสายงานใหม่ ๆ'],
-          actions: ['ตั้งเป้าหมายเรียนรู้สิ่งใหม่ปีละ 1 อย่าง', 'เปิดใจคุยกับคนจากสายงานที่ต่างออกไป', 'ลองเริ่มจากการเปลี่ยนแปลงเล็ก ๆ ที่ยังไม่ทำให้รู้สึกไม่ปลอดภัย']
-        },
-        relationship_analysis: {
-          strengths: ['จริงจังในความสัมพันธ์', 'ใส่ใจครอบครัวและคนใกล้ชิด', 'พร้อมเป็นที่พึ่งพาให้คนรัก'],
-          opportunities: ['เหมาะกับความสัมพันธ์ระยะยาวและการสร้างครอบครัว', 'มีโอกาสเป็นเสาหลักของบ้าน', 'สร้างบรรยากาศมั่นคงให้คนข้าง ๆ ได้'],
-          risks: ['ไม่ค่อยแสดงออกด้านโรแมนติก', 'ชอบพิสูจน์ความรักผ่านการทำงานหนัก / รับผิดชอบ', 'ไม่ค่อยยอมเล่าให้คนอื่นฟังเวลาเหนื่อยหรือท้อ'],
-          actions: ['ลองใช้คำพูดง่าย ๆ ขอบคุณและบอกรักให้บ่อยขึ้น', 'ฝึกขอความช่วยเหลือเวลาเหนื่อยบ้าง', 'วางแผนชีวิตระยะยาวร่วมกับคู่รักอย่างเปิดใจ']
-        },
-        health_analysis: {
-          strengths: ['ร่างกายค่อนข้างแข็งแรง อดทนได้ดี', 'เหมาะกับงานหรือกิจกรรมที่ต้องใช้แรงต่อเนื่อง', 'ถ้าดูแลดีจะอยู่ยืนยาวแบบมั่นคง'],
-          opportunities: ['ออกกำลังแนวเวทเทรนนิ่งหรือเดินระยะยาว', 'ดูแลอาหารและการนอนไม่ให้แปรปรวนเกินไป', 'ให้ความสำคัญกับการพักผ่อนและการผ่อนคลายระบบย่อย'],
-          risks: ['ปัญหาระบบย่อยอาหาร', 'เก็บความเครียดจนกลายเป็นอาการเรื้อรัง', 'น้ำหนักและการเผาผลาญขึ้นลงง่าย'],
-          actions: ['กินข้าวให้เป็นเวลา ลดอาหารดึกดื่น', 'จัดวันพัก / วันไม่คิดงานให้ตัวเอง', 'ใช้ธรรมชาติ การเดิน หรือการออกกำลังเบา ๆ ช่วยระบายความเครียด']
-        }
-      },
-      'ja-JP': {
-        personality: '現実志向で安定感があり、責任感がとても強いタイプ。結果が目に見えることを大切にし、長期的な努力を積み重ねる力があります。',
-        talents: ['マネジメント', '資源の整理・統合', 'コツコツ継続する力', '実務をきちんと仕上げる力'],
-        challenges: ['考えが固くなりやすい', '変化に時間がかかる', '心配性でストレスを溜め込みやすい'],
-        career: '不動産、農業、金融、管理職、教育など、長期運営型の分野',
-        career_analysis: {
-          strengths: ['責任感が強く、任された仕事を最後までやり抜く', '組織やチームを安定させる力がある', '長期的な視点で物事を見られる'],
-          opportunities: ['伝統産業や実業ビジネス', 'マネジメントポジション', '堅実な投資や資産形成'],
-          risks: ['変化を避けすぎてチャンスを逃す', '新分野への一歩が遅くなる', '「安定」に縛られすぎる'],
-          actions: ['毎年新しいスキルや分野に少しずつ触れてみる', '異業種の人との交流を増やす', '小さな範囲から実験的な挑戦を始める']
-        },
-        relationship_analysis: {
-          strengths: ['家族思いで責任感がある', '現実的に支える力が強い', '長く付き合うほど安心感を与えられる'],
-          opportunities: ['長期的なパートナーシップに向いている', '家庭の土台をしっかり作れる', '頼れる存在として信頼されやすい'],
-          risks: ['ロマンチックな表現が少なめ', '気持ちより「どれだけ頑張ったか」で愛情を測りがち', '弱音を吐くのが苦手'],
-          actions: ['言葉やスキンシップで感謝と愛情を伝える回数を増やす', '疲れたときは素直に助けを求める', 'パートナーと一緒に将来の計画を話し合う時間を作る']
-        },
-        health_analysis: {
-          strengths: ['体力と持久力がある', 'ペースを守れば長く続けられる', 'じっくり整えると安定しやすい'],
-          opportunities: ['ウォーキングや筋トレなどの継続しやすい運動', '食事・睡眠リズムを整えることで大きくプラスになる', '養生やセルフケアに向いている'],
-          risks: ['胃腸の負担', 'ストレスを溜め込んで慢性化しやすい', '代謝や体重バランスの乱れ'],
-          actions: ['食事時間と睡眠時間をなるべく固定する', '仕事以外の「休息日」を意識的に作る', '自然の中を歩く・軽い運動でストレスを流す']
-        }
-      },
-      'ms': {
-        personality: 'Anda praktikal, stabil dan sangat bertanggungjawab. Anda suka melihat hasil yang nyata dan mampu bekerja dalam jangka masa panjang.',
-        talents: ['Pengurusan & organisasi', 'Penggabungan sumber', 'Usaha berterusan', 'Pelaksanaan yang kukuh'],
-        challenges: ['Boleh menjadi terlalu konservatif atau degil', 'Perubahan arah agak perlahan', 'Cenderung banyak berfikir dan risau'],
-        career: 'Hartanah, pertanian, kewangan, pengurusan, pendidikan dan bidang jangka panjang lain',
-        career_analysis: {
-          strengths: ['Kemahiran pengurusan yang baik', 'Pelaksanaan kerja yang stabil', 'Mampu menanggung tekanan'],
-          opportunities: ['Industri tradisional dan perniagaan sebenar', 'Jawatan pengurusan pertengahan hingga kanan', 'Pelaburan stabil dan jangka panjang'],
-          risks: ['Kurang pemikiran inovatif', 'Takut perubahan', 'Berisiko terlepas peluang baharu'],
-          actions: ['Pilih satu kemahiran baharu untuk dipertingkat setiap tahun', 'Bergaul dengan orang daripada industri lain', 'Mulakan percubaan kecil dalam ruang yang selamat']
-        },
-        relationship_analysis: {
-          strengths: ['Mementingkan keluarga', 'Boleh dipercayai dan bertanggungjawab', 'Sanggup berkorban untuk orang tersayang'],
-          opportunities: ['Sesuai untuk hubungan jangka panjang', 'Berpotensi menjadi tunjang keluarga', 'Memberi rasa selamat kepada pasangan'],
-          risks: ['Kurang romantik secara semula jadi', 'Cenderung mengukur cinta melalui “berapa banyak usaha”', 'Sukar menunjukkan kelemahan'],
-          actions: ['Belajar meluah rasa sayang dan penghargaan dengan kata-kata', 'Berlatih meminta bantuan apabila penat', 'Rancang masa depan bersama pasangan secara terbuka']
-        },
-        health_analysis: {
-          strengths: ['Tubuh stabil dengan daya tahan yang baik', 'Mampu bekerja dalam tempoh panjang', 'Jika dijaga rapi, kesihatan boleh kekal kuat untuk jangka panjang'],
-          opportunities: ['Latihan kekuatan dan berjalan kaki', 'Menjaga pemakanan dan waktu tidur yang teratur', 'Sesuai dengan pendekatan kesihatan yang perlahan dan konsisten'],
-          risks: ['Masalah sistem penghadaman', 'Stres yang terkumpul menjadi isu kronik', 'Berat badan dan metabolisme mudah terganggu'],
-          actions: ['Makan dan tidur pada waktu yang tetap', 'Sediakan masa untuk rehat dan “switch off” dari kerja', 'Gunakan alam semula jadi dan senaman sebagai cara melepaskan tekanan']
+          strengths: ['Stable constitution','Good endurance','Solid, grounded energy'],
+          opportunities: ['Strength training & walking','Balanced diet and routine bring big gains','Suited to slow, steady wellness practices'],
+          risks: ['Digestive issues','Chronic stress build-up','Weight / metabolism imbalance'],
+          actions: ['Keep meals regular','Protect rest days','Use nature & exercise to discharge stress']
         }
       }
     }
   },
-
-  // ===================== 三碧木星（先做简版，各语言一两句，你之后可以自己加长） =====================
   3: {
     element: '木',
-    color: '绿、青',
+    color: '绿 / 青',
     elements: { 木: 4, 水: 2, 火: 2, 土: 1, 金: 1 },
-    directions: { favorable: ['东', '东南'], avoid: ['西', '西北'] },
+    directions: { favorable: ['东','东南'], avoid: ['西','西北'] },
     text: {
       'zh-CN': {
-        personality: '积极进取，表达力强，富有创意，具有开拓精神。',
-        talents: ['创新思维', '开拓进取', '表达沟通', '快速学习'],
-        challenges: ['冲动急躁', '缺乏耐心', '容易与人起冲突'],
-        career: '创意产业、销售、教育、媒体、自主创业等需要冲劲与表达的领域',
+        personality: '积极进取，表达力强，富有创意，具有强烈的开拓精神。',
+        talents: ['创新思维','开拓进取','表达沟通','快速学习'],
+        challenges: ['冲动急躁','缺乏耐心','容易与人起冲突'],
+        career: '创意产业、销售、教育、媒体、自主创业等需要冲劲与表达的领域。',
         career_analysis: {
-          strengths: ['创新能力强', '表达欲与感染力强', '学习速度快'],
-          opportunities: ['创意内容、品牌与营销', '个人 IP 或创业', '教育与培训'],
-          risks: ['容易三分钟热度', '节奏过快导致消耗', '资源与人脉管理不足'],
-          actions: ['为自己设定阶段性目标与截止日期', '找一个靠谱伙伴做互相监督', '保留固定时间做复盘与收束']
+          strengths: ['创新能力强','感染力强','学习速度快'],
+          opportunities: ['内容创作与品牌营销','个人IP与自媒体','教育与培训'],
+          risks: ['三分钟热度','节奏过快导致消耗','资源与人脉管理不足'],
+          actions: ['为自己设定阶段性目标与截止日期','找伙伴互相监督','定期复盘与收束项目']
         },
         relationship_analysis: {
-          strengths: ['热情主动', '擅长表达感受', '有个人魅力'],
-          opportunities: ['容易吸引他人关注', '适合在互动中建立感情', '社交圈活跃'],
-          risks: ['情绪化时容易口不择言', '难以长期维持稳定节奏', '容易忽略对方的节奏与感受'],
-          actions: ['练习在激动前停顿三秒', '刻意安排「安静相处」的时间', '学会倾听比表达多一点点']
+          strengths: ['热情主动','擅长表达感受','有个人魅力'],
+          opportunities: ['容易吸引他人关注','适合在互动中建立感情','社交圈活跃'],
+          risks: ['情绪化时容易口不择言','难以长期维持稳定节奏','容易忽略对方的节奏与感受'],
+          actions: ['练习在激动前停顿三秒','刻意安排安静陪伴的时刻','多一点倾听，少一点辩解']
         },
         health_analysis: {
-          strengths: ['活力充沛', '恢复力佳', '适合动态运动'],
-          opportunities: ['跑步、有氧、球类等活动', '用运动代替发火', '户外阳光有利于调节情绪'],
-          risks: ['肝胆系统压力', '情绪郁结造成身体酸痛', '熬夜与饮食不规律'],
-          actions: ['减少熬夜与酒精', '用运动与拉伸帮助排解情绪', '保持固定作息节奏']
-        }
-      },
-      'zh-TW': {
-        personality: '積極進取，表達力強，富有創意，具有開拓精神。',
-        talents: ['創新思維', '開拓進取', '表達溝通', '快速學習'],
-        challenges: ['衝動急躁', '缺乏耐心', '容易與人起衝突'],
-        career: '創意產業、業務銷售、教育、媒體、自主創業等需要衝勁與表達的領域',
-        career_analysis: {
-          strengths: ['創新能力強', '表達慾與感染力強', '學習速度快'],
-          opportunities: ['創意內容、品牌與行銷', '個人 IP 或創業', '教育與培訓'],
-          risks: ['容易三分鐘熱度', '節奏過快導致消耗', '資源與人脈管理不足'],
-          actions: ['為自己設定階段性目標與截止日期', '找一位可靠夥伴互相督促', '保留固定時間做複盤與收束']
-        },
-        relationship_analysis: {
-          strengths: ['熱情主動', '擅長表達感受', '具個人魅力'],
-          opportunities: ['容易吸引他人關注', '適合在互動中建立感情', '社交圈活躍'],
-          risks: ['情緒化時容易口不擇言', '難以長期維持穩定節奏', '容易忽略對方的節奏與感受'],
-          actions: ['練習在激動前停頓三秒', '刻意安排「安靜相處」的時間', '學會多聽一點點、少說一點點']
-        },
-        health_analysis: {
-          strengths: ['活力充沛', '恢復力佳', '適合動態運動'],
-          opportunities: ['跑步、有氧、球類等活動', '用運動代替發火', '戶外陽光有利於調節情緒'],
-          risks: ['肝膽系統壓力', '情緒鬱結造成身體酸痛', '熬夜與飲食不規律'],
-          actions: ['減少熬夜與酒精', '用運動與伸展幫助排解情緒', '保持固定作息節奏']
+          strengths: ['活力充沛','恢复力佳','适合动态运动'],
+          opportunities: ['跑步、有氧、球类运动','用运动代替发火','户外阳光有利于调节情绪'],
+          risks: ['肝胆系统压力','情绪郁结造成肌肉紧绷','熬夜与饮食不规律'],
+          actions: ['减少熬夜与酒精','用拉伸和运动排解情绪','保持相对稳定的作息节奏']
         }
       },
       'en': {
-        personality: 'Active, expressive and creative, with strong pioneering energy.',
-        talents: ['Creative thinking', 'Taking initiative', 'Expressive communication', 'Fast learning'],
-        challenges: ['Impulsive and impatient at times', 'May start many things but not finish', 'Prone to conflict when emotional'],
-        career: 'Creative industries, sales, education, media, entrepreneurship',
+        personality: 'Active, expressive and creative, with strong pioneering energy and desire to move forward.',
+        talents: ['Creative thinking','Taking initiative','Expressive communication','Fast learning'],
+        challenges: ['Impulsive and impatient','May start many things but not finish','Prone to conflict when emotional'],
+        career: 'Creative industries, sales, education, media, entrepreneurship.',
         career_analysis: {
-          strengths: ['High creativity', 'Charisma and expressive power', 'Learns quickly'],
-          opportunities: ['Content creation & branding', 'Personal brand or business', 'Teaching and training'],
-          risks: ['Three-minute passion', 'Burnout from going too fast', 'Weakness in organisation and resource management'],
-          actions: ['Break big goals into clear milestones', 'Find an accountability partner', 'Schedule regular “review & tidy-up” time']
+          strengths: ['High creativity','Charisma and expressive power','Learns quickly'],
+          opportunities: ['Content creation & branding','Personal brand or business','Teaching & training'],
+          risks: ['“Three-minute passion”','Burnout from going too fast','Weak organisation & resource management'],
+          actions: ['Break big goals into small milestones','Find an accountability partner','Schedule weekly review / tidy-up time']
         },
         relationship_analysis: {
-          strengths: ['Passionate and proactive', 'Able to express feelings openly', 'Attractive and lively'],
-          opportunities: ['Easy to meet new people', 'Good at building chemistry through interaction', 'Active social life'],
-          risks: ['Sharp words when angry', 'Difficulty keeping stable rhythm', 'May overlook others’ pace and needs'],
-          actions: ['Pause a few seconds before reacting', 'Create quiet time with loved ones', 'Practice listening slightly more than speaking']
+          strengths: ['Passionate & proactive','Able to express feelings openly','Fun and lively presence'],
+          opportunities: ['Easily meets new people','Builds chemistry through interaction','Active social life'],
+          risks: ['Sharp words when angry','Hard to keep a stable rhythm','May overlook partner’s pace & needs'],
+          actions: ['Pause a few seconds before reacting','Create quiet, slow moments with loved ones','Practice listening slightly more than speaking']
         },
         health_analysis: {
-          strengths: ['High energy', 'Strong recovery ability', 'Suited to dynamic exercise'],
-          opportunities: ['Running, cardio, ball games', 'Use movement instead of anger', 'Sunlight and outdoor time stabilise mood'],
-          risks: ['Liver & gallbladder load', 'Muscle tension from repressed anger', 'Late nights and irregular meals'],
-          actions: ['Limit alcohol and late nights', 'Use stretching and sports to discharge stress', 'Keep a consistent daily rhythm']
+          strengths: ['High energy','Strong recovery','Suited to dynamic exercise'],
+          opportunities: ['Running, cardio, ball games','Use movement instead of anger','Sunlight & outdoor time stabilise mood'],
+          risks: ['Liver & gallbladder stress','Muscle tension from repressed anger','Late nights & irregular meals'],
+          actions: ['Limit alcohol & late nights','Use stretching & sports to discharge stress','Keep a reasonably consistent daily rhythm']
+        }
+      }
+    }
+  },
+  4: {
+    element: '木',
+    color: '绿',
+    elements: { 木: 3, 水: 2, 土: 2, 火: 1, 金: 1 },
+    directions: { favorable: ['东南','东'], avoid: ['西北'] },
+    text: {
+      'zh-CN': {
+        personality: '温和包容、善于倾听，适合在流动的人际网络中建立长期信任。',
+        talents: ['沟通协调','学习整合','旅行交流'],
+        challenges: ['优柔寡断','容易受环境影响','对评价敏感'],
+        career: '教育培训、顾问、翻译、旅游、协作型工作。',
+        career_analysis: {
+          strengths: ['善于建立关系','学习能力好','适合跨领域整合'],
+          opportunities: ['知识输出与教学','跨国 / 跨文化合作','顾问与中介角色'],
+          risks: ['决策拖延','目标不够聚焦','缺乏强势表达'],
+          actions: ['为自己设定清晰优先级','在擅长领域建立专业定位','练习提出明确结论']
+        },
+        relationship_analysis: {
+          strengths: ['体贴温柔','愿意倾听','相处舒适'],
+          opportunities: ['适合慢热型关系','容易成为朋友与恋人间的桥梁','善于处理家族关系'],
+          risks: ['容易为他人牺牲自己','不善拒绝','不满积压'],
+          actions: ['练习说“不”并保持笑容','清楚界定自己能给与不能给的范围','把真实感受写下来再沟通']
+        },
+        health_analysis: {
+          strengths: ['恢复力尚可','对环境敏感','适合温和运动'],
+          opportunities: ['瑜伽、普拉提、散步','亲近大自然','规律作息'],
+          risks: ['肝气郁结','肩颈与腰部酸痛','压力型失眠'],
+          actions: ['定期伸展与放松练习','减少长时间久坐','用写作或创作抒压']
         }
       },
-      'ja-JP': {
-        personality: '前向きで行動力があり、表現力と創造性に富んだタイプ。開拓者精神が強く、新しいことにチャレンジしやすい星です。',
-        talents: ['クリエイティブな発想', '行動力・開拓力', 'コミュニケーション・表現', '学習のスピード'],
-        challenges: ['衝動的になりやすい', '飽きやすく継続が課題', '感情的になると対立が起こりやすい'],
-        career: 'クリエイティブ業界、営業、教育、メディア、起業など',
+      'en': {
+        personality: 'Gentle, cooperative and flexible, with talent for connecting people and ideas over time.',
+        talents: ['Communication & coordination','Learning & synthesis','Bridge-building between groups'],
+        challenges: ['Indecisiveness','Easily influenced by others','Sensitive to criticism'],
+        career: 'Education, consulting, translation, tourism, team-based roles.',
         career_analysis: {
-          strengths: ['アイデアが豊富', '人を巻き込む力がある', '新しいことを吸収するのが速い'],
-          opportunities: ['コンテンツ発信・ブランドづくり', '個人ビジネスやフリーランス', '教育・セミナー・講師業'],
-          risks: ['やりかけで終わるテーマが増える', '走りすぎて燃え尽きる', '管理や仕組みづくりを後回しにしがち'],
-          actions: ['大きな目標を「小さな締切」に分ける', '信頼できるパートナーに進捗をシェアする', '週に一度は振り返り時間を取り、やることを整理する']
+          strengths: ['Good relationship-builder','Strong learner','Able to connect different fields'],
+          opportunities: ['Teaching / mentoring','Cross-border or cross-cultural work','Advisor / mediator roles'],
+          risks: ['Slow decision-making','Lack of focus','Not assertive enough'],
+          actions: ['Define clear priorities','Build authority in one niche','Practice giving clear conclusions']
         },
         relationship_analysis: {
-          strengths: ['情熱的で積極的', '感情を素直に表現できる', '一緒にいて楽しい雰囲気を作れる'],
-          opportunities: ['出会いのチャンスが多い', '会話ややり取りの中で恋愛が育ちやすい', '友人・仲間に恵まれやすい'],
-          risks: ['怒ったときに言葉が強くなりやすい', 'ペースが速すぎて相手が疲れることがある', '自分中心になりがち'],
-          actions: ['感情が高ぶったら一呼吸おく習慣をつける', '相手のペースや気持ちを言葉で確認する', '「聞く側」になる時間を増やす']
+          strengths: ['Caring and gentle','Good listener','Comfortable to be around'],
+          opportunities: ['Suited to slow-burn relationships','Good at harmonising family / friends','Easily gains trust'],
+          risks: ['Self-sacrifice','Hard to say no','Hidden resentment'],
+          actions: ['Practice saying “no” kindly','Clarify what you truly can / cannot give','Write feelings before speaking']
         },
         health_analysis: {
-          strengths: ['エネルギーが高い', '動けばすぐ温まるタイプ', '運動との相性が良い'],
-          opportunities: ['ランニングや有酸素運動、球技など', 'イライラしたら身体を動かして発散する', '太陽の光を浴びると気持ちの切り替えがしやすい'],
-          risks: ['肝胆系への負担', '怒りやフラストレーションが身体のコリとして出やすい', '夜更かし・食生活の乱れ'],
-          actions: ['深夜までのスマホや仕事を減らす', 'ストレッチや運動で感情を流す', '起床・就寝時間を大きくずらさないよう意識する']
+          strengths: ['Decent recovery','Sensitive to environment','Suited to gentle exercise'],
+          opportunities: ['Yoga, pilates, walking','Nature time','Regular sleep routine'],
+          risks: ['Liver-Qi stagnation','Neck / waist tension','Stress-related insomnia'],
+          actions: ['Stretch regularly','Avoid long sedentary periods','Use creative outlets to release stress']
+        }
+      }
+    }
+  },
+  5: {
+    element: '土',
+    color: '黄',
+    elements: { 土: 4, 火: 2, 金: 1, 木: 1, 水: 1 },
+    directions: { favorable: ['中宫','根据流年而定'], avoid: ['过度居中不动'] },
+    text: {
+      'zh-CN': {
+        personality: '居中定盘、气场强，容易成为团队或家庭的轴心人物。',
+        talents: ['统筹全局','危机管理','资源调度'],
+        challenges: ['压力集中','易自责','极端时会“全盘推倒”'],
+        career: '高压管理岗位、项目负责人、需要统筹多方资源的工作。',
+        career_analysis: {
+          strengths: ['掌控力强','适合做中枢','临危不乱'],
+          opportunities: ['危机转机项目','重组 / 重建型任务','带领团队翻盘'],
+          risks: ['把所有责任都扛在自己身上','难以求助','容易疲惫倦怠'],
+          actions: ['学会授权与分工','为自己设计“安全缓冲区”','定期做身体检查与能量排毒']
+        },
+        relationship_analysis: {
+          strengths: ['有担当','乐于照顾大家','愿意扛责任'],
+          opportunities: ['成为家庭核心','在关系中提供稳定感','适合长期承诺'],
+          risks: ['把控制当成关心','不自觉掌控他人节奏','难以承认自己脆弱'],
+          actions: ['多问对方感受而不是替对方决定','给自己留私人空间','承认“我也需要被照顾”']
+        },
+        health_analysis: {
+          strengths: ['恢复力强','抗压性高'],
+          opportunities: ['定期排毒与身心疗愈','适合静心冥想与深度放松','规律作息放大优势'],
+          risks: ['脾胃负担','中焦堵塞感','过劳综合症'],
+          actions: ['注意饮食清淡','避免长期过饱 / 过饿','安排真正“离线”的休息日']
         }
       },
-      'th-TH': {
-        personality: 'คุณเป็นคนไฟแรง ชอบลงมือทำ รักอิสระและมีไอเดียเยอะ พลังของคุณเหมาะกับการเริ่มต้นสิ่งใหม่ ๆ。',
-        talents: ['คิดสร้างสรรค์', 'กล้าลุย กล้าเริ่มก่อน', 'สื่อสารและนำเสนอ', 'เรียนรู้เร็ว'],
-        challenges: ['ใจร้อนง่าย', 'เริ่มหลายอย่างแต่จบไม่ครบ', 'เวลาอารมณ์ขึ้นอาจพูดแรงไป'],
-        career: 'งานสายครีเอทีฟ งานขาย การสอน สื่อออนไลน์ ธุรกิจส่วนตัว',
+      'en': {
+        personality: 'Central, powerful presence. You often become the axis others revolve around.',
+        talents: ['Seeing the whole picture','Crisis management','Resource coordination'],
+        challenges: ['Pressure concentrates on you','Self-blame','All-or-nothing tendencies'],
+        career: 'High-pressure management, project lead, roles that coordinate many parties.',
         career_analysis: {
-          strengths: ['มีไอเดียไม่ขาดมือ', 'ดึงดูดความสนใจคนอื่นได้ดี', 'เรียนรู้ของใหม่ได้ไว'],
-          opportunities: ['ทำคอนเทนต์ แบรนด์ หรือเพจของตัวเอง', 'เริ่มธุรกิจเล็ก ๆ ที่ใช้พลังส่วนตัว', 'สอน / จัดเวิร์กช็อป'],
-          risks: ['ทำไปสักพักแล้วเบื่อ เปลี่ยนทางบ่อย', 'ใช้พลังเกิน จนหมดไฟง่าย', 'ละเลยเรื่องวางแผนและระบบ'],
-          actions: ['แบ่งเป้าหมายใหญ่เป็นขั้นเล็ก ๆ ที่ชัดเจน', 'หาเพื่อนหรือพาร์ตเนอร์ที่ช่วยเตือนและจัดระเบียบ', 'กำหนดวันสำหรับ “ทบทวนและเก็บงานค้าง” เดือนละอย่างน้อย 1–2 ครั้ง']
+          strengths: ['Strong control & overview','Good central coordinator','Calm in crisis'],
+          opportunities: ['Turnaround projects','Restructuring / rebuilding missions','Leading teams through change'],
+          risks: ['Carrying all responsibility alone','Difficulty asking for help','Burnout risk'],
+          actions: ['Learn to delegate','Design “safety buffers” for yourself','Schedule regular health & energy check-ins']
         },
         relationship_analysis: {
-          strengths: ['แสดงออกเก่ง', 'กล้าบอกรัก กล้าจีบก่อน', 'สร้างบรรยากาศสนุก ๆ ได้'],
-          opportunities: ['มีคนเข้าหาบ่อย', 'มีโอกาสพัฒนาความสัมพันธ์จากการคุยเล่นเป็นจริงจัง', 'มีเพื่อนเยอะและเครือข่ายกว้าง'],
-          risks: ['พูดแรงเวลาหงุดหงิด', 'อาจเปลี่ยนใจหรือหมดความสนใจเร็ว', 'ลืมฟังอีกฝ่ายเพราะพูดเยอะกว่า'],
-          actions: ['ตั้งใจกดเบรคตัวเอง 3 วินาทีก่อนตอบโต้ตอนโมโห', 'สร้างช่วงเวลาเงียบ ๆ ไว้นั่งฟังอีกฝ่ายเล่า', 'ถามอีกคนบ่อยขึ้นว่าเขารู้สึกอย่างไรกับจังหวะของความสัมพันธ์ตอนนี้']
+          strengths: ['Responsible','Protective','Offers stability'],
+          opportunities: ['Acts as family anchor','Good for long-term commitments','Provides security'],
+          risks: ['Control disguised as care','Unconscious dominance over others’ pace','Hard to show vulnerability'],
+          actions: ['Ask others’ feelings before deciding','Keep your own private space','Allow yourself to need support']
         },
         health_analysis: {
-          strengths: ['พลังเยอะ เคลื่อนไหวคล่อง', 'ฟื้นตัวจากความเหนื่อยได้ไว', 'เหมาะกับการออกกำลังกายแบบใช้พลัง'],
-          opportunities: ['วิ่ง เล่นกีฬา เต้น หรือออกกำลังกายแบบคาร์ดิโอ', 'ใช้การออกกำลังแทนการระเบิดอารมณ์', 'แสงแดดและกิจกรรมกลางแจ้งช่วยรีเซ็ตอารมณ์ได้ดี'],
-          risks: ['ตับและถุงน้ำดีอาจรับภาระจากความเครียดหรืออาหาร', 'เกร็งกล้ามเนื้อจากความโกรธที่กดไว้', 'นอนดึกและกินไม่เป็นเวลาทำให้ร่างกายรวน'],
-          actions: ['พยายามลดการนอนดึกและดื่มเหล้า', 'ยืดเหยียดกล้ามเนื้อหลังใช้พลังทุกครั้ง', 'กำหนดเวลาเข้านอน-ตื่นนอนให้คงที่มากที่สุดเท่าที่ทำได้']
+          strengths: ['Strong recovery','High stress tolerance'],
+          opportunities: ['Detox & healing retreats','Meditation and deep relaxation','Regular routine amplifies health'],
+          risks: ['Digestive issues','Central body heaviness / bloating','Overwork'],
+          actions: ['Eat clean and moderately','Avoid long-term overeating / undereating','Have real offline rest days']
+        }
+      }
+    }
+  },
+  6: {
+    element: '金',
+    color: '白',
+    elements: { 金: 4, 土: 2, 水: 1, 火: 1, 木: 1 },
+    directions: { favorable: ['西北','西'], avoid: ['东南'] },
+    text: {
+      'zh-CN': {
+        personality: '自律果断、重视原则与规则，适合承担领导与决策角色。',
+        talents: ['规划能力','执行力','组织管理'],
+        challenges: ['容易严苛','不易妥协','情感表达偏理性'],
+        career: '管理层、政府机关、金融、军警系统、需要强规则的领域。',
+        career_analysis: {
+          strengths: ['决策干脆','执行标准高','公信力强'],
+          opportunities: ['制度建设','风险管控','带领团队提升标准'],
+          risks: ['过于刚硬','忽略人情温度','创新不足'],
+          actions: ['刻意练习换位思考','在制度中留出弹性空间','学习柔性沟通技巧']
+        },
+        relationship_analysis: {
+          strengths: ['可靠守信','讲原则','重承诺'],
+          opportunities: ['适合长期伴侣关系','能提供结构感','在关键时刻能撑住'],
+          risks: ['不善表达柔软一面','要求对方配合自己节奏','难以示弱'],
+          actions: ['用行动以外也给出言语肯定','与伴侣讨论“规则背后的关心”','允许偶尔“只是放松相处”']
+        },
+        health_analysis: {
+          strengths: ['骨骼与筋骨力量好','耐压能力强'],
+          opportunities: ['力量训练、爬山','规律作息','适度冷水 / 早起锻炼'],
+          risks: ['肺与呼吸系统压力','肩颈僵硬','过度紧绷'],
+          actions: ['练习深呼吸','定期按摩与拉伸','为自己设置“无要求时段”']
         }
       },
-      'ms': {
-        personality: 'Anda aktif, suka bergerak dan penuh idea. Anda membawa tenaga perintis yang kuat.',
-        talents: ['Pemikiran kreatif', 'Berani memulakan', 'Kemahiran komunikasi & ekspresi', 'Cepat belajar'],
-        challenges: ['Mudah gopoh dan tidak sabar', 'Banyak projek separuh jalan', 'Senang bergaduh bila emosi tinggi'],
-        career: 'Industri kreatif, jualan, pendidikan, media, keusahawanan',
+      'en': {
+        personality: 'Disciplined, decisive and principled, with natural leadership tendencies.',
+        talents: ['Planning','Execution','Organisation & management'],
+        challenges: ['Can be strict','Hard to compromise','Emotionally reserved'],
+        career: 'Management, government, finance, military / police, rule-heavy fields.',
         career_analysis: {
-          strengths: ['Kreativiti tinggi', 'Karismatik dan meyakinkan', 'Cepat menguasai perkara baru'],
-          opportunities: ['Penciptaan kandungan & penjenamaan', 'Membina jenama peribadi atau bisnes sendiri', 'Mengajar, mengurus kelas atau latihan'],
-          risks: ['Cepat bosan dan tukar arah', 'Berisiko letih atau burn-out', 'Kurang sistem dan pengurusan sumber'],
-          actions: ['Pecahkan matlamat besar kepada langkah kecil dengan tarikh akhir', 'Cari rakan / rakan kongsi untuk saling pantau', 'Jadikan rutin “review mingguan” untuk kemas semula fokus']
+          strengths: ['Clear decisions','High standards','Strong authority'],
+          opportunities: ['System building','Risk control','Raising team standards'],
+          risks: ['Overly rigid','Lack emotional warmth','Low innovation'],
+          actions: ['Practice perspective-taking','Build flexibility into systems','Learn softer communication']
         },
         relationship_analysis: {
-          strengths: ['Berjiwa panas dan spontan', 'Mudah meluahkan perasaan', 'Menceriakan suasana'],
-          opportunities: ['Mudah berkenalan dengan ramai orang', 'Hubungan boleh berkembang melalui perbualan & aktiviti', 'Rangkaian sosial luas'],
-          risks: ['Kata-kata boleh jadi tajam bila marah', 'Sukar mengekalkan kestabilan rentak dalam jangka panjang', 'Cenderung melihat dari sudut pandang sendiri'],
-          actions: ['Latih diri berhenti sekejap sebelum membalas bila marah', 'Sediakan masa khas untuk mendengar pasangan / rakan', 'Lakukan lebih banyak soalan terbuka dan kurangkan meneka sendiri']
+          strengths: ['Reliable & loyal','Principled','Values commitment'],
+          opportunities: ['Good for long-term partnership','Provides structure & safety','Solid in crisis'],
+          risks: ['Hard to show softness','Expect others to match your pace','Reluctant to show weakness'],
+          actions: ['Offer verbal appreciation, not just actions','Explain the care behind your “rules”','Allow time just to relax together']
         },
         health_analysis: {
-          strengths: ['Tenaga fizikal tinggi', 'Pulih dengan cepat selepas letih', 'Sesuai dengan aktiviti yang dinamik'],
-          opportunities: ['Larian, kardio, sukan bola dan seumpamanya', 'Guna pergerakan badan untuk lepaskan tekanan', 'Luangkan masa di luar rumah dan bawah cahaya matahari'],
-          risks: ['Beban pada hati dan pundi hempedu', 'Otot tegang akibat marah yang dipendam', 'Tidur lewat & makan tidak teratur'],
-          actions: ['Kurangkan tidur lewat dan pengambilan alkohol', 'Biasakan regangan selepas aktiviti berat', 'Tetapkan masa tidur dan bangun yang lebih konsisten']
+          strengths: ['Strong bones & structure','Good endurance'],
+          opportunities: ['Strength training, hiking','Stable routine','Cool-air / morning workouts'],
+          risks: ['Lung / respiratory stress','Neck & shoulder stiffness','Constant body tension'],
+          actions: ['Practice deep breathing','Get massage & stretching','Schedule “no-demand” windows for yourself']
+        }
+      }
+    }
+  },
+  7: {
+    element: '金',
+    color: '赤',
+    elements: { 金: 3, 土: 2, 火: 2, 水: 1, 木: 1 },
+    directions: { favorable: ['西','西南'], avoid: ['东'] },
+    text: {
+      'zh-CN': {
+        personality: '社交力强、口才好、享受美与愉悦，适合在舞台与人群中发光。',
+        talents: ['表达说服','审美品味','人脉经营'],
+        challenges: ['容易分心','享乐过度','情绪起伏'],
+        career: '销售、娱乐产业、美容美业、品牌、公关、直播与内容创作。',
+        career_analysis: {
+          strengths: ['人缘佳','吸引力强','善于推介与分享'],
+          opportunities: ['个人IP与品牌打造','社交媒体运营','商务拓展'],
+          risks: ['过度依赖人气','情绪影响表现','财务规划不足'],
+          actions: ['做好收支规划','将个人魅力转化为长期资产','坚持学习专业技能']
+        },
+        relationship_analysis: {
+          strengths: ['幽默有趣','会营造气氛','懂得取悦对方'],
+          opportunities: ['桃花机会多','适合在社交场合遇见伴侣','婚后仍能保持生活情趣'],
+          risks: ['感情节奏快','害怕无聊','容易被外界诱惑扰动'],
+          actions: ['厘清自己真正需要的关系','避免“无意识撩人”','与伴侣订立共同价值观']
+        },
+        health_analysis: {
+          strengths: ['恢复力不错','心理弹性好'],
+          opportunities: ['舞蹈、团体运动','音乐疗愈','用艺术抒压'],
+          risks: ['口腔与呼吸系统','熬夜过度','饮食不节制'],
+          actions: ['减少深夜零食与酒精','定期体检','用有意识的休息替代“继续玩”']
+        }
+      },
+      'en': {
+        personality: 'Charming, talkative and pleasure-oriented, with strong social presence and taste.',
+        talents: ['Persuasion & expression','Aesthetic sense','Network building'],
+        challenges: ['Easily distracted','Over-indulgence','Emotional swings'],
+        career: 'Sales, entertainment, beauty, branding, PR, live streaming, content creation.',
+        career_analysis: {
+          strengths: ['Good popularity','Strong attraction','Skilled at recommending & sharing'],
+          opportunities: ['Personal brand & IP','Social media','Business development'],
+          risks: ['Dependence on popularity','Mood-dependent performance','Weak financial planning'],
+          actions: ['Create a clear budget plan','Turn charisma into long-term assets','Keep learning real skills']
+        },
+        relationship_analysis: {
+          strengths: ['Fun & humorous','Creates atmosphere','Knows how to please others'],
+          opportunities: ['Many romantic chances','Likely to meet partners socially','Can keep marriage lively'],
+          risks: ['Fast relationship pace','Fear of boredom','Tempted by outside attention'],
+          actions: ['Clarify what kind of relationship you truly want','Avoid unconscious flirting','Build shared values with partner']
+        },
+        health_analysis: {
+          strengths: ['Good resilience','Psychological flexibility'],
+          opportunities: ['Dance, group workouts','Music & art therapy','Expressive activities'],
+          risks: ['Mouth / respiratory issues','Late-night lifestyle','Overeating / drinking'],
+          actions: ['Cut down midnight snacks & alcohol','Regular check-ups','Choose conscious rest over “one more round”']
+        }
+      }
+    }
+  },
+  8: {
+    element: '土',
+    color: '白',
+    elements: { 土: 3, 金: 2, 火: 2, 木: 1, 水: 1 },
+    directions: { favorable: ['东北','西南'], avoid: ['南'] },
+    text: {
+      'zh-CN': {
+        personality: '厚积薄发、内里韧性强，生命多在关键节点出现“转折山口”。',
+        talents: ['长期累积','资产管理','稳中求变'],
+        challenges: ['起步慢','不爱表达','转换期压力大'],
+        career: '不动产、金融、工程、与土地 / 建设相关的事业。',
+        career_analysis: {
+          strengths: ['稳中有进','抗压强','重视安全边界'],
+          opportunities: ['长期资产累积','房产相关事业','在稳定平台上缓慢上升'],
+          risks: ['保守','害怕失去已有安全','犹豫耽误机缘'],
+          actions: ['设定分阶段转型计划','用“小步快试”降低风险感','在稳定基础上加一点冒险']
+        },
+        relationship_analysis: {
+          strengths: ['忠诚可靠','重视家庭','一旦决定就不轻易放弃'],
+          opportunities: ['适合晚一点成家','能在压力期撑住家庭','对伴侣有实际支持力'],
+          risks: ['不善表达浪漫','情绪闷在心里','转折期易想太多'],
+          actions: ['用实际行动+简短语言表达爱','在压力大时主动沟通','允许自己慢慢讲清楚感受']
+        },
+        health_analysis: {
+          strengths: ['恢复力强','适合山地 / 徒步','骨骼扎实'],
+          opportunities: ['爬山、健走','与大地接触接地气','规律作息'],
+          risks: ['关节压力','腰膝问题','情绪积累为身体沉重感'],
+          actions: ['保持适度运动','避免久坐','练习拉伸与核心训练']
+        }
+      },
+      'en': {
+        personality: 'Slow-starting but strong, with life shaped by key turning points and accumulated effort.',
+        talents: ['Long-term accumulation','Asset building','Stable transformation'],
+        challenges: ['Slow to start','Not expressive','Feels heavy during transitions'],
+        career: 'Real estate, finance, engineering, land / construction-related work.',
+        career_analysis: {
+          strengths: ['Steady progress','High toughness','Values security'],
+          opportunities: ['Long-term asset growth','Property-related work','Rising slowly within stable platforms'],
+          risks: ['Conservative mindset','Fear of losing what you have','Missing chances through hesitation'],
+          actions: ['Plan staged transitions','Use small, low-risk experiments','Add a bit of adventure on a safe base']
+        },
+        relationship_analysis: {
+          strengths: ['Loyal & reliable','Family-oriented','Doesn’t give up easily'],
+          opportunities: ['Often better with slightly later marriage','Strong in difficult times','Practical support for partner'],
+          risks: ['Not very romantic','Bottles up emotions','Overthinks during turning points'],
+          actions: ['Pair actions with a few simple loving words','Talk proactively when stressed','Give yourself time to speak your feelings slowly']
+        },
+        health_analysis: {
+          strengths: ['Strong recovery','Suited to hiking / walking','Solid bones'],
+          opportunities: ['Mountain hiking, brisk walking','Grounding with nature','Regular sleep'],
+          risks: ['Joint strain','Back / knee issues','Heavy body feeling from stress'],
+          actions: ['Keep moderate exercise','Avoid long sitting','Do stretching & core work']
+        }
+      }
+    }
+  },
+  9: {
+    element: '火',
+    color: '紫',
+    elements: { 火: 4, 木: 2, 土: 2, 金: 1, 水: 1 },
+    directions: { favorable: ['南','东南'], avoid: ['北'] },
+    text: {
+      'zh-CN': {
+        personality: '热情外放、灵感丰富、表现欲强，适合在灯光与舞台中发光。',
+        talents: ['表达呈现','灵感创作','传播影响'],
+        challenges: ['情绪起伏明显','易过度投入','怕被忽略'],
+        career: '表演、艺术、媒体、自媒体、品牌、策展、培训等需要曝光与灵感的领域。',
+        career_analysis: {
+          strengths: ['创意十足','表现力强','善于抓热点'],
+          opportunities: ['个人IP','线上课程与分享','创意品牌'],
+          risks: ['热情来得快去得也快','过度在意反馈','情绪影响决策'],
+          actions: ['建立幕后稳定团队','给自己设定“离线时段”','用系统化方法管理创意']
+        },
+        relationship_analysis: {
+          strengths: ['浪漫热情','善于制造惊喜','气氛担当'],
+          opportunities: ['易在活动、社群中遇见对象','感情表达丰富','能激活关系热度'],
+          risks: ['怕冷场','害怕被忽视','容易疑心对方不够在意'],
+          actions: ['区分“被看见”和“被爱”的差异','与你在乎的人确认真实需求','在关系中留点安静空间']
+        },
+        health_analysis: {
+          strengths: ['新陈代谢快','适合有氧运动'],
+          opportunities: ['舞蹈、有氧课','晒太阳','心肺训练'],
+          risks: ['心火过旺','睡眠质量易受情绪影响','上火症状'],
+          actions: ['减少熬夜与重口味','适度心肺运动后做拉伸放松','睡前降低光线与刺激']
+        }
+      },
+      'en': {
+        personality: 'Passionate, expressive and full of inspiration, suited to visibility, performance and stage.',
+        talents: ['Performance & expression','Creative inspiration','Communication & influence'],
+        challenges: ['Emotional highs & lows','Over-investment of energy','Fear of being ignored'],
+        career: 'Performance, arts, media, content, branding, events, training.',
+        career_analysis: {
+          strengths: ['Highly creative','Strong presence','Good at catching trends'],
+          opportunities: ['Personal brand / IP','Online courses / sharing','Creative brands'],
+          risks: ['Passion fades quickly','Over-attached to feedback','Emotion-driven decisions'],
+          actions: ['Build a stable support team','Design offline / quiet windows','Use systems to manage ideas & output']
+        },
+        relationship_analysis: {
+          strengths: ['Romantic & passionate','Creates surprise','Keeps energy high'],
+          opportunities: ['Meets partners in events / communities','Rich emotional expression','Can re-ignite relationships'],
+          risks: ['Fear of boredom','Fear of being unseen','Suspicion when not getting enough attention'],
+          actions: ['Differentiate “being seen” vs “being loved”','Clarify needs with partner','Leave room for calm & silence in love']
+        },
+        health_analysis: {
+          strengths: ['Fast metabolism','Suited to cardio'],
+          opportunities: ['Dance, cardio classes','Sunlight','Heart-lung fitness'],
+          risks: ['Excess “heart-fire”','Sleep affected by emotions','Inflammatory / “heat” symptoms'],
+          actions: ['Cut down late nights & heavy food','Stretch and cool-down after intense exercise','Reduce screens / stimulation before bed']
         }
       }
     }
   }
 };
 
-// 专项分析说明
-function getSpecializedFocus(analysisType) {
-  const focusMap = {
-    career: '职业发展与财富积累',
-    relationship: '感情婚姻与人际关系',
-    health: '身心健康与生活品质',
-    comprehensive: '整体人生规划与发展'
-  };
-  return focusMap[analysisType] || '整体人生发展';
-}
+/* ===== 渲染辅助 ===== */
+function buildElementChart(deep){
+  const box = $('elementChart');
+  if (!box) return;
+  box.innerHTML = '';
+  if (!deep || !deep.elements) return;
 
-// 用在「调整建议」那一段：根据本命五行，给一个“借力谁”的提示
-function getElementSupport(element) {
-  const supports = {
-    '水': '木、火',
-    '木': '火、土',
-    '火': '土、金',
-    '土': '金、水',
-    '金': '水、木'
-  };
-  return supports[element] || '综合平衡';
-}
-
-// 用在发展建议：提示可以借哪两个五行来平衡
-function getSupportingElements(element) {
-  const supports = {
-    '水': '木元素和火元素',
-    '木': '火元素和土元素',
-    '火': '土元素和金元素',
-    '土': '金元素和水元素',
-    '金': '水元素和木元素'
-  };
-  return supports[element] || '相生元素';
-}
-
-// 用在 elements 段落：根据主五行给一句建议
-function getElementBalanceAdvice(element) {
-  const advice = {
-    '水': '增加木火元素的活动，如学习成长和社交互动。',
-    '木': '加强火土元素的实践，如创作表达和务实经营。',
-    '火': '注重土金元素的稳定，如资产管理和规则建立。',
-    '土': '引入金水元素的流动，如技能提升和人脉拓展。',
-    '金': '运用水木元素的生机，如知识更新和创新思维。'
-  };
-  return advice[element] || '五行平衡的方法。';
-}  
-
-/* ===== 深度分析生成（使用多语言 STARS_DEEP） ===== */
-function generateDeepAnalysis(starNum, gender, analysisType) {
-  const lang = getLang();
-  const star = STARS_DEEP[starNum];
-  if (!star) return null;
-
-  const isMale = (gender === 'male');
-  const pack =
-    (star.text && (star.text[lang] || star.text['zh-CN'])) ||
-    star.text?.['zh-CN'];
-
-  if (!pack) return null;
-
-  const config = ANALYSIS_TYPE_MAP[analysisType] || ANALYSIS_TYPE_MAP.comprehensive;
-
-  // 默认如果某个分析类型缺失，就 fallback 到 career_analysis
-  const specData =
-    pack[`${analysisType}_analysis`] ||
-    pack.career_analysis ||
-    {
-      strengths: [],
-      opportunities: [],
-      risks: [],
-      actions: []
-    };
-
-  // 性别一句小尾巴（只在 zh 系使用，其他语言就不额外加）
-  let genderTail = '';
-  if (lang === 'zh-CN' || lang === 'zh-TW') {
-    genderTail = isMale
-      ? (lang === 'zh-TW'
-        ? ' 男性特質讓你在決策與執行面更果斷。'
-        : ' 男性特质使得你在决策与执行方面更具果断性。')
-      : (lang === 'zh-TW'
-        ? ' 女性特質讓你在感知與協調面更細膩。'
-        : ' 女性特质使得你在感知与协调方面更具细腻度。');
-  }
-
-  const personalityHtml = `
-    <p>${pack.personality || ''}${genderTail}</p>
-    ${pack.talents && pack.talents.length
-      ? `<p><strong>${(lang === 'en' ? 'Core strengths: ' :
-                      lang === 'ja-JP' ? 'コアな強み：' :
-                      lang === 'th-TH' ? 'จุดเด่นหลัก: ' :
-                      lang === 'ms' ? 'Kekuatan teras: ' :
-                      '核心特质：')}</strong>${pack.talents.join('、')}</p>`
-      : ''
-    }
-    ${analysisType !== 'comprehensive'
-      ? `<p><strong>${(lang === 'en' ? 'Focus of this reading: ' :
-                      lang === 'ja-JP' ? '今回のフォーカス：' :
-                      lang === 'th-TH' ? 'จุดเน้นของการวิเคราะห์ครั้งนี้: ' :
-                      lang === 'ms' ? 'Fokus analisis kali ini: ' :
-                      '本次分析重点：')}</strong>${getSpecializedFocus(analysisType)}</p>`
-      : ''}`;
-
-  const talentsHtml = `
-    <p>${lang === 'en'
-        ? 'Your natural talents are mainly expressed in these areas:'
-        : lang === 'ja-JP'
-        ? 'あなたの才能は主に次の領域に表れています：'
-        : lang === 'th-TH'
-        ? 'ศักยภาพตามดวงของคุณเด่นชัดเป็นพิเศษในด้าน:'
-        : lang === 'ms'
-        ? 'Bakat semula jadi anda paling menonjol dalam bidang:'
-        : '你的天赋潜能主要集中在以下几个方向：'
-      }</p>
-    ${pack.talents && pack.talents.length
-      ? `<ul>${pack.talents.map(x => `<li>${x}</li>`).join('')}</ul>`
-      : ''
-    }
-    <p>${lang === 'en'
-        ? `Suggested career directions: ${pack.career || ''}`
-        : lang === 'ja-JP'
-        ? `おすすめのキャリア方向：${pack.career || ''}`
-        : lang === 'th-TH'
-        ? `แนวทางอาชีพที่เหมาะสม: ${pack.career || ''}`
-        : lang === 'ms'
-        ? `Arah kerjaya yang sesuai: ${pack.career || ''}`
-        : `建议发展方向：${pack.career || ''}`
-      }</p>`;
-
-  const challengesHtml = `
-    ${pack.challenges && pack.challenges.length
-      ? `<p><strong>${
-          lang === 'en'   ? 'Key life lessons: ' :
-          lang === 'ja-JP'? '人生のテーマ：' :
-          lang === 'th-TH'? 'บทเรียนสำคัญในชีวิต: ' :
-          lang === 'ms'   ? 'Pelajaran utama hidup: ' :
-                            '需要留意的人生课题：'
-        }</strong>${pack.challenges.join('、')}</strong></p>`
-      : ''
-    }
-    <p>${lang === 'en'
-        ? `Balancing suggestion: consider bringing in more of the supportive elements of ${getElementSupport(star.element)} to soften the extremes of your ${star.element} energy.`
-        : lang === 'ja-JP'
-        ? `バランスの取り方：${star.element}のエネルギーが強く出すぎるときは、${getElementSupport(star.element)}の要素を取り入れると和らぎます。`
-        : lang === 'th-TH'
-        ? `คำแนะนำด้านสมดุล: ใช้พลังของธาตุ ${getElementSupport(star.element)} มาช่วยปรับพลังของธาตุ ${star.element} ให้ไม่ตึงหรือหนักเกินไป。`
-        : lang === 'ms'
-        ? `Cadangan keseimbangan: gunakan lebih banyak elemen ${getElementSupport(star.element)} untuk melembutkan kesan elemen ${star.element} yang terlalu kuat.`
-        : `调整建议：可借助${getElementSupport(star.element)}元素特性，缓和「${star.element}」能量过强或过弱带来的波动。`
-      }</p>`;
-
-  const developmentHtml = `
-    <p>${lang === 'en'
-        ? 'Based on your Kyuusei profile, you can focus on the following development directions:'
-        : lang === 'ja-JP'
-        ? 'あなたの九星の特徴から見て、次のような成長方向が適しています：'
-        : lang === 'th-TH'
-        ? 'จากพลังดวงดาวของคุณ แนวทางการเติบโตที่เหมาะสม ได้แก่:'
-        : lang === 'ms'
-        ? 'Berdasarkan profil Kyuusei anda, anda boleh memberi tumpuan kepada hala tuju berikut:'
-        : '基于你的九星特质，可尝试以下发展方向：'
-      }</p>
-    <ul>
-      <li>${
-        lang === 'en'
-          ? `Treat “${pack.talents && pack.talents[0] ? pack.talents[0] : ''}” as a long-term axis and keep deepening it.`
-          : lang === 'ja-JP'
-          ? `「${pack.talents && pack.talents[0] ? pack.talents[0] : ''}」を長期的な軸として深めていく。`
-          : lang === 'th-TH'
-          ? `ให้ "${pack.talents && pack.talents[0] ? pack.talents[0] : ''}" เป็นแกนหลักระยะยาวของเส้นทางชีวิต/การงาน。`
-          : lang === 'ms'
-          ? `Jadikan “${pack.talents && pack.talents[0] ? pack.talents[0] : ''}” sebagai paksi jangka panjang untuk kerjaya anda.`
-          : `把「${pack.talents && pack.talents[0] ? pack.talents[0] : ''}」视为长期主轴来深耕。`
-      }</li>
-      <li>${lang === 'en'
-        ? getElementBalanceAdvice(star.element)
-        : lang === 'ja-JP'
-        ? getElementBalanceAdvice(star.element)  // 中文语感也能看懂，你之后可改日文
-        : lang === 'th-TH'
-        ? getElementBalanceAdvice(star.element)
-        : lang === 'ms'
-        ? getElementBalanceAdvice(star.element)
-        : getElementBalanceAdvice(star.element)
-      }</li>
-      <li>${
-        lang === 'en'
-          ? `Whenever possible, place important work / rest areas towards your favourable directions (${star.directions.favorable.join(', ')}).`
-          : lang === 'ja-JP'
-          ? `可能であれば、仕事や休息の重要なスペースを吉方位（${star.directions.favorable.join('、')}）側に配置すると良いでしょう。`
-          : lang === 'th-TH'
-          ? `ถ้าเป็นไปได้ ให้จัดโต๊ะทำงานหรือจุดพักผ่อนสำคัญไปในทิศที่เกื้อหนุน (${star.directions.favorable.join('、')}) จะช่วยเสริมพลังดวงเดิม。`
-          : lang === 'ms'
-          ? `Jika boleh, susun meja kerja atau ruang rehat utama ke arah yang baik (${star.directions.favorable.join(', ')}) untuk menyokong tenaga sedia ada anda.`
-          : `在${star.directions.favorable.join('、')}等方位布局工作与生活重心。`
-      }</li>
-    </ul>`;
-
-  const elementsHtml = `
-    <p>${lang === 'en'
-        ? `Your Five Elements chart shows a relatively strong <strong>${star.element}</strong> element.`
-        : lang === 'ja-JP'
-        ? `五行バランスでは、<strong>${star.element}</strong>の要素が比較的強く表れています。`
-        : lang === 'th-TH'
-        ? `จากผังธาตุทั้งห้า ธาตุ<strong>${star.element}</strong> ของคุณค่อนข้างโดดเด่น。`
-        : lang === 'ms'
-        ? `Carta Lima Unsur anda menunjukkan elemen <strong>${star.element}</strong> agak dominan.`
-        : `五行能量显示你的<strong>${star.element}</strong>元素相对突出。`
-      }</p>
-    <p>${getElementBalanceAdvice(star.element)}</p>`;
-
-  return {
-    personality: personalityHtml,
-    talents: talentsHtml,
-    challenges: challengesHtml,
-    development: developmentHtml,
-    elements: elementsHtml,
-    specialized: {
-      title: config.name,
-      subtitles: config.titles,
-      contents: [
-        `<p><strong>${lang === 'en' ? 'Strengths: ' : '优势特点：'}</strong>${(specData.strengths || []).join('、')}。</p>`,
-        `<p><strong>${lang === 'en' ? 'Opportunities: ' : '发展机遇：'}</strong>${(specData.opportunities || []).join('、')}。</p>`,
-        `<p><strong>${lang === 'en' ? 'Risks: ' : '需要注意：'}</strong>${(specData.risks || []).join('、')}。</p>`,
-        `<p><strong>${lang === 'en' ? 'Actions: ' : '行动建议：'}</strong>${(specData.actions || []).join('、')}。</p>`
-      ]
-    }
-  };
-}
-
-/* 专项分析区更新：只更新内容，不覆盖标题（标题走 i18n） */
-function updateSpecializedAnalysis(spec) {
-  if (!spec) return;
-  $('specializedCard').style.display = 'block';
-  for (let i=0;i<4;i++){
-    $(`specializedContent${i+1}`).innerHTML = spec.contents[i]  || '';
-  }
-}
-
-/* 运势时间线（年份后面“年”是中文，这里保持） */
-function generateFortuneTimeline(starNum, analysisType) {
-  const currentYear = new Date().getFullYear();
-  const arr = [];
-  for (let i=0;i<3;i++){
-    const y = currentYear + i;
-    arr.push({
-      year: `${y}年`,
-      advice: getYearlyAdvice(starNum, y, analysisType)
-    });
-  }
-  return arr;
-}
-
-// 九星深度分析类型映射（多语言可之后再细调）
-const ANALYSIS_TYPE_MAP = {
-  // 综合解读：默认用这个
-  comprehensive: {
-    name: '综合解读',
-    titles: [
-      '整体性格与底层驱动力',
-      '天赋优势与可用资源',
-      '人生课题与平衡点',
-      '长期发展与五行布局'
-    ]
-  },
-
-  // 事业 / 工作方向
-  career: {
-    name: '事业发展',
-    titles: [
-      '适合的行业与角色',
-      '职场优势与发光点',
-      '可能遇到的瓶颈',
-      '下一步可以尝试的调整'
-    ]
-  },
-
-  // 感情 / 人际关系
-  relationship: {
-    name: '感情与人际',
-    titles: [
-      '对待关系的方式',
-      '在关系中的优势',
-      '容易卡住的盲点',
-      '如何建立更稳定的连结'
-    ]
-  },
-
-  // 健康 / 生活节奏
-  health: {
-    name: '健康与生活节奏',
-    titles: [
-      '身体能量与敏感部位',
-      '日常容易忽略的信号',
-      '压力累积的模式',
-      '可执行的修复与养生建议'
-    ]
-  },
-
-  // 财富 / 资源流动（如果有用到）
-  wealth: {
-    name: '财富与资源',
-    titles: [
-      '金钱与资源的流动方式',
-      '创造收入的天赋',
-      '风险与耗损点',
-      '适合你的财富节奏与策略'
-    ]
-  }
-};
-  
-/* Butler AI 请求 */
-async function askAI(prompt){
-  const resp = await fetch(`${API_BASE}/api/chat`,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({
-      messages:[
-        {role:'system',content:'你是 5XLiving「心怜管家」与资深九星气学顾问，语气温暖、专业、落地，输出简明结构化建议。'},
-        {role:'user',content:prompt}
-      ]
-    })
+  const order = ['木','火','土','金','水'];
+  order.forEach(name=>{
+    const val = deep.elements[name] ?? 0;
+    const div = document.createElement('div');
+    div.className = 'element-item' + (val >= 3 ? ' strong' : '');
+    div.innerHTML = `
+      <div class="element-name">${name}</div>
+      <div class="element-value">${val}</div>
+    `;
+    box.appendChild(div);
   });
-  let data={}; try{data=await resp.json()}catch{}
-  return data.reply ?? data.text ?? data?.choices?.[0]?.message?.content ?? '';
 }
 
-/* 构造给 GPT 的 Prompt：用九星 + 分析类型 + 当前时间 */
-function buildPromptForAI({langCode, starNum, gender, analysisType, birthdate, nowStr}) {
-  const starDeep = STARS_DEEP[starNum];
-  const starBase = STARS[starNum];
-  const config   = ANALYSIS_TYPE_MAP[analysisType] || ANALYSIS_TYPE_MAP.comprehensive;
-  if (!starDeep || !starBase) return '';
-
-  const genderLabel = gender === 'male' ? '男性' : '女性';
-  const topicLabel = config.name;
-  const starText =
-    `主星：${starDeep.zh}（${starDeep.jp}）；五行：${starDeep.element}；` +
-    `关键词：${starBase.key.zh.join('、')}；性格简述：${starDeep.personality}`;
-
-  return `你是 5XLiving「心怜管家」与资深九星气学顾问。
-请使用【简体中文】输出，语气温暖、专业、直接给可执行建议。
-
-【系统时间】${nowStr}（GMT+8）
-【用户出生日期】${birthdate}
-【用户性别】${genderLabel}
-【分析类型】${topicLabel}
-【九星命盘摘要】
-${starText}
-
-请按以下结构输出（用 Markdown 一级/二级标题即可，不要额外前后缀）：
-
-# 核心判断（2–4 句）
-结合九星本命与当前运势，给出整体局势与重心提示。
-
-# 现在要做的事（3 条）
-用列表，每条以动词开头，例如「整理」「沟通」「调整」。
-
-# 避坑提醒（2–3 条）
-点出在本类型中最容易踩的坑，比如情绪、用钱、选择、人际模式。
-
-# 可尝试的灵性练习（2–3 条）
-可从冥想、manifestation、书写愿望、小仪式中选，写出具体做法与频率。
-
-# AI 推举内容（3–5 条）
-结合本网站的可能服务，例如：
-- 预约一对一命理 / 九星加深解读
-- 升级 VIP（命理空间 + 心怜空间）
-- 许愿包 / 御守订制
-- 把计划写入「心怜笔记」或家族纪念系统
-要求：每条简短清晰，用「建议你…」「可以考虑…」的语气。`;
-}
-
-/* 渲染主星卡（基础） */
-function renderStarBasic(num){
+function getDeepLang(starNum){
+  const deep = STARS_DEEP[starNum];
+  if (!deep) return null;
   const lang = getLang();
-  const L = i18n[lang] || i18n["zh-CN"];
+  return deep.text[lang] || deep.text['zh-CN'] || deep.text['en'];
+}
 
-  // 如果 STARS_DEEP 已经改成多语言结构，就从里面拿
-  const star = STARS_DEEP[num];
+function joinList(arr){
+  if (!arr || !arr.length) return '';
+  return '• ' + arr.join('\n• ');
+}
+
+/* 运势时间线（简版：过去3年 / 现在12个月 / 未来2–3年） */
+function buildFortuneTimeline(ctx){
+  const box = $('fortuneTimeline');
+  if (!box) return;
+  box.innerHTML = '';
+  const now = new Date();
+  const y = now.getFullYear();
+
+  function mkItem(period, text){
+    const item = document.createElement('div');
+    item.className = 'timeline-item';
+    item.innerHTML = `
+      <div class="timeline-period">${period}</div>
+      <div>${text}</div>
+    `;
+    box.appendChild(item);
+  }
+
+  const elem = ctx.mainElement || '';
+  const lang = getLang();
+
+  function p(past, nowT, future){
+    if (lang.startsWith('zh')) return [past, nowT, future];
+    if (lang === 'ja-JP') return [
+      '過去3年：' + past,
+      '現在〜1年：' + nowT,
+      '今後2〜3年：' + future
+    ];
+    if (lang === 'th-TH') return [
+      '3 ปีที่ผ่านมา: ' + past,
+      '12 เดือนจากนี้: ' + nowT,
+      '2–3 ปีข้างหน้า: ' + future
+    ];
+    if (lang === 'ms') return [
+      '3 tahun lalu: ' + past,
+      '12 bulan kini: ' + nowT,
+      '2–3 tahun akan datang: ' + future
+    ];
+    return [
+      'Past 3 years: ' + past,
+      'Now – next 12 months: ' + nowT,
+      'Next 2–3 years: ' + future
+    ];
+  }
+
+  let msgs;
+  if (elem === '水'){
+    msgs = p(
+      '你经历了多次环境与人际结构的调整，学习在变化中保持弹性。',
+      '适合重新整理人脉与合作方式，把分散的注意力收回到少数重要关系上。',
+      '情感与合作将更稳定，若善用直觉，有机会切入更适合你的领域。'
+    );
+  }else if (elem === '土'){
+    msgs = p(
+      '过去几年你主要在“打地基”，很多成果尚在暗处酝酿。',
+      '适合检视资产、习惯与人际结构，删减无用负担，为下一轮累积腾出空间。',
+      '稳健向上，若愿意在稳定中做出有限度的改变，将迎来质变级别的成长。'
+    );
+  }else if (elem === '木'){
+    msgs = p(
+      '你已经尝试了不少新方向，有成功也有踩雷，经验开始成形。',
+      '适合收敛战线，挑出最想深耕的两三件事，集中资源突破。',
+      '若能坚持一条主线，未来几年有机会在专业或事业上“长成一棵树”。'
+    );
+  }else if (elem === '金'){
+    msgs = p(
+      '你被迫面对规则、责任与框架，有些地方需要你站出来表态。',
+      '适合重新定义自己的边界与原则，练习既不委屈自己，也不过度要求他人。',
+      '若能建立一套兼顾效率与人情的做事方式，你会被看见为“值得托付的人”。'
+    );
+  }else if (elem === '火'){
+    msgs = p(
+      '你的曝光与关注度有起有落，也在反复确认“我想被看见什么”。',
+      '适合整理个人品牌与表达方式，把真正想传递的核心信息说清楚。',
+      '未来几年只要方向对、节奏稳，你的光会照到更远的地方。'
+    );
+  }else{
+    msgs = p(
+      '你在尝试与调整中前进。',
+      '适合重新盘点自己真正想守护的方向。',
+      '未来几年是再定位与再出发的重要阶段。'
+    );
+  }
+
+  const labelsZh = ['过去三年', '现在 & 未来12个月', '未来2–3年'];
+  const labelsEn = ['Past 3 years', 'Now – next 12 months', 'Next 2–3 years'];
+
+  const labelSet = lang.startsWith('zh') ? labelsZh : labelsEn;
+
+  mkItem(`${labelSet[0]}（≈ ${y-3} – ${y-1}）`, msgs[0]);
+  mkItem(`${labelSet[1]}（≈ ${y} – ${y+1}）`, msgs[1]);
+  mkItem(`${labelSet[2]}（≈ ${y+1} – ${y+3}）`, msgs[2]);
+}
+
+/* 专业建议 4 卡片 */
+function buildAdvice(ctx){
+  const deepLang = getDeepLang(ctx.starNum);
+  const elem = ctx.mainElement || '';
+  const dirBox = $('directionAdvice');
+  const colorBox = $('colorAdvice');
+  const careerBox = $('careerAdvice');
+  const relBox = $('relationshipAdvice');
+
+  const deep = STARS_DEEP[ctx.starNum];
+
+  if (dirBox){
+    if (deep && deep.directions){
+      dirBox.textContent =
+        (getLang().startsWith('zh')
+          ? `有利方位：${deep.directions.favorable.join('、')}；需留意：${deep.directions.avoid.join('、')}。`
+          : `Favourable directions: ${deep.directions.favorable.join(', ')}; be cautious with: ${deep.directions.avoid.join(', ')}.`);
+    }else{
+      dirBox.textContent = getLang().startsWith('zh')
+        ? '建议多待在让你身心放松、光线充足、空气流动的空间。'
+        : 'Spend more time in spaces where your body relaxes and the air & light feel good.';
+    }
+  }
+
+  if (colorBox){
+    let colorText = deep?.color || STARS[ctx.starNum]?.color || '';
+    if (elem === '水') colorText = '黑、蓝、白';
+    if (elem === '木') colorText = '绿、青、木纹色';
+    if (elem === '火') colorText = '红、紫、橙';
+    if (elem === '土') colorText = '黄、棕、米色';
+    if (elem === '金') colorText = '白、金属色、银灰';
+
+    colorBox.textContent = getLang().startsWith('zh')
+      ? `日常可以多运用：${colorText}。不要为了“催运”而穿到自己很不自在，舒服最重要。`
+      : `Favourable colours: ${colorText}. Use them in a way that still feels natural and comfortable.`;
+  }
+
+  if (careerBox){
+    if (deepLang?.career_analysis){
+      const c = deepLang.career_analysis;
+      careerBox.textContent = [
+        (getLang().startsWith('zh') ? '适合方向：' : 'Suited for: ') + (deepLang.career || ''),
+        (getLang().startsWith('zh') ? '优势：' : 'Strengths: ') + (c.strengths?.join('，') || ''),
+        (getLang().startsWith('zh') ? '机会：' : 'Opportunities: ') + (c.opportunities?.join('，') || ''),
+        (getLang().startsWith('zh') ? '行动建议：' : 'Action: ') + (c.actions?.join('，') || '')
+      ].join('\n');
+    }else{
+      careerBox.textContent = getLang().startsWith('zh')
+        ? '你适合在能长期累积、逐步升级的领域里工作，避免只看短期刺激。'
+        : 'You fit fields where effort accumulates over time rather than quick, one-off wins.';
+    }
+  }
+
+  if (relBox){
+    if (deepLang?.relationship_analysis){
+      const r = deepLang.relationship_analysis;
+      relBox.textContent = [
+        (getLang().startsWith('zh') ? '在关系中的优势：' : 'In relationships, your strengths: ') + (r.strengths?.join('，') || ''),
+        (getLang().startsWith('zh') ? '机会：' : 'Opportunities: ') + (r.opportunities?.join('，') || ''),
+        (getLang().startsWith('zh') ? '风险：' : 'Risks: ') + (r.risks?.join('，') || ''),
+        (getLang().startsWith('zh') ? '行动建议：' : 'Action: ') + (r.actions?.join('，') || '')
+      ].join('\n');
+    }else{
+      relBox.textContent = getLang().startsWith('zh')
+        ? '练习把“我以为”变成“我听你说”，多一点好奇，就会少一点误会。'
+        : 'Turn “I assume” into “I listen”; more curiosity usually means fewer misunderstandings.';
+    }
+  }
+}
+
+/* 深度分析 + 专项分析 */
+function buildDeepAndSpecial(ctx){
+  const deepLang = getDeepLang(ctx.starNum);
+  const personalityBox = $('personalityAnalysis');
+  const talentBox = $('talentAnalysis');
+  const challengeBox = $('challengeAnalysis');
+  const devBox = $('developmentAdvice');
+
+  if (personalityBox){
+    personalityBox.textContent = deepLang?.personality ||
+      (getLang().startsWith('zh')
+        ? '你的主星气质带着独特节奏，你的人生课题与机会都围绕这个节奏展开。'
+        : 'Your main star gives you a unique rhythm; your lessons and chances revolve around it.');
+  }
+  if (talentBox){
+    talentBox.textContent = joinList(deepLang?.talents) ||
+      (getLang().startsWith('zh')
+        ? '你拥有可被训练成专业的天赋，只是需要更有意识地使用它们。'
+        : 'You have talents that can become real skills once you use them consciously.');
+  }
+  if (challengeBox){
+    challengeBox.textContent = joinList(deepLang?.challenges) ||
+      (getLang().startsWith('zh')
+        ? '你的挑战多半来自“过度使用自己的优势”，而不是完全没有能力。'
+        : 'Most challenges come from over-using your strengths rather than lacking ability.');
+  }
+  if (devBox){
+    let adv;
+    if (deepLang?.career_analysis && deepLang.relationship_analysis && deepLang.health_analysis){
+      adv = []
+        .concat(deepLang.career_analysis.actions || [])
+        .concat(deepLang.relationship_analysis.actions || [])
+        .concat(deepLang.health_analysis.actions || []);
+      devBox.textContent = joinList(adv);
+    }else{
+      devBox.textContent = getLang().startsWith('zh')
+        ? '把一年拆成四个小阶段，每个阶段只抓 1–2 个重点，就已经是在顺应你的节奏了。'
+        : 'Split each year into four phases and pick only 1–2 priorities per phase; that already aligns with your rhythm.';
+    }
+  }
+
+  // 专项分析
+  const specCard = $('specializedCard');
+  if (!specCard) return;
+
+  const type = ctx.analysisType;
+  const titleEl = $('specializedTitle');
+  const sub1 = $('specializedSubtitle1');
+  const sub2 = $('specializedSubtitle2');
+  const sub3 = $('specializedSubtitle3');
+  const sub4 = $('specializedSubtitle4');
+  const c1 = $('specializedContent1');
+  const c2 = $('specializedContent2');
+  const c3 = $('specializedContent3');
+  const c4 = $('specializedContent4');
+
+  function setTexts(title, s1,s2,s3,s4){
+    if (titleEl) titleEl.textContent = title;
+    if (sub1) sub1.textContent = s1;
+    if (sub2) sub2.textContent = s2;
+    if (sub3) sub3.textContent = s3;
+    if (sub4) sub4.textContent = s4;
+  }
+
+  if (type === 'career' && deepLang?.career_analysis){
+    const Lzh = getLang().startsWith('zh');
+    setTexts(
+      Lzh ? '事业财运专项分析' : 'Career & Wealth Focus',
+      Lzh ? '事业核心特点' : 'Career core',
+      Lzh ? '财富机遇' : 'Wealth opportunities',
+      Lzh ? '风险提示' : 'Risks',
+      Lzh ? '行动指南' : 'Action guide'
+    );
+    c1.textContent = joinList(deepLang.career_analysis.strengths);
+    c2.textContent = joinList(deepLang.career_analysis.opportunities);
+    c3.textContent = joinList(deepLang.career_analysis.risks);
+    c4.textContent = joinList(deepLang.career_analysis.actions);
+  }else if (type === 'relationship' && deepLang?.relationship_analysis){
+    const Lzh = getLang().startsWith('zh');
+    setTexts(
+      Lzh ? '感情婚姻专项分析' : 'Love & Marriage Focus',
+      Lzh ? '感情模式' : 'Love pattern',
+      Lzh ? '关系机遇' : 'Relationship opportunities',
+      Lzh ? '风险提示' : 'Risks',
+      Lzh ? '行动指南' : 'Action guide'
+    );
+    const r = deepLang.relationship_analysis;
+    c1.textContent = joinList(r.strengths);
+    c2.textContent = joinList(r.opportunities);
+    c3.textContent = joinList(r.risks);
+    c4.textContent = joinList(r.actions);
+  }else if (type === 'health' && deepLang?.health_analysis){
+    const Lzh = getLang().startsWith('zh');
+    setTexts(
+      Lzh ? '健康运势专项分析' : 'Health Focus',
+      Lzh ? '身体体质' : 'Body tendency',
+      Lzh ? '养生机遇' : 'Wellness opportunities',
+      Lzh ? '风险部位' : 'Risks',
+      Lzh ? '照护建议' : 'Care advice'
+    );
+    const h = deepLang.health_analysis;
+    c1.textContent = joinList(h.strengths);
+    c2.textContent = joinList(h.opportunities);
+    c3.textContent = joinList(h.risks);
+    c4.textContent = joinList(h.actions);
+  }else{
+    const Lzh = getLang().startsWith('zh');
+    setTexts(
+      t('spec_title'),
+      t('spec_core'),
+      t('spec_opportunity'),
+      t('spec_risk'),
+      t('spec_action')
+    );
+    c1.textContent = deepLang?.personality || '';
+    c2.textContent = joinList(deepLang?.talents);
+    c3.textContent = joinList(deepLang?.challenges);
+    c4.textContent = devBox.textContent || '';
+  }
+
+  specCard.style.display = 'block';
+}
+
+/* 本命主星卡 */
+function buildStarCard(ctx){
+  const star = STARS[ctx.starNum];
   if (!star) return;
 
-  // 语言优先：当前语言 > zh-CN
-  const s = star[lang] || star["zh-CN"];
+  const starName = $('starName');
+  const starJP = $('starJP');
+  const badges = $('starBadges');
+  const about = $('starAbout');
+  const indicator = $('analysisTypeIndicator');
 
-  // 名称 & 日文罗马音
-  $('starName').textContent = s.name;   // e.g. "二黑土星"
-  $('starJP').textContent   = s.jp;     // e.g. "Jikoku Dosei"
+  if (starName) starName.textContent = star.zh;
+  if (starJP) starJP.textContent = star.jp;
 
-  // 五行 / 颜色 / 关键词 / 简介（都从当前语言结构拿）
-  const elem     = s.element;                  // string
-  const color    = s.color;                    // string
-  const keysArr  = Array.isArray(s.keywords) ? s.keywords : [];
-  const about    = s.personalityShort || s.personality || '';
+  if (badges){
+    badges.innerHTML = '';
+    const make = (label,val)=>{
+      const span = document.createElement('span');
+      span.className = 'badge';
+      span.textContent = `${label}：${val}`;
+      badges.appendChild(span);
+    };
+    make(t('badge_elem'), star.elem);
+    make(t('badge_color'), star.color);
+    make(t('badge_kw'), star.key.join(' / '));
+  }
 
-  $('starBadges').innerHTML =
-    `<span class="badge">${L.badge_elem}：${elem}</span>`+
-    `<span class="badge">${L.badge_color}：${color}</span>`+
-    `<span class="badge">${L.badge_kw}：${keysArr.join(' / ')}</span>`;
+  if (about){
+    about.textContent = `${t('about_label')}：${star.about}`;
+  }
 
-  $('starAbout').textContent = `${L.about_label}：${about}`;
-  $('starCard').style.display = 'block';
+  if (indicator){
+    const type = ctx.analysisType;
+    const map = {
+      comprehensive: getLang().startsWith('zh') ? '综合命理' : 'Comprehensive',
+      career: getLang().startsWith('zh') ? '事业财运' : 'Career & wealth',
+      relationship: getLang().startsWith('zh') ? '感情婚姻' : 'Love & marriage',
+      health: getLang().startsWith('zh') ? '健康运势' : 'Health'
+    };
+    indicator.textContent = map[type] || '';
+  }
+
+  const deep = STARS_DEEP[ctx.starNum];
+  buildElementChart(deep);
 }
-  
-/* 保存当前状态，切语言时用 */
-let __STAR_STATE = null;
 
-/* 主按钮：生成报告 + AI */
-$('go').addEventListener('click', async ()=>{
+/* Butler AI 大报告（平面区） */
+async function buildButlerAI(ctx){
+  const card = $('aiCard');
+  const box = $('aiText');
+  if (!card || !box) return;
+
+  card.style.display = 'block';
+  box.textContent = t('generating') || '正在生成解读…';
+
   const lang = getLang();
-  const L = i18n[lang] || i18n["zh-CN"];
+  let prompt;
+  if (lang.startsWith('zh')){
+    prompt = `请根据以下九星气学信息，写一份 400–600 字左右的综合解读，包含：核心性格、近 1–2 年运势重点，以及 3 条可以立刻执行的生活建议。语言要温柔、亲切、务实，少用专业术语。
 
-  const birthdate = $('birthdate').value;
-  const gender = $('gender').value || 'male';
-  const analysisType = $('analysisType').value || 'comprehensive';
+出生日期：${ctx.birthStr}
+本命主星：${ctx.starName}（${ctx.starJP}）
+主五行：${ctx.mainElement}
+分析类型：${ctx.analysisTypeLabel}
 
-  if (!birthdate){
-    alert(L.please_birth || '请先选择出生日期');
-    return;
-  }
-  const starNum = calcHonmei(birthdate);
-  if (!starNum){
-    alert(L.bad_date || '日期格式有误');
-    return;
-  }
+请用当前页面语言书写。`;
+  }else{
+    prompt = `Using the following Nine Star Ki info, write a 400–600 word integrated reading: core personality, key themes for the next 1–2 years, and 3 practical action tips I can start now. Keep the tone gentle, warm and grounded, with minimal jargon.
 
-  __STAR_STATE = {starNum, birthdate, gender, analysisType};
+Birth date: ${ctx.birthStr}
+Main star: ${ctx.starName} (${ctx.starJP})
+Main element: ${ctx.mainElement}
+Analysis focus: ${ctx.analysisTypeLabel}
 
-  const starDeep = STARS_DEEP[starNum];
-  const analysis = generateDeepAnalysis(starNum, gender, analysisType);
-
-  // 分析类型指示器：改用 i18n key
-  const indicator = $('analysisTypeIndicator');
-  if (indicator){
-    const typeKey = 'analysis_type_' + analysisType;
-    indicator.textContent = t(typeKey);
+Please reply in the same language as this page.`;
   }
 
-  // 主星卡（基础）
-  renderStarBasic(starNum);
-
-  // 元素图与简评
-  renderElementChart(starDeep);
-  $('elementAnalysis').innerHTML = analysis ? analysis.elements : '';
-
-  // 深度分析块
-  if (analysis){
-    $('analysisCard').style.display = 'block';
-    $('personalityAnalysis').innerHTML = analysis.personality;
-    $('talentAnalysis').innerHTML      = analysis.talents;
-    $('challengeAnalysis').innerHTML   = analysis.challenges;
-    $('developmentAdvice').innerHTML   = analysis.development;
-    updateSpecializedAnalysis(analysis.specialized);
-  }
-
-  // 运势时间线
-  $('fortuneCard').style.display = 'block';
-  const tl = generateFortuneTimeline(starNum, analysisType);
-  $('fortuneTimeline').innerHTML = tl.map(item => `
-    <div class="timeline-item">
-      <div class="timeline-period">${item.year}</div>
-      <div>${item.advice}</div>
-    </div>`).join('');
-
-  // 专业建议（中文）
-  if (starDeep){
-    $('adviceCard').style.display = 'block';
-    $('directionAdvice').innerHTML =
-      `宜往<strong>${starDeep.directions.favorable.join('、')}</strong>方位发展，避免${starDeep.directions.avoid.join('、')}方位。`;
-    $('colorAdvice').innerHTML =
-      `多使用<strong>${starDeep.color}</strong>等色系，增强个人能量场。`;
-    $('careerAdvice').innerHTML =
-      `适合从事<strong>${starDeep.career}</strong>等相关领域。`;
-    const lastTalent = (starDeep.talents && starDeep.talents.length) ? starDeep.talents.slice(-1)[0] : '沟通';
-    $('relationshipAdvice').innerHTML =
-      `在人际与感情中多运用<strong>${lastTalent}</strong>，有助于改善关系质量。`;
-  }
-
-  // === Butler AI：开始生成 ===
-  const aiCard = $('aiCard');
-  const aiText = $('aiText');
-  const aiReco = $('aiReco');
-  aiCard.style.display = 'block';
-  aiText.textContent   = L.generating || '正在生成解读…';
-  aiReco.innerHTML     = '';
-  renderChips();
-
-  const now = new Date();
-  const yyyy = now.getFullYear();
-  const mm   = String(now.getMonth()+1).padStart(2,'0');
-  const dd   = String(now.getDate()).padStart(2,'0');
-  const hh   = String(now.getHours()).padStart(2,'0');
-  const mi   = String(now.getMinutes()).padStart(2,'0');
-  const nowStr = `${yyyy}-${mm}-${dd} ${hh}:${mi}`;
-
-  $('go').disabled = true;
   try{
-    const prompt = buildPromptForAI({
-      langCode: lang,
-      starNum,
-      gender,
-      analysisType,
-      birthdate,
-      nowStr
-    });
-    const text = await askAI(prompt);
-    aiText.textContent = text || (L.retry || '抱歉，暂时无法生成，请稍后再试。');
+    const reply = await askAI(prompt);
+    box.textContent = reply || (t('retry') || '暂时无法生成，请稍后再试。');
   }catch(e){
-    console.warn('[kyuusei] askAI error', e);
-    aiText.textContent = L.neterr || '网络异常，请稍后再试。';
-  }finally{
-    $('go').disabled = false;
+    console.warn('[aiCard] error', e);
+    box.textContent = t('neterr') || '网络异常，请稍后再试。';
   }
-});
-
-/* 语言切换后，把需要跟着语言走的区块重新渲染（标题 + chips + 类型徽章等） */
-function rerenderAfterLangChange(){
-  if (!__STAR_STATE || !__STAR_STATE.starNum) return;
-  const {starNum, analysisType} = __STAR_STATE;
-  // 更新主星卡的 badge & about label
-  renderStarBasic(starNum);
-  // 更新分析类型小徽章
-  const indicator = $('analysisTypeIndicator');
-  if (indicator){
-    const typeKey = 'analysis_type_' + (analysisType || 'comprehensive');
-    indicator.textContent = t(typeKey);
-  }
-  // 重新渲染 AI chips（让 label 跟语言走）
-  renderChips();
 }
 
-/* 初始化：语言 + 默认日期 + 当前时间显示 */
-document.addEventListener('DOMContentLoaded', ()=>{
-  const saved = getLang();
-  setLang(saved);
+/* 更新时间显示 */
+function updateNowInfo(){
+  const el = $('nowInfo');
+  if (!el) return;
+  const now = new Date();
+  const str = now.toLocaleString(getLang().replace('_','-'));
+  el.textContent = (t('now_info_prefix') || '') + str;
+}
 
-  // 给专项标题加 data-i18n，让 applyI18n 控制
-  const st = $('specializedTitle');
-  if (st) st.setAttribute('data-i18n','spec_title');
-  const s1 = $('specializedSubtitle1');
-  const s2 = $('specializedSubtitle2');
-  const s3 = $('specializedSubtitle3');
-  const s4 = $('specializedSubtitle4');
-  if (s1) s1.setAttribute('data-i18n','spec_core');
-  if (s2) s2.setAttribute('data-i18n','spec_opportunity');
-  if (s3) s3.setAttribute('data-i18n','spec_risk');
-  if (s4) s4.setAttribute('data-i18n','spec_action');
+/* 登录区：默认隐藏输入（符合你的偏好） */
+function initAuthFields(){
+  const wrapper = $('authFields');
+  const loginBtn = $('loginBtn');
+  if (!wrapper || !loginBtn) return;
+  wrapper.style.display = 'none';
 
+  loginBtn.addEventListener('click', (e)=>{
+    if (wrapper.style.display === 'none'){
+      e.preventDefault();
+      wrapper.style.display = 'grid';
+    }
+  });
+}
+
+/* 主渲染入口 */
+function renderAll(ctx){
+  if (!ctx) return;
+  window._lastKyuuseiCtx = ctx;
+
+  const starCard = $('starCard');
+  const analysisCard = $('analysisCard');
+  const fortuneCard = $('fortuneCard');
+  const adviceCard = $('adviceCard');
+
+  if (starCard) starCard.style.display = 'block';
+  if (analysisCard) analysisCard.style.display = 'block';
+  if (fortuneCard) fortuneCard.style.display = 'block';
+  if (adviceCard) adviceCard.style.display = 'block';
+
+  buildStarCard(ctx);
+  buildDeepAndSpecial(ctx);
+  buildFortuneTimeline(ctx);
+  buildAdvice(ctx);
+}
+
+/* ===== 页面初始化 ===== */
+document.addEventListener('DOMContentLoaded', () => {
+  // 初始化语言
+  const currentLang = getLang();
   const sel = $('langSelect');
   if (sel){
-    sel.value = saved;
-    sel.addEventListener('change', e=>{
-      const code = e.target.value || 'zh-CN';
-      setLang(code);
+    sel.value = currentLang;
+    sel.addEventListener('change', ()=>{
+      setLang(sel.value);
       applyI18n();
-      rerenderAfterLangChange();
+      updateNowInfo();
+      renderChips();
+      if (window._lastKyuuseiCtx) renderAll(window._lastKyuuseiCtx);
     });
   }
-
+  document.documentElement.lang = currentLang;
   applyI18n();
+  updateNowInfo();
   renderChips();
+  initAuthFields();
 
-  // 默认出生日期 = 今天
-  const today = new Date();
-  const yyyy = today.getFullYear();
-  const mm   = String(today.getMonth()+1).padStart(2,'0');
-  const dd   = String(today.getDate()).padStart(2,'0');
-  if ($('birthdate')){
-    $('birthdate').value = `${yyyy}-${mm}-${dd}`;
-  }
+  // 生成按钮
+  const btn = $('go');
+  if (btn){
+    btn.addEventListener('click', async () => {
+      const birthInput = $('birthdate');
+      const genderInput = $('gender');
+      const typeInput = $('analysisType');
 
-  // 显示当前时间（平面文本）
-  const nowInfo = $('nowInfo');
-  if (nowInfo){
-    const hh = String(today.getHours()).padStart(2,'0');
-    const mi = String(today.getMinutes()).padStart(2,'0');
-    nowInfo.textContent = `${t('now_info_prefix') || '当前系统时间：'}${yyyy}-${mm}-${dd} ${hh}:${mi}（GMT+8）`;
+      if (!birthInput || !birthInput.value){
+        alert(t('please_birth') || '请先选择出生日期');
+        return;
+      }
+      const birthStr = birthInput.value;
+      const starNum = calcHonmei(birthStr);
+      if (!starNum || !STARS[starNum]){
+        alert(t('bad_date') || '日期格式有误');
+        return;
+      }
+
+      const star = STARS[starNum];
+      const deep = STARS_DEEP[starNum];
+      const deepLang = getDeepLang(starNum);
+      const type = typeInput ? typeInput.value : 'comprehensive';
+
+      const typeLabelMap = {
+        comprehensive: t('analysis_type_comprehensive'),
+        career: t('analysis_type_career'),
+        relationship: t('analysis_type_relationship'),
+        health: t('analysis_type_health')
+      };
+
+      const ctx = {
+        birthStr,
+        gender: genderInput ? genderInput.value : 'hidden',
+        analysisType: type,
+        analysisTypeLabel: typeLabelMap[type] || '',
+        starNum,
+        starName: star.zh,
+        starJP: star.jp,
+        mainElement: deep?.element || star.elem
+      };
+
+      renderAll(ctx);
+      $('aiCard').style.display = 'block';
+      await buildButlerAI(ctx);
+    });
   }
 });
 </script>
 </body>
 </html>
+
 
 
 
