@@ -1469,23 +1469,36 @@ const STARS_DEEP = { /* ……此处保持你原本的 STARS_DEEP 定义，完�
 function mapStarLang(raw) {
   if (!raw) return 'zh-CN';
   const code = raw.toLowerCase();
-  if (code === 'zh-tw') return 'zh-CN';   // 暂时用简体
-  if (code === 'zh-cn') return 'zh-CN';
-  if (code === 'en' || code === 'en-us' || code === 'en-gb') return 'en';
-  // 其他全部 fallback 英文
+
+  // Group similar codes
+  if (code.startsWith('zh-')) return 'zh-CN';   // zh-CN / zh-TW → zh-CN preset text
+  if (code.startsWith('en')) return 'en';       // en / en-US / en-GB → en
+  if (code.startsWith('ja')) return 'ja-JP';    // if you later add ja-JP in STARS_DEEP
+  if (code.startsWith('th')) return 'th-TH';    // same idea
+  if (code.startsWith('ms')) return 'ms';       // same idea
+
+  // default fallback
   return 'en';
 }
+
+function getStarText(starNo) {
+  const star = STARS_DEEP[starNo];
+  if (!star || !star.text) return null;
+  const langCode = mapStarLang(getLang());
+  return (
+    star.text[langCode] ||
+    star.text['zh-CN'] ||   // fallback 1
+    star.text['en'] ||      // fallback 2
+    null
+  );
+}
+  
 function getCurrentLangCode() {
   const ls = localStorage.getItem(LANG_KEY);
   if (ls) return ls;
   return document.documentElement.lang || 'zh-CN';
 }
-function getStarText(starNo) {
-  const star = STARS_DEEP[starNo];
-  if (!star || !star.text) return null;
-  const mapped = mapStarLang(getCurrentLangCode());
-  return star.text[mapped] || star.text['zh-CN'] || star.text['en'] || null;
-}
+
 function getDeepLang(starNum){
   const deep = STARS_DEEP[starNum];
   if (!deep) return null;
@@ -2011,11 +2024,14 @@ function rerenderFromCtx(){
   applyI18n();
   updateNowInfo();
   renderChips();
+
   const ctx = window._lastKyuuseiCtx;
   if (!ctx) return;
+
   const deep = STARS_DEEP[ctx.starNum];
   const deepLang = getStarText(ctx.starNum);
-  // 更新类型标签（多语言）
+
+  // 更新分析类型标签（跟随语言）
   const typeKeyMap = {
     comprehensive:'analysis_type_comprehensive',
     career:'analysis_type_career',
@@ -2029,8 +2045,11 @@ function rerenderFromCtx(){
   renderSpecializedSection(ctx, deepLang);
   buildFortuneTimeline(ctx);
   buildAdvice(ctx);
-}
 
+  // 💡 关键：语言切换后，让 Butler AI 主报告重新生成一次，用新语言返回
+  updateAiReport(ctx);
+}
+  
 /* DOM Ready 初始化 */
 document.addEventListener('DOMContentLoaded', () => {
   // 初始语言
@@ -2058,3 +2077,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
