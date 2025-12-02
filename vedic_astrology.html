@@ -78,46 +78,6 @@
     .error{color:#ff8b8b}
     footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0}
 
-    /* AI result */
-    #aiCard .skeleton{display:grid;gap:8px}
-    #aiCard .skeleton div{
-      height:12px;border-radius:6px;
-      background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);animation:sh 1.2s infinite;
-    }
-    @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
-    #aiText{white-space:normal;line-height:1.7}
-    #aiText ul{margin:.4rem 0 .2rem 1.2rem}
-    #aiText h2,#aiText h3{
-      color:#ffe084 !important; margin:12px 0 6px; font-size:1.05rem; font-weight:800;
-    }
-
-    /* Chat */
-    .ss-chat-fab{
-      position:fixed;right:18px;bottom:18px;z-index:50;width:56px;height:56px;border-radius:50%;
-      background:linear-gradient(180deg,#fff9e6,#e6c76e);color:#191919;display:grid;place-items:center;font-weight:800;
-      box-shadow:0 8px 30px rgba(0,0,0,.35);cursor:pointer;border:1px solid #e6c76e
-    }
-    .ss-chat-panel{
-      position:fixed;right:18px;bottom:88px;z-index:50;width:min(460px,92vw);display:none;flex-direction:column;
-      background:#0e1520;border:1px solid #243244;border-radius:14px;box-shadow:var(--shadow)
-    }
-    .ss-chat-head{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid #243244}
-    .ss-chat-title{font-weight:700}
-    .ss-chat-body{max-height:300px;overflow:auto;padding:10px 12px}
-    .ss-msg{padding:8px 10px;background:#0f1624;border:1px solid #243244;border-radius:10px;margin:6px 0;max-width:80%}
-    .ss-msg.me{margin-left:auto;background:#132033}
-    .ss-chat-input{display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid #243244}
-    .ss-chat-input input{flex:1 1 auto;min-width:0}
-
-    #aiText h3.ai-head{
-      color:#ffe084; font-weight:800; font-size:1.05rem; margin:14px 0 8px;
-    }
-    #aiText ul,#aiText ol{
-      margin:.2rem 0 .6rem 1.2rem; padding-left:1.1rem;
-    }
-    #aiText li{ margin:.25rem 0; }
-    #aiText ol li::marker{ font-weight:700; }
-    
     /* 本地分析样式 */
     .local-analysis {
       margin-top: 20px;
@@ -142,6 +102,12 @@
       background: rgba(15, 23, 42, 0.7);
       text-align: center;
       border: 1px solid #2d3748;
+      cursor: pointer;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .planet-item:hover {
+      transform: translateY(-2px);
+      background: rgba(25, 35, 60, 0.9);
     }
     .planet-name {
       font-weight: bold;
@@ -157,6 +123,31 @@
     .analysis-section h4 {
       color: #ffe084;
       margin-bottom: 10px;
+    }
+    .detail-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.8);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-content {
+      background: #11161d;
+      padding: 20px;
+      border-radius: 12px;
+      max-width: 500px;
+      width: 90%;
+      border: 1px solid #2d3748;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #ffe084;
     }
   </style>
 </head>
@@ -253,7 +244,15 @@
     <div id="localCard" class="card" style="display:none">
       <div class="h2" data-i18n="sec_local">本地命理分析结果</div>
       <div id="localText"></div>
-      <div id="localReco"></div>
+    </div>
+
+    <!-- 行星详情模态框 -->
+    <div id="planetModal" class="detail-modal">
+      <div class="modal-content">
+        <h3 id="modalTitle"></h3>
+        <div id="modalContent"></div>
+        <button id="closeModal" class="btn" style="margin-top: 15px;" data-i18n="btn_close">关闭</button>
+      </div>
     </div>
 
     <!-- 会员区（展示用） -->
@@ -318,20 +317,6 @@
 
   <footer>© 5XLiving • Astro/Soul Sanctuary</footer>
 
-  <!-- Chat 浮窗 -->
-  <div class="ss-chat-fab" id="ssChatFab" title="Concierge" data-i18n="chat_fab">问</div>
-  <div class="ss-chat-panel" id="ssChatPanel" role="dialog" aria-label="Concierge">
-    <div class="ss-chat-head">
-      <div class="ss-chat-title" data-i18n="chat_title">心怜管家 · Chat</div>
-      <div id="ssChatClose" style="cursor:pointer">✕</div>
-    </div>
-    <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
-    <div class="ss-chat-input">
-      <input id="ssChatInput" type="text" data-i18n-ph="chat_ph" placeholder="问点什么吧…"/>
-      <button id="ssChatSend" class="btn" data-i18n="chat_send">发送</button>
-    </div>
-  </div>
-
 <script>
 (function () {
   "use strict";
@@ -344,16 +329,7 @@
   const getLang = () => localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN";
   const setLang = v => { localStorage.setItem(LANG_KEY, v); document.documentElement.lang = v; };
 
-  const BUTLER_LANG_NAME = {
-    'zh-CN': '简体中文',
-    'zh-TW': '繁體中文',
-    'en': 'English',
-    'ja': 'Japanese',
-    'th': 'Thai',
-    'ms': 'Malay'
-  };
-
-  /* ===== i18n 文案：改成「印度命理 / 吠陀占星」版本 ===== */
+  /* ===== i18n 文案 - 完整多语言支持 ===== */
   const i18n = {
     "zh-CN": {
       title: "印度命理分析 · 5XLiving",
@@ -395,20 +371,49 @@
 
       btn_gen: "生成分析",
       btn_clear: "清空",
+      btn_close: "关闭",
+      btn_view_detail: "查看详情",
 
       sec_local: "本地命理分析结果",
       reco_title: "推荐 · 下一步行动",
 
-      chat_fab: "问",
-      chat_title: "心怜管家 · Chat",
-      chat_ph: "想了解什么？（如：如何开始免费体验）",
-      chat_send: "发送",
-
-      need_birth: "请至少填写『出生日期与时间』以及『出生城市』（用于时区与星盘计算）。",
       generating: "正在生成吠陀占星解读…",
-      retry: "抱歉，暂时无法生成，请稍后再试。",
-      neterr: "网络异常，请稍后再试。",
+      need_birth: "请至少填写『出生日期与时间』以及『出生城市』（用于时区与星盘计算）。",
+      analysis_title: "吠陀占星分析报告",
+      planet_positions: "行星位置概览",
+      nakshatra_analysis: "月宿分析",
+      dasa_analysis: "大运分析",
+      recommendations: "建议与行动",
+      click_for_details: "点击行星查看详细解读",
 
+      // 行星描述
+      sun_desc: "太阳代表灵魂、自我意识和领导力。在吠陀占星中，太阳象征着父亲、权威和生命力。",
+      moon_desc: "月亮代表心灵、情绪和直觉。它影响我们的情感反应、安全感和潜意识模式。",
+      mercury_desc: "水星代表智力、沟通和学习能力。它影响我们的思维方式、表达能力和商业技能。",
+      venus_desc: "金星代表爱情、美感和享乐。它影响我们的审美观、人际关系和物质享受。",
+      mars_desc: "火星代表能量、行动和勇气。它影响我们的主动性、竞争力和性能量。",
+      jupiter_desc: "木星代表智慧、扩展和好运。它是最大的吉星，带来成长、知识和财富。",
+      saturn_desc: "土星代表责任、纪律和限制。它教导我们耐心、坚持和现实感。",
+      rahu_desc: "罗睺代表欲望、野心和物质追求。它是北部交点，带来突然的变化和成长。",
+      ketu_desc: "计都代表灵性、解脱和过去业力。它是南部交点，促进精神觉醒。",
+
+      // 分析内容
+      analysis_love: "金星位置良好，有利于浪漫关系的发展。月亮显示情感需求稳定。",
+      analysis_career: "木星在事业宫，预示职业发展的机会。火星提供行动力。",
+      analysis_wealth: "第二宫有吉星照耀，财运稳定。需要留意投资时机。",
+      analysis_health: "第六宫状态良好，整体健康平稳。注意压力管理。",
+      analysis_family: "第四宫和谐，家庭关系温暖。沟通是维持和谐的关键。",
+      analysis_study: "水星位置优越，学习能力强。适合深入专业领域。",
+      analysis_move: "旅行宫位活跃，适合短期出行。搬迁需谨慎规划。",
+
+      // 建议
+      reco_1: "每天进行10分钟冥想，增强内在觉知",
+      reco_2: "记录梦境和直觉感受，培养灵性连接",
+      reco_3: "定期进行能量清理，保持身心平衡",
+      reco_4: "加入VIP会员获取个性化指导",
+      reco_5: "考虑一对一专业咨询深入探索",
+
+      // VIP区域
       vip_title: "🌙 会员区域 VIP Segment",
       vip_mingli: "🗝 命理空间专属内容",
       vip_love: "姻缘方向：恋爱缘分、婚姻走势",
@@ -429,9 +434,9 @@
       login_title: "💎 登入 VIP 功能",
       panel_login_head: "账户登录 / 注册",
       ph_email: "邮箱 Email",
-      ph_password: "密码 Password（至少 8 位，需包含大小写字母、数字与符号）",
+      ph_password: "密码 Password（至少8位，含大小写数字符号）",
       ph_label_password: "密码 Password",
-      btn_login: "登录账户",
+      btn_login: "登入账户",
       btn_register: "注册账户",
       btn_reset: "🔑 重设密码",
 
@@ -482,19 +487,44 @@
 
       btn_gen: "生成解析",
       btn_clear: "清空",
+      btn_close: "關閉",
+      btn_view_detail: "查看詳情",
 
       sec_local: "本地命理分析結果",
       reco_title: "推薦 · 下一步行動",
 
-      chat_fab: "問",
-      chat_title: "心憐管家 · Chat",
-      chat_ph: "想了解什麼？（例如：如何開始免費體驗）",
-      chat_send: "發送",
-
-      need_birth: "請至少填寫「出生日期與時間」以及「出生城市」（用於時區與星盤計算）。",
       generating: "正在生成吠陀占星解讀…",
-      retry: "抱歉，目前無法生成，請稍後再試。",
-      neterr: "網路異常，請稍後再試。",
+      need_birth: "請至少填寫「出生日期與時間」以及「出生城市」（用於時區與星盤計算）。",
+      analysis_title: "吠陀占星分析報告",
+      planet_positions: "行星位置概覽",
+      nakshatra_analysis: "月宿分析",
+      dasa_analysis: "大運分析",
+      recommendations: "建議與行動",
+      click_for_details: "點擊行星查看詳細解讀",
+
+      sun_desc: "太陽代表靈魂、自我意識和領導力。在吠陀占星中，太陽象徵父親、權威和生命力。",
+      moon_desc: "月亮代表心靈、情緒和直覺。它影響我們的情感反應、安全感和潛意識模式。",
+      mercury_desc: "水星代表智力、溝通和學習能力。它影響我們的思維方式、表達能力和商業技能。",
+      venus_desc: "金星代表愛情、美感和享樂。它影響我們的審美觀、人際關係和物質享受。",
+      mars_desc: "火星代表能量、行動和勇氣。它影響我們的主動性、競爭力和性能量。",
+      jupiter_desc: "木星代表智慧、擴展和好運。它是最大的吉星，帶來成長、知識和財富。",
+      saturn_desc: "土星代表責任、紀律和限制。它教導我們耐心、堅持和現實感。",
+      rahu_desc: "羅睺代表慾望、野心和物質追求。它是北部交點，帶來突然的變化和成長。",
+      ketu_desc: "計都代表靈性、解脫和過去業力。它是南部交點，促進精神覺醒。",
+
+      analysis_love: "金星位置良好，有利於浪漫關係的發展。月亮顯示情感需求穩定。",
+      analysis_career: "木星在事業宮，預示職業發展的機會。火星提供行動力。",
+      analysis_wealth: "第二宮有吉星照耀，財運穩定。需要留意投資時機。",
+      analysis_health: "第六宮狀態良好，整體健康平穩。注意壓力管理。",
+      analysis_family: "第四宮和諧，家庭關係溫暖。溝通是維持和諧的關鍵。",
+      analysis_study: "水星位置優越，學習能力強。適合深入專業領域。",
+      analysis_move: "旅行宮位活躍，適合短期出行。搬遷需謹慎規劃。",
+
+      reco_1: "每天進行10分鐘冥想，增強內在覺知",
+      reco_2: "記錄夢境和直覺感受，培養靈性連接",
+      reco_3: "定期進行能量清理，保持身心平衡",
+      reco_4: "加入VIP會員獲取個性化指導",
+      reco_5: "考慮一對一專業諮詢深入探索",
 
       vip_title: "🌙 會員區域 VIP Segment",
       vip_mingli: "🗝 命理空間專屬內容",
@@ -565,30 +595,55 @@
       preset_q3: "I want to know about trends in love/marriage",
 
       q_label: "Your specific question (you can paste text)",
-      q_ph: "E.g. I’m looking for a job and want to understand how my current Mahadasha/Antardasha affects interviews and offers, and what actions I should take.",
+      q_ph: "E.g. I'm looking for a job and want to understand how my current Mahadasha/Antardasha affects interviews and offers, and what actions I should take.",
 
       btn_gen: "Generate Reading",
       btn_clear: "Clear",
+      btn_close: "Close",
+      btn_view_detail: "View Details",
 
       sec_local: "Local Astrology Analysis Results",
       reco_title: "Suggestions · Next Steps",
 
-      chat_fab: "Chat",
-      chat_title: "Concierge · Chat",
-      chat_ph: "Ask me anything (e.g. how to start the free trial)",
-      chat_send: "Send",
-
-      need_birth: "Please fill in at least your date & time of birth AND city of birth (for time-zone based chart).",
       generating: "Generating Vedic Astrology reading…",
-      retry: "Sorry, I couldn’t generate a reading right now.",
-      neterr: "Network error. Please try again later.",
+      need_birth: "Please fill in at least your date & time of birth AND city of birth (for time-zone based chart).",
+      analysis_title: "Vedic Astrology Analysis Report",
+      planet_positions: "Planet Positions Overview",
+      nakshatra_analysis: "Nakshatra Analysis",
+      dasa_analysis: "Dasha Analysis",
+      recommendations: "Recommendations & Actions",
+      click_for_details: "Click on planets for detailed interpretation",
+
+      sun_desc: "Sun represents soul, self-consciousness and leadership. In Vedic astrology, Sun symbolizes father, authority and vitality.",
+      moon_desc: "Moon represents mind, emotions and intuition. It affects our emotional responses, sense of security and subconscious patterns.",
+      mercury_desc: "Mercury represents intellect, communication and learning ability. It affects our thinking, expression and business skills.",
+      venus_desc: "Venus represents love, beauty and pleasure. It affects our aesthetic sense, relationships and material enjoyment.",
+      mars_desc: "Mars represents energy, action and courage. It affects our initiative, competitiveness and sexual energy.",
+      jupiter_desc: "Jupiter represents wisdom, expansion and good fortune. It is the most benefic planet, bringing growth, knowledge and wealth.",
+      saturn_desc: "Saturn represents responsibility, discipline and limitations. It teaches us patience, persistence and realism.",
+      rahu_desc: "Rahu represents desires, ambitions and material pursuits. It is the North Node, bringing sudden changes and growth.",
+      ketu_desc: "Ketu represents spirituality, liberation and past karma. It is the South Node, promoting spiritual awakening.",
+
+      analysis_love: "Venus is well placed, favorable for romantic relationships. Moon shows stable emotional needs.",
+      analysis_career: "Jupiter in career house indicates opportunities for professional growth. Mars provides motivation.",
+      analysis_wealth: "Second house is well aspected, financial stability indicated. Need to watch investment timing.",
+      analysis_health: "Sixth house condition is good, overall health stable. Need to manage stress.",
+      analysis_family: "Fourth house harmonious, warm family relationships. Communication is key to maintain harmony.",
+      analysis_study: "Mercury position is excellent, strong learning ability. Suitable for deepening professional knowledge.",
+      analysis_move: "Travel houses active, suitable for short trips. Relocation needs careful planning.",
+
+      reco_1: "Practice 10-minute daily meditation to enhance inner awareness",
+      reco_2: "Record dreams and intuitive feelings to develop spiritual connection",
+      reco_3: "Regular energy cleansing to maintain balance",
+      reco_4: "Join VIP membership for personalized guidance",
+      reco_5: "Consider one-on-one consultation for deeper exploration",
 
       vip_title: "🌙 VIP Area",
       vip_mingli: "🗝 Destiny Space — Exclusive Content",
       vip_love: "Love & Marriage: romantic chemistry, marriage outlook",
       vip_career: "Career: workplace growth, entrepreneurship potential",
       vip_wealth: "Wealth: wealth placement analysis, timing to move funds",
-      vip_pet: "Pet Destiny: companion animals’ personality & bond",
+      vip_pet: "Pet Destiny: companion animals' personality & bond",
       vip_hepan: "Synastry: choosing wedding dates / birth timing",
       vip_name: "Name Analysis: company names, baby names, luck-renaming",
       vip_fengshui: "Wealth Feng Shui Match: aligning home/office layout",
@@ -615,8 +670,6 @@
       note_price: "Sign up to receive one free session",
       note_price1: "$9.9 / month VIP (Destiny Space + Xinlian Space + Spiritual Courses)"
     },
-
-    /* 下面三种语言：保留你原本结构，只改成“占星/命理”语气 & 加上 birth_dt_label / reco_title / need_birth 文案 */
 
     "ja": {
       title: "インド占星術分析 · 5XLiving",
@@ -658,19 +711,44 @@
 
       btn_gen: "リーディングを生成",
       btn_clear: "クリア",
+      btn_close: "閉じる",
+      btn_view_detail: "詳細を見る",
 
       sec_local: "ローカル占星術分析結果",
       reco_title: "提案 · 次のステップ",
 
-      chat_fab: "チャット",
-      chat_title: "コンシェルジュ · チャット",
-      chat_ph: "知りたいことを入力してください（例：無料体験の始め方）",
-      chat_send: "送信",
-
-      need_birth: "少なくとも「生年月日と出生時刻」と「出生都市」を入力してください（ホロスコープ計算のため）。",
       generating: "インド占星術のリーディングを生成中…",
-      retry: "申し訳ありません。現在は生成できません。しばらくしてから再度お試しください。",
-      neterr: "ネットワークエラーです。時間をおいて再度お試しください。",
+      need_birth: "少なくとも「生年月日と出生時刻」と「出生都市」を入力してください（ホロスコープ計算のため）。",
+      analysis_title: "インド占星術分析レポート",
+      planet_positions: "惑星位置概観",
+      nakshatra_analysis: "ナクシャトラ分析",
+      dasa_analysis: "ダシャ分析",
+      recommendations: "提案と行動",
+      click_for_details: "惑星をクリックして詳細な解釈を見る",
+
+      sun_desc: "太陽は魂、自己意識、リーダーシップを表します。インド占星術では、太陽は父、権威、生命力を象徴します。",
+      moon_desc: "月は心、感情、直観を表します。感情的反応、安全感、潜在意識パターンに影響します。",
+      mercury_desc: "水星は知性、コミュニケーション、学習能力を表します。思考方法、表現力、ビジネススキルに影響します。",
+      venus_desc: "金星は愛、美、快楽を表します。審美眼、人間関係、物質的享受に影響します。",
+      mars_desc: "火星はエネルギー、行動、勇気を表します。自発性、競争力、性的エネルギーに影響します。",
+      jupiter_desc: "木星は知恵、拡張、幸運を表します。最も吉の惑星で、成長、知識、富をもたらします。",
+      saturn_desc: "土星は責任、規律、制限を表します。忍耐力、持続性、現実感を教えます。",
+      rahu_desc: "ラーフは欲望、野心、物質的追求を表します。北交点で、突然の変化と成長をもたらします。",
+      ketu_desc: "ケートゥは霊性、解脱、過去のカルマを表します。南交点で、精神的目覚めを促進します。",
+
+      analysis_love: "金星の位置が良好で、恋愛関係の発展に有利です。月は感情的な安定を示しています。",
+      analysis_career: "キャリアハウスに木星があり、職業成長の機会を示しています。火星が行動力を提供します。",
+      analysis_wealth: "第二ハウスが良好で、財運が安定しています。投資のタイミングに注意が必要です。",
+      analysis_health: "第六ハウスの状態が良好で、全体的な健康は安定しています。ストレス管理に注意してください。",
+      analysis_family: "第四ハウスが調和的で、温かい家族関係です。コミュニケーションが調和を維持する鍵です。",
+      analysis_study: "水星の位置が優れており、学習能力が高いです。専門分野を深めるのに適しています。",
+      analysis_move: "旅行ハウスが活発で、短期旅行に適しています。引っ越しは慎重な計画が必要です。",
+
+      reco_1: "毎日10分の瞑想を行い、内なる意識を高める",
+      reco_2: "夢や直感を記録し、霊的なつながりを育む",
+      reco_3: "定期的にエネルギークリーニングを行い、バランスを保つ",
+      reco_4: "VIPメンバーシップに加入して個別指導を受ける",
+      reco_5: "深い探求のために一対一のコンサルテーションを検討する",
 
       vip_title: "🌙 VIP エリア",
       vip_mingli: "🗝 命理スペース：会員限定コンテンツ",
@@ -745,19 +823,44 @@
 
       btn_gen: "สร้างคำทำนาย",
       btn_clear: "ล้างข้อมูล",
+      btn_close: "ปิด",
+      btn_view_detail: "ดูรายละเอียด",
 
       sec_local: "ผลการวิเคราะห์โหราศาสตร์ท้องถิ่น",
       reco_title: "ข้อเสนอแนะถัดไป",
 
-      chat_fab: "แชต",
-      chat_title: "Concierge · แชต",
-      chat_ph: "อยากถามอะไร (เช่น วิธีเริ่มใช้งานฟรี)",
-      chat_send: "ส่ง",
-
-      need_birth: "กรุณากรอกอย่างน้อย วัน–เวลาเกิด และ เมืองที่เกิด (เพื่อคำนวณดวงแบบใช้โซนเวลา)",
       generating: "กำลังสร้างคำทำนายโหราศาสตร์อินเดีย…",
-      retry: "ขออภัย ตอนนี้ยังไม่สามารถสร้างคำทำนายได้",
-      neterr: "เครือข่ายขัดข้อง โปรดลองใหม่ภายหลัง",
+      need_birth: "กรุณากรอกอย่างน้อย วัน–เวลาเกิด และ เมืองที่เกิด (เพื่อคำนวณดวงแบบใช้โซนเวลา)",
+      analysis_title: "รายงานการวิเคราะห์โหราศาสตร์อินเดีย",
+      planet_positions: "ภาพรวมตำแหน่งดาวเคราะห์",
+      nakshatra_analysis: "การวิเคราะห์นักษัตร",
+      dasa_analysis: "การวิเคราะห์ทศา",
+      recommendations: "ข้อเสนอแนะและการดำเนินการ",
+      click_for_details: "คลิกที่ดาวเคราะห์เพื่อดูการตีความรายละเอียด",
+
+      sun_desc: "ดวงอาทิตย์แทนจิตวิญญาณ ความรู้สึกตัว และความเป็นผู้นำ ในโหราศาสตร์อินเดีย ดวงอาทิตย์เป็นสัญลักษณ์ของพ่อ อำนาจ และพลังชีวิต",
+      moon_desc: "ดวงจันทร์แทนจิตใจ อารมณ์ และสัญชาตญาณ ส่งผลต่อการตอบสนองทางอารมณ์ ความรู้สึกปลอดภัย และรูปแบบจิตใต้สำนึก",
+      mercury_desc: "ดาวพุธแทนสติปัญญา การสื่อสาร และความสามารถในการเรียนรู้ ส่งผลต่อวิธีคิด การแสดงออก และทักษะทางธุรกิจ",
+      venus_desc: "ดาวศุกร์แทนความรัก ความงาม และความสุข ส่งผลต่อรสนิยมทางศิลปะ ความสัมพันธ์ และการสนองความต้องการทางวัตถุ",
+      mars_desc: "ดาวอังคารแทนพลังงาน การกระทำ และความกล้าหาญ ส่งผลต่อการริเริ่ม แข่งขัน และพลังงานทางเพศ",
+      jupiter_desc: "ดาวพฤหัสบดีแทนปัญญา การขยาย และโชคลาภ เป็นดาวเคราะห์ที่เป็นมงคลที่สุด นำมาซึ่งการเติบโต ความรู้ และความมั่งคั่ง",
+      saturn_desc: "ดาวเสาร์แทนความรับผิดชอบ วินัย และข้อจำกัด สอนให้เรามีความอดทน ความมุ่งมั่น และความสมจริง",
+      rahu_desc: "ราหูแทนความต้องการ ความทะเยอทะยาน และการแสวงหาสิ่งที่เป็นรูปธรรม เป็นจุดตัดเหนือ นำมาซึ่งการเปลี่ยนแปลงและการเติบโตอย่างกะทันหัน",
+      ketu_desc: "เกตุแทนจิตวิญญาณ การหลุดพ้น และกรรมในอดีต เป็นจุดตัดใต้ ส่งเสริมการตื่นรู้ทางจิตวิญญาณ",
+
+      analysis_love: "ดาวศุกร์อยู่ในตำแหน่งดี เหมาะสำหรับพัฒนาความสัมพันธ์ ดวงจันทร์แสดงถึงความต้องการทางอารมณ์ที่มั่นคง",
+      analysis_career: "ดาวพฤหัสบดีในเรือนอาชีพ บ่งชี้โอกาสในการเติบโตทางวิชาชีพ ดาวอังคารให้พลังในการกระทำ",
+      analysis_wealth: "เรือนที่สองได้รับอิทธิพลดี โชคลาภทางการเงินมั่นคง ต้องระวังจังหวะการลงทุน",
+      analysis_health: "เรือนที่หกอยู่ในสภาพดี สุขภาพโดยรวมมั่นคง ต้องจัดการกับความเครียด",
+      analysis_family: "เรือนที่สี่กลมกลืน ความสัมพันธ์ในครอบครัวอบอุ่น การสื่อสารเป็นกุญแจสำคัญในการรักษาความกลมกลืน",
+      analysis_study: "ตำแหน่งดาวพุธยอดเยี่ยม ความสามารถในการเรียนรู้สูง เหมาะสำหรับการเจาะลึกสาขาวิชาเฉพาะ",
+      analysis_move: "เรือนการเดินทางมีความกระตือรือร้น เหมาะสำหรับการเดินทางระยะสั้น การย้ายที่อยู่ต้องวางแผนอย่างระมัดระวัง",
+
+      reco_1: "ทำสมาธิวันละ 10 นาทีเพื่อเสริมสร้างความตระหนักรู้ภายใน",
+      reco_2: "บันทึกความฝันและความรู้สึกโดยสัญชาตญาณเพื่อพัฒนาการเชื่อมต่อทางจิตวิญญาณ",
+      reco_3: "ทำความสะอาดพลังงานเป็นประจำเพื่อรักษาสมดุล",
+      reco_4: "เข้าร่วมสมาชิก VIP เพื่อรับคำแนะนำส่วนบุคคล",
+      reco_5: "พิจารณาการปรึกษาแบบตัวต่อตัวเพื่อการสำรวจที่ลึกซึ้ง",
 
       vip_title: "🌙 พื้นที่ VIP",
       vip_mingli: "🗝 เนื้อหาเฉพาะสมาชิก — โซนดวงชะตา",
@@ -832,19 +935,44 @@
 
       btn_gen: "Jana Bacaan",
       btn_clear: "Padam",
+      btn_close: "Tutup",
+      btn_view_detail: "Lihat Butiran",
 
       sec_local: "Keputusan Analisis Astrologi Tempatan",
       reco_title: "Cadangan · Langkah Seterusnya",
 
-      chat_fab: "Chat",
-      chat_title: "Concierge · Chat",
-      chat_ph: "Tanya apa sahaja (cth. cara mulakan percubaan percuma)",
-      chat_send: "Hantar",
-
-      need_birth: "Sila isi sekurang-kurangnya tarikh & masa lahir DAN bandar kelahiran (untuk carta berdasarkan zon masa).",
       generating: "Sedang menjana bacaan Astrologi India…",
-      retry: "Maaf, bacaan tidak dapat dijana buat masa ini.",
-      neterr: "Ralat rangkaian. Cuba lagi kemudian.",
+      need_birth: "Sila isi sekurang-kurangnya tarikh & masa lahir DAN bandar kelahiran (untuk carta berdasarkan zon masa).",
+      analysis_title: "Laporan Analisis Astrologi India",
+      planet_positions: "Gambaran Kedudukan Planet",
+      nakshatra_analysis: "Analisis Nakshatra",
+      dasa_analysis: "Analisis Dasha",
+      recommendations: "Cadangan & Tindakan",
+      click_for_details: "Klik pada planet untuk tafsiran terperinci",
+
+      sun_desc: "Matahari mewakili jiwa, kesedaran diri dan kepimpinan. Dalam astrologi India, Matahari melambangkan bapa, autoriti dan tenaga hidup.",
+      moon_desc: "Bulan mewakili minda, emosi dan intuisi. Ia mempengaruhi tindak balas emosi, rasa selamat dan corak bawah sedar.",
+      mercury_desc: "Utarid mewakili intelek, komunikasi dan kebolehan pembelajaran. Ia mempengaruhi cara pemikiran, ekspresi dan kemahiran perniagaan.",
+      venus_desc: "Zuhrah mewakili cinta, keindahan dan keseronokan. Ia mempengaruhi rasa estetik, hubungan dan nikmat material.",
+      mars_desc: "Marikh mewakili tenaga, tindakan dan keberanian. Ia mempengaruhi inisiatif, daya saing dan tenaga seksual.",
+      jupiter_desc: "Musytari mewakili kebijaksanaan, pengembangan dan tuah. Ia planet paling benefik, membawa pertumbuhan, pengetahuan dan kekayaan.",
+      saturn_desc: "Zuhal mewakili tanggungjawab, disiplin dan batasan. Ia mengajar kita kesabaran, ketekunan dan realisme.",
+      rahu_desc: "Rahu mewakili keinginan, cita-cita dan pencarian material. Ia nod utara, membawa perubahan dan pertumbuhan tiba-tiba.",
+      ketu_desc: "Ketu mewakili kerohanian, pembebasan dan karma lampau. Ia nod selatan, menggalakkan kebangkitan rohani.",
+
+      analysis_love: "Zuhrah berada dalam kedudukan baik, menggalakkan perkembangan hubungan romantik. Bulan menunjukkan keperluan emosi stabil.",
+      analysis_career: "Musytari dalam rumah kerjaya menunjukkan peluang pertumbuhan profesional. Marikh memberi motivasi.",
+      analysis_wealth: "Rumah kedua mendapat aspek baik, kestabilan kewangan ditunjukkan. Perlu perhatikan masa pelaburan.",
+      analysis_health: "Keadaan rumah keenam baik, kesihatan keseluruhan stabil. Perlu uruskan tekanan.",
+      analysis_family: "Rumah keempat harmoni, hubungan keluarga hangat. Komunikasi adalah kunci untuk mengekalkan keharmonian.",
+      analysis_study: "Kedudukan Utarid cemerlang, kebolehan pembelajaran kuat. Sesuai untuk mendalami bidang profesional.",
+      analysis_move: "Rumah perjalanan aktif, sesuai untuk perjalanan pendek. Pindahan perlu dirancang dengan teliti.",
+
+      reco_1: "Amalkan meditasi 10 minit setiap hari untuk tingkatkan kesedaran dalaman",
+      reco_2: "Rekod mimpi dan perasaan intuitif untuk bangunkan sambungan rohani",
+      reco_3: "Pembersihan tenaga berkala untuk kekalkan keseimbangan",
+      reco_4: "Sertai keahlian VIP untuk bimbingan peribadi",
+      reco_5: "Pertimbangkan konsultasi satu lawan satu untuk penerokaan lebih mendalam",
 
       vip_title: "🌙 Zon VIP",
       vip_mingli: "🗝 Ruang Takdir — Kandungan Eksklusif",
@@ -882,183 +1010,144 @@
 
   /* ===== i18n 应用 ===== */
   function t(key) {
-    const L = i18n[getLang()] || i18n["zh-CN"];
-    return L[key] || (i18n["zh-CN"][key] || key);
+    const lang = getLang();
+    const L = i18n[lang] || i18n["zh-CN"];
+    return L[key] || key;
   }
 
   function applyI18n() {
     document.querySelectorAll("[data-i18n]").forEach(el => {
       const k = el.getAttribute("data-i18n");
-      el.textContent = t(k);
+      const text = t(k);
+      if (text) el.textContent = text;
     });
+    
     document.querySelectorAll("[data-i18n-ph]").forEach(el => {
       const k = el.getAttribute("data-i18n-ph");
-      el.setAttribute("placeholder", t(k));
+      const placeholder = t(k);
+      if (placeholder) el.setAttribute("placeholder", placeholder);
     });
-    const titleEl = document.querySelector("title[data-i18n], title[data-i18n='title']");
+    
+    const titleEl = document.querySelector("title[data-i18n='title'], title");
     if (titleEl) {
       titleEl.textContent = t("title");
     }
   }
 
-  /* ===== Chat 浮窗 ===== */
-  (function () {
-    const fab = $('ssChatFab'),
-          panel = $('ssChatPanel'),
-          body = $('ssChatBody'),
-          input = $('ssChatInput'),
-          send = $('ssChatSend'),
-          closeBtn = $('ssChatClose');
+  /* ===== 行星详细描述 ===== */
+  const planetDescriptions = {
+    sun: t('sun_desc'),
+    moon: t('moon_desc'),
+    mercury: t('mercury_desc'),
+    venus: t('venus_desc'),
+    mars: t('mars_desc'),
+    jupiter: t('jupiter_desc'),
+    saturn: t('saturn_desc'),
+    rahu: t('rahu_desc'),
+    ketu: t('ketu_desc')
+  };
 
-    function addMsg(text, me = false) {
-      const d = document.createElement('div');
-      d.className = 'ss-msg' + (me ? ' me' : '');
-      d.textContent = text;
-      body.appendChild(d);
-      body.scrollTop = body.scrollHeight;
+  /* ===== 模态框控制 ===== */
+  function showPlanetDetail(planetName, planetInfo) {
+    const modal = $('planetModal');
+    const modalTitle = $('modalTitle');
+    const modalContent = $('modalContent');
+    
+    if (modal && modalTitle && modalContent) {
+      modalTitle.textContent = `${planetInfo.planet} - ${planetInfo.sign} · ${planetInfo.house}`;
+      
+      const description = planetDescriptions[planetInfo.planet.toLowerCase()] || 
+                         `${planetInfo.planet}在${planetInfo.sign}的${planetInfo.house}中。`;
+      
+      modalContent.innerHTML = `
+        <p><strong>${t('planet_positions')}:</strong> ${planetInfo.sign} · ${planetInfo.house}</p>
+        <p><strong>${t('recommendations')}:</strong></p>
+        <p>${description}</p>
+        <p>${getPlanetRecommendation(planetInfo.planet, planetInfo.sign)}</p>
+      `;
+      
+      modal.style.display = 'flex';
     }
+  }
 
-    function askChat(prompt) {
-      addMsg(prompt, true);
-      input.value = '';
-
-      // 本地回复逻辑
-      setTimeout(() => {
-        const responses = {
-          'zh-CN': [
-            "感谢您的提问！目前我们提供印度命理分析服务，请填写上方表单获取个性化解读。",
-            "您可以通过填写出生信息获取基于吠陀占星的命理分析。",
-            "如需更深入的一对一咨询，请考虑升级为VIP会员。"
-          ],
-          'en': [
-            "Thank you for your question! We currently offer Vedic astrology analysis services. Please fill out the form above for a personalized reading.",
-            "You can get a Vedic astrology-based analysis by filling in your birth information.",
-            "For more in-depth one-on-one consultation, consider upgrading to VIP membership."
-          ]
-        };
-        
-        const lang = getLang();
-        const langResponses = responses[lang] || responses['zh-CN'];
-        const randomResponse = langResponses[Math.floor(Math.random() * langResponses.length)];
-        
-        addMsg(randomResponse);
-      }, 1000);
-    }
-
-    if (fab && panel && body && input && send && closeBtn) {
-      fab.addEventListener('click', () => {
-        panel.style.display = 'flex';
-        input.focus();
-      });
-      closeBtn.addEventListener('click', () => {
-        panel.style.display = 'none';
-      });
-      send.addEventListener('click', () => {
-        const v = input.value.trim();
-        if (v) askChat(v);
-      });
-      input.addEventListener('keydown', e => {
-        if (e.key === 'Enter') {
-          const v = input.value.trim();
-          if (v) askChat(v);
-        }
-      });
-    }
-  })();
+  function getPlanetRecommendation(planet, sign) {
+    const recommendations = {
+      'sun': t('reco_1'),
+      'moon': t('reco_2'),
+      'mercury': t('reco_3'),
+      'venus': t('reco_4'),
+      'mars': t('reco_5'),
+      'jupiter': t('reco_1'),
+      'saturn': t('reco_2'),
+      'rahu': t('reco_3'),
+      'ketu': t('reco_4')
+    };
+    
+    return recommendations[planet.toLowerCase()] || t('reco_5');
+  }
 
   /* ===== 本地命理分析 ===== */
   function generateLocalAnalysis({ name, gender, birthdt, birthplace, topic, question }) {
-    // 生成随机行星位置
-    const planets = ['太阳', '月亮', '水星', '金星', '火星', '木星', '土星', '天王星', '海王星', '冥王星'];
-    const signs = ['白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座', '天秤座', '天蝎座', '射手座', '摩羯座', '水瓶座', '双鱼座'];
-    const houses = ['第1宫', '第2宫', '第3宫', '第4宫', '第5宫', '第6宫', '第7宫', '第8宫', '第9宫', '第10宫', '第11宫', '第12宫'];
+    const lang = getLang();
     
+    // 行星数据 - 根据语言选择名称
+    const planetNames = {
+      'zh-CN': ['太阳', '月亮', '水星', '金星', '火星', '木星', '土星', '罗睺', '计都'],
+      'zh-TW': ['太陽', '月亮', '水星', '金星', '火星', '木星', '土星', '羅睺', '計都'],
+      'en': ['Sun', 'Moon', 'Mercury', 'Venus', 'Mars', 'Jupiter', 'Saturn', 'Rahu', 'Ketu'],
+      'ja': ['太陽', '月', '水星', '金星', '火星', '木星', '土星', 'ラーフ', 'ケートゥ'],
+      'th': ['ดวงอาทิตย์', 'ดวงจันทร์', 'ดาวพุธ', 'ดาวศุกร์', 'ดาวอังคาร', 'ดาวพฤหัสบดี', 'ดาวเสาร์', 'ราหู', 'เกตุ'],
+      'ms': ['Matahari', 'Bulan', 'Utarid', 'Zuhrah', 'Marikh', 'Musytari', 'Zuhal', 'Rahu', 'Ketu']
+    };
+    
+    const signNames = {
+      'zh-CN': ['白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座', '天秤座', '天蝎座', '射手座', '摩羯座', '水瓶座', '双鱼座'],
+      'zh-TW': ['白羊座', '金牛座', '雙子座', '巨蟹座', '獅子座', '處女座', '天秤座', '天蠍座', '射手座', '摩羯座', '水瓶座', '雙魚座'],
+      'en': ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces'],
+      'ja': ['牡羊座', '牡牛座', '双子座', '蟹座', '獅子座', '乙女座', '天秤座', '蠍座', '射手座', '山羊座', '水瓶座', '魚座'],
+      'th': ['เมษ', 'พฤษภ', 'เมถุน', 'กรกฎ', 'สิงห์', 'กันย์', 'ตุลย์', 'พิจิก', 'ธนู', 'มังกร', 'กุมภ์', 'มีน'],
+      'ms': ['Aries', 'Taurus', 'Gemini', 'Cancer', 'Leo', 'Virgo', 'Libra', 'Scorpio', 'Sagittarius', 'Capricorn', 'Aquarius', 'Pisces']
+    };
+    
+    const houseNames = {
+      'zh-CN': ['第1宫', '第2宫', '第3宫', '第4宫', '第5宫', '第6宫', '第7宫', '第8宫', '第9宫', '第10宫', '第11宫', '第12宫'],
+      'zh-TW': ['第1宮', '第2宮', '第3宮', '第4宮', '第5宮', '第6宮', '第7宮', '第8宮', '第9宮', '第10宮', '第11宮', '第12宮'],
+      'en': ['1st House', '2nd House', '3rd House', '4th House', '5th House', '6th House', '7th House', '8th House', '9th House', '10th House', '11th House', '12th House'],
+      'ja': ['第1室', '第2室', '第3室', '第4室', '第5室', '第6室', '第7室', '第8室', '第9室', '第10室', '第11室', '第12室'],
+      'th': ['เรือนที่1', 'เรือนที่2', 'เรือนที่3', 'เรือนที่4', 'เรือนที่5', 'เรือนที่6', 'เรือนที่7', 'เรือนที่8', 'เรือนที่9', 'เรือนที่10', 'เรือนที่11', 'เรือนที่12'],
+      'ms': ['Rumah 1', 'Rumah 2', 'Rumah 3', 'Rumah 4', 'Rumah 5', 'Rumah 6', 'Rumah 7', 'Rumah 8', 'Rumah 9', 'Rumah 10', 'Rumah 11', 'Rumah 12']
+    };
+    
+    const planets = planetNames[lang] || planetNames['zh-CN'];
+    const signs = signNames[lang] || signNames['zh-CN'];
+    const houses = houseNames[lang] || houseNames['zh-CN'];
+    
+    // 生成行星位置
     const planetPositions = planets.map(planet => {
       const sign = signs[Math.floor(Math.random() * signs.length)];
       const house = houses[Math.floor(Math.random() * houses.length)];
-      return { planet, sign, house };
+      return { 
+        planet, 
+        sign, 
+        house,
+        key: planet.toLowerCase().replace(/[^a-z]/g, '')
+      };
     });
     
-    // 根据主题生成分析
-    const topicAnalysis = {
-      'love': {
-        title: '感情关系分析',
-        advice: [
-          '当前金星位置良好，有利于建立新的感情关系',
-          '注意火星位置可能带来一些小的争执，建议多沟通',
-          '未来3个月是发展感情的好时机'
-        ]
-      },
-      'career': {
-        title: '事业发展分析',
-        advice: [
-          '木星位置显示有职业发展的机会',
-          '土星提醒需要更加努力和耐心',
-          '考虑在接下来6个月内寻求晋升或新机会'
-        ]
-      },
-      'wealth': {
-        title: '财务状况分析',
-        advice: [
-          '第二宫显示有稳定的收入来源',
-          '注意第八宫可能有一些意外支出',
-          '考虑在接下来3个月进行保守投资'
-        ]
-      },
-      'health': {
-        title: '健康状况分析',
-        advice: [
-          '第六宫显示整体健康状况良好',
-          '注意火星位置可能带来一些小的健康问题',
-          '建议保持规律的锻炼和健康饮食'
-        ]
-      },
-      'family': {
-        title: '家庭关系分析',
-        advice: [
-          '第四宫显示家庭关系和谐',
-          '注意水星位置可能带来一些沟通误解',
-          '建议多花时间与家人相处'
-        ]
-      },
-      'study': {
-        title: '学习成长分析',
-        advice: [
-          '第三宫和第九宫显示学习能力良好',
-          '水星位置有利于吸收新知识',
-          '考虑在未来6个月内开始新的学习计划'
-        ]
-      },
-      'move': {
-        title: '旅行搬迁分析',
-        advice: [
-          '当前行星位置有利于短途旅行',
-          '长途旅行建议避开下个月',
-          '搬迁考虑在3个月后进行'
-        ]
-      },
-      'other': {
-        title: '综合运势分析',
-        advice: [
-          '整体运势平稳，适合规划未来',
-          '注意行星位置变化可能带来一些小挑战',
-          '保持积极心态，把握机会'
-        ]
-      }
-    };
-    
-    const analysis = topicAnalysis[topic] || topicAnalysis['other'];
+    // 获取主题分析
+    const analysisText = getTopicAnalysis(topic, lang);
     
     // 构建HTML内容
     let html = `<div class="local-analysis">
-      <h3>${name ? `亲爱的${name}，` : ''}基于您的出生信息分析</h3>
-      <p>出生时间: ${birthdt} | 出生地: ${birthplace}</p>
+      <h3>${t('analysis_title')}</h3>
+      <p><strong>${name ? t('name_label') + ': ' + name : ''}</strong> ${birthdt ? ' | ' + t('birth_dt_label') + ': ' + birthdt : ''} ${birthplace ? ' | ' + t('birth_place_label') + ': ' + birthplace : ''}</p>
       
-      <h3>行星位置概览</h3>
+      <h4>${t('planet_positions')}</h4>
+      <p class="muted">${t('click_for_details')}</p>
       <div class="planet-grid">`;
     
     planetPositions.forEach(pos => {
-      html += `<div class="planet-item">
+      html += `<div class="planet-item" onclick="showPlanetDetail('${pos.planet}', ${JSON.stringify(pos).replace(/"/g, '&quot;')})">
         <div class="planet-name">${pos.planet}</div>
         <div class="planet-position">${pos.sign} · ${pos.house}</div>
       </div>`;
@@ -1066,23 +1155,28 @@
     
     html += `</div>
       <div class="analysis-section">
-        <h4>${analysis.title}</h4>
-        <ul>`;
-    
-    analysis.advice.forEach(item => {
-      html += `<li>${item}</li>`;
-    });
-    
-    html += `</ul>
+        <h4>${getTopicTitle(topic, lang)}</h4>
+        <p>${analysisText}</p>
       </div>
       
       <div class="analysis-section">
-        <h4>${t('reco_title')}</h4>
+        <h4>${t('nakshatra_analysis')}</h4>
+        <p>${getNakshatraAnalysis(lang)}</p>
+      </div>
+      
+      <div class="analysis-section">
+        <h4>${t('dasa_analysis')}</h4>
+        <p>${getDasaAnalysis(lang)}</p>
+      </div>
+      
+      <div class="analysis-section">
+        <h4>${t('recommendations')}</h4>
         <ul>
-          <li>记录您的梦境和直觉感受</li>
-          <li>尝试冥想和能量练习</li>
-          <li>考虑预约一对一专业咨询</li>
-          <li>加入VIP会员获取更多专属内容</li>
+          <li>${t('reco_1')}</li>
+          <li>${t('reco_2')}</li>
+          <li>${t('reco_3')}</li>
+          <li>${t('reco_4')}</li>
+          <li>${t('reco_5')}</li>
         </ul>
       </div>
     </div>`;
@@ -1090,99 +1184,230 @@
     return html;
   }
 
+  function getTopicTitle(topic, lang) {
+    const titles = {
+      'zh-CN': {
+        'love': '感情关系分析',
+        'career': '事业发展分析',
+        'wealth': '财务状况分析',
+        'health': '健康状况分析',
+        'family': '家庭关系分析',
+        'study': '学习成长分析',
+        'move': '旅行搬迁分析',
+        'other': '综合运势分析'
+      },
+      'zh-TW': {
+        'love': '感情關係分析',
+        'career': '事業發展分析',
+        'wealth': '財務狀況分析',
+        'health': '健康狀況分析',
+        'family': '家庭關係分析',
+        'study': '學習成長分析',
+        'move': '旅行搬遷分析',
+        'other': '綜合運勢分析'
+      },
+      'en': {
+        'love': 'Love Relationship Analysis',
+        'career': 'Career Development Analysis',
+        'wealth': 'Financial Analysis',
+        'health': 'Health Analysis',
+        'family': 'Family Relationship Analysis',
+        'study': 'Learning & Growth Analysis',
+        'move': 'Travel & Relocation Analysis',
+        'other': 'Overall Fortune Analysis'
+      },
+      'ja': {
+        'love': '恋愛関係分析',
+        'career': 'キャリア発展分析',
+        'wealth': '財務状況分析',
+        'health': '健康状況分析',
+        'family': '家族関係分析',
+        'study': '学習成長分析',
+        'move': '旅行引っ越し分析',
+        'other': '総合運勢分析'
+      },
+      'th': {
+        'love': 'การวิเคราะห์ความสัมพันธ์ความรัก',
+        'career': 'การวิเคราะห์การพัฒนาอาชีพ',
+        'wealth': 'การวิเคราะห์สถานะทางการเงิน',
+        'health': 'การวิเคราะห์สถานะสุขภาพ',
+        'family': 'การวิเคราะห์ความสัมพันธ์ในครอบครัว',
+        'study': 'การวิเคราะห์การเรียนรู้และการเติบโต',
+        'move': 'การวิเคราะห์การเดินทางและการย้ายที่อยู่',
+        'other': 'การวิเคราะห์โชคชะตารวม'
+      },
+      'ms': {
+        'love': 'Analisis Hubungan Cinta',
+        'career': 'Analisis Pembangunan Kerjaya',
+        'wealth': 'Analisis Kewangan',
+        'health': 'Analisis Kesihatan',
+        'family': 'Analisis Hubungan Keluarga',
+        'study': 'Analisis Pembelajaran & Pertumbuhan',
+        'move': 'Analisis Perjalanan & Pindahan',
+        'other': 'Analisis Nasib Keseluruhan'
+      }
+    };
+    
+    return titles[lang]?.[topic] || titles['zh-CN'][topic] || titles['zh-CN']['other'];
+  }
+
+  function getTopicAnalysis(topic, lang) {
+    const analysis = {
+      'zh-CN': t('analysis_' + topic),
+      'zh-TW': t('analysis_' + topic),
+      'en': t('analysis_' + topic),
+      'ja': t('analysis_' + topic),
+      'th': t('analysis_' + topic),
+      'ms': t('analysis_' + topic)
+    };
+    
+    return analysis || t('analysis_other');
+  }
+
+  function getNakshatraAnalysis(lang) {
+    const nakshatras = {
+      'zh-CN': '根据出生月宿分析，当前处于Ashwini nakshatra，有利于新的开始和冒险精神。',
+      'zh-TW': '根據出生月宿分析，當前處於Ashwini nakshatra，有利於新的開始和冒險精神。',
+      'en': 'Based on birth Nakshatra analysis, currently in Ashwini nakshatra, favorable for new beginnings and adventurous spirit.',
+      'ja': '出生時のナクシャトラ分析によると、現在はAshwiniナクシャトラにあり、新しい始まりと冒険心に有利です。',
+      'th': 'จากการวิเคราะห์นักษัตรเกิด ปัจจุบันอยู่ในนักษัตร Ashwini ซึ่งเป็นมงคลสำหรับการเริ่มต้นใหม่และจิตวิญญาณแห่งการผจญภัย',
+      'ms': 'Berdasarkan analisis Nakshatra kelahiran, kini dalam nakshatra Ashwini, menggalakkan permulaan baru dan semangat berpetualang.'
+    };
+    
+    return nakshatras[lang] || nakshatras['zh-CN'];
+  }
+
+  function getDasaAnalysis(lang) {
+    const dasa = {
+      'zh-CN': '当前正处于木星大运（Guru Mahadasha），这是一个成长、学习和扩展的时期。',
+      'zh-TW': '當前正處於木星大運（Guru Mahadasha），這是一個成長、學習和擴展的時期。',
+      'en': 'Currently in Jupiter major period (Guru Mahadasha), a time of growth, learning and expansion.',
+      'ja': '現在は木星の大運（Guru Mahadasha）にあり、成長、学習、拡張の時期です。',
+      'th': 'ปัจจุบันอยู่ในช่วงทศาหลักของดาวพฤหัสบดี (Guru Mahadasha) ซึ่งเป็นช่วงเวลาแห่งการเติบโต การเรียนรู้ และการขยายตัว',
+      'ms': 'Kini dalam tempoh utama Musytari (Guru Mahadasha), masa pertumbuhan, pembelajaran dan pengembangan.'
+    };
+    
+    return dasa[lang] || dasa['zh-CN'];
+  }
+
   /* ===== 交互 ===== */
-  const presetQEl = $('presetQ');
-  if (presetQEl) {
-    presetQEl.addEventListener('change', e => {
-      const v = e.target.value;
-      if (v) {
-        const q = $('question');
-        if (q) q.value = q.value ? q.value + '\n' + v : v;
-      }
-    });
-  }
-
-  const clearBtn = $('clear');
-  if (clearBtn) {
-    clearBtn.addEventListener('click', () => {
-      ['name', 'gender', 'birthdt', 'birthplace', 'question'].forEach(id => {
-        const el = $(id);
-        if (el) el.value = '';
+  document.addEventListener('DOMContentLoaded', function() {
+    // 语言选择器
+    const langSelect = $('langSelect');
+    if (langSelect) {
+      langSelect.value = getLang();
+      langSelect.addEventListener('change', function() {
+        setLang(this.value);
+        applyI18n();
+        
+        // 重新生成分析内容
+        const localCard = $('localCard');
+        if (localCard.style.display === 'block') {
+          const goBtn = $('go');
+          if (goBtn) goBtn.click();
+        }
       });
-      const topicEl = $('topic');
-      if (topicEl) topicEl.value = 'love';
-      if (presetQEl) presetQEl.value = '';
-      const localCard = $('localCard');
-      const localText = $('localText');
-      const localReco = $('localReco');
-      if (localCard) localCard.style.display = 'none';
-      if (localText) localText.textContent = '';
-      if (localReco) localReco.innerHTML = '';
-    });
-  }
+    }
 
-  const goBtn = $('go');
-  if (goBtn) {
-    goBtn.addEventListener('click', async () => {
-      const L = i18n[getLang()] || i18n["zh-CN"];
-      const birthdtEl = $('birthdt');
-      const birthplaceEl = $('birthplace');
-      const birthdt = birthdtEl ? birthdtEl.value.trim() : '';
-      const birthplace = birthplaceEl ? birthplaceEl.value.trim() : '';
+    // 预设问题选择
+    const presetQEl = $('presetQ');
+    if (presetQEl) {
+      presetQEl.addEventListener('change', function(e) {
+        const v = e.target.value;
+        if (v) {
+          const q = $('question');
+          if (q) q.value = q.value ? q.value + '\n' + v : v;
+        }
+      });
+    }
 
-      if (!birthdt || !birthplace) {
-        alert(L.need_birth);
-        return;
-      }
+    // 清空按钮
+    const clearBtn = $('clear');
+    if (clearBtn) {
+      clearBtn.addEventListener('click', function() {
+        ['name', 'gender', 'birthdt', 'birthplace', 'question'].forEach(id => {
+          const el = $(id);
+          if (el) el.value = '';
+        });
+        const topicEl = $('topic');
+        if (topicEl) topicEl.value = 'love';
+        if (presetQEl) presetQEl.value = '';
+        const localCard = $('localCard');
+        if (localCard) localCard.style.display = 'none';
+        const localText = $('localText');
+        if (localText) localText.textContent = '';
+      });
+    }
 
-      const payload = {
-        name: ($('name')?.value || '').trim(),
-        gender: $('gender')?.value || '',
-        birthdt,
-        birthplace,
-        topic: $('topic')?.value || 'love',
-        question: (($('question')?.value || presetQEl?.value || '')).trim()
-      };
+    // 生成分析按钮
+    const goBtn = $('go');
+    if (goBtn) {
+      goBtn.addEventListener('click', function() {
+        const L = i18n[getLang()] || i18n["zh-CN"];
+        const birthdtEl = $('birthdt');
+        const birthplaceEl = $('birthplace');
+        const birthdt = birthdtEl ? birthdtEl.value.trim() : '';
+        const birthplace = birthplaceEl ? birthplaceEl.value.trim() : '';
 
-      const localCard = $('localCard');
-      const localText = $('localText');
-      const localReco = $('localReco');
+        if (!birthdt || !birthplace) {
+          alert(L.need_birth);
+          return;
+        }
 
-      if (localCard) localCard.style.display = 'block';
-      if (localText) localText.innerHTML = L.generating;
+        const payload = {
+          name: ($('name')?.value || '').trim(),
+          gender: $('gender')?.value || '',
+          birthdt,
+          birthplace,
+          topic: $('topic')?.value || 'love',
+          question: (($('question')?.value || presetQEl?.value || '')).trim()
+        };
 
-      // 模拟分析生成时间
-      setTimeout(() => {
-        const analysisHTML = generateLocalAnalysis(payload);
-        if (localText) localText.innerHTML = analysisHTML;
-      }, 1500);
-    });
-  }
+        const localCard = $('localCard');
+        const localText = $('localText');
 
-  /* ===== 语言切换 ===== */
-  const sel = $('langSelect');
-  if (sel) {
-    sel.value = getLang();
-    sel.addEventListener('change', () => {
-      setLang(sel.value);
-      applyI18n();
-    });
-  }
+        if (localCard) localCard.style.display = 'block';
+        if (localText) localText.innerHTML = `<div class="loading">${L.generating}</div>`;
 
-  /* ===== 出生日期时间默认填当前时间 ===== */
-  document.addEventListener('DOMContentLoaded', () => {
+        // 模拟分析生成时间
+        setTimeout(() => {
+          const analysisHTML = generateLocalAnalysis(payload);
+          if (localText) localText.innerHTML = analysisHTML;
+        }, 1500);
+      });
+    }
+
+    // 模态框关闭
+    const closeModal = $('closeModal');
+    const modal = $('planetModal');
+    
+    if (closeModal && modal) {
+      closeModal.addEventListener('click', function() {
+        modal.style.display = 'none';
+      });
+      
+      modal.addEventListener('click', function(e) {
+        if (e.target === modal) {
+          modal.style.display = 'none';
+        }
+      });
+    }
+
+    // 出生日期时间默认填当前时间
     const dt = $('birthdt');
     if (dt && !dt.value) {
       const now = new Date();
       const tzOffset = now.getTimezoneOffset() * 60000;
-      const localISO = new Date(now.getTime() - tzOffset).toISOString().slice(0, 16); // yyyy-MM-ddTHH:mm
+      const localISO = new Date(now.getTime() - tzOffset).toISOString().slice(0, 16);
       dt.value = localISO;
     }
+
+    // 初始化
+    applyI18n();
   });
 
-  /* 初始化 */
-  document.documentElement.lang = getLang();
-  applyI18n();
+  // 暴露函数给全局作用域
+  window.showPlanetDetail = showPlanetDetail;
 
 })();
 </script>
