@@ -2529,67 +2529,112 @@ async function updateAiReport(ctx){
 
 /* 生成九星报告主流程 */
 function buildKyuuseiReport(){
-  const birthInput = $('birthdate');
+  const birthInput  = $('birthdate');
   const genderInput = $('gender');
-  const typeSelect = $('analysisType');
-  if (!birthInput || !genderInput || !typeSelect) return;
+  const typeSelect  = $('analysisType');
 
-  const birthStr = birthInput.value;
+  // 基本节点检查（不要直接 return 掉整段，只在 console 提示）
+  if (!birthInput){
+    console.warn('[kyuusei] #birthdate not found');
+    return;
+  }
+  if (!genderInput){
+    console.warn('[kyuusei] #gender not found (将使用空字串)');
+  }
+  if (!typeSelect){
+    console.warn('[kyuusei] #analysisType not found (将使用 comprehensive 默认值)');
+  }
+
+  const birthStr = (birthInput.value || '').trim();
   if (!birthStr){
     alert(t('please_birth'));
+    birthInput.focus && birthInput.focus();
     return;
   }
 
   const starNum = calcHonmei(birthStr);
-  if (!starNum || !STARS[starNum]){
+  if (!starNum || !STARS || !STARS[starNum]){
     alert(t('bad_date'));
     return;
   }
 
-  const analysisType = typeSelect.value || 'comprehensive';
+  // 分析类型
+  const analysisType = (typeSelect && typeSelect.value) || 'comprehensive';
   const typeKeyMap = {
     comprehensive:'analysis_type_comprehensive',
     career:'analysis_type_career',
     relationship:'analysis_type_relationship',
     health:'analysis_type_health'
   };
-  const analysisTypeLabel = t(typeKeyMap[analysisType] || 'analysis_type_comprehensive');
+  const analysisTypeLabel = t(typeKeyMap[analysisType] || 'analysis_type_comprehensive') || '';
 
-  const deep = STARS_DEEP[starNum];
-  const deepLang = getStarText(starNum);
-  const mainElement = (deep && deep.element) || (STARS[starNum] && STARS[starNum].elem) || '';
+  // 主星与深度资料
+  const deep     = STARS_DEEP ? STARS_DEEP[starNum] : null;
+  const deepLang = (typeof getStarText === 'function') ? getStarText(starNum) : null;
 
+  const starMeta = STARS[starNum];
+  const mainElement =
+    (deep && deep.element) ||
+    (starMeta && starMeta.elem) ||
+    '';
+
+  // 报告上下文（给渲染 + AI 用）
   const ctx = {
     starNum,
-    starName: STARS[starNum].zh,
-    starJP: STARS[starNum].jp,
+    starName: starMeta.zh,
+    starJP:   starMeta.jp,
     mainElement,
     birthStr,
-    gender: genderInput.value || '',
+    gender: (genderInput && genderInput.value) || '',
     analysisType,
     analysisTypeLabel
   };
   window._lastKyuuseiCtx = ctx;
 
-  renderStarSection(ctx, deep, deepLang);
-  renderDeepSection(ctx, deepLang);
-  renderSpecializedSection(ctx, deepLang);
-  buildFortuneTimeline(ctx);
-  buildAdvice(ctx);
+  // 渲染各区块
+  if (typeof renderStarSection === 'function') {
+    renderStarSection(ctx, deep, deepLang);
+  }
+  if (typeof renderDeepSection === 'function') {
+    renderDeepSection(ctx, deepLang);
+  }
+  if (typeof renderSpecializedSection === 'function') {
+    renderSpecializedSection(ctx, deepLang);
+  }
+  if (typeof buildFortuneTimeline === 'function') {
+    buildFortuneTimeline(ctx);
+  }
+  if (typeof buildAdvice === 'function') {
+    buildAdvice(ctx);
+  }
 
+  // 显示卡片
   const fortuneCard = $('fortuneCard');
-  const adviceCard = $('adviceCard');
+  const adviceCard  = $('adviceCard');
   if (fortuneCard) fortuneCard.style.display = 'block';
-  if (adviceCard) adviceCard.style.display = 'block';
+  if (adviceCard)  adviceCard.style.display  = 'block';
 
+  // AI 卡片（若存在则显示，并且只在函数存在时调用）
   const aiCard = $('aiCard');
   if (aiCard) aiCard.style.display = 'block';
-  updateAiReport(ctx);
+
+  if (typeof updateAiReport === 'function') {
+    try {
+      updateAiReport(ctx);
+    } catch(e) {
+      console.warn('[kyuusei] updateAiReport error:', e);
+    }
+  } else {
+    console.warn('[kyuusei] updateAiReport is not defined');
+  }
 
   // 滚到主星卡片
   const starCard = $('starCard');
   if (starCard && starCard.scrollIntoView){
-    starCard.scrollIntoView({behavior:'smooth', block:'start'});
+    // 放到微任务之后，确保 DOM 已更新
+    setTimeout(() => {
+      starCard.scrollIntoView({ behavior:'smooth', block:'start' });
+    }, 0);
   }
 }
 
@@ -2668,3 +2713,4 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 </body>
 </html>
+
