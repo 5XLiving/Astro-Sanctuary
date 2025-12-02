@@ -680,10 +680,10 @@
   </div>
 </div>  
 
-<script>
+<script>  
 /* ===== 基本配置 ===== */
 const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
-const LANG_KEY = '5x_lang'; // 与全站统一
+const LANG_KEY = '5x_lang';
 
 /* 工具 */
 const $  = id => document.getElementById(id);
@@ -727,7 +727,6 @@ const i18n = {
     advice_relationship:"人际关系",
     sec_ai:"心怜管家解读与建议",
 
-    // 专项分析标题
     spec_title:"专项深度分析",
     spec_core:"核心分析",
     spec_opportunity:"关键机遇",
@@ -773,14 +772,12 @@ const i18n = {
     note_price:"注册账号赠送一次免费体验",
     note_price1:"$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）",
 
-    // AI 芯片
     chip_career:"事业",
     chip_love:"感情",
     chip_money:"财运",
     chip_list:"今日待办",
     chip_30d:"30天建议",
 
-    // 浮动 Chat
     chat_fab:"问",
     chat_title:"心怜管家 · Chat",
     chat_placeholder:"请问您想了解什么？（如：如何开始免费体验）",
@@ -960,7 +957,7 @@ const i18n = {
     chip_career:"Career",
     chip_love:"Love",
     chip_money:"Wealth",
-    chip_list:"Today’s to-do list",
+    chip_list:"Today's to-do list",
     chip_30d:"30-day advice",
 
     chat_fab:"Ask",
@@ -1401,12 +1398,12 @@ function renderChips() {
         }
         const ctx = window._lastKyuuseiCtx;
         const basePrompt = `
-九星气学主星：${ctx.starName} (${ctx.starJP})
-五行主元素：${ctx.mainElement}
-当前分析类型：${ctx.analysisTypeLabel}
-出生日期：${ctx.birthStr}
-性别（原始输入）：${ctx.gender || '-'}
-`;
+        九星气学主星：${ctx.starName} (${ctx.starJP})
+        五行主元素：${ctx.mainElement}
+        当前分析类型：${ctx.analysisTypeLabel}
+        出生日期：${ctx.birthStr}
+        性别（原始输入）：${ctx.gender || '-'}
+        `;
         const intentTextMap = {
           career: "请根据以上九星信息，重点从事业与财运角度给出实用建议，写成 2–3 段说明与 3–5 条可执行行动。",
           love: "请根据以上九星信息，重点从感情与亲密关系角度给出实用建议，兼顾单身与已有伴侣的情况。",
@@ -1445,461 +1442,677 @@ function calcHonmei(dateStr){
   return num;
 }
 
-const STARS_I18N = {
-    'zh-CN': {
-    1: {
-      name: '一白水星',
-      elem: '水',
-      color: '白',
-      key: ['流动', '直觉', '沟通'],
-      about: '敏感细腻、共情力强，行动灵活，擅长资讯与关系协调。'
+/* ===== 九星数据 - 支持6种语言 ===== */
+const STARS = {
+  1: {
+    name: {
+      'zh-CN': '一白水星',
+      'zh-TW': '一白水星',
+      'en': 'One White Water Star',
+      'ja-JP': '一白水星',
+      'th-TH': 'ดาวน้ำหนึ่งขาว',
+      'ms': 'Bintang Air Putih 1'
     },
-    2: {
-      name: '二黑土星',
-      elem: '土',
-      color: '黑',
-      key: ['滋养', '承载', '耐性'],
-      about: '务实稳健、重视秩序与照料，擅长持续耕耘与落地。'
+    elem: { 'zh-CN': '水', 'zh-TW': '水', 'en': 'Water', 'ja-JP': '水', 'th-TH': 'น้ำ', 'ms': 'Air' },
+    color: { 'zh-CN': '白', 'zh-TW': '白', 'en': 'White', 'ja-JP': '白', 'th-TH': 'ขาว', 'ms': 'Putih' },
+    key: {
+      'zh-CN': ['流动', '直觉', '沟通'],
+      'zh-TW': ['流動', '直覺', '溝通'],
+      'en': ['Flow', 'Intuition', 'Communication'],
+      'ja-JP': ['流れ', '直感', 'コミュニケーション'],
+      'th-TH': ['การไหลเวียน', 'สัญชาตญาณ', 'การสื่อสาร'],
+      'ms': ['Aliran', 'Intuisi', 'Komunikasi']
     },
-    3: {
-      name: '三碧木星',
-      elem: '木',
-      color: '碧',
-      key: ['生发', '表达', '突破'],
-      about: '好奇、表达欲强，喜欢创意与开疆拓土。'
-    },
-    4: {
-      name: '四绿木星',
-      elem: '木',
-      color: '绿',
-      key: ['协调', '交流', '旅行'],
-      about: '温和包容，擅长沟通协调与知识整合。'
-    },
-    5: {
-      name: '五黄土星',
-      elem: '土',
-      color: '黄',
-      key: ['中宫', '权衡', '重启'],
-      about: '居中定盘、抗压力强，擅长策略与危机管理。'
-    },
-    6: {
-      name: '六白金星',
-      elem: '金',
-      color: '白',
-      key: ['秩序', '责任', '领导'],
-      about: '自律果断，重视规则与长远规划。'
-    },
-    7: {
-      name: '七赤金星',
-      elem: '金',
-      color: '赤',
-      key: ['社交', '品味', '享受'],
-      about: '人缘好、审美佳，适合品牌与社交场域。'
-    },
-    8: {
-      name: '八白土星',
-      elem: '土',
-      color: '白',
-      key: ['积累', '转折', '定山'],
-      about: '稳中求变、厚积薄发，关键时刻能翻盘。'
-    },
-    9: {
-      name: '九紫火星',
-      elem: '火',
-      color: '紫',
-      key: ['光彩', '灵感', '传播'],
-      about: '热情外放、灵感多，适合登台表达与 IP 打造。'
+    about: {
+      'zh-CN': '敏感细腻、共情力强，行动灵活，擅长资讯与关系协调。',
+      'zh-TW': '敏感細膩、共情力強，行動靈活，擅長資訊與關係協調。',
+      'en': 'Sensitive and empathetic, moves flexibly, good at coordinating information and relationships.',
+      'ja-JP': '繊細で共感力が高く、動きが柔軟で、情報や人間関係の調整が得意です。',
+      'th-TH': 'อ่อนไหวและมีเมตตาสูง เคลื่อนไหวคล่องตัว เหมาะกับงานข้อมูลและการประสานความสัมพันธ์',
+      'ms': 'Peka dan mudah berempati, bergerak dengan lincah, mahir menyelaras maklumat dan hubungan.'
     }
   },
-
-  'zh-TW': {
-    1: {
-      name: '一白水星',
-      elem: '水',
-      color: '白',
-      key: ['流動', '直覺', '溝通'],
-      about: '敏感細膩、共情力強，行動靈活，擅長資訊與關係協調。'
+  2: {
+    name: {
+      'zh-CN': '二黑土星',
+      'zh-TW': '二黑土星',
+      'en': 'Two Black Earth Star',
+      'ja-JP': '二黒土星',
+      'th-TH': 'ดาวดินสองดำ',
+      'ms': 'Bintang Tanah Hitam 2'
     },
-    2: {
-      name: '二黑土星',
-      elem: '土',
-      color: '黑',
-      key: ['滋養', '承載', '耐性'],
-      about: '務實穩健、重視秩序與照料，擅長持續耕耘與落地。'
+    elem: { 'zh-CN': '土', 'zh-TW': '土', 'en': 'Earth', 'ja-JP': '土', 'th-TH': 'ดิน', 'ms': 'Tanah' },
+    color: { 'zh-CN': '黑', 'zh-TW': '黑', 'en': 'Black', 'ja-JP': '黒', 'th-TH': 'ดำ', 'ms': 'Hitam' },
+    key: {
+      'zh-CN': ['滋养', '承载', '耐性'],
+      'zh-TW': ['滋養', '承載', '耐性'],
+      'en': ['Nurturing', 'Supporting', 'Patience'],
+      'ja-JP': ['滋養', '受容', '忍耐'],
+      'th-TH': ['การเลี้ยงดู', 'การรับภาระ', 'ความอดทน'],
+      'ms': ['Pemeliharaan', 'Menampung', 'Kesabaran']
     },
-    3: {
-      name: '三碧木星',
-      elem: '木',
-      color: '碧',
-      key: ['生發', '表達', '突破'],
-      about: '好奇、表達欲強，喜歡創意與開疆拓土。'
-    },
-    4: {
-      name: '四綠木星',
-      elem: '木',
-      color: '綠',
-      key: ['協調', '交流', '旅行'],
-      about: '溫和包容，擅長溝通協調與知識整合。'
-    },
-    5: {
-      name: '五黃土星',
-      elem: '土',
-      color: '黃',
-      key: ['中宮', '權衡', '重啟'],
-      about: '居中定盤、抗壓力強，擅長策略與危機管理。'
-    },
-    6: {
-      name: '六白金星',
-      elem: '金',
-      color: '白',
-      key: ['秩序', '責任', '領導'],
-      about: '自律果斷，重視規則與長遠規劃。'
-    },
-    7: {
-      name: '七赤金星',
-      elem: '金',
-      color: '赤',
-      key: ['社交', '品味', '享受'],
-      about: '人緣好、審美佳，適合品牌與社交場域。'
-    },
-    8: {
-      name: '八白土星',
-      elem: '土',
-      color: '白',
-      key: ['積累', '轉折', '定山'],
-      about: '穩中求變、厚積薄發，關鍵時刻能翻盤。'
-    },
-    9: {
-      name: '九紫火星',
-      elem: '火',
-      color: '紫',
-      key: ['光彩', '靈感', '傳播'],
-      about: '熱情外放、靈感多，適合登台表達與 IP 打造。'
+    about: {
+      'zh-CN': '务实稳健、重视秩序与照料，擅长持续耕耘与落地。',
+      'zh-TW': '務實穩健、重視秩序與照料，擅長持續耕耘與落地。',
+      'en': 'Practical and steady, values order and care, excels at long-term cultivation.',
+      'ja-JP': '現実的で安定志向、秩序やケアを大切にし、コツコツと物事を形にしていくタイプ。',
+      'th-TH': 'จริงจังและมั่นคง ให้ความสำคัญกับระเบียบและการดูแล เหมาะกับงานที่ต้องลงมือทำต่อเนื่องยาว',
+      'ms': 'Praktikal dan stabil, mementingkan aturan dan penjagaan, kuat dalam kerja yang perlu diusahakan sedikit demi sedikit.'
     }
   },
-
-  en: {
-    1: {
-      name: 'One White Water Star',
-      elem: 'Water',
-      color: 'White',
-      key: ['Flow', 'Intuition', 'Communication'],
-      about: 'Sensitive and empathetic, moves flexibly, and is good at coordinating information and relationships.'
+  3: {
+    name: {
+      'zh-CN': '三碧木星',
+      'zh-TW': '三碧木星',
+      'en': 'Three Jade Wood Star',
+      'ja-JP': '三碧木星',
+      'th-TH': 'ดาวไม้สามเขียว',
+      'ms': 'Bintang Kayu Hijau 3'
     },
-    2: {
-      name: 'Two Black Earth Star',
-      elem: 'Earth',
-      color: 'Black',
-      key: ['Nurturing', 'Carrying', 'Patience'],
-      about: 'Practical and steady, values order and care, and excels at long-term cultivation and implementation.'
+    elem: { 'zh-CN': '木', 'zh-TW': '木', 'en': 'Wood', 'ja-JP': '木', 'th-TH': 'ไม้', 'ms': 'Kayu' },
+    color: { 'zh-CN': '碧', 'zh-TW': '碧', 'en': 'Jade Green', 'ja-JP': '碧', 'th-TH': 'เขียวอมฟ้า', 'ms': 'Hijau kebiruan' },
+    key: {
+      'zh-CN': ['生发', '表达', '突破'],
+      'zh-TW': ['生發', '表達', '突破'],
+      'en': ['Growth', 'Expression', 'Breakthrough'],
+      'ja-JP': ['成長', '表現', 'ブレイクスルー'],
+      'th-TH': ['การเติบโต', 'การแสดงออก', 'การทะลุขีดจำกัด'],
+      'ms': ['Pertumbuhan', 'Ekspresi', 'Terobosan']
     },
-    3: {
-      name: 'Three Jade Wood Star',
-      elem: 'Wood',
-      color: 'Jade Green',
-      key: ['Growth', 'Expression', 'Breakthrough'],
-      about: 'Curious with a strong urge to express, loves creativity and pioneering new ground.'
-    },
-    4: {
-      name: 'Four Green Wood Star',
-      elem: 'Wood',
-      color: 'Green',
-      key: ['Coordination', 'Exchange', 'Travel'],
-      about: 'Gentle and inclusive, good at communication, mediation, and integrating knowledge.'
-    },
-    5: {
-      name: 'Five Yellow Earth Star',
-      elem: 'Earth',
-      color: 'Yellow',
-      key: ['Center', 'Weighing', 'Restart'],
-      about: 'Holds the center and stabilizes the field, strong under pressure, skilled at strategy and crisis management.'
-    },
-    6: {
-      name: 'Six White Metal Star',
-      elem: 'Metal',
-      color: 'White',
-      key: ['Order', 'Responsibility', 'Leadership'],
-      about: 'Self-disciplined and decisive, values rules and long-term vision.'
-    },
-    7: {
-      name: 'Seven Red Metal Star',
-      elem: 'Metal',
-      color: 'Red',
-      key: ['Socializing', 'Taste', 'Enjoyment'],
-      about: 'Charming with good people skills and aesthetics, suited to branding and social settings.'
-    },
-    8: {
-      name: 'Eight White Earth Star',
-      elem: 'Earth',
-      color: 'White',
-      key: ['Accumulation', 'Turning Point', 'Steady Mountain'],
-      about: 'Seeks change through stability, accumulates quietly, and can turn situations around at key moments.'
-    },
-    9: {
-      name: 'Nine Purple Fire Star',
-      elem: 'Fire',
-      color: 'Purple',
-      key: ['Brilliance', 'Inspiration', 'Broadcast'],
-      about: 'Passionate and expressive with many ideas, suited to being on stage and building a personal brand.'
+    about: {
+      'zh-CN': '好奇、表达欲强，喜欢创意与开疆拓土。',
+      'zh-TW': '好奇、表達欲強，喜歡創意與開疆拓土。',
+      'en': 'Curious with strong desire to express, loves creativity and pioneering.',
+      'ja-JP': '好奇心が強く、自己表現欲も豊か、クリエイティブな活動や新しい領域を切り開くことを好む。',
+      'th-TH': 'อยากรู้อยากเห็นและชอบแสดงตัวตน รักความคิดสร้างสรรค์และการบุกเบิกสิ่งใหม่',
+      'ms': 'Ingin tahu dan suka bersuara, gemar kreativiti dan meneroka wilayah baharu.'
     }
   },
-
-  ja: {
-    1: {
-      name: '一白水星',
-      elem: '水',
-      color: '白',
-      key: ['流れ', '直感', 'コミュニケーション'],
-      about: '繊細で共感力が高く、動きが柔軟で、情報や人間関係の調整が得意です。'
+  4: {
+    name: {
+      'zh-CN': '四绿木星',
+      'zh-TW': '四綠木星',
+      'en': 'Four Green Wood Star',
+      'ja-JP': '四緑木星',
+      'th-TH': 'ดาวไม้สี่เขียว',
+      'ms': 'Bintang Kayu Hijau 4'
     },
-    2: {
-      name: '二黒土星',
-      elem: '土',
-      color: '黒',
-      key: ['滋養', '受容', '忍耐'],
-      about: '現実的で安定志向。秩序やケアを大切にし、コツコツと物事を形にしていくタイプです。'
+    elem: { 'zh-CN': '木', 'zh-TW': '木', 'en': 'Wood', 'ja-JP': '木', 'th-TH': 'ไม้', 'ms': 'Kayu' },
+    color: { 'zh-CN': '绿', 'zh-TW': '綠', 'en': 'Green', 'ja-JP': '緑', 'th-TH': 'เขียว', 'ms': 'Hijau' },
+    key: {
+      'zh-CN': ['协调', '交流', '旅行'],
+      'zh-TW': ['協調', '交流', '旅行'],
+      'en': ['Coordination', 'Exchange', 'Travel'],
+      'ja-JP': ['調和', '交流', '旅'],
+      'th-TH': ['การประสานงาน', 'การแลกเปลี่ยน', 'การเดินทาง'],
+      'ms': ['Penyelarasan', 'Pertukaran', 'Perjalanan']
     },
-    3: {
-      name: '三碧木星',
-      elem: '木',
-      color: '碧',
-      key: ['成長', '表現', 'ブレイクスルー'],
-      about: '好奇心が強く、自己表現欲も豊か。クリエイティブな活動や新しい領域を切り開くことを好みます。'
-    },
-    4: {
-      name: '四緑木星',
-      elem: '木',
-      color: '緑',
-      key: ['調和', '交流', '旅'],
-      about: '穏やかで包容力があり、コミュニケーションや調整、知識の編集・統合が得意です。'
-    },
-    5: {
-      name: '五黄土星',
-      elem: '土',
-      color: '黄',
-      key: ['中心', 'バランス', 'リスタート'],
-      about: '中心に立って全体を見渡し、プレッシャーに強いタイプ。戦略や危機管理に適性があります。'
-    },
-    6: {
-      name: '六白金星',
-      elem: '金',
-      color: '白',
-      key: ['秩序', '責任', 'リーダーシップ'],
-      about: '自律心が高く、決断力もある。ルールや長期的なビジョンを重視するリーダー気質です。'
-    },
-    7: {
-      name: '七赤金星',
-      elem: '金',
-      color: '赤',
-      key: ['社交', 'センス', '楽しみ'],
-      about: '人当たりが良く、審美眼にも恵まれています。ブランドづくりや社交の場で輝きやすいタイプです。'
-    },
-    8: {
-      name: '八白土星',
-      elem: '土',
-      color: '白',
-      key: ['蓄積', '転換', '安定'],
-      about: '安定の中で少しずつ変化を起こし、じっくり力を蓄える。勝負どころで大きく流れを変えることができます。'
-    },
-    9: {
-      name: '九紫火星',
-      elem: '火',
-      color: '紫',
-      key: ['輝き', 'インスピレーション', '発信'],
-      about: '情熱的で表現力が高く、ひらめきも豊富。ステージに立つことや、自分の世界観を発信する活動に向いています。'
+    about: {
+      'zh-CN': '温和包容，擅长沟通协调与知识整合。',
+      'zh-TW': '溫和包容，擅長溝通協調與知識整合。',
+      'en': 'Gentle and inclusive, good at communication, mediation and knowledge integration.',
+      'ja-JP': '穏やかで包容力があり、コミュニケーションや調整、知識の編集・統合が得意。',
+      'th-TH': 'อ่อนโยน เปิดกว้างด้านความคิด เก่งการสื่อสาร ประนีประนอม และจัดระบบความรู้',
+      'ms': 'Lembut dan mudah menerima, pandai berkomunikasi, berunding dan menggabungkan ilmu.'
     }
   },
-
-  th: {
-    1: {
-      name: 'ดาวน้ำหนึ่งขาว (一白水星)',
-      elem: 'น้ำ',
-      color: 'ขาว',
-      key: ['การไหลเวียน', 'สัญชาตญาณ', 'การสื่อสาร'],
-      about: 'อ่อนไหวและมีเมตตาสูง เคลื่อนไหวคล่องตัว เหมาะกับงานข้อมูลและการประสานความสัมพันธ์.'
+  5: {
+    name: {
+      'zh-CN': '五黄土星',
+      'zh-TW': '五黃土星',
+      'en': 'Five Yellow Earth Star',
+      'ja-JP': '五黄土星',
+      'th-TH': 'ดาวดินห้าเหลือง',
+      'ms': 'Bintang Tanah Kuning 5'
     },
-    2: {
-      name: 'ดาวดินสองดำ (二黑土星)',
-      elem: 'ดิน',
-      color: 'ดำ',
-      key: ['การเลี้ยงดู', 'การรับภาระ', 'ความอดทน'],
-      about: 'จริงจังและมั่นคง ให้ความสำคัญกับระเบียบและการดูแล เหมาะกับงานที่ต้องลงมือทำต่อเนื่องยาว ๆ.'
+    elem: { 'zh-CN': '土', 'zh-TW': '土', 'en': 'Earth', 'ja-JP': '土', 'th-TH': 'ดิน', 'ms': 'Tanah' },
+    color: { 'zh-CN': '黄', 'zh-TW': '黃', 'en': 'Yellow', 'ja-JP': '黄', 'th-TH': 'เหลือง', 'ms': 'Kuning' },
+    key: {
+      'zh-CN': ['中宫', '权衡', '重启'],
+      'zh-TW': ['中宮', '權衡', '重啟'],
+      'en': ['Center', 'Balance', 'Restart'],
+      'ja-JP': ['中心', 'バランス', 'リスタート'],
+      'th-TH': ['จุดศูนย์กลาง', 'การชั่งน้ำหนัก', 'การเริ่มต้นใหม่'],
+      'ms': ['Pusat', 'Timbangan', 'Permulaan semula']
     },
-    3: {
-      name: 'ดาวไม้สามเขียว (三碧木星)',
-      elem: 'ไม้',
-      color: 'เขียวอมฟ้า',
-      key: ['การเติบโต', 'การแสดงออก', 'การทะลุขีดจำกัด'],
-      about: 'อยากรู้อยากเห็นและชอบแสดงตัวตน รักความคิดสร้างสรรค์และการบุกเบิกสิ่งใหม่ ๆ.'
-    },
-    4: {
-      name: 'ดาวไม้สี่เขียว (四綠木星)',
-      elem: 'ไม้',
-      color: 'เขียว',
-      key: ['การประสานงาน', 'การแลกเปลี่ยน', 'การเดินทาง'],
-      about: 'อ่อนโยน เปิดกว้างด้านความคิด เก่งการสื่อสาร ประนีประนอม และจัดระบบความรู้.'
-    },
-    5: {
-      name: 'ดาวดินห้าเหลือง (五黃土星)',
-      elem: 'ดิน',
-      color: 'เหลือง',
-      key: ['จุดศูนย์กลาง', 'การชั่งน้ำหนัก', 'การเริ่มต้นใหม่'],
-      about: 'ยืนอยู่กึ่งกลางสถานการณ์ มองภาพรวมเก่ง อดทนต่อแรงกดดัน เหมาะกับงานวางกลยุทธ์และจัดการวิกฤต.'
-    },
-    6: {
-      name: 'ดาวโลหะหกขาว (六白金星)',
-      elem: 'โลหะ',
-      color: 'ขาว',
-      key: ['ระเบียบ', 'ความรับผิดชอบ', 'ภาวะผู้นำ'],
-      about: 'มีวินัยและตัดสินใจได้ชัดเจน ให้ความสำคัญกับกฎเกณฑ์และวิสัยทัศน์ระยะยาว.'
-    },
-    7: {
-      name: 'ดาวโลหะเจ็ดแดง (七赤金星)',
-      elem: 'โลหะ',
-      color: 'แดง',
-      key: ['การเข้าสังคม', 'รสนิยม', 'ความเพลิดเพลิน'],
-      about: 'มีเสน่ห์และเข้ากับคนง่าย เซนส์ด้านความสวยงามดี เหมาะกับงานแบรนด์และงานสังคม.'
-    },
-    8: {
-      name: 'ดาวดินแปดขาว (八白土星)',
-      elem: 'ดิน',
-      color: 'ขาว',
-      key: ['การสั่งสม', 'จุดเปลี่ยน', 'ภูเขามั่นคง'],
-      about: 'เปลี่ยนแปลงอย่างค่อยเป็นค่อยไปบนพื้นฐานที่มั่นคง สั่งสมพลังไว้นานและพลิกเกมได้ในจังหวะสำคัญ.'
-    },
-    9: {
-      name: 'ดาวไฟเก้าม่วง (九紫火星)',
-      elem: 'ไฟ',
-      color: 'ม่วง',
-      key: ['ความโดดเด่น', 'แรงบันดาลใจ', 'การเผยแพร่'],
-      about: 'มีไฟแรงและชอบแสดงออก ไอเดียเยอะ เหมาะกับการขึ้นเวทีและสร้างตัวตนหรือแบรนด์ของตัวเอง.'
+    about: {
+      'zh-CN': '居中定盘、抗压力强，擅长策略与危机管理。',
+      'zh-TW': '居中定盤、抗壓力強，擅長策略與危機管理。',
+      'en': 'Holds the center, strong under pressure, skilled at strategy and crisis management.',
+      'ja-JP': '中心に立って全体を見渡し、プレッシャーに強い、戦略や危機管理に適性がある。',
+      'th-TH': 'ยืนอยู่กึ่งกลางสถานการณ์ มองภาพรวมเก่ง อดทนต่อแรงกดดัน เหมาะกับงานวางกลยุทธ์และจัดการวิกฤต',
+      'ms': 'Menjadi titik tengah yang menstabilkan keadaan, tahan tekanan, hebat dalam strategi dan pengurusan krisis.'
     }
   },
-
-  ms: {
-    1: {
-      name: 'Bintang Air Putih 1 (一白水星)',
-      elem: 'Air',
-      color: 'Putih',
-      key: ['Aliran', 'Intuisi', 'Komunikasi'],
-      about: 'Peka dan mudah berempati, bergerak dengan lincah, mahir menyelaras maklumat dan hubungan.'
+  6: {
+    name: {
+      'zh-CN': '六白金星',
+      'zh-TW': '六白金星',
+      'en': 'Six White Metal Star',
+      'ja-JP': '六白金星',
+      'th-TH': 'ดาวโลหะหกขาว',
+      'ms': 'Bintang Logam Putih 6'
     },
-    2: {
-      name: 'Bintang Tanah Hitam 2 (二黑土星)',
-      elem: 'Tanah',
-      color: 'Hitam',
-      key: ['Pemeliharaan', 'Menampung', 'Kesabaran'],
-      about: 'Praktikal dan stabil, mementingkan aturan dan penjagaan, kuat dalam kerja yang perlu diusahakan sedikit demi sedikit.'
+    elem: { 'zh-CN': '金', 'zh-TW': '金', 'en': 'Metal', 'ja-JP': '金', 'th-TH': 'โลหะ', 'ms': 'Logam' },
+    color: { 'zh-CN': '白', 'zh-TW': '白', 'en': 'White', 'ja-JP': '白', 'th-TH': 'ขาว', 'ms': 'Putih' },
+    key: {
+      'zh-CN': ['秩序', '责任', '领导'],
+      'zh-TW': ['秩序', '責任', '領導'],
+      'en': ['Order', 'Responsibility', 'Leadership'],
+      'ja-JP': ['秩序', '責任', 'リーダーシップ'],
+      'th-TH': ['ระเบียบ', 'ความรับผิดชอบ', 'ภาวะผู้นำ'],
+      'ms': ['Tertib', 'Tanggungjawab', 'Kepimpinan']
     },
-    3: {
-      name: 'Bintang Kayu Hijau 3 (三碧木星)',
-      elem: 'Kayu',
-      color: 'Hijau kebiruan',
-      key: ['Pertumbuhan', 'Ekspresi', 'Terobosan'],
-      about: 'Ingin tahu dan suka bersuara, gemar kreativiti dan meneroka wilayah baharu.'
+    about: {
+      'zh-CN': '自律果断，重视规则与长远规划。',
+      'zh-TW': '自律果斷，重視規則與長遠規劃。',
+      'en': 'Self-disciplined and decisive, values rules and long-term vision.',
+      'ja-JP': '自律心が高く、決断力もある、ルールや長期的なビジョンを重視するリーダー気質。',
+      'th-TH': 'มีวินัยและตัดสินใจได้ชัดเจน ให้ความสำคัญกับกฎเกณฑ์และวิสัยทัศน์ระยะยาว',
+      'ms': 'Berdisiplin dan tegas, mengutamakan peraturan dan visi jangka panjang.'
+    }
+  },
+  7: {
+    name: {
+      'zh-CN': '七赤金星',
+      'zh-TW': '七赤金星',
+      'en': 'Seven Red Metal Star',
+      'ja-JP': '七赤金星',
+      'th-TH': 'ดาวโลหะเจ็ดแดง',
+      'ms': 'Bintang Logam Merah 7'
     },
-    4: {
-      name: 'Bintang Kayu Hijau 4 (四綠木星)',
-      elem: 'Kayu',
-      color: 'Hijau',
-      key: ['Penyelarasan', 'Pertukaran', 'Perjalanan'],
-      about: 'Lembut dan mudah menerima, pandai berkomunikasi, berunding dan menggabungkan ilmu.'
+    elem: { 'zh-CN': '金', 'zh-TW': '金', 'en': 'Metal', 'ja-JP': '金', 'th-TH': 'โลหะ', 'ms': 'Logam' },
+    color: { 'zh-CN': '赤', 'zh-TW': '赤', 'en': 'Red', 'ja-JP': '赤', 'th-TH': 'แดง', 'ms': 'Merah' },
+    key: {
+      'zh-CN': ['社交', '品味', '享受'],
+      'zh-TW': ['社交', '品味', '享受'],
+      'en': ['Socializing', 'Taste', 'Enjoyment'],
+      'ja-JP': ['社交', 'センス', '楽しみ'],
+      'th-TH': ['การเข้าสังคม', 'รสนิยม', 'ความเพลิดเพลิน'],
+      'ms': ['Pergaulan', 'Cita rasa', 'Menikmati']
     },
-    5: {
-      name: 'Bintang Tanah Kuning 5 (五黃土星)',
-      elem: 'Tanah',
-      color: 'Kuning',
-      key: ['Pusat', 'Timbangan', 'Permulaan semula'],
-      about: 'Menjadi titik tengah yang menstabilkan keadaan, tahan tekanan, hebat dalam strategi dan pengurusan krisis.'
+    about: {
+      'zh-CN': '人缘好、审美佳，适合品牌与社交场域。',
+      'zh-TW': '人緣好、審美佳，適合品牌與社交場域。',
+      'en': 'Charming with good people skills and aesthetics, suited to branding and social settings.',
+      'ja-JP': '人当たりが良く、審美眼にも恵まれている、ブランドづくりや社交の場で輝きやすいタイプ。',
+      'th-TH': 'มีเสน่ห์และเข้ากับคนง่าย เซนส์ด้านความสวยงามดี เหมาะกับงานแบรนด์และงานสังคม',
+      'ms': 'Mesra dan mudah disukai, mempunyai cita rasa yang baik, sesuai dalam dunia jenama dan suasana sosial.'
+    }
+  },
+  8: {
+    name: {
+      'zh-CN': '八白土星',
+      'zh-TW': '八白土星',
+      'en': 'Eight White Earth Star',
+      'ja-JP': '八白土星',
+      'th-TH': 'ดาวดินแปดขาว',
+      'ms': 'Bintang Tanah Putih 8'
     },
-    6: {
-      name: 'Bintang Logam Putih 6 (六白金星)',
-      elem: 'Logam',
-      color: 'Putih',
-      key: ['Tertib', 'Tanggungjawab', 'Kepimpinan'],
-      about: 'Berdisiplin dan tegas, mengutamakan peraturan dan visi jangka panjang.'
+    elem: { 'zh-CN': '土', 'zh-TW': '土', 'en': 'Earth', 'ja-JP': '土', 'th-TH': 'ดิน', 'ms': 'Tanah' },
+    color: { 'zh-CN': '白', 'zh-TW': '白', 'en': 'White', 'ja-JP': '白', 'th-TH': 'ขาว', 'ms': 'Putih' },
+    key: {
+      'zh-CN': ['积累', '转折', '定山'],
+      'zh-TW': ['積累', '轉折', '定山'],
+      'en': ['Accumulation', 'Turning Point', 'Steady Mountain'],
+      'ja-JP': ['蓄積', '転換', '安定'],
+      'th-TH': ['การสั่งสม', 'จุดเปลี่ยน', 'ภูเขามั่นคง'],
+      'ms': ['Pengumpulan', 'Titik perubahan', 'Gunung tetap']
     },
-    7: {
-      name: 'Bintang Logam Merah 7 (七赤金星)',
-      elem: 'Logam',
-      color: 'Merah',
-      key: ['Pergaulan', 'Cita rasa', 'Menikmati'],
-      about: 'Mesra dan mudah disukai, mempunyai cita rasa yang baik, sesuai dalam dunia jenama dan suasana sosial.'
+    about: {
+      'zh-CN': '稳中求变、厚积薄发，关键时刻能翻盘。',
+      'zh-TW': '穩中求變、厚積薄發，關鍵時刻能翻盤。',
+      'en': 'Seeks change through stability, accumulates quietly, can turn situations around at key moments.',
+      'ja-JP': '安定の中で少しずつ変化を起こし、じっくり力を蓄える、勝負どころで大きく流れを変えることができる。',
+      'th-TH': 'เปลี่ยนแปลงอย่างค่อยเป็นค่อยไปบนพื้นฐานที่มั่นคง สั่งสมพลังไว้นานและพลิกเกมได้ในจังหวะสำคัญ',
+      'ms': 'Mencari perubahan melalui kestabilan, mengumpul kekuatan secara senyap dan boleh mengubah keadaan pada saat penting.'
+    }
+  },
+  9: {
+    name: {
+      'zh-CN': '九紫火星',
+      'zh-TW': '九紫火星',
+      'en': 'Nine Purple Fire Star',
+      'ja-JP': '九紫火星',
+      'th-TH': 'ดาวไฟเก้าม่วง',
+      'ms': 'Bintang Api Ungu 9'
     },
-    8: {
-      name: 'Bintang Tanah Putih 8 (八白土星)',
-      elem: 'Tanah',
-      color: 'Putih',
-      key: ['Pengumpulan', 'Titik perubahan', 'Gunung tetap'],
-      about: 'Mencari perubahan melalui kestabilan, mengumpul kekuatan secara senyap dan boleh mengubah keadaan pada saat penting.'
+    elem: { 'zh-CN': '火', 'zh-TW': '火', 'en': 'Fire', 'ja-JP': '火', 'th-TH': 'ไฟ', 'ms': 'Api' },
+    color: { 'zh-CN': '紫', 'zh-TW': '紫', 'en': 'Purple', 'ja-JP': '紫', 'th-TH': 'ม่วง', 'ms': 'Ungu' },
+    key: {
+      'zh-CN': ['光彩', '灵感', '传播'],
+      'zh-TW': ['光彩', '靈感', '傳播'],
+      'en': ['Brilliance', 'Inspiration', 'Broadcast'],
+      'ja-JP': ['輝き', 'インスピレーション', '発信'],
+      'th-TH': ['ความโดดเด่น', 'แรงบันดาลใจ', 'การเผยแพร่'],
+      'ms': ['Sinar', 'Inspirasi', 'Penyebaran']
     },
-    9: {
-      name: 'Bintang Api Ungu 9 (九紫火星)',
-      elem: 'Api',
-      color: 'Ungu',
-      key: ['Sinar', 'Inspirasi', 'Penyebaran'],
-      about: 'Bersemangat dan ekspresif, penuh ilham, sesuai untuk berada di pentas dan membina jenama peribadi.'
+    about: {
+      'zh-CN': '热情外放、灵感多，适合登台表达与IP打造。',
+      'zh-TW': '熱情外放、靈感多，適合登台表達與IP打造。',
+      'en': 'Passionate and expressive with many ideas, suited to being on stage and building personal brand.',
+      'ja-JP': '情熱的で表現力が高く、ひらめきも豊富、ステージに立つことや自分の世界観を発信する活動に向いている。',
+      'th-TH': 'มีไฟแรงและชอบแสดงออก ไอเดียเยอะ เหมาะกับการขึ้นเวทีและสร้างตัวตนหรือแบรนด์ของตัวเอง',
+      'ms': 'Bersemangat dan ekspresif, penuh ilham, sesuai untuk berada di pentas dan membina jenama peribadi.'
     }
   }
 };
 
+/* ===== 深度分析数据 ===== */
+const STARS_DEEP = {
+  1: {
+    element: '水',
+    elements: { 木: 1, 火: 2, 土: 2, 金: 3, 水: 4 },
+    directions: { favorable: ['北', '东南', '南'], avoid: ['西南', '东北'] },
+    text: {
+      'zh-CN': {
+        personality: '直觉敏锐，适应力强，心思细腻如水，能感知他人情绪变化。但有时过于敏感，容易受环境影响而波动。',
+        talents: ['快速学习新事物', '调解人际关系', '创意表达', '危机感知'],
+        challenges: '建立稳定的情感边界，避免过度吸收他人负面情绪，学会在变化中保持内在定力。',
+        career_analysis: {
+          strengths: ['沟通协调能力', '创意策划', '危机处理', '快速适应'],
+          opportunities: ['心理咨询', '媒体创作', '外交贸易', '艺术表达'],
+          risks: ['决策犹豫不决', '易受环境影响', '缺乏坚持', '情感消耗'],
+          actions: ['每日冥想15分钟', '学习一门表达艺术', '寻找水元素相关行业', '建立工作与生活的边界']
+        },
+        relationship_analysis: {
+          strengths: ['善解人意', '浪漫体贴', '灵活变通', '情感丰富'],
+          opportunities: ['扩大社交圈', '学习情感表达技巧', '建立深度情感连接', '参加文化艺术活动'],
+          risks: ['情感依赖', '边界模糊', '容易受伤', '过度妥协'],
+          actions: ['练习表达真实感受', '设定清晰的情感界限', '培养独立兴趣爱好', '学习情感自我调节']
+        },
+        health_analysis: {
+          strengths: ['新陈代谢快', '恢复力强', '柔韧性好'],
+          risks: ['肾脏泌尿系统', '耳部问题', '情绪波动', '失眠'],
+          actions: ['每天喝足2升水', '练习静坐冥想', '避免过度刺激', '保证充足睡眠']
+        }
+      },
+      'zh-TW': {
+        personality: '直覺敏銳，適應力強，心思細膩如水，能感知他人情緒變化。但有時過於敏感，容易受環境影響而波動。',
+        talents: ['快速學習新事物', '調解人際關係', '創意表達', '危機感知'],
+        challenges: '建立穩定的情感邊界，避免過度吸收他人負面情緒，學會在變化中保持內在定力。',
+        career_analysis: {
+          strengths: ['溝通協調能力', '創意策劃', '危機處理', '快速適應'],
+          opportunities: ['心理諮詢', '媒體創作', '外交貿易', '藝術表達'],
+          risks: ['決策猶豫不決', '易受環境影響', '缺乏堅持', '情感消耗'],
+          actions: ['每日冥想15分鐘', '學習一門表達藝術', '尋找水元素相關行業', '建立工作與生活的邊界']
+        },
+        relationship_analysis: {
+          strengths: ['善解人意', '浪漫體貼', '靈活變通', '情感豐富'],
+          opportunities: ['擴大社交圈', '學習情感表達技巧', '建立深度情感連接', '參加文化藝術活動'],
+          risks: ['情感依賴', '邊界模糊', '容易受傷', '過度妥協'],
+          actions: ['練習表達真實感受', '設定清晰的情感界限', '培養獨立興趣愛好', '學習情感自我調節']
+        },
+        health_analysis: {
+          strengths: ['新陳代謝快', '恢復力強', '柔韌性好'],
+          risks: ['腎臟泌尿系統', '耳部問題', '情緒波動', '失眠'],
+          actions: ['每天喝足2升水', '練習靜坐冥想', '避免過度刺激', '保證充足睡眠']
+        }
+      },
+      'en': {
+        personality: 'Intuitive and highly adaptable, mind is subtle like water, can sense others\' emotional changes. But sometimes too sensitive, easily affected by environment.',
+        talents: ['Quick learning', 'Mediating relationships', 'Creative expression', 'Crisis sensing'],
+        challenges: 'Establish stable emotional boundaries, avoid absorbing others\' negative emotions, learn to maintain inner stability amid changes.',
+        career_analysis: {
+          strengths: ['Communication skills', 'Creative planning', 'Crisis management', 'Fast adaptation'],
+          opportunities: ['Counseling', 'Media creation', 'International trade', 'Artistic expression'],
+          risks: ['Indecisive', 'Easily influenced', 'Lack persistence', 'Emotional drain'],
+          actions: ['Meditate 15 minutes daily', 'Learn an expressive art', 'Explore water-related industries', 'Set work-life boundaries']
+        },
+        relationship_analysis: {
+          strengths: ['Empathetic', 'Romantic and caring', 'Flexible', 'Emotionally rich'],
+          opportunities: ['Expand social circle', 'Learn emotional expression skills', 'Build deep connections', 'Join cultural activities'],
+          risks: ['Emotional dependency', 'Blurred boundaries', 'Vulnerable', 'Over-compromise'],
+          actions: ['Practice expressing true feelings', 'Set clear emotional boundaries', 'Cultivate independent interests', 'Learn emotional self-regulation']
+        },
+        health_analysis: {
+          strengths: ['Fast metabolism', 'Strong recovery', 'Good flexibility'],
+          risks: ['Kidney/urinary system', 'Ear problems', 'Mood swings', 'Insomnia'],
+          actions: ['Drink 2 liters of water daily', 'Practice meditation', 'Avoid overstimulation', 'Ensure sufficient sleep']
+        }
+      },
+      'ja-JP': {
+        personality: '直感が鋭く、適応力が高い。心は水のように細やかで、他人の感情の変化を感じ取ることができる。ただし、時には敏感すぎて環境の影響を受けやすい。',
+        talents: ['新しく物事を素早く学ぶ', '人間関係の調停', '創造的な表現', '危機察知'],
+        challenges: '安定した感情の境界線を築き、他人のネガティブな感情を過度に吸収するのを避け、変化の中でも内面の安定を保つことを学ぶ。',
+        career_analysis: {
+          strengths: ['コミュニケーション能力', '創造的な計画', '危機管理', '迅速な適応'],
+          opportunities: ['カウンセリング', 'メディア制作', '国際貿易', '芸術表現'],
+          risks: ['決断力に欠ける', '環境の影響を受けやすい', '継続性がない', '感情的消耗'],
+          actions: ['毎日15分の瞑想', '表現芸術を学ぶ', '水に関連する業界を探す', '仕事と生活の境界を設ける']
+        }
+      },
+      'th-TH': {
+        personality: 'สัญชาตญาณแหลมคม ปรับตัวได้ดีมาก จิตใจละเอียดอ่อนเหมือนน้ำ รับรู้การเปลี่ยนแปลงทางอารมณ์ของผู้อื่นได้ แต่บางครั้งก็อ่อนไหวเกินไป รับอิทธิพลจากสภาพแวดล้อมได้ง่าย',
+        talents: ['เรียนรู้สิ่งใหม่ได้เร็ว', 'ไกล่เกลี่ยความสัมพันธ์', 'การแสดงออกอย่างสร้างสรรค์', 'รับรู้วิกฤตการณ์'],
+        challenges: 'สร้างขอบเขตทางอารมณ์ที่มั่นคง หลีกเลี่ยงการดูดซับอารมณ์ด้านลบของผู้อื่นมากเกินไป เรียนรู้ที่จะรักษาความสงบภายในท่ามกลางการเปลี่ยนแปลง',
+        career_analysis: {
+          strengths: ['ทักษะการสื่อสาร', 'การวางแผนสร้างสรรค์', 'การจัดการวิกฤต', 'การปรับตัวเร็ว'],
+          opportunities: ['การให้คำปรึกษา', 'การสร้างสื่อ', 'การค้าระหว่างประเทศ', 'การแสดงออกทางศิลปะ'],
+          risks: ['ลังเลในการตัดสินใจ', 'ได้รับอิทธิพลจากสิ่งแวดล้อมง่าย', 'ขาดความต่อเนื่อง', 'การใช้พลังงานทางอารมณ์'],
+          actions: ['นั่งสมาธิทุกวัน 15 นาที', 'เรียนศิลปะการแสดงออก', 'สำรวจอุตสาหกรรมที่เกี่ยวข้องกับน้ำ', 'กำหนดขอบเขตระหว่างงานและชีวิตส่วนตัว']
+        }
+      },
+      'ms': {
+        personality: 'Intuitif dan sangat mudah menyesuaikan diri, fikiran halus seperti air, boleh merasai perubahan emosi orang lain. Tetapi kadang-kadang terlalu sensitif, mudah dipengaruhi oleh persekitaran.',
+        talents: ['Belajar perkara baharu dengan cepat', 'Mengurus hubungan', 'Ekspresi kreatif', 'Merasa krisis'],
+        challenges: 'Wujudkan sempadan emosi yang stabil, elakkan menyerap emosi negatif orang lain secara berlebihan, belajar mengekalkan kestabilan dalaman di tengah perubahan.',
+        career_analysis: {
+          strengths: ['Kemahiran komunikasi', 'Perancangan kreatif', 'Pengurusan krisis', 'Penyesuaian cepat'],
+          opportunities: ['Kaunseling', 'Penciptaan media', 'Perdagangan antarabangsa', 'Ekspresi seni'],
+          risks: ['Ragu-ragu membuat keputusan', 'Mudah dipengaruhi persekitaran', 'Kurang tekun', 'Keletihan emosi'],
+          actions: ['Bermeditasi 15 minit setiap hari', 'Belajar seni ekspresi', 'Terokai industri berkaitan air', 'Tetapkan sempadan kerja-kehidupan']
+        }
+      }
+    }
+  },
+  2: {
+    element: '土',
+    elements: { 木: 2, 火: 1, 土: 4, 金: 2, 水: 1 },
+    directions: { favorable: ['东北', '西南', '西'], avoid: ['东', '东南'] },
+    text: {
+      'zh-CN': {
+        personality: '稳重务实，脚踏实地，如同大地般可靠。有耐心和持久力，重视家庭与安全感，做事一步一个脚印。',
+        talents: ['项目管理', '资源整合', '长期规划', '风险控制'],
+        challenges: '克服固执己见，学会接受新变化，更开放地表达内心情感，避免过于保守而错失机会。',
+        career_analysis: {
+          strengths: ['执行力强', '资源管理', '风险评估', '持续力'],
+          opportunities: ['房地产', '农业园艺', '行政管理', '咨询顾问'],
+          risks: ['抗拒变化', '沟通不足', '过度保守', '思维固化'],
+          actions: ['学习新技能', '定期复盘调整', '建立合作网络', '拓展视野']
+        },
+        relationship_analysis: {
+          strengths: ['可靠稳定', '责任感强', '忠诚体贴', '务实关怀'],
+          opportunities: ['建立家庭', '深度合作关系', '社区参与', '传统价值观'],
+          risks: ['情感压抑', '沟通不畅', '过度控制', '缺乏浪漫'],
+          actions: ['学习情感表达', '开放沟通', '培养共同兴趣', '平衡工作与家庭']
+        },
+        health_analysis: {
+          strengths: ['体质稳健', '耐力强', '恢复力好'],
+          risks: ['消化系统', '关节问题', '代谢缓慢', '情绪压抑'],
+          actions: ['规律饮食', '适度运动', '学习放松', '定期体检']
+        }
+      },
+      'en': {
+        personality: 'Steady and practical, down-to-earth, reliable like the earth. Patient and enduring, values family and security, works step by step.',
+        talents: ['Project management', 'Resource integration', 'Long-term planning', 'Risk control'],
+        challenges: 'Overcome stubbornness, learn to accept new changes, express inner feelings more openly, avoid missing opportunities due to being too conservative.',
+        career_analysis: {
+          strengths: ['Strong execution', 'Resource management', 'Risk assessment', 'Sustainability'],
+          opportunities: ['Real estate', 'Agriculture/gardening', 'Administration', 'Consulting'],
+          risks: ['Resistant to change', 'Poor communication', 'Overly conservative', 'Rigid thinking'],
+          actions: ['Learn new skills', 'Regular review and adjustment', 'Build cooperative networks', 'Expand horizons']
+        }
+      },
+      'ja-JP': {
+        personality: '着実で現実的、地に足がついている、大地のように頼りになる。忍耐強く持続力があり、家族と安全性を重視し、一歩一歩着実に進む。',
+        talents: ['プロジェクト管理', 'リソース統合', '長期的な計画', 'リスクコントロール'],
+        challenges: '頑固さを克服し、新しい変化を受け入れることを学び、内面の感情をもっとオープンに表現し、保守的すぎて機会を逃さないようにする。'
+      },
+      'th-TH': {
+        personality: 'มั่นคงและจริงจัง ยืนหยัดบนพื้นดิน เชื่อถือได้เหมือนผืนดิน อดทนและมีความอดกลั้น ให้ความสำคัญกับครอบครัวและความปลอดภัย ทำทีละขั้นตอน',
+        talents: ['การบริหารโครงการ', 'การบูรณาการทรัพยากร', 'การวางแผนระยะยาว', 'การควบคุมความเสี่ยง'],
+        challenges: 'เอาชนะความดื้อรั้น เรียนรู้ที่จะยอมรับการเปลี่ยนแปลงใหม่ แสดงความรู้สึกภายในอย่างเปิดเผยมากขึ้น หลีกเลี่ยงการพลาดโอกาสเพราะอนุรักษนิยมเกินไป'
+      },
+      'ms': {
+        personality: 'Stabil dan praktikal, berpijak di bumi, boleh dipercayai seperti bumi. Sabar dan tahan lasak, menghargai keluarga dan keselamatan, bekerja langkah demi langkah.',
+        talents: ['Pengurusan projek', 'Penyepaduan sumber', 'Perancangan jangka panjang', 'Kawalan risiko'],
+        challenges: 'Atasi degil, belajar menerima perubahan baru, luahkan perasaan dalaman dengan lebih terbuka, elakkan terlepas peluang kerana terlalu konservatif.'
+      }
+    }
+  },
+  3: {
+    element: '木',
+    elements: { 木: 4, 火: 2, 土: 1, 金: 2, 水: 1 },
+    directions: { favorable: ['东', '东南', '南'], avoid: ['西', '西北'] },
+    text: {
+      'zh-CN': {
+        personality: '活力充沛，好奇心强，如同春天的新芽充满生机。喜欢探索新领域，表达欲旺盛，有开拓精神。',
+        talents: ['创意设计', '市场营销', '教育培训', '项目启动'],
+        challenges: '学习专注与坚持，避免虎头蛇尾，培养深度思考能力，平衡冲动与理性。',
+        career_analysis: {
+          strengths: ['创意能力', '快速启动', '市场营销', '沟通表达'],
+          opportunities: ['设计行业', '新媒体', '教育培训', '创业项目'],
+          risks: ['缺乏坚持', '注意力分散', '冲动决策', '规划不足'],
+          actions: ['设定明确目标', '培养专注力', '学习项目管理', '建立支持系统']
+        }
+      },
+      'en': {
+        personality: 'Energetic and curious, like spring buds full of vitality. Likes to explore new fields, has strong desire to express, pioneering spirit.',
+        talents: ['Creative design', 'Marketing', 'Education and training', 'Project initiation'],
+        challenges: 'Learn focus and persistence, avoid starting strong but finishing weak, develop deep thinking ability, balance impulse and reason.',
+        career_analysis: {
+          strengths: ['Creative ability', 'Quick start', 'Marketing', 'Communication'],
+          opportunities: ['Design industry', 'New media', 'Education and training', 'Entrepreneurship'],
+          risks: ['Lack persistence', 'Distracted attention', 'Impulsive decisions', 'Insufficient planning'],
+          actions: ['Set clear goals', 'Develop focus', 'Learn project management', 'Build support system']
+        }
+      }
+    }
+  },
+  4: {
+    element: '木',
+    elements: { 木: 3, 火: 2, 土: 2, 金: 1, 水: 2 },
+    directions: { favorable: ['东南', '南', '东'], avoid: ['西', '西北'] },
+    text: {
+      'zh-CN': {
+        personality: '温和儒雅，善于沟通协调，如同春风般令人舒适。注重人际关系，知识面广，有学习能力。',
+        talents: ['人际协调', '知识传播', '文化交流', '团队管理'],
+        challenges: '增强决断力，避免优柔寡断，学会说不，建立个人边界。',
+        career_analysis: {
+          strengths: ['沟通协调', '知识整合', '团队合作', '学习能力'],
+          opportunities: ['教育行业', '文化传播', '人力资源', '咨询服务'],
+          risks: ['优柔寡断', '边界模糊', '过度妥协', '缺乏主见'],
+          actions: ['训练决策能力', '明确个人边界', '增强自信', '发展专业深度']
+        }
+      },
+      'en': {
+        personality: 'Gentle and scholarly, good at communication and coordination, comfortable like spring breeze. Values interpersonal relationships, wide knowledge, learning ability.',
+        talents: ['Interpersonal coordination', 'Knowledge dissemination', 'Cultural exchange', 'Team management'],
+        challenges: 'Enhance decision-making ability, avoid indecisiveness, learn to say no, establish personal boundaries.',
+        career_analysis: {
+          strengths: ['Communication and coordination', 'Knowledge integration', 'Team cooperation', 'Learning ability'],
+          opportunities: ['Education industry', 'Cultural communication', 'Human resources', 'Consulting services'],
+          risks: ['Indecisive', 'Blurred boundaries', 'Over-compromise', 'Lack of opinion'],
+          actions: ['Train decision-making ability', 'Clarify personal boundaries', 'Enhance confidence', 'Develop professional depth']
+        }
+      }
+    }
+  },
+  5: {
+    element: '土',
+    elements: { 木: 2, 火: 2, 土: 3, 金: 2, 水: 1 },
+    directions: { favorable: ['中宫', '西南', '东北'], avoid: ['东', '东南'] },
+    text: {
+      'zh-CN': {
+        personality: '沉稳内敛，有大局观，如同山脉般稳重。善于统筹规划，抗压能力强，关键时刻能稳住局面。',
+        talents: ['战略规划', '危机管理', '资源调配', '居中协调'],
+        challenges: '克服保守倾向，适当冒险，更开放地表达自我，避免过度控制。',
+        career_analysis: {
+          strengths: ['战略思维', '危机处理', '资源管理', '稳定局面'],
+          opportunities: ['战略规划', '危机管理', '项目管理', '行政管理'],
+          risks: ['过于保守', '缺乏创新', '控制欲强', '应变不足'],
+          actions: ['适度冒险', '学习创新思维', '授权他人', '增强灵活性']
+        }
+      },
+      'en': {
+        personality: 'Calm and restrained, has overall perspective, steady like mountains. Good at overall planning, strong pressure resistance, can stabilize the situation at critical moments.',
+        talents: ['Strategic planning', 'Crisis management', 'Resource allocation', 'Central coordination'],
+        challenges: 'Overcome conservative tendencies, take appropriate risks, express yourself more openly, avoid over-control.',
+        career_analysis: {
+          strengths: ['Strategic thinking', 'Crisis handling', 'Resource management', 'Situation stabilization'],
+          opportunities: ['Strategic planning', 'Crisis management', 'Project management', 'Administration'],
+          risks: ['Too conservative', 'Lack of innovation', 'Strong desire to control', 'Insufficient adaptability'],
+          actions: ['Take appropriate risks', 'Learn innovative thinking', 'Delegate to others', 'Enhance flexibility']
+        }
+      }
+    }
+  },
+  6: {
+    element: '金',
+    elements: { 木: 1, 火: 2, 土: 2, 金: 4, 水: 1 },
+    directions: { favorable: ['西', '西北', '西南'], avoid: ['南', '东南'] },
+    text: {
+      'zh-CN': {
+        personality: '严谨自律，重视规则与秩序，如同精密的金属仪器。有责任感，追求完美，做事有条理。',
+        talents: ['系统管理', '质量控制', '财务管理', '规则制定'],
+        challenges: '学会放松，避免过于苛求完美，增强灵活性，接受不完美。',
+        career_analysis: {
+          strengths: ['系统思维', '质量控制', '财务管理', '规则意识'],
+          opportunities: ['金融行业', '质量管理', '系统管理', '法律行业'],
+          risks: ['过于刻板', '完美主义', '缺乏弹性', '压力过大'],
+          actions: ['学习放松技巧', '接受不完美', '增强灵活性', '平衡工作与生活']
+        }
+      },
+      'en': {
+        personality: 'Rigorous and self-disciplined, values rules and order, like precise metal instruments. Responsible, pursues perfection, works systematically.',
+        talents: ['System management', 'Quality control', 'Financial management', 'Rule making'],
+        challenges: 'Learn to relax, avoid being too demanding of perfection, enhance flexibility, accept imperfection.',
+        career_analysis: {
+          strengths: ['System thinking', 'Quality control', 'Financial management', 'Rule awareness'],
+          opportunities: ['Financial industry', 'Quality management', 'System management', 'Legal industry'],
+          risks: ['Too rigid', 'Perfectionism', 'Lack of flexibility', 'Excessive pressure'],
+          actions: ['Learn relaxation techniques', 'Accept imperfection', 'Enhance flexibility', 'Balance work and life']
+        }
+      }
+    }
+  },
+  7: {
+    element: '金',
+    elements: { 木: 2, 火: 2, 土: 1, 金: 3, 水: 2 },
+    directions: { favorable: ['西', '西北', '北'], avoid: ['南', '东南'] },
+    text: {
+      'zh-CN': {
+        personality: '社交能力强，审美眼光好，如同精美的金属饰品。注重品味，善于人际交往，有艺术感。',
+        talents: ['社交公关', '品牌建设', '艺术设计', '商业谈判'],
+        challenges: '避免浮于表面，培养深度思考，管理财务，增强内在定力。',
+        career_analysis: {
+          strengths: ['社交能力', '品牌意识', '艺术审美', '谈判技巧'],
+          opportunities: ['公关行业', '品牌管理', '艺术设计', '商业合作'],
+          risks: ['表面功夫', '缺乏深度', '财务问题', '定力不足'],
+          actions: ['培养深度思考', '学习财务管理', '增强内在修养', '发展专业技能']
+        }
+      },
+      'en': {
+        personality: 'Strong social skills, good aesthetic vision, like exquisite metal ornaments. Values taste, good at interpersonal communication, artistic sense.',
+        talents: ['Social PR', 'Brand building', 'Art design', 'Business negotiation'],
+        challenges: 'Avoid superficiality, cultivate deep thinking, manage finances, enhance inner stability.',
+        career_analysis: {
+          strengths: ['Social skills', 'Brand awareness', 'Artistic aesthetics', 'Negotiation skills'],
+          opportunities: ['PR industry', 'Brand management', 'Art design', 'Business cooperation'],
+          risks: ['Superficial', 'Lack depth', 'Financial problems', 'Insufficient stability'],
+          actions: ['Cultivate deep thinking', 'Learn financial management', 'Enhance inner cultivation', 'Develop professional skills']
+        }
+      }
+    }
+  },
+  8: {
+    element: '土',
+    elements: { 木: 1, 火: 1, 土: 4, 金: 2, 水: 2 },
+    directions: { favorable: ['东北', '西南', '中宫'], avoid: ['东', '东南'] },
+    text: {
+      'zh-CN': {
+        personality: '稳健务实，积累能力强，如同稳固的山脉。善于长期规划，有耐心，关键时刻能厚积薄发。',
+        talents: ['长期投资', '资源积累', '项目管理', '风险控制'],
+        challenges: '避免过于保守，适当创新，增强行动力，把握时机。',
+        career_analysis: {
+          strengths: ['长期规划', '资源积累', '项目管理', '风险意识'],
+          opportunities: ['投资理财', '资源管理', '项目管理', '地产行业'],
+          risks: ['过于保守', '行动迟缓', '错过时机', '创新不足'],
+          actions: ['适当创新', '增强行动力', '学习时机把握', '平衡风险与收益']
+        }
+      },
+      'en': {
+        personality: 'Steady and practical, strong accumulation ability, like stable mountains. Good at long-term planning, patient, can accumulate strength and make breakthroughs at critical moments.',
+        talents: ['Long-term investment', 'Resource accumulation', 'Project management', 'Risk control'],
+        challenges: 'Avoid being too conservative, innovate appropriately, enhance action power, seize opportunities.',
+        career_analysis: {
+          strengths: ['Long-term planning', 'Resource accumulation', 'Project management', 'Risk awareness'],
+          opportunities: ['Investment and finance', 'Resource management', 'Project management', 'Real estate industry'],
+          risks: ['Too conservative', 'Slow action', 'Miss opportunities', 'Insufficient innovation'],
+          actions: ['Innovate appropriately', 'Enhance action power', 'Learn timing', 'Balance risk and return']
+        }
+      }
+    }
+  },
+  9: {
+    element: '火',
+    elements: { 木: 2, 火: 4, 土: 1, 金: 1, 水: 2 },
+    directions: { favorable: ['南', '东南', '东'], avoid: ['北', '西北'] },
+    text: {
+      'zh-CN': {
+        personality: '热情外放，灵感丰富，如同明亮的火焰。有表现欲，善于传播，有领导魅力。',
+        talents: ['公众演讲', '创意传播', '品牌打造', '领导激励'],
+        challenges: '学习专注持久，避免三分钟热度，管理情绪，增强稳定性。',
+        career_analysis: {
+          strengths: ['公众表达', '创意能力', '品牌建设', '领导魅力'],
+          opportunities: ['媒体行业', '创意产业', '品牌传播', '教育培训'],
+          risks: ['缺乏持久', '情绪波动', '注意力分散', '稳定性差'],
+          actions: ['培养专注力', '学习情绪管理', '增强稳定性', '建立支持系统']
+        }
+      },
+      'en': {
+        personality: 'Passionate and outgoing, rich in inspiration, like bright flames. Has desire to perform, good at dissemination, charismatic leadership.',
+        talents: ['Public speaking', 'Creative communication', 'Brand building', 'Leadership motivation'],
+        challenges: 'Learn focus and persistence, avoid short-term enthusiasm, manage emotions, enhance stability.',
+        career_analysis: {
+          strengths: ['Public expression', 'Creative ability', 'Brand building', 'Charismatic leadership'],
+          opportunities: ['Media industry', 'Creative industry', 'Brand communication', 'Education and training'],
+          risks: ['Lack persistence', 'Emotional fluctuations', 'Distracted attention', 'Poor stability'],
+          actions: ['Develop focus', 'Learn emotion management', 'Enhance stability', 'Build support system']
+        }
+      }
+    }
+  }
+};
 
-/* ===== 九星深度数据（简版：1–9，中英） ===== */
-/* （这一段就是你贴上来的 STARS_DEEP，原样保留） */
-const STARS_DEEP = { /* ……此处保持你原本的 STARS_DEEP 定义，完整复制…… */ };
-/* 为了不撑爆讯息，这里直接说明：
-   👉 请把你上面已经写好的 STARS_DEEP = {1:{…},2:{…},…9:{…}} 整段原样贴回来。
-   逻辑上不需要修改，我下面的函数都兼容那一份结构。 */
-
-/* 语言映射（给 STARS_DEEP 用） */
-function mapStarLang(raw) {
-  if (!raw) return 'zh-CN';
-  const code = raw.toLowerCase();
-
-  // Group similar codes
-  if (code.startsWith('zh-')) return 'zh-CN';   // zh-CN / zh-TW → zh-CN preset text
-  if (code.startsWith('en')) return 'en';       // en / en-US / en-GB → en
-  if (code.startsWith('ja')) return 'ja-JP';    // if you later add ja-JP in STARS_DEEP
-  if (code.startsWith('th')) return 'th-TH';    // same idea
-  if (code.startsWith('ms')) return 'ms';       // same idea
-
-  // default fallback
-  return 'en';
-}
-
-function getStarText(starNo) {
-  const star = STARS_DEEP[starNo];
-  if (!star || !star.text) return null;
-  const langCode = mapStarLang(getLang());
-  return (
-    star.text[langCode] ||
-    star.text['zh-CN'] ||   // fallback 1
-    star.text['en'] ||      // fallback 2
-    null
-  );
-}
-  
-function getCurrentLangCode() {
-  const ls = localStorage.getItem(LANG_KEY);
-  if (ls) return ls;
-  return document.documentElement.lang || 'zh-CN';
-}
-
-function getDeepLang(starNum){
-  const deep = STARS_DEEP[starNum];
-  if (!deep) return null;
-  const mapped = mapStarLang(getCurrentLangCode());
-  return deep.text[mapped] || deep.text['zh-CN'] || deep.text['en'] || null;
-}
-
-/* HTML 安全处理 + 列表拼装 */
+/* HTML 安全处理 */
 function escapeHTML(str){
   return String(str).replace(/[&<>]/g, c=>({ '&':'&amp;','<':'&lt;','>':'&gt;' }[c] || c));
 }
+
+/* 列表拼装 */
 function joinList(arr){
   if (!arr || !arr.length) return '';
+  const lang = getLang();
   const safe = arr.map(s=>`<li>${escapeHTML(s)}</li>`).join('');
-  return `<ul>${safe}</ul>`;
+  return `<ul style="margin: 8px 0; padding-left: 20px;">${safe}</ul>`;
+}
+
+/* 获取星星文本 */
+function getStarText(starNo) {
+  const star = STARS_DEEP[starNo];
+  if (!star || !star.text) return null;
+  const langCode = getLang();
+  
+  // 优先返回当前语言的文本
+  if (star.text[langCode]) return star.text[langCode];
+  
+  // 回退策略
+  if (langCode.startsWith('zh') && star.text['zh-CN']) return star.text['zh-CN'];
+  if (star.text['en']) return star.text['en'];
+  if (star.text['zh-CN']) return star.text['zh-CN'];
+  
+  return null;
+}
+
+/* 获取深度语言数据 */
+function getDeepLang(starNum) {
+  const deep = STARS_DEEP[starNum];
+  if (!deep) return null;
+  const langCode = getLang();
+  
+  // 获取当前语言的文本
+  const text = deep.text ? deep.text[langCode] : null;
+  
+  // 如果没有当前语言的文本，使用回退
+  if (!text) {
+    if (deep.text && deep.text['zh-CN']) return deep.text['zh-CN'];
+    if (deep.text && deep.text['en']) return deep.text['en'];
+    return null;
+  }
+  
+  return text;
 }
 
 /* 五行图表 */
@@ -1910,12 +2123,22 @@ function buildElementChart(deep){
   if (!deep || !deep.elements) return;
 
   const order = ['木','火','土','金','水'];
+  const lang = getLang();
+  const elemNames = {
+    '木': { 'zh-CN':'木', 'zh-TW':'木', 'en':'Wood', 'ja-JP':'木', 'th-TH':'ไม้', 'ms':'Kayu' },
+    '火': { 'zh-CN':'火', 'zh-TW':'火', 'en':'Fire', 'ja-JP':'火', 'th-TH':'ไฟ', 'ms':'Api' },
+    '土': { 'zh-CN':'土', 'zh-TW':'土', 'en':'Earth', 'ja-JP':'土', 'th-TH':'ดิน', 'ms':'Tanah' },
+    '金': { 'zh-CN':'金', 'zh-TW':'金', 'en':'Metal', 'ja-JP':'金', 'th-TH':'โลหะ', 'ms':'Logam' },
+    '水': { 'zh-CN':'水', 'zh-TW':'水', 'en':'Water', 'ja-JP':'水', 'th-TH':'น้ำ', 'ms':'Air' }
+  };
+
   order.forEach(name=>{
     const val = deep.elements[name] ?? 0;
+    const displayName = elemNames[name] ? (elemNames[name][lang] || elemNames[name]['en']) : name;
     const div = document.createElement('div');
     div.className = 'element-item' + (val >= 3 ? ' strong' : '');
     div.innerHTML = `
-      <div class="element-name">${name}</div>
+      <div class="element-name">${displayName}</div>
       <div class="element-value">${val}</div>
     `;
     box.appendChild(div);
@@ -1938,20 +2161,33 @@ function buildElementAnalysis(ctx, deep){
   const strong = arr.filter(([_,v])=>v>=3).map(([k])=>k);
   const weak   = arr.filter(([_,v])=>v<=1).map(([k])=>k);
 
-  const elemEn = { '木':'Wood','火':'Fire','土':'Earth','金':'Metal','水':'Water' };
+  const elemNames = {
+    '木': { 'zh-CN':'木', 'zh-TW':'木', 'en':'Wood', 'ja-JP':'木', 'th-TH':'ไม้', 'ms':'Kayu' },
+    '火': { 'zh-CN':'火', 'zh-TW':'火', 'en':'Fire', 'ja-JP':'火', 'th-TH':'ไฟ', 'ms':'Api' },
+    '土': { 'zh-CN':'土', 'zh-TW':'土', 'en':'Earth', 'ja-JP':'土', 'th-TH':'ดิน', 'ms':'Tanah' },
+    '金': { 'zh-CN':'金', 'zh-TW':'金', 'en':'Metal', 'ja-JP':'金', 'th-TH':'โลหะ', 'ms':'Logam' },
+    '水': { 'zh-CN':'水', 'zh-TW':'水', 'en':'Water', 'ja-JP':'水', 'th-TH':'น้ำ', 'ms':'Air' }
+  };
+
+  const mainDisplay = main ? (elemNames[main] ? (elemNames[main][lang] || elemNames[main]['en']) : main) : '';
 
   if (lang.startsWith('zh')){
-    let txt = `你的命盘以「${main || '—'}」为主，五行分布整体来看：`;
-    txt += `\n\n偏强：${strong.length? strong.join('、') : '暂无明显偏强'}；`;
-    txt += `\n偏弱：${weak.length? weak.join('、') : '暂无明显偏弱'}。`;
-    txt += `\n\n建议你在日常选择工作内容、空间布置与人际合作时，尽量顺着主五行「${main || '整体能量'}」的特质来放大优势，再用其他元素来补足短板。`;
+    const strongDisplay = strong.map(s => elemNames[s] ? elemNames[s][lang] : s).join('、');
+    const weakDisplay = weak.map(s => elemNames[s] ? elemNames[s][lang] : s).join('、');
+    
+    let txt = `你的命盘以「${mainDisplay || '—'}」为主，五行分布整体来看：`;
+    txt += `\n\n偏强：${strong.length? strongDisplay : '暂无明显偏强'}；`;
+    txt += `\n偏弱：${weak.length? weakDisplay : '暂无明显偏弱'}。`;
+    txt += `\n\n建议你在日常选择工作内容、空间布置与人际合作时，尽量顺着主五行「${mainDisplay || '整体能量'}」的特质来放大优势，再用其他元素来补足短板。`;
     box.textContent = txt;
   }else{
-    let mainEn = elemEn[main] || 'overall';
-    let txt = `Your chart is mainly rooted in ${mainEn} qi, with the Five Elements distributed as follows.`;
-    txt += `\n\nStronger elements: ${strong.length? strong.map(e=>elemEn[e]||e).join(', ') : 'none significantly dominant'};`;
-    txt += `\nWeaker elements: ${weak.length? weak.map(e=>elemEn[e]||e).join(', ') : 'none significantly lacking'}.`;
-    txt += `\n\nIn daily life, lean into your main ${mainEn} qualities when choosing work style, space design and partnerships, then use the other elements to cover your blind spots.`;
+    const strongDisplay = strong.map(s => elemNames[s] ? elemNames[s]['en'] : s).join(', ');
+    const weakDisplay = weak.map(s => elemNames[s] ? elemNames[s]['en'] : s).join(', ');
+    
+    let txt = `Your chart is mainly rooted in ${mainDisplay || 'overall'} qi, with the Five Elements distributed as follows.`;
+    txt += `\n\nStronger elements: ${strong.length? strongDisplay : 'none significantly dominant'};`;
+    txt += `\nWeaker elements: ${weak.length? weakDisplay : 'none significantly lacking'}.`;
+    txt += `\n\nIn daily life, lean into your main ${mainDisplay || 'overall'} qualities when choosing work style, space design and partnerships, then use the other elements to cover your blind spots.`;
     box.textContent = txt;
   }
 }
@@ -1964,9 +2200,9 @@ function buildFortuneTimeline(ctx){
   const now = new Date();
   const y = now.getFullYear();
   const elem = ctx.mainElement || '';
-  const lang = getLang(); // e.g. 'zh-CN', 'zh-TW', 'en', 'ja-JP', 'th-TH', 'ms'
+  const lang = getLang();
 
-  // ---- 文案多语言 ----
+  // 运势时间线多语言文案
   const MSG = {
     '水': {
       'zh-CN': [
@@ -2000,169 +2236,64 @@ function buildFortuneTimeline(ctx){
         'Emosi dan kerjasama akan menjadi lebih stabil; jika anda mempercayai intuisi sendiri, anda berpeluang memasuki bidang yang lebih serasi dengan diri anda.'
       ]
     },
-
     '土': {
       'zh-CN': [
-        '过去几年你主要在“打地基”，很多成果尚在暗处酝酿。',
+        '过去几年你主要在"打地基"，很多成果尚在暗处酝酿。',
         '适合检视资产、习惯与人际结构，删减无用负担，为下一轮累积腾出空间。',
         '稳健向上，若愿意在稳定中做出有限度的改变，将迎来质变级别的成长。'
       ],
-      'zh-TW': [
-        '過去幾年你主要在「打地基」，很多成果尚在暗處醞釀。',
-        '適合檢視資產、習慣與人際結構，刪減無用負擔，為下一輪累積騰出空間。',
-        '穩健向上，若願意在穩定中做出有限度的改變，將迎來質變級別的成長。'
-      ],
       'en': [
-        'In the last few years you have mainly been “laying foundations”; many results are still ripening behind the scenes.',
+        'In the last few years you have mainly been "laying foundations"; many results are still ripening behind the scenes.',
         'Now is the time to review assets, habits and relationship structures, cutting away what no longer serves to make room for the next stage of growth.',
         'The trend is steadily upward; with measured changes on top of a stable base, you can trigger breakthrough-level growth.'
-      ],
-      'ja-JP': [
-        'ここ数年は主に「土台づくり」の時期で、多くの成果はまだ水面下で熟成しています。',
-        '今は資産・習慣・人間関係の構造を見直し、役に立たない負担を手放して、次の蓄積のためのスペースを空けるのに良いタイミングです。',
-        '流れは安定して上向きです。安定を保ちながらも少しずつ変化を加えれば、質的な飛躍につながる成長が期待できます。'
-      ],
-      'th-TH': [
-        'ตลอดไม่กี่ปีที่ผ่านมา คุณเหมือนกำลัง “ลงฐานราก” หลายอย่าง ผลลัพธ์จริง ๆ ยังอยู่ในช่วงบ่มเพาะ',
-        'ตอนนี้เหมาะกับการทบทวนทรัพย์สิน นิสัย และโครงสร้างความสัมพันธ์ ตัดสิ่งที่ไม่จำเป็นออกไปเพื่อให้มีพื้นที่สำหรับการสะสมรอบใหม่',
-        'แนวโน้มโดยรวมค่อย ๆ ขึ้นอย่างมั่นคง ถ้าคุณยอมปรับเปลี่ยนบางอย่างบนพื้นฐานที่มั่นคงนี้ จะเกิดการเติบโตแบบก้าวกระโดดได้'
-      ],
-      'ms': [
-        'Dalam beberapa tahun yang lalu, anda banyak fokus pada “membina asas”; banyak hasil masih sedang matang di belakang tabir.',
-        'Sekarang masa yang sesuai untuk menilai semula aset, tabiat dan struktur hubungan, membuang beban yang tidak lagi berguna supaya ada ruang untuk pertumbuhan seterusnya.',
-        'Haluan hidup sedang naik secara stabil; dengan perubahan kecil tetapi terancang di atas asas yang kukuh, anda boleh mencetuskan pertumbuhan pada tahap terobosan.'
       ]
     },
-
     '木': {
       'zh-CN': [
         '你已经尝试了不少新方向，有成功也有踩雷，经验开始成形。',
         '适合收敛战线，挑出最想深耕的两三件事，集中资源突破。',
-        '若能坚持一条主线，未来几年有机会在专业或事业上“长成一棵树”。'
-      ],
-      'zh-TW': [
-        '你已經嘗試了不少新方向，有成功也有踩雷，經驗開始成形。',
-        '適合收斂戰線，挑出最想深耕的兩三件事，集中資源突破。',
-        '若能堅持一條主線，未來幾年有機會在專業或事業上「長成一棵樹」。'
+        '若能坚持一条主线，未来几年有机会在专业或事业上"长成一棵树"。'
       ],
       'en': [
         'You have tried many new directions; some worked, some did not, but experience is taking shape.',
         'Now is the time to narrow your focus to two or three key paths and invest your energy there.',
-        'If you stay with one main line, in the next few years you can “grow into a tree” in your field.'
-      ],
-      'ja-JP': [
-        'これまでにいくつもの新しい方向性を試してきて、成功もあれば失敗もあり、その経験が形になり始めています。',
-        '今は戦線を絞り込み、本当に深めたい二〜三個のテーマを選んで、そこにエネルギーを集中させると良い時期です。',
-        '一つのメインラインを続けていけば、数年のうちに専門分野や仕事の中で「一本の木」のようにしっかり根を張るチャンスがあります。'
-      ],
-      'th-TH': [
-        'คุณได้ลองเส้นทางใหม่ ๆ มาหลายอย่าง ทั้งที่เวิร์กและไม่เวิร์ก ประสบการณ์เริ่มตกผลึกมากขึ้น',
-        'ตอนนี้เหมาะกับการลดแนวรบ เลือก 2–3 เรื่องที่อยากลงลึกจริง ๆ แล้วทุ่มทรัพยากรไปที่จุดนั้น',
-        'ถ้ารักษาเส้นทางหลักไว้ต่อเนื่อง อีกไม่กี่ปีข้างหน้าคุณมีโอกาส “เติบโตเป็นต้นไม้ใหญ่” ในสายงานหรือความชำนาญของตัวเอง'
-      ],
-      'ms': [
-        'Anda telah mencuba banyak arah baharu; ada yang berjaya dan ada yang tidak, tetapi pengalaman itu kini mula terbentuk.',
-        'Sekarang masa yang sesuai untuk mengecilkan fokus kepada dua atau tiga laluan utama dan melaburkan tenaga anda di situ.',
-        'Jika anda kekal dengan satu garis utama, dalam beberapa tahun akan datang anda berpeluang “membesar seperti sebatang pokok” dalam bidang kepakaran anda.'
+        'If you stay with one main line, in the next few years you can "grow into a tree" in your field.'
       ]
     },
-
     '金': {
       'zh-CN': [
         '你被迫面对规则、责任与框架，有些地方需要你站出来表态。',
         '适合重新定义自己的边界与原则，练习既不委屈自己，也不过度要求他人。',
-        '若能建立一套兼顾效率与人情的做事方式，你会被看见为“值得托付的人”。'
-      ],
-      'zh-TW': [
-        '你被迫面對規則、責任與框架，有些地方需要你站出來表態。',
-        '適合重新定義自己的邊界與原則，練習既不委屈自己，也不過度要求他人。',
-        '若能建立一套兼顧效率與人情的做事方式，你會被看見為「值得託付的人」。'
+        '若能建立一套兼顾效率与人情的做事方式，你会被看见为"值得托付的人"。'
       ],
       'en': [
         'You have been pushed to confront rules, responsibilities and structures; some areas require you to take a stand.',
         'Now is a good moment to redefine your boundaries and principles, learning not to sacrifice yourself nor over-demand others.',
         'If you build a working style that balances efficiency and human warmth, people will see you as someone they can rely on.'
-      ],
-      'ja-JP': [
-        'このところ、ルールや責任、枠組みと向き合わざるを得ない場面が多くなり、どこかで自分の立場をはっきりさせる必要が出てきています。',
-        '今は、自分の境界線と原則を引き直し、自分を犠牲にしすぎず、相手にも求めすぎないバランスを学ぶのに良いタイミングです。',
-        '効率と人情の両方を大事にするやり方を築けば、「安心して任せられる人」として見られるようになります。'
-      ],
-      'th-TH': [
-        'ช่วงนี้คุณถูกผลักให้ต้องเผชิญกับกฎ ระเบียบ และความรับผิดชอบมากขึ้น บางเรื่องต้องออกมาพูดหรือยืนจุดยืนให้ชัด',
-        'ตอนนี้เหมาะที่จะกำหนดขอบเขตและหลักการของตัวเองใหม่ ฝึกไม่ยอมฝืนตัวเอง แต่ก็ไม่เรียกร้องจากคนอื่นเกินไป',
-        'ถ้าคุณสร้างสไตล์การทำงานที่ทั้งมีประสิทธิภาพและไม่แข็งกร้าวเกินไป คนรอบตัวจะมองว่าคุณเป็น “คนที่ฝากผีฝากไข้ได้”'
-      ],
-      'ms': [
-        'Kebelakangan ini anda sering dipaksa berdepan dengan peraturan, tanggungjawab dan rangka kerja; ada perkara yang memerlukan anda menyatakan pendirian.',
-        'Sekarang masa yang sesuai untuk mentakrif semula sempadan dan prinsip diri, belajar untuk tidak mengorbankan diri dan juga tidak menuntut terlalu banyak daripada orang lain.',
-        'Jika anda membina cara kerja yang seimbang antara keberkesanan dan kepekaan terhadap manusia, orang akan melihat anda sebagai seseorang yang boleh dipercayai.'
       ]
     },
-
     '火': {
       'zh-CN': [
-        '你的曝光与关注度有起有落，也在反复确认“我想被看见什么”。',
+        '你的曝光与关注度有起有落，也在反复确认"我想被看见什么"。',
         '适合整理个人品牌与表达方式，把真正想传递的核心信息说清楚。',
         '未来几年只要方向对、节奏稳，你的光会照到更远的地方。'
       ],
-      'zh-TW': [
-        '你的曝光與關注度有起有落，也在反覆確認「我想被看見什麼」。',
-        '適合整理個人品牌與表達方式，把真正想傳遞的核心信息說清楚。',
-        '未來幾年只要方向對、節奏穩，你的光會照到更遠的地方。'
-      ],
       'en': [
-        'Your visibility and attention from others have gone up and down while you repeatedly ask “what do I actually want to show?”.',
+        'Your visibility and attention from others have gone up and down while you repeatedly ask "what do I actually want to show?".',
         'Now is the time to tidy up your personal brand and expression style, clarifying the core message you wish to send.',
         'In the next few years, as long as your direction is right and your pace is steady, your light can reach much further.'
-      ],
-      'ja-JP': [
-        'ここしばらく、注目度や露出は上がったり下がったりしながら、「自分は本当は何を見せたいのか」を何度も問い直してきました。',
-        '今は、個人ブランドや発信スタイルを整え、本当に伝えたい核心メッセージをはっきりさせるのに良い時期です。',
-        '向きとペースさえ間違えなければ、これから数年であなたの光はもっと遠くまで届いていきます。'
-      ],
-      'th-TH': [
-        'ระดับการมองเห็นและความสนใจจากคนอื่นของคุณขึ้น ๆ ลง ๆ และคุณก็ถามตัวเองซ้ำ ๆ ว่า “ฉันอยากให้คนเห็นตัวตนแบบไหนกันแน่”',
-        'ช่วงนี้เหมาะที่จะจัดระเบียบแบรนด์ตัวเองและสไตล์การสื่อสาร ให้ชัดว่าคุณอยากส่งสารอะไรออกไปจริง ๆ',
-        'ถ้าทิศทางถูกต้องและจังหวะไม่รีบไม่ร้อน แสงของคุณจะส่องไปได้ไกลขึ้นมากในอีกไม่กี่ปีข้างหน้า'
-      ],
-      'ms': [
-        'Tahap keterlihatan dan perhatian orang terhadap anda naik turun, dan anda kerap bertanya dalam hati “sebenarnya aku mahu orang nampak sisiไหนของ diriku?”.',
-        'Sekarang masa yang sesuai untuk mengemas semula jenama peribadi dan gaya penyampaian anda, menjelaskan mesej teras yang anda mahu sampaikan.',
-        'Dalam beberapa tahun akan datang, selagi haluan betul dan langkah anda stabil, cahaya anda boleh sampai jauh lebih luas.'
       ]
     },
-
     'default': {
       'zh-CN': [
         '你在尝试与调整中前进。',
         '适合重新盘点自己真正想守护的方向。',
         '未来几年是再定位与再出发的重要阶段。'
       ],
-      'zh-TW': [
-        '你在嘗試與調整中前進。',
-        '適合重新盤點自己真正想守護的方向。',
-        '未來幾年是再定位與再出發的重要階段。'
-      ],
       'en': [
         'You are moving forward through trial and adjustment.',
         'Now is a good time to review what you truly want to protect and invest in.',
         'The coming years are important for re-positioning yourself and starting again with clearer intention.'
-      ],
-      'ja-JP': [
-        '今は試行錯誤と微調整をしながら前に進んでいる段階です。',
-        '本当に守りたいもの・力を注ぎたい方向を、改めて見直すのに良いタイミングです。',
-        'これから数年は、自分の立ち位置を再設定し、より明確な意図を持って再スタートする大事な時期になります。'
-      ],
-      'th-TH': [
-        'ตอนนี้คุณกำลังก้าวไปข้างหน้าผ่านการลองผิดลองถูกและการปรับตัว',
-        'เป็นช่วงเวลาที่ดีในการทบทวนว่าอะไรคือสิ่งที่คุณอยากปกป้องและอยากลงทุนพลังชีวิตลงไปจริง ๆ',
-        'ไม่กี่ปีต่อจากนี้เป็นช่วงสำคัญของการจัดตำแหน่งตัวเองใหม่ และเริ่มต้นอีกครั้งด้วยเจตนาที่ชัดเจนกว่าเดิม'
-      ],
-      'ms': [
-        'Anda sedang bergerak ke hadapan melalui percubaan dan penyesuaian.',
-        'Sekarang masa yang baik untuk menilai semula apa yang benar-benar ingin anda lindungi dan laburkan.',
-        'Beberapa tahun akan datang penting untuk anda menetapkan semula kedudukan dan memulakan semula dengan niat yang lebih jelas.'
       ]
     }
   };
@@ -2170,13 +2301,11 @@ function buildFortuneTimeline(ctx){
   // 根据当前语言挑选对应三段文案
   function pickText(pack){
     if (!pack) return ['', '', ''];
-    // 精确匹配 e.g. 'zh-CN'
     if (pack[lang]) return pack[lang];
-    const base = lang.split('-')[0]; // e.g. 'zh'
+    const base = lang.split('-')[0];
     if (pack[base]) return pack[base];
     if (pack['en']) return pack['en'];
     if (pack['zh-CN']) return pack['zh-CN'];
-    // 最后兜底：取第一个
     const first = Object.values(pack)[0];
     return first || ['', '', ''];
   }
@@ -2184,7 +2313,7 @@ function buildFortuneTimeline(ctx){
   const pack = MSG[elem] || MSG['default'];
   const [pastMsg, nowMsg, futureMsg] = pickText(pack);
 
-  // ---- 时间段 label 多语言 ----
+  // 时间段 label 多语言
   const LABELS = {
     'zh-CN': ['过去三年', '现在 & 未来12个月', '未来2–3年'],
     'zh-TW': ['過去三年', '現在 & 未來12個月', '未來2–3年'],
@@ -2231,12 +2360,15 @@ function buildAdvice(ctx){
 
   if (dirBox){
     if (deep && deep.directions){
+      const fav = deep.directions.favorite ? deep.directions.favorite.join(lang.startsWith('zh') ? '、' : ', ') : '';
+      const avoid = deep.directions.avoid ? deep.directions.avoid.join(lang.startsWith('zh') ? '、' : ', ') : '';
+      
       if (lang.startsWith('zh')){
-        dirBox.textContent =
-          `有利方位：${deep.directions.favorable.join('、')}；需留意：${deep.directions.avoid.join('、')}。建议重要会议、工作与睡眠方向尽量顺着有利方位，压力大的时期避免长期面向需留意方位。`;
+        dirBox.textContent = `有利方位：${fav}；需留意：${avoid}。建议重要会议、工作与睡眠方向尽量顺着有利方位，压力大的时期避免长期面向需留意方位。`;
+      }else if (lang === 'en'){
+        dirBox.textContent = `Favorable directions: ${fav}; be cautious with: ${avoid}. Try to align key work, sleep and meeting directions with the favorable side, especially during stressful periods.`;
       }else{
-        dirBox.textContent =
-          `Favourable directions: ${deep.directions.favorable.join(', ')}; be cautious with: ${deep.directions.avoid.join(', ')}. Try to align key work, sleep and meeting directions with the favourable side, especially during stressful periods.`;
+        dirBox.textContent = `Favorable: ${fav}; Avoid: ${avoid}`;
       }
     }else{
       dirBox.textContent = lang.startsWith('zh')
@@ -2249,9 +2381,11 @@ function buildAdvice(ctx){
     let txt;
     if (deep && deep.color){
       if (lang.startsWith('zh')){
-        txt = `主调颜色：${deep.color}。日常可多运用对应色系在穿着、小物与工作环境中（如文件夹、手机壳、座位附近的小物件），营造“看见就安心”的能量锚点。`;
-      }else{
+        txt = `主调颜色：${deep.color}。日常可多运用对应色系在穿着、小物与工作环境中（如文件夹、手机壳、座位附近的小物件），营造"看见就安心"的能量锚点。`;
+      }else if (lang === 'en'){
         txt = `Main colours: ${deep.color}. Use these tones more often in clothes, accessories and workspace details (files, phone case, desk items) as visual anchors to stabilise your qi.`;
+      }else{
+        txt = `Colors: ${deep.color}`;
       }
     }else{
       txt = lang.startsWith('zh')
@@ -2262,30 +2396,32 @@ function buildAdvice(ctx){
   }
 
   if (careerBox){
-    if (deepLang && deepLang.career){
-      let html = '';
-      if (deepLang.career){
-        html += `<p>${escapeHTML(deepLang.career)}</p>`;
-      }
+    if (deepLang && deepLang.career_analysis){
       const ca = deepLang.career_analysis;
-      if (ca){
-        if (lang.startsWith('zh')){
-          if (ca.strengths) html += `<p><strong>优势：</strong></p>${joinList(ca.strengths)}`;
-          if (ca.opportunities) html += `<p><strong>机遇：</strong></p>${joinList(ca.opportunities)}`;
-          if (ca.risks) html += `<p><strong>风险：</strong></p>${joinList(ca.risks)}`;
-          if (ca.actions) html += `<p><strong>行动建议：</strong></p>${joinList(ca.actions)}`;
-        }else{
-          if (ca.strengths) html += `<p><strong>Strengths</strong></p>${joinList(ca.strengths)}`;
-          if (ca.opportunities) html += `<p><strong>Opportunities</strong></p>${joinList(ca.opportunities)}`;
-          if (ca.risks) html += `<p><strong>Risks</strong></p>${joinList(ca.risks)}`;
-          if (ca.actions) html += `<p><strong>Action steps</strong></p>${joinList(ca.actions)}`;
-        }
+      let html = '';
+      
+      if (ca.strengths && ca.strengths.length) {
+        const label = lang.startsWith('zh') ? '优势：' : 'Strengths:';
+        html += `<p><strong>${label}</strong></p>${joinList(ca.strengths)}`;
       }
-      careerBox.innerHTML = html;
+      
+      if (ca.opportunities && ca.opportunities.length) {
+        const label = lang.startsWith('zh') ? '机遇：' : 'Opportunities:';
+        html += `<p><strong>${label}</strong></p>${joinList(ca.opportunities)}`;
+      }
+      
+      if (ca.actions && ca.actions.length) {
+        const label = lang.startsWith('zh') ? '行动建议：' : 'Action steps:';
+        html += `<p><strong>${label}</strong></p>${joinList(ca.actions)}`;
+      }
+      
+      careerBox.innerHTML = html || (lang.startsWith('zh') 
+        ? '目前适合走"一个主线 + 少量侧项目"的结构，工作上先确定最想被看见的定位，再决定要不要接额外的案子或兼职。'
+        : 'You are currently suited to "one main track + a few side projects". First clarify how you want to be seen professionally, then decide which extra projects to accept.');
     }else{
       careerBox.textContent = lang.startsWith('zh')
-        ? '目前适合走“一个主线 + 少量侧项目”的结构，工作上先确定最想被看见的定位，再决定要不要接额外的案子或兼职。'
-        : 'You are currently suited to “one main track + a few side projects”. First clarify how you want to be seen professionally, then decide which extra projects to accept.';
+        ? '目前适合走"一个主线 + 少量侧项目"的结构，工作上先确定最想被看见的定位，再决定要不要接额外的案子或兼职。'
+        : 'You are currently suited to "one main track + a few side projects". First clarify how you want to be seen professionally, then decide which extra projects to accept.';
     }
   }
 
@@ -2293,22 +2429,24 @@ function buildAdvice(ctx){
     if (deepLang && deepLang.relationship_analysis){
       const ra = deepLang.relationship_analysis;
       let html = '';
-      if (lang.startsWith('zh')){
-        if (ra.strengths) html += `<p><strong>优势：</strong></p>${joinList(ra.strengths)}`;
-        if (ra.opportunities) html += `<p><strong>机会：</strong></p>${joinList(ra.opportunities)}`;
-        if (ra.risks) html += `<p><strong>风险：</strong></p>${joinList(ra.risks)}`;
-        if (ra.actions) html += `<p><strong>行动建议：</strong></p>${joinList(ra.actions)}`;
-      }else{
-        if (ra.strengths) html += `<p><strong>Strengths</strong></p>${joinList(ra.strengths)}`;
-        if (ra.opportunities) html += `<p><strong>Opportunities</strong></p>${joinList(ra.opportunities)}`;
-        if (ra.risks) html += `<p><strong>Risks</strong></p>${joinList(ra.risks)}`;
-        if (ra.actions) html += `<p><strong>Action tips</strong></p>${joinList(ra.actions)}`;
+      
+      if (ra.strengths && ra.strengths.length) {
+        const label = lang.startsWith('zh') ? '优势：' : 'Strengths:';
+        html += `<p><strong>${label}</strong></p>${joinList(ra.strengths)}`;
       }
-      relBox.innerHTML = html;
+      
+      if (ra.actions && ra.actions.length) {
+        const label = lang.startsWith('zh') ? '行动建议：' : 'Action tips:';
+        html += `<p><strong>${label}</strong></p>${joinList(ra.actions)}`;
+      }
+      
+      relBox.innerHTML = html || (lang.startsWith('zh') 
+        ? '建议先沟通"相处节奏"和"界线"，再谈价值观或未来规划，会比较顺。'
+        : 'Discuss pace and boundaries first, then values and future plans. That sequence usually flows better for you.');
     }else{
       relBox.textContent = lang.startsWith('zh')
-        ? '人际与亲密关系上，建议先沟通“相处节奏”和“界线”，再谈价值观或未来规划，会比较顺。'
-        : 'In relationships, first discuss pace and boundaries, then values and future plans. That sequence usually flows better for you.';
+        ? '建议先沟通"相处节奏"和"界线"，再谈价值观或未来规划，会比较顺。'
+        : 'Discuss pace and boundaries first, then values and future plans. That sequence usually flows better for you.';
     }
   }
 }
@@ -2327,56 +2465,70 @@ function renderStarSection(ctx, deep, deepLang){
   const starAbout = $('starAbout');
   const indicator = $('analysisTypeIndicator');
 
-  // ⬇⬇ 这里是关键：根据界面语言切换主显示
+  // 显示主星名称
   if (starNameEl && star) {
-    if (langCode.startsWith('zh')) {
-      // 中文界面：主显示中文名，括号里放日文
-      starNameEl.textContent = star.zh;
-      if (starJPEl) starJPEl.textContent = star.jp || '';
-    } else {
-      // 非中文界面：主显示日文 / 罗马音，括号里放中文
-      starNameEl.textContent = star.jp || star.zh;
-      if (starJPEl) starJPEl.textContent = star.zh;
+    const starName = star.name && star.name[langCode] 
+      ? star.name[langCode] 
+      : `Star ${ctx.starNum}`;
+    starNameEl.textContent = starName;
+    
+    // 显示日文/罗马音（如果有）
+    if (starJPEl) {
+      const jpName = star.name && star.name['ja-JP'] ? star.name['ja-JP'] : '';
+      starJPEl.textContent = jpName;
     }
-  } else {
-    if (starNameEl) starNameEl.textContent = 'Star ' + ctx.starNum;
-    if (starJPEl) starJPEl.textContent = '';
   }
 
-  if (indicator){
+  // 分析类型指示器
+  if (indicator) {
     indicator.textContent = ctx.analysisTypeLabel || '';
   }
 
-  if (starBadges){
+  // 创建徽章
+  if (starBadges && star) {
     starBadges.innerHTML = '';
-    const frag = document.createDocumentFragment();
-
-    const mk = (labelKey, value)=>{
-      if (!value) return;
-      const span = document.createElement('span');
-      span.className = 'badge';
-      // 非中文界面，把关键词之间用逗号分隔，看起来比较像英文
-      const v = Array.isArray(value) && !langCode.startsWith('zh')
-        ? value.join(', ')
-        : value;
-      span.textContent = `${t(labelKey)}：${v}`;
-      frag.appendChild(span);
-    };
-
-    mk('badge_elem', (deep && deep.element) || (star && star.elem) || '');
-    mk('badge_color', (deep && deep.color) || (star && star.color) || '');
-    if (star && star.key && star.key.length){
-      mk('badge_kw', star.key);
+    
+    // 元素徽章
+    const elem = star.elem && star.elem[langCode] ? star.elem[langCode] : '';
+    if (elem) {
+      const elemBadge = document.createElement('span');
+      elemBadge.className = 'badge';
+      elemBadge.textContent = `${t('badge_elem')}：${elem}`;
+      starBadges.appendChild(elemBadge);
     }
-    starBadges.appendChild(frag);
+    
+    // 颜色徽章
+    const color = star.color && star.color[langCode] ? star.color[langCode] : '';
+    if (color) {
+      const colorBadge = document.createElement('span');
+      colorBadge.className = 'badge';
+      colorBadge.textContent = `${t('badge_color')}：${color}`;
+      starBadges.appendChild(colorBadge);
+    }
+    
+    // 关键词徽章
+    const keywords = star.key && star.key[langCode] ? star.key[langCode] : [];
+    if (keywords && keywords.length > 0) {
+      const keywordText = langCode.startsWith('zh') 
+        ? keywords.join('、') 
+        : keywords.join(', ');
+      const keyBadge = document.createElement('span');
+      keyBadge.className = 'badge';
+      keyBadge.textContent = `${t('badge_kw')}：${keywordText}`;
+      starBadges.appendChild(keyBadge);
+    }
   }
 
-  if (starAbout){
-    const aboutBase = (deepLang && deepLang.personality) || (star && star.about) || '';
+  // 关于描述
+  if (starAbout && star) {
+    const aboutText = star.about && star.about[langCode] 
+      ? star.about[langCode] 
+      : '';
     const label = t('about_label');
-    starAbout.textContent = (label ? label + '：' : '') + aboutBase;
+    starAbout.textContent = (label ? label + '：' : '') + aboutText;
   }
 
+  // 构建元素图表和分析
   buildElementChart(deep);
   buildElementAnalysis(ctx, deep);
   card.style.display = 'block';
@@ -2506,8 +2658,8 @@ async function updateAiReport(ctx){
     const star = STARS[ctx.starNum];
     const lang = getLang();
     const extra = `
-主星：${star ? star.zh : ctx.starNum} (${star ? star.jp : ''})
-主五行：${ctx.mainElement || (star ? star.elem : '')}
+主星：${star ? star.name[lang] : ctx.starNum} (${star ? star.name['ja-JP'] : ''})
+主五行：${ctx.mainElement || (star ? star.elem[lang] : '')}
 分析类型：${ctx.analysisTypeLabel}
 出生日期：${ctx.birthStr}
 性别（原始输入）：${ctx.gender || '-'}
@@ -2515,8 +2667,8 @@ async function updateAiReport(ctx){
 `;
 
     const prompt = lang.startsWith('zh')
-      ? "请扮演温柔、务实的命理顾问，从上面的九星信息出发，写一份“九星气学深度报告精简版”。结构包含：1）核心画像；2）今年～明年的重点提醒；3）可以马上执行的 3–5 条调整建议。语言贴近日常口语、不要太玄。"
-      : "Based on the Nine Star Ki information above, write a concise “Deep Kyuusei Brief”: (1) core portrait, (2) key focus from now to the next 12 months, (3) 3–5 actionable suggestions. Keep it warm, practical and down-to-earth.";
+      ? "请扮演温柔、务实的命理顾问，从上面的九星信息出发，写一份"九星气学深度报告精简版"。结构包含：1）核心画像；2）今年～明年的重点提醒；3）可以马上执行的 3–5 条调整建议。语言贴近日常口语、不要太玄。"
+      : "Based on the Nine Star Ki information above, write a concise "Deep Kyuusei Brief": (1) core portrait, (2) key focus from now to the next 12 months, (3) 3–5 actionable suggestions. Keep it warm, practical and down-to-earth.";
 
     const reply = await askAI(prompt, extra);
     aiBox.textContent = reply || (t('retry') || '暂时无法生成，请稍后再试。');
@@ -2533,16 +2685,9 @@ function buildKyuuseiReport(){
   const genderInput = $('gender');
   const typeSelect  = $('analysisType');
 
-  // 基本节点检查（不要直接 return 掉整段，只在 console 提示）
   if (!birthInput){
     console.warn('[kyuusei] #birthdate not found');
     return;
-  }
-  if (!genderInput){
-    console.warn('[kyuusei] #gender not found (将使用空字串)');
-  }
-  if (!typeSelect){
-    console.warn('[kyuusei] #analysisType not found (将使用 comprehensive 默认值)');
   }
 
   const birthStr = (birthInput.value || '').trim();
@@ -2553,7 +2698,7 @@ function buildKyuuseiReport(){
   }
 
   const starNum = calcHonmei(birthStr);
-  if (!starNum || !STARS || !STARS[starNum]){
+  if (!starNum || !STARS[starNum]){
     alert(t('bad_date'));
     return;
   }
@@ -2570,19 +2715,17 @@ function buildKyuuseiReport(){
 
   // 主星与深度资料
   const deep     = STARS_DEEP ? STARS_DEEP[starNum] : null;
-  const deepLang = (typeof getStarText === 'function') ? getStarText(starNum) : null;
+  const deepLang = getStarText(starNum);
 
   const starMeta = STARS[starNum];
-  const mainElement =
-    (deep && deep.element) ||
-    (starMeta && starMeta.elem) ||
-    '';
+  const lang = getLang();
+  const mainElement = deep ? deep.element : (starMeta.elem ? starMeta.elem[lang] : '');
 
   // 报告上下文（给渲染 + AI 用）
   const ctx = {
     starNum,
-    starName: starMeta.zh,
-    starJP:   starMeta.jp,
+    starName: starMeta.name ? (starMeta.name[lang] || starMeta.name['zh-CN']) : `Star ${starNum}`,
+    starJP: starMeta.name ? (starMeta.name['ja-JP'] || '') : '',
     mainElement,
     birthStr,
     gender: (genderInput && genderInput.value) || '',
@@ -2592,21 +2735,11 @@ function buildKyuuseiReport(){
   window._lastKyuuseiCtx = ctx;
 
   // 渲染各区块
-  if (typeof renderStarSection === 'function') {
-    renderStarSection(ctx, deep, deepLang);
-  }
-  if (typeof renderDeepSection === 'function') {
-    renderDeepSection(ctx, deepLang);
-  }
-  if (typeof renderSpecializedSection === 'function') {
-    renderSpecializedSection(ctx, deepLang);
-  }
-  if (typeof buildFortuneTimeline === 'function') {
-    buildFortuneTimeline(ctx);
-  }
-  if (typeof buildAdvice === 'function') {
-    buildAdvice(ctx);
-  }
+  renderStarSection(ctx, deep, deepLang);
+  renderDeepSection(ctx, deepLang);
+  renderSpecializedSection(ctx, deepLang);
+  buildFortuneTimeline(ctx);
+  buildAdvice(ctx);
 
   // 显示卡片
   const fortuneCard = $('fortuneCard');
@@ -2614,24 +2747,15 @@ function buildKyuuseiReport(){
   if (fortuneCard) fortuneCard.style.display = 'block';
   if (adviceCard)  adviceCard.style.display  = 'block';
 
-  // AI 卡片（若存在则显示，并且只在函数存在时调用）
+  // AI 卡片
   const aiCard = $('aiCard');
   if (aiCard) aiCard.style.display = 'block';
 
-  if (typeof updateAiReport === 'function') {
-    try {
-      updateAiReport(ctx);
-    } catch(e) {
-      console.warn('[kyuusei] updateAiReport error:', e);
-    }
-  } else {
-    console.warn('[kyuusei] updateAiReport is not defined');
-  }
+  updateAiReport(ctx);
 
   // 滚到主星卡片
   const starCard = $('starCard');
   if (starCard && starCard.scrollIntoView){
-    // 放到微任务之后，确保 DOM 已更新
     setTimeout(() => {
       starCard.scrollIntoView({ behavior:'smooth', block:'start' });
     }, 0);
@@ -2659,32 +2783,47 @@ function rerenderFromCtx(){
   };
   ctx.analysisTypeLabel = t(typeKeyMap[ctx.analysisType] || 'analysis_type_comprehensive');
 
+  // 更新星星数据中的多语言部分
+  const starMeta = STARS[ctx.starNum];
+  if (starMeta) {
+    const langCode = getLang();
+    ctx.starName = starMeta.name && starMeta.name[langCode] 
+      ? starMeta.name[langCode] 
+      : `Star ${ctx.starNum}`;
+    ctx.starJP = starMeta.name && starMeta.name['ja-JP'] 
+      ? starMeta.name['ja-JP'] 
+      : '';
+    ctx.mainElement = deep ? deep.element : (starMeta.elem ? starMeta.elem[langCode] : '');
+  }
+
+  // 重新渲染所有部分
   renderStarSection(ctx, deep, deepLang);
   renderDeepSection(ctx, deepLang);
   renderSpecializedSection(ctx, deepLang);
   buildFortuneTimeline(ctx);
   buildAdvice(ctx);
 
-  // 💡 关键：语言切换后，让 Butler AI 主报告重新生成一次，用新语言返回
+  // 重新生成AI报告
   updateAiReport(ctx);
 }
   
 /* DOM Ready 初始化 */
 document.addEventListener('DOMContentLoaded', () => {
-  // 初始语言
+  // 设置当前语言
   const select = $('langSelect');
   const current = getLang();
   document.documentElement.lang = current;
-  if (select){
+  
+  if (select) {
     select.value = current;
-    select.addEventListener('change', e=>{
+    select.addEventListener('change', e => {
       const v = e.target.value;
       setLang(v);
       rerenderFromCtx();
     });
   }
 
-  // ✅ 这里：设定出生日期 / 时间默认 = 当前
+  // 设置默认出生日期为今天
   const now = new Date();
   const birthInput = $('birthdate');
   if (birthInput && !birthInput.value) {
@@ -2694,23 +2833,19 @@ document.addEventListener('DOMContentLoaded', () => {
     birthInput.value = `${y}-${m}-${d}`;
   }
 
-  const timeInput = $('birthtime');
-  if (timeInput && !timeInput.value) {
-    const hh = String(now.getHours()).padStart(2, '0');
-    const mm = String(now.getMinutes()).padStart(2, '0');
-    timeInput.value = `${hh}:${mm}`;
-  }
-
+  // 初始化
   renderChips();
   applyI18n();
   updateNowInfo();
 
+  // 绑定生成报告按钮
   const btn = $('go');
-  if (btn){
+  if (btn) {
     btn.addEventListener('click', buildKyuuseiReport);
   }
 });
-</script>
+</script>    
 </body>
 </html>
+
 
