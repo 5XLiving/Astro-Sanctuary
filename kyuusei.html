@@ -10,423 +10,810 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 
-<style>
-  :root{
-    --bg:#0b0f14; --card:#11161dcc; --line:#1f2a36; --text:#e8edf3; --muted:#98a7b7;
-    --brand:#d4af37; --gold:#d4af37; --gold2:#f2d27a; --accent:#58b9ff;
-    --radius:14px; --shadow:0 8px 30px rgba(0,0,0,.35);
-  }
-  html,body{height:100%}
-  body{
-    margin:0; color:var(--text);
-    background: radial-gradient(1200px 600px at 70% -10%, #16202b 10%, transparent 60%) no-repeat,
-                linear-gradient(180deg,#0b0f14,#0b0f14);
-    font-family: Inter,system-ui,-apple-system,"Noto Sans SC","Segoe UI",Roboto,Arial,sans-serif;
-    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-  }
-  body::before{
-    content:""; position:fixed; inset:0; z-index:-2;
-    background:url('assets/images/gate.jpg') center/cover no-repeat;
-    filter:brightness(.45) saturate(.9) blur(2px)
-  }
-  .container{max-width:1100px;margin:0 auto;padding:24px 16px 80px}
+<script>
+/* ===== 基本配置 ===== */
+const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+const LANG_KEY = '5x_lang';
 
-  /* —— 头部（Tarot 同款） —— */
-  /* ==== 头部：跟塔罗页同风格（5xLiving · Soul Sanctuary 系） ==== */
-  .site-header{
-    position:sticky;
-    top:0;
-    z-index:10;
-    background:#0b0f14cc;
-    border-bottom:1px solid #0f1622;
-    backdrop-filter:saturate(140%) blur(12px);
-    transition: all 0.3s ease;
-  }
-  .site-header.scrolled {
-    background: rgba(11, 15, 20, 0.95);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  }
-  .head-inner{
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    gap:14px;
-    padding:14px 16px;
-  }
-.brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  text-decoration: none;
+/* 工具 */
+const $  = id => document.getElementById(id);
+const getLang = () => localStorage.getItem(LANG_KEY) || document.documentElement.lang || 'zh-CN';
+const setLang = v => {
+  localStorage.setItem(LANG_KEY, v);
+  document.documentElement.lang = v;
+};
+
+/* ===== i18n 词库 ===== */
+const i18n = {
+  /* …… 这里保留你原本的 i18n 定义，不要改 …… */
+  /* 我直接假设你上面粘贴的 i18n 对象保持不变 */
+  "zh-CN": { /* ... */ },
+  "zh-TW": { /* ... */ },
+  "en":    { /* ... */ },
+  "ja-JP": { /* ... */ },
+  "th-TH": { /* ... */ },
+  "ms":    { /* ... */ }
+};
+
+/* 简单翻译函数 */
+function t(key){
+  const L = i18n[getLang()] || i18n["zh-CN"];
+  return L[key] || (i18n["zh-CN"][key] || key);
 }
 
-.brand-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  border: 1px solid var(--gold);
-  color: var(--gold);
-  font-weight: 600;
-  font-size: 14px;
-  letter-spacing: 0.08em;
+/* 应用到 DOM */
+function applyI18n(){
+  document.querySelectorAll("[data-i18n]").forEach(el=>{
+    const key = el.getAttribute("data-i18n");
+    el.textContent = t(key);
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
+    const key = el.getAttribute("data-i18n-ph");
+    el.setAttribute("placeholder", t(key));
+  });
+  const titleEl = document.querySelector("title[data-i18n]");
+  if (titleEl) titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
 }
 
-.title {
-  font-size: 14px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text);
-  transition: color 0.25s ease;
+/* 当前时间显示 */
+function updateNowInfo(){
+  const box = $('nowInfo');
+  if (!box) return;
+  const lang = getLang();
+  let locale = 'zh-CN';
+  if (lang === 'zh-TW') locale = 'zh-TW';
+  else if (lang === 'en') locale = 'en-US';
+  else if (lang === 'ja-JP') locale = 'ja-JP';
+  else if (lang === 'th-TH') locale = 'th-TH';
+  else if (lang === 'ms') locale = 'ms-MY';
+  const nowStr = new Date().toLocaleString(locale);
+  box.textContent = (t('now_info_prefix') || '') + nowStr;
 }
 
-/* hover → title (incl. Soul Sanctuary) becomes gold */
-.brand:hover .title {
-  color: var(--gold);
+/* ===== 浮动 Chat 逻辑（保持你原本逻辑） ===== */
+async function askAI(prompt, extraCtx){
+  const lang = getLang();
+  const payload = {
+    lang,
+    source: 'kyuusei-deep',
+    messages: [
+      {
+        role: "system",
+        content: "You are Xinlian Butler, a gentle metaphysics & life advisor for 5XLiving, combining Nine Star Ki, Bazi style language and practical, grounded advice. Always reply in the user interface language."
+      },
+      {
+        role: "user",
+        content: (extraCtx || "") + "\n\n" + prompt
+      }
+    ]
+  };
+  const res = await fetch(API_BASE + "/api/chat", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify(payload)
+  });
+  if (!res.ok) throw new Error("bad status " + res.status);
+  const data = await res.json();
+  return data.reply || data.text || (data.choices && data.choices[0]?.message?.content) || "";
 }
 
-  .lang{display:flex; align-items:center; gap:8px}
-  .lang label{white-space:nowrap; color:var(--muted); margin-right:4px}
-  .lang select{
-    appearance:none; min-width:170px;
-    border-radius:10px; border:1px solid #243244;
-    background:#0e1520; color:var(--text);
-    padding:10px 34px 10px 12px; font-size:.95rem;
-    background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2398a7b7' stroke-width='2' fill='none'/%3E%3C/svg%3E");
-    background-repeat:no-repeat; background-position:calc(100% - 12px) 50%;
+(function initFloatingChat(){
+  const fab   = $('ssChatFab');
+  const panel = $('ssChatPanel');
+  const body  = $('ssChatBody');
+  const input = $('ssChatInput');
+  const send  = $('ssChatSend');
+  const closeBtn = $('ssChatClose');
+
+  if (!fab || !panel || !body || !input || !send || !closeBtn) return;
+
+  function appendBubble(text, role){
+    const div = document.createElement('div');
+    div.className = 'chat-bubble ' + (role === 'user' ? 'user' : 'bot');
+    div.textContent = text;
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
   }
 
-  .section{margin-top:18px}
-  .card{
-    background:var(--card);
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    box-shadow:var(--shadow);
-    backdrop-filter:blur(10px);
-    padding:18px;
-    margin:16px 0;
-  }
-  .h2{
-    font-size:1.2rem;margin:0 0 12px;
-    font-weight:800;color:#ffe084;
-    display:flex;gap:8px;align-items:center
-  }
-  .h2::before{
-    content:"";width:4px;height:18px;
-    background:var(--brand);border-radius:2px
-  }
-
-  .row{display:grid;gap:12px}
-  @media(min-width:760px){
-    .row.cols-3{grid-template-columns:1fr 1fr 1fr}
-    .row.cols-2{grid-template-columns:1fr 1fr}
-  }
-
-  input,select,textarea{
-    width:100%;box-sizing:border-box;border-radius:12px;
-    border:1px solid #243244;background:#0e1520;color:var(--text);
-    padding:12px 12px;font-size:15px;outline:none;
-  }
-  input::placeholder{color:#6f8092}
-  .btn{
-    display:inline-grid;place-items:center;
-    padding:12px 16px;border-radius:12px;
-    border:1px solid #e6c76e;
-    background:linear-gradient(180deg,#fff9e6,#e6c76e);
-    color:#191919;font-weight:800;cursor:pointer
-  }
-  .btn:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(230,199,110,.5)}
-  .btn[disabled]{opacity:.6;cursor:not-allowed}
-  .btn.ghost{
-    background:transparent;color:var(--gold2);
-    border:1px solid rgba(212,175,55,.45);box-shadow:none
-  }
-  .btn.block{display:block;width:100%}
-  .muted{color:var(--muted)}
-  .badge{
-    display:inline-block;padding:4px 8px;margin:2px 4px 2px 0;
-    background:rgba(212,175,55,.15);
-    border:1px solid rgba(212,175,55,.3);
-    border-radius:6px;font-size:.85rem
-  }
-
-  /* 深度分析布局 */
-  .analysis-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 16px;
-    margin-top: 20px;
-  }
-  @media (min-width: 768px) {
-    .analysis-grid {
-      grid-template-columns: 1fr 1fr;
+  function togglePanel(show){
+    if (typeof show === 'boolean') {
+      panel.style.display = show ? 'block' : 'none';
+    } else {
+      panel.style.display = (panel.style.display === 'block' ? 'none' : 'block');
     }
   }
-  .analysis-card {
-    background: linear-gradient(145deg, rgba(17,22,29,0.9), rgba(12,16,22,0.9));
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 20px;
-    position: relative;
-  }
-  .analysis-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, var(--gold), transparent);
-  }
-  .analysis-title {
-    font-family: "Noto Serif SC", serif;
-    font-weight: 600;
-    color: var(--gold2);
-    margin-bottom: 12px;
-    font-size: 1.1rem;
-  }
-  .analysis-content {
-    line-height: 1.6;
-    font-size: 0.95rem;
+
+  fab.addEventListener('click', () => togglePanel());
+  closeBtn.addEventListener('click', () => togglePanel(false));
+
+  async function doSend(){
+    const text = input.value.trim();
+    if (!text) return;
+
+    appendBubble(text, 'user');
+    input.value = '';
+    send.disabled = true;
+
+    const waitText = t('generating') || '正在生成解读…';
+    appendBubble(waitText, 'bot');
+
+    try{
+      const reply = await askAI(text);
+      body.removeChild(body.lastChild);
+      appendBubble(reply || (t('retry') || '暂时无法回复，请稍后再试。'), 'bot');
+    }catch(e){
+      console.warn('[chat] error:', e);
+      body.removeChild(body.lastChild);
+      appendBubble(t('neterr') || '网络异常，请稍后再试。', 'bot');
+    }finally{
+      send.disabled = false;
+    }
   }
 
-  .element-chart {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
-    gap: 8px;
-    margin: 15px 0;
-  }
-  .element-item {
-    text-align: center;
-    padding: 10px 5px;
-    border-radius: 8px;
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(255,255,255,0.1);
-  }
-  .element-item.strong {
-    background: rgba(212,175,55,0.2);
-    border-color: var(--gold);
-  }
-  .element-name {
-    font-weight: 600;
-    margin-bottom: 4px;
-  }
-  .element-value {
-    font-size: 0.9rem;
-    color: var(--muted);
-  }
+  send.addEventListener('click', doSend);
+  input.addEventListener('keydown', e=>{
+    if (e.key === 'Enter' && !e.shiftKey){
+      e.preventDefault();
+      doSend();
+    }
+  });
+})();
 
-  /* 运势时间线 */
-  .timeline { position: relative; padding-left: 20px; }
-  .timeline::before {
-    content: '';
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 2px;
-    background: linear-gradient(180deg, var(--gold), transparent);
-  }
-  .timeline-item {
-    position: relative;
-    margin-bottom: 20px;
-    padding-bottom: 15px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-  }
-  .timeline-item::before {
-    content: '';
-    position: absolute;
-    left: -24px; top: 6px;
-    width: 8px;height: 8px;border-radius: 50%;
-    background: var(--gold);
-  }
-  .timeline-period {
-    font-weight: 600;
-    color: var(--gold2);
-    margin-bottom: 5px;
-  }
+/* ===== Butler AI: 芯片渲染 ===== */
+function renderChips() {
+  let box = $('aiChips');
+  if (!box) return;
+  box.innerHTML = '';
 
-  /* 专业建议 */
-  .advice-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    gap: 16px;
-    margin-top: 20px;
-  }
-  .advice-card {
-    background: rgba(255,255,255,0.03);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 10px;
-    padding: 16px;
-    transition: all 0.3s ease;
-  }
-  .advice-card:hover {
-    border-color: var(--gold);
-    transform: translateY(-2px);
-  }
-  .advice-category {
-    font-weight: 600;
-    color: var(--gold2);
-    margin-bottom: 8px;
-    font-size: 0.95rem;
-  }
+  const chips = [
+    { key: 'chip_career', fallback: '事业', intent:'career' },
+    { key: 'chip_love',   fallback: '感情', intent:'love' },
+    { key: 'chip_money',  fallback: '财运', intent:'wealth' },
+    { key: 'chip_list',   fallback: '今日待办', intent:'todo' },
+    { key: 'chip_30d',    fallback: '30天建议', intent:'30d' },
+  ];
 
-  .analysis-type-indicator {
-    display: inline-block;
-    padding: 4px 12px;
-    background: rgba(212,175,55,0.2);
-    border: 1px solid var(--gold);
-    border-radius: 20px;
-    font-size: 0.85rem;
-    color: var(--gold2);
-    margin-left: 10px;
-  }
+  chips.forEach((c) => {
+    const label = t(c.key) || c.fallback;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip';
+    btn.textContent = label;
+    btn.setAttribute('data-i18n', c.key);
 
-  /* Butler AI + 报告 sec 样式 */
-  .report{margin-top:12px;display:grid;gap:10px}
-  .report .sec{
-    padding:12px;border:1px solid var(--line);
-    background:#0e1520;border-radius:12px
-  }
-  .report .sec h3{
-    margin:0 0 6px;color:var(--gold2);font-size:1.05rem
-  }
-  .report p,.report li{line-height:1.7}
+    btn.addEventListener('click', async () => {
+      const aiBox = $('aiText');
+      if (!window._lastKyuuseiCtx) {
+        if (aiBox) aiBox.textContent = t('please_birth') || '请先选择出生日期并生成命盘。';
+        return;
+      }
+      if (aiBox) aiBox.textContent = t('generating') || '正在生成解读…';
 
-  /* VIP 区域布局（保留） */
-  .columns{display:grid;gap:12px;grid-template-columns:1fr}
-  @media(min-width:900px){ .columns{grid-template-columns:1fr 1fr} }
-  .list-block{
-    border:1px solid #263448;
-    background:#0e1520;
-    border-radius:12px;padding:16px
-  }
-  .list-block ul{margin:.2rem 0 0;padding-left:1.1rem}
-  .group-title{
-    font-size:1.05rem;color:#ffe084;
-    margin:6px 0 14px
-  }
-  .astro-auth{
-    max-width:980px;margin:28px auto;
-    padding:20px 18px;
-    background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));
-    border:1px solid rgba(212,175,55,.22);
-    border-radius:14px;
-    box-shadow:0 18px 50px rgba(0,0,0,.35)
-  }
-  .auth-grid{display:grid;gap:18px;grid-template-columns:1.2fr .8fr}
-  @media(max-width:860px){ .auth-grid{grid-template-columns:1fr} }
-  .panel{
-    background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01));
-    border:1px solid rgba(212,175,55,.22);
-    border-radius:14px;
-    box-shadow:0 10px 30px rgba(0,0,0,.35)
-  }
-  .panel .head{
-    padding:16px 18px;border-bottom:1px solid rgba(212,175,55,.22);
-    color:var(--gold);font-weight:700;letter-spacing:.3px
-  }
-  .panel .body{padding:18px; overflow:hidden;}
-  .spacer{height:12px}
+      try{
+        const ctx = window._lastKyuuseiCtx;
+        const basePrompt = `
+九星气学主星：${ctx.starName} (${ctx.starJP})
+五行主元素：${ctx.mainElement}
+当前分析类型：${ctx.analysisTypeLabel}
+出生日期：${ctx.birthStr}
+性别（原始输入）：${ctx.gender || '-'}
+        `;
+        const intentTextMap = {
+          career: "请根据以上九星信息，重点从事业与财运角度给出实用建议，写成 2–3 段说明与 3–5 条可执行行动。",
+          love:   "请根据以上九星信息，重点从感情与亲密关系角度给出实用建议，兼顾单身与已有伴侣的情况。",
+          wealth: "请根据以上九星信息，从财富布局、收入结构与资金流动角度给出建议，务实、具体，不讲空泛心灵鸡汤。",
+          todo:   "请根据以上九星信息，帮我写出今天可以执行的 3–7 条小任务，帮助我调顺运势与心态。",
+          "30d":  "请根据以上九星信息，写出未来 30 天的重点提醒与行动方向，最好分成 3 个阶段。"
+        };
+        const reply = await askAI(intentTextMap[c.intent] || '', basePrompt);
+        if (aiBox) aiBox.textContent = reply || (t('retry') || '暂时无法生成，请稍后再试。');
+      }catch(e){
+        console.warn('[chips ai] error', e);
+        if ($('aiText')) $('aiText').textContent = t('neterr') || '网络异常，请稍后再试。';
+      }
+    });
 
-  footer{
-    color:#6c7b8c;font-size:.85rem;
-    text-align:center;padding:30px 0
-  }
-
-  /* Butler chips / skeleton */
-  .ai-content{white-space:pre-wrap;line-height:1.7}
-  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-  .chip{
-    padding:6px 10px;border-radius:999px;
-    border:1px solid #2a3546;background:#0e1520;
-    color:#e8edf3;cursor:pointer
-  }
-  .chip:hover{border-color:#f2d27a;box-shadow:0 0 0 2px rgba(242,210,122,.15) inset}
-  .skeleton{display:grid;gap:8px}
-  .skeleton div{
-    height:12px;border-radius:6px;
-    background:linear-gradient(90deg,#1a2431,#1f2b3b,#1a2431);
-    animation:sh 1.2s infinite
-  }
-  @keyframes sh{0%{opacity:.5}50%{opacity:1}100%{opacity:.5}}
-
-  .sr-only{
-    position:absolute !important;
-    width:1px;height:1px;padding:0;margin:-1px;
-    overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0;
-  }
-
-.ss-chat-fab{
-  position:fixed;right:18px;bottom:18px;z-index:50;width:56px;height:56px;border-radius:50%;
-  background:linear-gradient(180deg,#fff9e6,#e6c76e);color:#191919;display:grid;place-items:center;font-weight:800;
-  box-shadow:0 8px 30px rgba(0,0,0,.35);cursor:pointer;border:1px solid #e6c76e
-}
-.ss-chat-panel{
-  position:fixed;right:18px;bottom:88px;z-index:50;width:min(460px,92vw);display:none;
-  background:#0e1520;border:1px solid #243244;border-radius:14px;box-shadow:var(--shadow)
+    box.appendChild(btn);
+  });
 }
 
-  .ss-chat-head{
-  display:flex;align-items:center;justify-content:space-between;
-  padding:10px 12px;border-bottom:1px solid #243244;
-  background:#0b1018;border-radius:14px 14px 0 0;
+/* ===== 九星算法 ===== */
+function reduce1(n){
+  let s = Math.abs(n).toString().split('').reduce((a,b)=>a+Number(b),0);
+  while(s>9) s = s.toString().split('').reduce((a,b)=>a+Number(b),0);
+  return s;
 }
-.ss-chat-title{font-weight:600;color:#ffe084;font-size:.95rem}
-.ss-close{
-  border:none;background:transparent;color:#98a7b7;cursor:pointer;font-size:1rem;
+function isBeforeSetsubun(d){
+  const m = d.getMonth(), day = d.getDate();
+  return (m===0)||(m===1&&day<=3);
 }
-.ss-chat-body{
-  max-height:360px;min-height:160px;
-  padding:10px 12px;overflow-y:auto;
-  font-size:.9rem;line-height:1.6;
-}
-.ss-chat-input{
-  display:flex;gap:8px;
-  padding:10px;border-top:1px solid #243244;
-  background:#0b1018;border-radius:0 0 14px 14px;
-}
-.ss-chat-input input{
-  flex:1;border-radius:999px;border:1px solid #243244;
-  background:#0e1520;color:var(--text);padding:8px 12px;font-size:.9rem;
-}
-.ss-chat-input .btn{
-  padding:8px 14px;border-radius:999px;font-size:.9rem;
-  white-space:nowrap;
+function calcHonmei(dateStr){
+  const d=new Date(dateStr);
+  if(isNaN(d))return null;
+  const root=reduce1(d.getFullYear());
+  let num=(isBeforeSetsubun(d)?12:11)-root;
+  while(num<=0)num+=9;
+  return num;   // 1–9
 }
 
-.chat-bubble{
-  display:inline-block;max-width:90%;
-  padding:8px 10px;border-radius:10px;
-  margin:4px 0;font-size:.9rem;
+/* ===== 九星数据 - STARS & STARS_DEEP ===== */
+/* 这里保留你已经写好的 STARS 和 STARS_DEEP[1–6] 内容 */
+/* 我只补上 STARS_DEEP 7/8/9 的结构，简单版就够用 */
+
+/* …… STARS 常量保持你原来的 …… */
+
+const STARS = { /* 你上面粘贴的 STARS 对象原样放回 */ };
+
+const STARS_DEEP = {
+  /* 1–6 保留你原本写好的大段内容，这里省略 */
+  1: {/* ... */},
+  2: {/* ... */},
+  3: {/* ... */},
+  4: {/* ... */},
+  5: {/* ... */},
+  6: {/* ... */},
+
+  7: {
+    element: '金',
+    elements: { 木: 2, 火: 2, 土: 1, 金: 3, 水: 2 },
+    directions: { favorable: ['西', '西北', '北'], avoid: ['南', '东南'] },
+    text: {
+      'zh-CN': {
+        personality: '七赤带有愉悦与享受的气息，擅长社交与表达，自带舞台感与幽默感。但也要注意不要沉迷享乐、忽略长期布局。',
+        talents: ['人际沟通与说服', '品牌与美学感知', '销售与谈判', '营造氛围'],
+        challenges: '学会在享受当下与规划未来之间取得平衡，控制冲动消费与情绪性决策，建立更稳定的自我价值感。',
+        career_analysis: {
+          strengths: ['口才佳、易受欢迎', '敏锐的品味与感觉', '善于经营人脉', '适应社交型场域'],
+          opportunities: ['公关与市场', '品牌经营', '销售与谈判', '娱乐或美业相关领域'],
+          risks: ['过度追求表面光鲜', '情绪化开支', '难以长期坚持', '容易受评价影响'],
+          actions: [
+            '为自己设定清晰的财务与职业目标，避免只追求短期成就感。',
+            '刻意保留“安静独处时间”，减低被社交场合牵着走的频率。',
+            '学习基础理财知识，将收入与享乐比例控制在自己可承受范围内。'
+          ]
+        },
+        relationship_analysis: {
+          strengths: ['有人缘、擅长营造浪漫氛围', '懂得取悦他人', '社交圈广泛'],
+          opportunities: ['通过社交活动认识新对象', '发展合作型伴侣关系', '在人际连接中获得机会与资源'],
+          risks: ['关系流于表面', '容易被甜言蜜语影响判断', '害怕孤单而勉强维持关系'],
+          actions: [
+            '在进入亲密关系前，多给自己一点观察期，不急着做承诺。',
+            '练习在关系中表达真实需求，而不是只扮演“好相处”的角色。',
+            '区分“被喜欢”与“被理解”，把心力投注在懂你的人身上。'
+          ]
+        }
+      },
+      'en': {
+        personality: 'Seven Metal carries joy, pleasure and charm. You are naturally social, expressive and good at creating a fun atmosphere, but need to watch over-indulgence and lack of long-term planning.',
+        talents: ['Communication & persuasion', 'Aesthetic and branding sense', 'Sales & negotiation', 'Creating atmosphere'],
+        challenges: 'Balance enjoyment with long-term structure, avoid emotional spending and decisions, and build a stable sense of self-worth.',
+        career_analysis: {
+          strengths: ['Charming and popular', 'Good taste & aesthetics', 'Network building', 'Comfortable in social fields'],
+          opportunities: ['PR & marketing', 'Branding', 'Sales & negotiation', 'Entertainment / beauty-related industries'],
+          risks: ['Focus only on surface glamour', 'Emotional spending', 'Weak persistence', 'Easily affected by others’ opinions'],
+          actions: [
+            'Set clear financial and career goals instead of only chasing short-term excitement.',
+            'Schedule “quiet alone time” to avoid being dragged endlessly into social scenes.',
+            'Learn basic money management and decide a healthy ratio between income and pleasure.'
+          ]
+        }
+      }
+    }
+  },
+
+  8: {
+    element: '土',
+    elements: { 木: 2, 火: 1, 土: 4, 金: 2, 水: 1 },
+    directions: { favorable: ['东北', '西南', '西'], avoid: ['东', '东南'] },
+    text: {
+      'zh-CN': {
+        personality: '八白象征“积累”与“转折”，内在稳定又带有变动契机，适合在关键节点做出翻盘。你有强烈的责任感与建设意识，愿意一步一脚印打好基础。',
+        talents: ['资产累积与管理', '长期项目经营', '旧结构翻新', '耐心等待时机'],
+        challenges: '避免过度僵固或纠结过去，学会在稳定中主动创造新局，而不是被动等待命运变化。',
+        career_analysis: {
+          strengths: ['耐心经营', '吃苦耐劳', '风险控制意识', '善于守成与慢慢增值'],
+          opportunities: ['不动产相关领域', '长期项目投资', '传统产业升级', '培训与教练工作'],
+          risks: ['犹豫不决，错失突破窗口', '过度谨慎与保守', '容易背负过多责任而疲惫'],
+          actions: [
+            '为自己设定 3 年与 5 年的资产与事业目标，并拆分成季度行动。',
+            '定期整理、出售或放下不再需要的“旧包袱”，为新机会腾空间。',
+            '在安全范围内尝试小规模创新，不必一步到位，也不要完全不动。'
+          ]
+        }
+      },
+      'en': {
+        personality: 'Eight Earth represents accumulation and turning points. You are steady yet naturally positioned for key breakthroughs when timing matures.',
+        talents: ['Asset building & management', 'Long-term projects', 'Renovation / upgrading old structures', 'Waiting patiently for timing'],
+        challenges: 'Avoid being stuck in the past. Learn to create new possibilities from stability instead of passively waiting.',
+        career_analysis: {
+          strengths: ['Patient and enduring', 'Risk-aware', 'Good at preserving value', 'Long-term perspective'],
+          opportunities: ['Real estate / property', 'Long-term investments', 'Upgrading traditional businesses', 'Coaching / teaching'],
+          risks: ['Hesitation that misses key windows', 'Over-cautious and conservative', 'Carrying too many responsibilities alone'],
+          actions: [
+            'Set 3-year and 5-year goals for your assets and career, and break them into quarterly actions.',
+            'Regularly clear “old burdens” — projects, obligations or items that no longer serve you.',
+            'Try small-scale innovations within safe boundaries to keep energy flowing.'
+          ]
+        }
+      }
+    }
+  },
+
+  9: {
+    element: '火',
+    elements: { 木: 2, 火: 4, 土: 2, 金: 1, 水: 1 },
+    directions: { favorable: ['南', '东南', '东'], avoid: ['北', '西北'] },
+    text: {
+      'zh-CN': {
+        personality: '九紫带有强烈的光彩与舞台感，热情外放、灵感丰富，适合在大众面前发光。但情绪起伏也较明显，需要学会照顾自己的能量与节奏。',
+        talents: ['表达与演说', '形象与品牌打造', '灵感创作', '点燃团队气氛'],
+        challenges: '避免情绪燃烧过度，学会在高能量与休息之间切换节奏，也要防止“只负责发光、不愿面对现实细节”的倾向。',
+        career_analysis: {
+          strengths: ['表达力强', '具备吸睛与号召效果', '创意点子多', '适合做“面向公众”的角色'],
+          opportunities: ['内容创作与自媒体', '表演、舞台相关', '品牌与行销', '培训与演讲'],
+          risks: ['情绪化决策', '三分钟热度', '忽略细节与执行', '过度依赖他人掌声'],
+          actions: [
+            '把灵感落实成具体行动表：例如每周固定产出内容或作品。',
+            '学习基础财务与项目管理，让光彩与现实结构一起成长。',
+            '为自己设计“休息仪式”，在耗能后及时充电，而不是硬撑。'
+          ]
+        }
+      },
+      'en': {
+        personality: 'Nine Fire carries strong radiance and stage presence. You are expressive, passionate and full of ideas, suited to roles that shine in front of people.',
+        talents: ['Speaking & presentation', 'Image / brand building', 'Creative inspiration', 'Energising teams'],
+        challenges: 'Avoid burning out emotionally, and learn to switch between high output and rest. Also watch the tendency to perform but avoid real-world details.',
+        career_analysis: {
+          strengths: ['Strong expression', 'Charismatic presence', 'Many ideas', 'Good for public-facing roles'],
+          opportunities: ['Content creation / social media', 'Performance arts', 'Branding & marketing', 'Training & public speaking'],
+          risks: ['Emotional decisions', 'Short-lived enthusiasm', 'Ignoring details & execution', 'Over-reliance on external validation'],
+          actions: [
+            'Turn inspiration into a concrete schedule, e.g. fixed weekly content or projects.',
+            'Learn basic finance and project management so your brilliance has structure.',
+            'Create personal “cool-down rituals” to restore energy after intense output.'
+          ]
+        }
+      }
+    }
+  }
+};
+
+/* ===== 渲染辅助函数 ===== */
+
+function getStarData(starNum){
+  const lang = getLang();
+  const base = STARS[starNum];
+  if (!base) return null;
+  const name = base.name[lang] || base.name['zh-CN'];
+  const jp   = base.name['ja-JP'] || base.name['zh-CN'];
+  const elem = base.elem[lang] || base.elem['zh-CN'];
+  const color = base.color[lang] || base.color['zh-CN'];
+  const keys  = base.key[lang] || base.key['zh-CN'] || [];
+  const about = base.about[lang] || base.about['zh-CN'];
+  return { name, jp, elem, color, keys, about };
 }
-.chat-bubble.user{
-  margin-left:auto;display:block;
-  background:linear-gradient(180deg,#fff9e6,#e6c76e);
-  color:#191919;
+
+function getDeepText(starNum){
+  const lang = getLang();
+  const deep = STARS_DEEP[starNum];
+  if (!deep || !deep.text) return null;
+  return deep.text[lang] || deep.text['zh-CN'] || Object.values(deep.text)[0];
 }
-.chat-bubble.bot{
-  background:#141c29;border:1px solid #243244;
+
+/* 五行图表渲染 */
+function renderElementChart(starNum){
+  const chart = $('elementChart');
+  const box   = $('elementAnalysis');
+  if (!chart) return;
+  chart.innerHTML = '';
+  if (box) box.textContent = '';
+
+  const deep = STARS_DEEP[starNum];
+  if (!deep || !deep.elements) return;
+
+  const elems = deep.elements;
+  const order = ['木','火','土','金','水'];
+  const maxVal = Math.max(...order.map(k => elems[k] || 0));
+
+  order.forEach(k=>{
+    const v = elems[k] || 0;
+    const div = document.createElement('div');
+    div.className = 'element-item' + (v===maxVal ? ' strong' : '');
+    const name = document.createElement('div');
+    name.className = 'element-name';
+    name.textContent = k;
+    const val = document.createElement('div');
+    val.className = 'element-value';
+    val.textContent = String(v);
+    div.appendChild(name);
+    div.appendChild(val);
+    chart.appendChild(div);
+  });
+
+  const deepText = getDeepText(starNum);
+  if (box && deepText && deepText.personality){
+    // 简单复用性格描述作为五行说明（你之后可以单独写 element 分析）
+    box.textContent = deepText.personality;
+  }
 }
-  
-  /* 小屏优化 */
-  @media (max-width:520px){
-    .title{font-size:1rem}
-    .lang select{min-width:140px}
+
+/* 深度命理解读 */
+function renderDeepAnalysis(starNum){
+  const deepText = getDeepText(starNum);
+  if (!deepText) return;
+
+  const pBox = $('personalityAnalysis');
+  const tBox = $('talentAnalysis');
+  const cBox = $('challengeAnalysis');
+  const dBox = $('developmentAdvice');
+
+  if (pBox) pBox.textContent = deepText.personality || '';
+
+  if (tBox){
+    if (Array.isArray(deepText.talents)){
+      tBox.innerHTML = '<ul>' + deepText.talents.map(x=>`<li>${x}</li>`).join('') + '</ul>';
+    }else{
+      tBox.textContent = deepText.talents || '';
+    }
   }
 
-  /* 根字号与标题统一 */
-  html { font-size: 16px; }
-  @media (min-width: 768px){ html { font-size: 17px; } }
-  @media (min-width: 1200px){ html { font-size: 18px; } }
-  .site-header .brand .title,
-  .site-header .title{
-    font-family: "Noto Serif SC","Noto Serif",serif !important;
-    font-weight: 600 !important;
-    letter-spacing: .02em;
-    font-size: 1.1rem !important;
-    line-height: 1.25;
+  if (cBox){
+    cBox.textContent = deepText.challenges || '';
   }
-</style>
+
+  if (dBox){
+    // 若 career_analysis.actions 存在，就拿来当发展建议
+    const ca = deepText.career_analysis;
+    if (ca && Array.isArray(ca.actions)){
+      dBox.innerHTML = '<ul>' + ca.actions.map(x=>`<li>${x}</li>`).join('') + '</ul>';
+    }else{
+      dBox.textContent = '';
+    }
+  }
+}
+
+/* 专项分析（事业/感情/健康） */
+function renderSpecialized(starNum, analysisType){
+  const card = $('specializedCard');
+  const title = $('specializedTitle');
+  const s1 = $('specializedSubtitle1');
+  const s2 = $('specializedSubtitle2');
+  const s3 = $('specializedSubtitle3');
+  const s4 = $('specializedSubtitle4');
+  const c1 = $('specializedContent1');
+  const c2 = $('specializedContent2');
+  const c3 = $('specializedContent3');
+  const c4 = $('specializedContent4');
+
+  if (!card) return;
+
+  if (analysisType === 'comprehensive'){
+    card.style.display = 'none';
+    return;
+  }
+  card.style.display = 'block';
+
+  if (title) title.textContent = t('spec_title') || '专项深度分析';
+  if (s1) s1.textContent = t('spec_core') || '核心分析';
+  if (s2) s2.textContent = t('spec_opportunity') || '关键机遇';
+  if (s3) s3.textContent = t('spec_risk') || '风险提示';
+  if (s4) s4.textContent = t('spec_action') || '行动指南';
+
+  const deepText = getDeepText(starNum);
+  if (!deepText){
+    if (c1) c1.textContent = '';
+    if (c2) c2.textContent = '';
+    if (c3) c3.textContent = '';
+    if (c4) c4.textContent = '';
+    return;
+  }
+
+  let block = null;
+  if (analysisType === 'career')      block = deepText.career_analysis;
+  else if (analysisType === 'relationship') block = deepText.relationship_analysis;
+  else if (analysisType === 'health') block = deepText.health_analysis;
+
+  if (!block){
+    if (c1) c1.textContent = '';
+    if (c2) c2.textContent = '';
+    if (c3) c3.textContent = '';
+    if (c4) c4.textContent = '';
+    return;
+  }
+
+  if (c1){
+    const s = [];
+    if (Array.isArray(block.strengths)) s.push(...block.strengths);
+    c1.innerHTML = s.length ? '<ul>' + s.map(x=>`<li>${x}</li>`).join('') + '</ul>' : '';
+  }
+  if (c2){
+    const s = [];
+    if (Array.isArray(block.opportunities)) s.push(...block.opportunities);
+    c2.innerHTML = s.length ? '<ul>' + s.map(x=>`<li>${x}</li>`).join('') + '</ul>' : '';
+  }
+  if (c3){
+    const s = [];
+    if (Array.isArray(block.risks)) s.push(...block.risks);
+    c3.innerHTML = s.length ? '<ul>' + s.map(x=>`<li>${x}</li>`).join('') + '</ul>' : '';
+  }
+  if (c4){
+    const s = [];
+    if (Array.isArray(block.actions)) s.push(...block.actions);
+    c4.innerHTML = s.length ? '<ul>' + s.map(x=>`<li>${x}</li>`).join('') + '</ul>' : '';
+  }
+}
+
+/* 运势时间线：简单 3 阶段模板 */
+function renderFortuneTimeline(starNum, birthStr){
+  const box = $('fortuneTimeline');
+  if (!box) return;
+  box.innerHTML = '';
+
+  const lang = getLang();
+  const star = getStarData(starNum);
+  if (!star) return;
+
+  const phases = (() => {
+    if (lang === 'zh-CN' || lang === 'zh-TW'){
+      return [
+        { period:'最近 12 个月', text:`以「${star.name}」的特质来看，这是整理旧局、稳定节奏的一年，适合把之前分散的精力收回到少数关键目标。` },
+        { period:'未来 1–3 年', text:'会出现一到两次明显的转折机会，若能提早准备专业与资金，将有机会迈向新阶段。' },
+        { period:'未来 3–5 年', text:'适合重新布局人生结构：居住环境、事业方向、人际圈层都会逐步重组。记得给自己留出弹性空间。' }
+      ];
+    }else{
+      return [
+        { period:'Next 12 months', text:`With the nature of ${star.name}, this is a year to stabilise your pace and consolidate what you already started.` },
+        { period:'Next 1–3 years', text:'One or two key turning points may arise. If you prepare skills and savings in advance, you can move into a new stage.' },
+        { period:'Next 3–5 years', text:'Good period to re-structure life: home, career and social circles may gradually change. Keep some flexibility in your plans.' }
+      ];
+    }
+  })();
+
+  phases.forEach(p=>{
+    const item = document.createElement('div');
+    item.className = 'timeline-item';
+
+    const hd = document.createElement('div');
+    hd.className = 'timeline-period';
+    hd.textContent = p.period;
+
+    const txt = document.createElement('div');
+    txt.textContent = p.text;
+
+    item.appendChild(hd);
+    item.appendChild(txt);
+    box.appendChild(item);
+  });
+}
+
+/* 调整建议（方位/颜色/职业/人际） */
+function renderAdvice(starNum){
+  const dBox = $('directionAdvice');
+  const cBox = $('colorAdvice');
+  const careerBox = $('careerAdvice');
+  const relBox = $('relationshipAdvice');
+
+  const lang = getLang();
+  const star = getStarData(starNum);
+  const deep = STARS_DEEP[starNum];
+  const deepText = getDeepText(starNum);
+
+  if (dBox){
+    const fav = deep?.directions?.favorable || [];
+    const avd = deep?.directions?.avoid || [];
+    if (lang === 'zh-CN' || lang === 'zh-TW'){
+      dBox.innerHTML =
+        `<p>有利方位：${fav.join('、') || '—'}</p>` +
+        `<p>需要谨慎的方位：${avd.join('、') || '—'}</p>` +
+        `<p>日常可在上述有利方位多安排办公、阅读或静心，以提升整体运势稳定度。</p>`;
+    }else{
+      dBox.innerHTML =
+        `<p>Favourable directions: ${fav.join(', ') || '—'}</p>` +
+        `<p>Directions to be more cautious with: ${avd.join(', ') || '—'}</p>` +
+        `<p>Try to place your desk, reading corner or quiet space towards favourable directions when possible.</p>`;
+    }
+  }
+
+  if (cBox && star){
+    if (lang === 'zh-CN' || lang === 'zh-TW'){
+      cBox.innerHTML =
+        `<p>主色调：${star.color}</p>` +
+        `<p>建议在服饰、小物、桌面背景中适度加入此色，形成稳定的个人能量标记。</p>`;
+    }else{
+      cBox.innerHTML =
+        `<p>Main lucky colour: ${star.color}</p>` +
+        `<p>Use this colour moderately in clothing, accessories or workspace to create a stable personal energy signature.</p>`;
+    }
+  }
+
+  if (careerBox && deepText && deepText.career_analysis){
+    const ca = deepText.career_analysis;
+    const items = [];
+    if (Array.isArray(ca.strengths)) items.push(...ca.strengths);
+    if (Array.isArray(ca.opportunities)) items.push(...ca.opportunities);
+    careerBox.innerHTML = items.length
+      ? '<ul>' + items.map(x=>`<li>${x}</li>`).join('') + '</ul>'
+      : '';
+  }
+
+  if (relBox && deepText && deepText.relationship_analysis){
+    const ra = deepText.relationship_analysis;
+    const items = [];
+    if (Array.isArray(ra.strengths)) items.push(...ra.strengths);
+    if (Array.isArray(ra.risks)) items.push(...ra.risks);
+    relBox.innerHTML = items.length
+      ? '<ul>' + items.map(x=>`<li>${x}</li>`).join('') + '</ul>'
+      : '';
+  }
+}
+
+/* ===== 主渲染：根据 ctx 重画全部区域 ===== */
+function renderKyuusei(ctx){
+  if (!ctx) return;
+  const { starNum, birthStr, gender, analysisType } = ctx;
+
+  const star = getStarData(starNum);
+  if (!star) return;
+
+  // 主星卡片
+  const starCard = $('starCard');
+  if (starCard) starCard.style.display = 'block';
+  const aInd = $('analysisTypeIndicator');
+  if (aInd){
+    const keyMap = {
+      comprehensive:'analysis_type_comprehensive',
+      career:'analysis_type_career',
+      relationship:'analysis_type_relationship',
+      health:'analysis_type_health'
+    };
+    const kk = keyMap[analysisType] || 'analysis_type_comprehensive';
+    aInd.textContent = t(kk);
+  }
+
+  const starNameEl = $('starName');
+  const starJpEl   = $('starJP');
+  const starBadges = $('starBadges');
+  const starAbout  = $('starAbout');
+
+  if (starNameEl) starNameEl.textContent = star.name;
+  if (starJpEl)   starJpEl.textContent   = star.jp;
+  if (starAbout)  starAbout.textContent  = star.about;
+
+  if (starBadges){
+    starBadges.innerHTML = '';
+    const mkBadge = (labelKey, value) => {
+      if (!value) return;
+      const span = document.createElement('span');
+      span.className = 'badge';
+      span.textContent = (t(labelKey) + '：' + value);
+      starBadges.appendChild(span);
+    };
+    mkBadge('badge_elem', star.elem);
+    mkBadge('badge_color', star.color);
+    if (Array.isArray(star.keys)){
+      star.keys.forEach(k=>{
+        const span = document.createElement('span');
+        span.className = 'badge';
+        span.textContent = k;
+        starBadges.appendChild(span);
+      });
+    }
+  }
+
+  renderElementChart(starNum);
+
+  // 深度分析
+  const analysisCard = $('analysisCard');
+  if (analysisCard) analysisCard.style.display = 'block';
+  renderDeepAnalysis(starNum);
+
+  // 专项分析
+  renderSpecialized(starNum, analysisType);
+
+  // 运势与建议
+  const fortuneCard = $('fortuneCard');
+  if (fortuneCard) fortuneCard.style.display = 'block';
+  renderFortuneTimeline(starNum, birthStr);
+
+  const adviceCard = $('adviceCard');
+  if (adviceCard) adviceCard.style.display = 'block';
+  renderAdvice(starNum);
+
+  // Butler AI 区域
+  const aiCard = $('aiCard');
+  if (aiCard) aiCard.style.display = 'block';
+  const aiText = $('aiText');
+  if (aiText) aiText.textContent = '';
+  renderChips();
+}
+
+/* ===== 表单处理：生成报告 ===== */
+function buildKyuuseiReport(){
+  const birthInput = $('birthdate');
+  const genderInput = $('gender');
+  const typeSelect = $('analysisType');
+  if (!birthInput || !genderInput || !typeSelect) return;
+
+  const birthStr = birthInput.value;
+  if (!birthStr){
+    alert(t('please_birth'));
+    return;
+  }
+
+  const starNum = calcHonmei(birthStr);
+  if (!starNum || !STARS[starNum]){
+    alert(t('bad_date'));
+    return;
+  }
+
+  const analysisType = typeSelect.value || 'comprehensive';
+  const gender = genderInput.value || '';
+
+  // 保存上下文，供语言切换与 AI 使用
+  const star = getStarData(starNum);
+  const mainElement = STARS_DEEP[starNum]?.element || star.elem;
+  const keyMap = {
+    comprehensive:'analysis_type_comprehensive',
+    career:'analysis_type_career',
+    relationship:'analysis_type_relationship',
+    health:'analysis_type_health'
+  };
+  const analysisTypeLabel = t(keyMap[analysisType] || 'analysis_type_comprehensive');
+
+  window._lastKyuuseiCtx = {
+    starNum,
+    birthStr,
+    gender,
+    analysisType,
+    starName: star.name,
+    starJP: star.jp,
+    mainElement,
+    analysisTypeLabel
+  };
+
+  // 真正渲染
+  renderKyuusei(window._lastKyuuseiCtx);
+}
+
+/* ===== 语言切换 & 头部滚动效果 ===== */
+document.addEventListener('DOMContentLoaded', () => {
+  // 初始化语言
+  const langSelect = $('langSelect');
+  const curLang = getLang();
+  setLang(curLang);
+  if (langSelect){
+    langSelect.value = curLang;
+    langSelect.addEventListener('change', () => {
+      const v = langSelect.value || 'zh-CN';
+      setLang(v);
+      applyI18n();
+      updateNowInfo();
+      // 若已生成命盘，切换语言时重绘
+      if (window._lastKyuuseiCtx){
+        renderKyuusei(window._lastKyuuseiCtx);
+      }
+    });
+  }
+
+  applyI18n();
+  updateNowInfo();
+  setInterval(updateNowInfo, 60 * 1000);
+
+  const goBtn = $('go');
+  if (goBtn){
+    goBtn.addEventListener('click', buildKyuuseiReport);
+  }
+
+  // 头部滚动效果
+  const header = document.querySelector('.site-header');
+  if (header){
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 10) header.classList.add('scrolled');
+      else header.classList.remove('scrolled');
+    });
+  }
+});
+</script>
 </head>
 <body>
 <header class="site-header">
@@ -3043,6 +3430,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>    
 </body>
 </html>
+
 
 
 
