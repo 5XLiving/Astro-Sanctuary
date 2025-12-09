@@ -922,9 +922,10 @@ footer{
 </body>
           
 <!-- GPT / 心怜管家（统一浮窗） -->
-<button class="ss-chat-fab" id="ssChatFab" type="button" aria-label="心怜管家">
+<button class="ss-chat-fab" id="ssChatFab" type="button">
   <span data-i18n="chat_fab">问</span>
 </button>
+
 <div class="ss-chat-panel" id="chatPanel" aria-hidden="true">
   <div class="ss-chat-head">
     <div class="ss-chat-title" id="chatTitle">心怜管家 · GPT</div>
@@ -937,7 +938,7 @@ footer{
     </div>
   </div>
   <div class="ss-chat-input">
-    <input id="chatInput" placeholder="输入问题…"/>
+    <input id="chatInput" placeholder="输入问题…" />
     <button class="btn" id="chatSend">发送</button>
   </div>
 </div>
@@ -2042,77 +2043,47 @@ function withFallback(lang){
     else header.classList.remove('scrolled');
   });
 
-  /* ===== 心怜管家浮窗（保持你原来的简版逻辑） ===== */
-  const chatFab   = $('#chatFab');
-  const chatPanel = $('#chatPanel');
-  const chatClose = $('#chatClose');
-  const chatInput = $('#chatInput');
-  const chatSend  = $('#chatSend');
-  const chatBody  = $('#chatBody');
+/* ===== 心怜管家浮窗（保持你原来的简版逻辑） ===== */
+const chatFab   = $('#ssChatFab');
+const chatPanel = $('#chatPanel');
+const chatClose = $('#chatClose');
+const chatBody  = $('#chatBody');
+const chatInput = $('#chatInput');
+const chatSend  = $('#chatSend');
 
-  function addMsg(who,text){
-    if (!chatBody) return;
+function toggleChat(open) {
+  if (!chatPanel) return;
+  const isOpen = chatPanel.getAttribute('aria-hidden') === 'false';
+  const next   = (typeof open === 'boolean') ? open : !isOpen;
+  chatPanel.setAttribute('aria-hidden', next ? 'false' : 'true');
+}
+
+if (chatFab) {
+  chatFab.addEventListener('click', () => toggleChat());
+}
+if (chatClose) {
+  chatClose.addEventListener('click', () => toggleChat(false));
+}
+
+if (chatSend && chatInput && chatBody) {
+  chatSend.addEventListener('click', () => {
+    const text = chatInput.value.trim();
+    if (!text) return;
+
     const div = document.createElement('div');
-    div.className = 'ss-msg' + (who === 'You' ? ' me' : '');
-    div.innerHTML = `<div class="meta">${who}</div>` + escapeHTML(text);
+    div.className = 'ss-msg me';
+    div.textContent = text;
     chatBody.appendChild(div);
+
+    chatInput.value = '';
     chatBody.scrollTop = chatBody.scrollHeight;
-  }
 
-  function sendGPT(text){
-    addMsg('心怜管家','正在分析您的塔罗牌解读...');
-    setTimeout(()=>{
-      const responses = [
-        '根据您的牌面，我建议您关注内在的平衡与和谐。',
-        '这张牌提示您需要更多的耐心和等待时机。',
-        '从牌面来看，现在是采取行动的好时机。',
-        '您的问题与情感关系有关，建议多沟通表达。',
-        '这张牌象征着新的开始和机遇，请保持开放心态。'
-      ];
-      const r = responses[Math.floor(Math.random()*responses.length)];
-      addMsg('心怜管家', r);
-    }, 1500);
-  }
-
-  if (chatFab){
-    chatFab.addEventListener('click', ()=>{
-      if (chatPanel){
-        chatPanel.setAttribute('aria-hidden','false');
-        if (chatInput) chatInput.focus();
-      }
-    });
-  }
-  if (chatClose){
-    chatClose.addEventListener('click', ()=>{
-      if (chatPanel) chatPanel.setAttribute('aria-hidden','true');
-    });
-  }
-  if (chatSend){
-    chatSend.addEventListener('click', ()=>{
-      const v = chatInput ? (chatInput.value||'').trim() : '';
-      if (!v) return;
-      chatInput.value = '';
-      addMsg('You', v);
-      sendGPT(v);
-    });
-  }
-  if (chatInput){
-    chatInput.addEventListener('keydown', e=>{
-      if (e.key === 'Enter'){
-        e.preventDefault();
-        if (chatSend) chatSend.click();
-      }
-    });
-  }
-  document.addEventListener('click', e=>{
-    if (!chatPanel || chatPanel.getAttribute('aria-hidden') === 'true') return;
-    if (!chatPanel.contains(e.target) && !chatFab.contains(e.target)){
-      chatPanel.setAttribute('aria-hidden','true');
-    }
+    // TODO: 在这里接你的 worker / GPT API
   });
+}
 
-  // 初次渲染
-  applyStaticUI();
+// 初次渲染
+applyStaticUI();
 });
 </script>
 </body>
