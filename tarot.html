@@ -919,10 +919,21 @@ footer{
 // 1) 把你原来那整坨 I18N 对象贴在这里
 //   （内容不要改，只是搬家到最上面）
 const I18N = {
-  /* === 这里贴你原来的 zh-CN, zh-TW, en-US, ja-JP, th-TH, ms-MY 配置 === */
+  'en-US': {
+    ui: {
+      brand: '5xLiving · Soul Sanctuary',
+      label_lang: 'Language',
+      page_title: 'Tarot Reading',
+      draw_btn: 'Draw Cards',
+      q_ph: 'Type your question (required)',
+      disclaimer: 'Tarot is a guide, not medical / legal / financial advice.',
+      tip_focus: 'Tip: Asking a specific question helps the reading focus.',
+      no_q: 'No specific question provided.',
+      you: 'You',
+      reading: 'Reading'
+    }
+  }
 };
-
-
 
 document.addEventListener('DOMContentLoaded', function () {
   /* ===== 通用小工具 ===== */
@@ -932,15 +943,18 @@ document.addEventListener('DOMContentLoaded', function () {
   const rnd = n => Math.floor(Math.random()*n);
 
   // th / ms 只有部分字段，用英文补齐
-  function withFallback(lang){
-    const raw = I18N[lang] || I18N[FALLBACK];
-    const base = JSON.parse(JSON.stringify(raw));
-    const en = I18N['en-US'];
-    ['pos','suits','ranks','majors','tags','domainAdvice'].forEach(k=>{
-      if (base[k] == null) base[k] = en[k];
-    });
-    return base;
-  }
+function withFallback(lang){
+  // 若还没贴 I18N，确保不会炸
+  const raw  = I18N[lang] || I18N[FALLBACK] || I18N['en-US'] || {};
+  // 浅拷贝就够用，不需要 JSON.parse
+  const base = { ...raw };
+  const en   = I18N['en-US'] || {};
+
+  ['pos','suits','ranks','majors','tags','domainAdvice'].forEach(k=>{
+    if (base[k] == null && en[k] != null) base[k] = en[k];
+  });
+  return base;
+}
 
   function detectLang(){
     const nav = (navigator.language || '').toLowerCase();
