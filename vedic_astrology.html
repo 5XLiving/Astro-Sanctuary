@@ -1829,93 +1829,44 @@ body::before{
   }
 
   /* ===== 浮动 Chat 逻辑 ===== */
-async function askAI(prompt, extraCtx){
-  const lang = getLang();
-  const payload = {
-    lang,
-    source: 'kyuusei-deep',
-    messages: [
-      {
-        role: "system",
-        content: "You are Xinlian Butler, a gentle metaphysics & life advisor for 5XLiving, combining Nine Star Ki, Bazi style language and practical, grounded advice. Always reply in the user interface language."
-      },
-      {
-        role: "user",
-        content: (extraCtx || "") + "\n\n" + prompt
-      }
-    ]
-  };
-  const res = await fetch(API_BASE + "/api/chat", {
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify(payload)
-  });
-  if (!res.ok) throw new Error("bad status " + res.status);
-  const data = await res.json();
-  return data.reply || data.text || (data.choices && data.choices[0]?.message?.content) || "";
+/* ===== 心怜管家浮窗（保持你原来的简版逻辑） ===== */
+const chatFab   = $('#ssChatFab');
+const chatPanel = $('#chatPanel');
+const chatClose = $('#chatClose');
+const chatBody  = $('#chatBody');
+const chatInput = $('#chatInput');
+const chatSend  = $('#chatSend');
+
+function toggleChat(open) {
+  if (!chatPanel) return;
+  const isOpen = chatPanel.getAttribute('aria-hidden') === 'false';
+  const next   = (typeof open === 'boolean') ? open : !isOpen;
+  chatPanel.setAttribute('aria-hidden', next ? 'false' : 'true');
 }
 
-(function(){
-  const fab   = $('ssChatFab');
-  const panel = $('ssChatPanel');
-  const body  = $('ssChatBody');
-  const input = $('ssChatInput');
-  const send  = $('ssChatSend');
-  const closeBtn = $('ssChatClose');
+if (chatFab) {
+  chatFab.addEventListener('click', () => toggleChat());
+}
+if (chatClose) {
+  chatClose.addEventListener('click', () => toggleChat(false));
+}
 
-  if (!fab || !panel || !body || !input || !send || !closeBtn) return;
-
-  function appendBubble(text, role){
-    const div = document.createElement('div');
-    div.className = 'chat-bubble ' + (role === 'user' ? 'user' : 'bot');
-    div.textContent = text;
-    body.appendChild(div);
-    body.scrollTop = body.scrollHeight;
-  }
-
-  function togglePanel(show){
-    if (typeof show === 'boolean') {
-      panel.style.display = show ? 'block' : 'none';
-    } else {
-      panel.style.display = (panel.style.display === 'block' ? 'none' : 'block');
-    }
-  }
-
-  fab.addEventListener('click', () => togglePanel());
-  closeBtn.addEventListener('click', () => togglePanel(false));
-
-  async function doSend(){
-    const text = input.value.trim();
+if (chatSend && chatInput && chatBody) {
+  chatSend.addEventListener('click', () => {
+    const text = chatInput.value.trim();
     if (!text) return;
 
-    appendBubble(text, 'user');
-    input.value = '';
-    send.disabled = true;
+    const div = document.createElement('div');
+    div.className = 'ss-msg me';
+    div.textContent = text;
+    chatBody.appendChild(div);
 
-    const waitText = t('generating') || '正在生成解读…';
-    appendBubble(waitText, 'bot');
+    chatInput.value = '';
+    chatBody.scrollTop = chatBody.scrollHeight;
 
-    try{
-      const reply = await askAI(text);
-      body.removeChild(body.lastChild);
-      appendBubble(reply || (t('retry') || '暂时无法回复，请稍后再试。'), 'bot');
-    }catch(e){
-      console.warn('[chat] error:', e);
-      body.removeChild(body.lastChild);
-      appendBubble(t('neterr') || '网络异常，请稍后再试。', 'bot');
-    }finally{
-      send.disabled = false;
-    }
-  }
-
-  send.addEventListener('click', doSend);
-  input.addEventListener('keydown', e=>{
-    if (e.key === 'Enter' && !e.shiftKey){
-      e.preventDefault();
-      doSend();
-    }
+        // TODO: 在这里接你的 worker / GPT API
   });
-})();  
+}
 
   /* ===== 行星详细描述 ===== */
   function getPlanetDescription(planetKey) {
@@ -2207,6 +2158,7 @@ async function askAI(prompt, extraCtx){
 </script>
 </body>
 </html>
+
 
 
 
