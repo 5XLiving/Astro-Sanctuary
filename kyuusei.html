@@ -1037,6 +1037,30 @@ footer{
 const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
 const LANG_KEY = '5x_lang';
 
+/* ===== Paste your chat code HERE (right after API_BASE) ===== */
+let chatHistory = []; // [{role, content}]
+
+async function sendChat(userText) {
+  chatHistory.push({ role: "user", content: userText });
+
+  const r = await fetch(`${API_BASE}/api/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "gpt-5",
+      reasoning: { effort: "low" },
+      developer: "You are Xinlian Butler for 5XLiving. Reply in the user's selected language.",
+      messages: chatHistory,
+    }),
+  });
+
+  const data = await r.json();
+  if (!data.ok) throw new Error(data.error || "chat failed");
+
+  chatHistory.push({ role: "assistant", content: data.text || "" });
+  return data.text || "";
+}  
+
 /* 工具 */
 const $  = id => document.getElementById(id);
 const getLang = () => {
@@ -1616,33 +1640,46 @@ function t(key){
 function applyI18n() {
   const lang = getLang();
 
-  // keep the <select> in sync with stored lang
+  // keep <select> synced
   const select = $('langSelect');
   if (select) {
-    // 你的 <option> value 用的是 zh-CN / zh-TW / en / ja-JP / th-TH / ms
-    // 这里直接用 lang 对上即可
     select.value = lang;
   }
 
+  // 普通文字
   document.querySelectorAll("[data-i18n]").forEach(el => {
     const key = el.getAttribute("data-i18n");
     el.textContent = t(key);
   });
 
+  // placeholder
   document.querySelectorAll("[data-i18n-ph]").forEach(el => {
     const key = el.getAttribute("data-i18n-ph");
     el.setAttribute("placeholder", t(key));
   });
 
+  // <title>
   const titleEl = document.querySelector("title[data-i18n]");
   if (titleEl) {
     titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
   }
 
-  // 让聊天浮窗标题也跟随 i18n
+  // 浮动 chat 标题
   const chatTitleEl = $('chatTitle');
   if (chatTitleEl) {
     chatTitleEl.textContent = t('chat_title');
+  }
+
+  // 浮动 chat 输入框 placeholder
+  const chatInputEl = $('chatInput');
+  if (chatInputEl) {
+    chatInputEl.placeholder = t('chat_placeholder');
+  }
+
+  // 浮动 chat 发送按钮
+  const chatSendBtn = $('chatSend');
+  if (chatSendBtn) {
+    chatSendBtn.textContent = t('chat_send');
   }
 }
 
@@ -4334,6 +4371,7 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>    
 </body>
 </html>
+
 
 
 
