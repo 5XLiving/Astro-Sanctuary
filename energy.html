@@ -799,15 +799,10 @@ body::before{
     <div class="ss-close" id="chatClose">✕</div>
   </div>
 
-  <div class="ss-chat-body" id="chatBody">
-    <div class="ss-msg">
-      <div class="meta" data-i18n="chat_bot_name">心怜管家</div>
-      <div data-i18n="chat_welcome">
-        你好！我是你的心怜管家解读助手，可以帮你分析或解答相关问题。
-      </div>
-    </div>
-  </div>
+  <!-- 聊天内容区：保持为空，消息全部由 JS append -->
+  <div class="ss-chat-body" id="chatBody"></div>
 
+  <!-- 输入区 -->
   <div class="ss-chat-input">
     <input
       id="chatInput"
@@ -1890,72 +1885,67 @@ body::before{
     });
   }
 
-  /* ===== 心怜管家浮窗（本地占位答复） ===== */
-  function initChat(){
-    const fab   = $("ssChatFab");
-    const panel = $("chatPanel");
-    const close = $("chatClose");
-    const body  = $("chatBody");
-    const input = $("chatInput");
-    const send  = $("chatSend");
-    if (!fab || !panel || !body || !input || !send) return;
+  /* ===== chat (simple, no backend) ===== */
+function initChat() {
+  const fab = $("ssChatFab");
+  const panel = $("chatPanel");
+  const closeBtn = $("chatClose");
+  const body = $("chatBody");
+  const input = $("chatInput");
+  const sendBtn = $("chatSend");
+  if (!fab || !panel || !closeBtn || !body || !input || !sendBtn) return;
 
-    function openPanel(){
-      panel.style.display = "flex";
-      panel.setAttribute("aria-hidden","false");
-      input.focus();
+  function toggle() {
+    const hidden = panel.getAttribute("aria-hidden") === "true";
+    panel.setAttribute("aria-hidden", hidden ? "false" : "true");
+    if (!hidden) return;
+    // ensure welcome only once
+    if (!body.dataset.welcomed) {
+      body.dataset.welcomed = "1";
+      appendMsg(t("chat_welcome"), false);
     }
-    function closePanel(){
-      panel.style.display = "none";
-      panel.setAttribute("aria-hidden","true");
-    }
-
-    fab.addEventListener("click", ()=>{
-      if (panel.style.display === "flex") closePanel();
-      else openPanel();
-    });
-    if (close) close.addEventListener("click", closePanel);
-
-    function appendMsg(text, me){
-      const div = document.createElement("div");
-      div.className = "ss-msg" + (me ? " me" : "");
-      div.textContent = text;
-      body.appendChild(div);
-      body.scrollTop = body.scrollHeight;
-    }
-
-    function handleSend(){
-      const v = (input.value || "").trim();
-      if (!v) return;
-      appendMsg(v, true);
-      input.value = "";
-
-      const lang = getLang();
-      let reply;
-      if (lang === "zh-CN"){
-        reply = "收到你的问题了。目前本页面的解读由本地算法在浏览器内生成，暂不连线云端 AI。若需要完整个案服务，可以到命理空间预约。";
-      } else if (lang === "zh-TW"){
-        reply = "收到你的提問囉。這個頁面的解析是由本地演算法在瀏覽器中產生，目前尚未連線雲端 AI。若想要完整個案服務，可以到命理空間預約。";
-      } else if (lang === "ja" || lang === "ja-JP"){
-        reply = "メッセージありがとうございます。このページのリーディングはブラウザ内の簡易アルゴリズムで行っており、現時点では外部AIとは接続していません。より深い個人セッションをご希望の場合は、別メニューからお申し込みください。";
-      } else if (lang === "th" || lang === "th-TH"){
-        reply = "ขอบคุณสำหรับคำถามนะครับ/ค่ะ หน้านี้ใช้การคำนวณแบบภายในเบราว์เซอร์เท่านั้น ยังไม่ได้เชื่อมต่อ AI แบบเต็มระบบ หากต้องการคำปรึกษาเชิงลึกสามารถนัดหมายผ่านโซนดวงชะตาได้ในอนาคต.";
-      } else if (lang === "ms" || lang === "ms-MY"){
-        reply = "Terima kasih atas soalan anda. Halaman ini menggunakan algoritma ringkas di pelayar sahaja dan belum disambungkan kepada AI penuh. Untuk bacaan mendalam, anda boleh menempah sesi khas di Ruang Takdir nanti.";
-      } else {
-        reply = "Got it. On this page the reading is generated locally in your browser (no cloud AI yet). For deeper personalised sessions, you can book a full reading later in the Destiny Space.";
-      }
-      setTimeout(()=>appendMsg(reply, false), 400);
-    }
-
-    send.addEventListener("click", handleSend);
-    input.addEventListener("keydown", e=>{
-      if (e.key === "Enter" && !e.shiftKey){
-        e.preventDefault();
-        handleSend();
-      }
-    });
   }
+
+  function appendMsg(text, me) {
+    const div = document.createElement("div");
+    div.className = "ss-msg" + (me ? " me" : "");
+    div.textContent = text;
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+    return div;
+  }
+
+  async function handleSend() {
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    // push user
+    appendMsg(msg, true);
+    chatHistory.push({ role: "user", content: msg });
+    input.value = "";
+
+    // placeholder assistant bubble (editable)
+    const pending = appendMsg(t("generating"), false);
+
+    try {
+      const reply = await callWorkerChat();
+      pending.textContent = reply;
+      chatHistory.push({ role: "assistant", content: reply });
+    } catch (err) {
+      pending.textContent = `❌ ${String(err && err.message ? err.message : err)}`;
+    }
+  }
+
+  fab.addEventListener("click", toggle);
+  closeBtn.addEventListener("click", toggle);
+  sendBtn.addEventListener("click", handleSend);
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSend();
+    }
+  });
+}
 
   /* ===== VIP 登录区：默认隐藏输入框，首次点击只展开 ===== */
   function initAuth(){
@@ -2034,6 +2024,7 @@ body::before{
 </script>
 </body>
 </html>
+
 
 
 
