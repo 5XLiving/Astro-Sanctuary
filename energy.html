@@ -349,6 +349,26 @@ body::before{
   min-width:0;
 }
 
+  /* === Chat panel responsive fix === */
+.ss-chat-panel{
+  max-height: min(70vh, 620px);
+}
+.ss-chat-panel[aria-hidden="false"]{
+  display:flex;
+}
+.ss-chat-body{
+  flex: 1 1 auto;
+  max-height: none;
+  overflow:auto;
+}
+@media (max-width:520px){
+  .ss-chat-panel{
+    right:12px;
+    bottom:80px;
+    width:min(520px, calc(100vw - 24px));
+    max-height: min(72vh, 680px);
+  }
+
   /* AI 文内标题与列表更紧凑、统一（保留，未来可复用） */
   #aiText, #energyText{ white-space:normal; line-height:1.7 }
   #aiText h3.ai-head, #energyText h3.ai-head{
@@ -735,16 +755,7 @@ body::before{
                 required
               />
               <label for="password" class="sr-only" data-i18n="ph_label_password">密码 Password</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autocomplete="current-password"
-                placeholder="密码 Password（至少8位，含大小写数字符号）"
-                data-i18n-ph="ph_password"
-                required
-              />
-            </div>
+              <input id="password" ... placeholder="" data-i18n-ph="ph_password" />
             <div class="spacer"></div>
             <form id="loginForm" class="row one">
               <button class="btn block" id="loginBtn" type="submit" data-i18n="btn_login">登入账户</button>
@@ -1841,40 +1852,6 @@ body::before{
     }, 280); // 小延迟增加“正在分析中”的感觉
   }
 
-  /* ===== 语言初始化与切换 ===== */
-  function initLang(){
-    const sel = $("langSelect");
-    if (!sel) return;
-
-    const stored = getLang();
-    let optVal = stored;
-
-    if (stored.startsWith("zh-")) optVal = stored;
-    else if (stored.startsWith("en")) optVal = "en";
-    else if (stored.startsWith("ja")) optVal = "ja";
-    else if (stored.startsWith("th")) optVal = "th";
-    else if (stored.startsWith("ms")) optVal = "ms";
-    else optVal = "zh-CN";
-
-    if (!["zh-CN","zh-TW","en","ja","th","ms"].includes(optVal)){
-      optVal = "zh-CN";
-    }
-
-    sel.value = optVal;
-    setLang(optVal);
-    applyI18n();
-
-    sel.addEventListener("change", ()=>{
-      const v = sel.value || "zh-CN";
-      setLang(v);
-      applyI18n();
-      if (lastCtx){
-        lastCtx.lang = v;
-        renderResult(lastCtx);
-      }
-    });
-  }
-
   /* ===== 头部滚动效果 ===== */
   function initHeaderScroll(){
     const header = document.querySelector(".site-header");
@@ -1885,67 +1862,136 @@ body::before{
     });
   }
 
-  /* ===== chat (simple, no backend) ===== */
-function initChat() {
-  const fab = $("ssChatFab");
-  const panel = $("chatPanel");
-  const closeBtn = $("chatClose");
-  const body = $("chatBody");
-  const input = $("chatInput");
-  const sendBtn = $("chatSend");
-  if (!fab || !panel || !closeBtn || !body || !input || !sendBtn) return;
+  /* ===== Language init + switch (ONE only) ===== */
+function normalizeLang(input){
+  const fallback = "zh-CN";
+  const raw = (input || "").trim();
+  if (!raw) return fallback;
 
-  function toggle() {
-    const hidden = panel.getAttribute("aria-hidden") === "true";
-    panel.setAttribute("aria-hidden", hidden ? "false" : "true");
-    if (!hidden) return;
-    // ensure welcome only once
-    if (!body.dataset.welcomed) {
-      body.dataset.welcomed = "1";
-      appendMsg(t("chat_welcome"), false);
-    }
+  // 1) exact match (best)
+  if (typeof i18n === "object" && i18n[raw]) return raw;
+
+  // 2) short -> full alias (optional)
+  const ALIAS = {
+    "zh": "zh-CN",
+    "en": "en-US",
+    "ja": "ja-JP",
+    "th": "th-TH",
+    "ms": "ms-MY",
+  };
+  if (ALIAS[raw] && i18n[ALIAS[raw]]) return ALIAS[raw];
+
+  // 3) base match (e.g. en -> en-US, en-GB -> en-US)
+  const base = raw.split("-")[0];
+  const keys = Object.keys(i18n || {});
+  const hit = keys.find(k => (k.split("-")[0] === base));
+  if (hit) return hit;
+
+  // 4) final fallback
+  return i18n && i18n[fallback] ? fallback : (keys[0] || fallback);
+}
+
+function initLangSelect(){
+  const sel = $("langSelect");
+  if (!sel) return;
+
+  // set select = stored lang (normalized)
+  const stored = getLang();
+  const normalized = normalizeLang(stored);
+  sel.value = normalized;
+
+  // commit + apply
+  setLang(normalized);
+  applyI18n();
+  if (lastCtx){
+    lastCtx.lang = normalized;
+    renderResult(lastCtx);
   }
 
-  function appendMsg(text, me) {
-    const div = document.createElement("div");
-    div.className = "ss-msg" + (me ? " me" : "");
-    div.textContent = text;
-    body.appendChild(div);
-    body.scrollTop = body.scrollHeight;
-    return div;
-  }
+  // bind once
+  sel.addEventListener("change", () => {
+    const v = normalizeLang(sel.value || "zh-CN");
+    sel.value = v;          // keep select consistent
+    setLang(v);
+    applyI18n();
 
-  async function handleSend() {
-    const msg = input.value.trim();
-    if (!msg) return;
-
-    // push user
-    appendMsg(msg, true);
-    chatHistory.push({ role: "user", content: msg });
-    input.value = "";
-
-    // placeholder assistant bubble (editable)
-    const pending = appendMsg(t("generating"), false);
-
-    try {
-      const reply = await callWorkerChat();
-      pending.textContent = reply;
-      chatHistory.push({ role: "assistant", content: reply });
-    } catch (err) {
-      pending.textContent = `❌ ${String(err && err.message ? err.message : err)}`;
-    }
-  }
-
-  fab.addEventListener("click", toggle);
-  closeBtn.addEventListener("click", toggle);
-  sendBtn.addEventListener("click", handleSend);
-  input.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleSend();
+    if (lastCtx){
+      lastCtx.lang = v;
+      renderResult(lastCtx); // re-render generated result in new language
     }
   });
 }
+
+/* ===== Boot ===== */
+document.addEventListener("DOMContentLoaded", () => {
+  if(!localStorage.getItem(LANG_KEY)){
+    setLang(normalizeLang(document.documentElement.lang || "zh-CN"));
+  }
+  applyI18n();
+  initLangSelect();
+  bindGenerate();
+  initChat();
+  initHeaderScroll(); // you had it but didn’t call it
+});
+  
+  // ====== Chat open/close + minimal send (local echo) ======
+  function initChat(){
+    const fab = $("ssChatFab");
+    const panel = $("chatPanel");
+    const closeBtn = $("chatClose");
+    const sendBtn = $("chatSend");
+    const input = $("chatInput");
+    const body = $("chatBody");
+
+    if(!fab || !panel || !sendBtn || !input || !body) return;
+
+    const open = () => panel.setAttribute("aria-hidden","false");
+    const close = () => panel.setAttribute("aria-hidden","true");
+
+    fab.addEventListener("click", () => {
+      const hidden = panel.getAttribute("aria-hidden") !== "false";
+      hidden ? open() : close();
+      if(hidden) input.focus();
+    });
+    if(closeBtn) closeBtn.addEventListener("click", close);
+
+    function appendMsg(text, me){
+      const div = document.createElement("div");
+      div.className = "ss-msg" + (me ? " me" : "");
+      div.textContent = text;
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    function send(){
+      const q = (input.value || "").trim();
+      if(!q) return;
+      input.value = "";
+      appendMsg(q, true);
+
+      // 这里先给你一个“本地回答占位”
+      // 你要接 Worker 的话，我下一步再把 /api/chat 接上（不改你现有结构）
+      const hint = lastCtx
+        ? `${t("chat_welcome")}\n\n${t("result_title")}: ${lastCtx.lifePath}`
+        : t("chat_welcome");
+      appendMsg(hint, false);
+    }
+
+    sendBtn.addEventListener("click", send);
+    input.addEventListener("keydown", (e)=>{ if(e.key==="Enter") send(); });
+  }
+
+  // ====== Boot ======
+  document.addEventListener("DOMContentLoaded", () => {
+    // 默认语言（首次进入）
+    if(!localStorage.getItem(LANG_KEY)){
+      setLang(document.documentElement.lang || "zh-CN");
+    }
+    applyI18n();
+    initLangSelect();
+    bindGenerate();
+    initChat();
+  });
 
   /* ===== VIP 登录区：默认隐藏输入框，首次点击只展开 ===== */
   function initAuth(){
@@ -2024,6 +2070,7 @@ function initChat() {
 </script>
 </body>
 </html>
+
 
 
 
