@@ -955,6 +955,8 @@ footer{
   const API_BASE = "https://throbbing-lab-1440.hello5xliving.workers.dev";
   const CHAT_ENDPOINT = "/api/chat";
   const LANG_KEY = "site_lang";
+  window.API_BASE = API_BASE;
+  window.CHAT_ENDPOINT = CHAT_ENDPOINT;
 
   /* =========================
      DOM HELPERS
@@ -2423,26 +2425,55 @@ if (chatClose) {
   chatClose.addEventListener('click', () => toggleChat(false));
 }
 
+let butlerHistory = [
+  { role:"system", content:`You are Xinlian Butler. Reply in ${CUR || "zh-CN"}. Keep it helpful and concise.` }
+];
+
+async function butlerCallWorker(messages){
+  const url = (window.API_BASE || API_BASE) + (window.CHAT_ENDPOINT || CHAT_ENDPOINT);
+  const res = await fetch(url, {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({ messages, meta:{ module:"butler", lang:(CUR||"zh-CN") } })
+  });
+  if(!res.ok) throw new Error(await res.text().catch(()=>res.statusText));
+  const data = await res.json();
+  return (data.reply || data.text || (data.choices?.[0]?.message?.content) || "").trim();
+}
+
+function appendButler(text, me=false){
+  const div = document.createElement('div');
+  div.className = 'ss-msg' + (me ? ' me' : '');
+  div.textContent = text;
+  chatBody.appendChild(div);
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
+
 if (chatSend && chatInput && chatBody) {
-  chatSend.addEventListener('click', () => {
+  chatSend.addEventListener('click', async () => {
     const text = chatInput.value.trim();
     if (!text) return;
 
-    const div = document.createElement('div');
-    div.className = 'ss-msg me';
-    div.textContent = text;
-    chatBody.appendChild(div);
-
+    appendButler(text, true);
     chatInput.value = '';
-    chatBody.scrollTop = chatBody.scrollHeight;
 
-    // TODO: 在这里接你的 worker / GPT API
+    // Optional: include latest tarot context if available
+    const tarotCtx = window.__TAROT_AI_SESSION ? buildTarotContext(window.__TAROT_AI_SESSION) : "";
+    const userMsg = tarotCtx ? `${tarotCtx}\n\nUser: ${text}` : text;
+
+    butlerHistory.push({ role:"user", content:userMsg });
+    appendButler("…", false);
+    const last = chatBody.lastElementChild;
+
+    try{
+      const reply = await butlerCallWorker(butlerHistory);
+      if (last) last.textContent = reply;
+      butlerHistory.push({ role:"assistant", content:reply });
+    }catch(err){
+      if (last) last.textContent = `Error: ${String(err.message||err)}`;
+    }
   });
 }
-
-// 初次渲染
-applyStaticUI();
-});
 </script>
 </body>
 </html>
