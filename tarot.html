@@ -934,15 +934,10 @@ footer{
     <div class="ss-close" id="chatClose">✕</div>
   </div>
 
-  <div class="ss-chat-body" id="chatBody">
-    <div class="ss-msg">
-      <div class="meta" data-i18n="chat_bot_name">心怜管家</div>
-      <div data-i18n="chat_welcome">
-        你好！我是你的心怜管家解读助手，可以帮你分析或解答相关问题。
-      </div>
-    </div>
-  </div>
+  <!-- 聊天内容区：保持为空，消息全部由 JS append -->
+  <div class="ss-chat-body" id="chatBody"></div>
 
+  <!-- 输入区 -->
   <div class="ss-chat-input">
     <input
       id="chatInput"
@@ -954,7 +949,64 @@ footer{
 </div>
 
 <script>
-  const I18N = {
+    /* =========================
+     CONFIG
+  ========================= */
+  const API_BASE = "https://throbbing-lab-1440.hello5xliving.workers.dev";
+  const CHAT_ENDPOINT = "/api/chat";
+  const LANG_KEY = "site_lang";
+
+  /* =========================
+     DOM HELPERS
+  ========================= */
+  const $ = (id) => document.getElementById(id);
+  const qs = (sel, root=document) => root.querySelector(sel);
+
+  const getLang = () =>
+    localStorage.getItem(LANG_KEY) ||
+    document.documentElement.lang ||
+    "zh-CN";
+
+  const setLang = (v) => {
+    localStorage.setItem(LANG_KEY, v);
+    document.documentElement.lang = v;
+  };
+
+  const BUTLER_LANG_NAME = {
+    "zh-CN":"Simplified Chinese",
+    "zh-TW":"Traditional Chinese",
+    "en":"English",
+    "ja":"Japanese",
+    "th":"Thai",
+    "ms":"Malay"
+  };
+
+  const clampStr = (s, max=1600) => {
+    s = String(s ?? "");
+    return s.length > max ? s.slice(0, max) + "…" : s;
+  };
+
+  function escapeHTML(str){
+    return String(str ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function safeText(el, txt){
+    if(!el) return;
+    el.textContent = String(txt ?? "");
+  }
+
+  function show(el){ if(el) el.style.display = ""; }
+  function hide(el){ if(el) el.style.display = "none"; }
+
+  /* =========================
+     i18n DICT (yours + a few missing keys)
+  ========================= */
+  const i18n = {
     'zh-CN': { 
       ui:{ 
         brand:'5xLiving · 命理心怜空间 · Soul Sanctuary', 
@@ -1965,6 +2017,236 @@ function withFallback(lang){
         </div>
       </div>`;
   }
+
+  /* =========================
+   Tarot AI Chat (Worker)
+   Requires:
+   - API_BASE (string)  e.g. https://...workers.dev
+   - escapeHTML(str)
+   - dataPack(), posLabel(), cardName(), previewLine()
+   - CUR (current lang)
+========================= */
+
+const TAROT_CHAT_ENDPOINT = window.CHAT_ENDPOINT || "/api/chat";
+let tarotChatHistory = []; // {role:'system'|'user'|'assistant', content:string}
+
+function buildTarotSystemPrompt(){
+  const pack = dataPack();
+  const lang = (CUR || "en-US");
+
+  // Keep it strict + useful
+  return [
+    `You are a professional Tarot reader.`,
+    `Language: ${lang}. Reply in the same language.`,
+    `Use the spread + cards provided as the source of truth.`,
+    `Be practical: 3-7 short bullets, then 1 short closing line.`,
+    `Do not claim certainty; avoid medical/legal/financial instructions.`,
+    `If the user asks for timing, give a range + what to watch for.`,
+    `If user question is vague, ask ONE short clarifying question at the end.`
+  ].join("\n");
+}
+
+/** Build a compact context about the current spread */
+function buildTarotContext(session){
+  if (!session || !session.cards || !session.cards.length) return "";
+
+  const { question, n, cards } = session;
+
+  const posKeys =
+    n===10 ? ['p1','p2','p3','p4','p5','p6','p7','p8','p9','p10'] :
+    n===5  ? ['top','left','center','right','bottom'] :
+    n===3  ? ['past','present','future'] :
+             ['single'];
+
+  const lines = cards.map((c, i) => {
+    const pos = posLabel(posKeys[i]);
+    const name = cardName(c);
+    const rev = c.reversed ? "Reversed" : "Upright";
+    const arch = previewLine(c);
+    const suit = c.group === "major" ? "Major Arcana" : (c.suit || "Minor Arcana");
+    return `- ${pos}: ${name} (${rev}) | ${suit} | ${arch}`;
+  }).join("\n");
+
+  const qTxt = (question || "").trim();
+  return [
+    `Tarot Reading Context`,
+    `User Question: ${qTxt || "(none)"}`,
+    `Spread Cards:\n${lines}`
+  ].join("\n\n");
+}
+
+/** Ensure a chat UI exists under #readingText (auto inject) */
+function ensureTarotAiChatUI(){
+  const root = document.getElementById("readingText");
+  if (!root) return null;
+
+  let box = document.getElementById("tarotAiBox");
+  if (box) return box;
+
+  const pack = dataPack();
+  const title = (pack.ui && pack.ui.ai_chat_title) || "AI Follow-up";
+  const ph    = (pack.ui && pack.ui.ai_chat_ph) || "Ask a follow-up question…";
+  const send  = (pack.ui && pack.ui.ai_chat_send) || "Send";
+
+  box = document.createElement("div");
+  box.id = "tarotAiBox";
+  box.className = "sec";
+  box.innerHTML = `
+    <h3 style="margin:0 0 10px">${escapeHTML(title)}</h3>
+    <div id="tarotAiMsgs" class="chat" style="margin:0 0 10px"></div>
+
+    <div style="display:flex; gap:10px; align-items:center;">
+      <input id="tarotAiInput" type="text"
+        placeholder="${escapeHTML(ph)}"
+        style="flex:1; min-width:0; padding:10px 12px; border-radius:12px;
+               border:1px solid #273245; background:#0b0f14; color:#e8edf3; outline:none;">
+      <button id="tarotAiSend" class="btn" type="button"
+        style="white-space:nowrap; padding:10px 14px; border-radius:999px;">
+        ${escapeHTML(send)}
+      </button>
+    </div>
+
+    <div id="tarotAiHint" class="muted" style="margin-top:8px; font-size:13px;"></div>
+  `;
+  root.appendChild(box);
+
+  const input = document.getElementById("tarotAiInput");
+  const btn   = document.getElementById("tarotAiSend");
+
+  if (btn) btn.addEventListener("click", ()=> tarotAiAsk());
+  if (input) input.addEventListener("keydown", (e)=>{
+    if (e.key === "Enter") tarotAiAsk();
+  });
+
+  return box;
+}
+
+function tarotAiAppend(role, html){
+  const msgs = document.getElementById("tarotAiMsgs");
+  if (!msgs) return;
+
+  const pack = dataPack();
+  const you  = (pack.ui && pack.ui.you) || "You";
+  const ai   = (pack.ui && pack.ui.reading) || "Reading";
+
+  const wrap = document.createElement("div");
+  wrap.className = `msg ${role === "user" ? "user" : "assistant"}`;
+  wrap.innerHTML = `
+    <div class="meta">${escapeHTML(role === "user" ? you : ai)}</div>
+    ${html}
+  `;
+  msgs.appendChild(wrap);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+/** Call Worker */
+async function tarotAiCallWorker(messages){
+  const url = (window.API_BASE || "") + TAROT_CHAT_ENDPOINT;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type":"application/json" },
+    body: JSON.stringify({
+      messages,
+      meta: { module:"tarot", lang: (CUR || "en-US") }
+    })
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(()=> "");
+    throw new Error(`Worker error ${res.status}: ${txt || res.statusText}`);
+  }
+  const data = await res.json();
+
+  // Support common payload shapes:
+  // { reply: "..." } OR { text:"..." } OR { choices:[{message:{content:"..."}}] }
+  const out =
+    data.reply ||
+    data.text ||
+    (data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content) ||
+    "";
+
+  return String(out || "").trim();
+}
+
+/** Public: set the current reading session so AI knows your spread */
+function setTarotAiSession(question, n, cards){
+  window.__TAROT_AI_SESSION = {
+    question: (question || "").trim(),
+    n: Number(n || 1),
+    cards: Array.isArray(cards) ? cards : []
+  };
+
+  // Reset chat history per reading (recommended)
+  tarotChatHistory = [];
+  tarotChatHistory.push({ role:"system", content: buildTarotSystemPrompt() });
+  tarotChatHistory.push({
+    role:"system",
+    content: buildTarotContext(window.__TAROT_AI_SESSION)
+  });
+
+  // Make sure UI exists
+  ensureTarotAiChatUI();
+
+  // Optional hint
+  const hint = document.getElementById("tarotAiHint");
+  if (hint){
+    hint.textContent = (dataPack().ui && dataPack().ui.ai_chat_hint)
+      || "Tip: Ask about action steps, timing, or what to avoid next.";
+  }
+
+  // Clear message area
+  const msgs = document.getElementById("tarotAiMsgs");
+  if (msgs) msgs.innerHTML = "";
+}
+
+/** Ask AI */
+async function tarotAiAsk(){
+  const input = document.getElementById("tarotAiInput");
+  if (!input) return;
+
+  const q = (input.value || "").trim();
+  if (!q) return;
+
+  input.value = "";
+  tarotAiAppend("user", escapeHTML(q));
+
+  // Add user msg into history
+  tarotChatHistory.push({ role:"user", content: q });
+
+  // Loading bubble
+  tarotAiAppend("assistant", `<div class="muted">…</div>`);
+  const msgs = document.getElementById("tarotAiMsgs");
+  const lastAssistant = msgs ? msgs.lastElementChild : null;
+
+  try {
+    // Always keep context fresh (in case you re-render cards)
+    const ctx = buildTarotContext(window.__TAROT_AI_SESSION);
+    // Replace the 2nd system message (context) if it exists
+    const idx = tarotChatHistory.findIndex(m => m.role==="system" && (m.content||"").includes("Tarot Reading Context"));
+    if (idx >= 0) tarotChatHistory[idx].content = ctx;
+    else tarotChatHistory.push({ role:"system", content: ctx });
+
+    const reply = await tarotAiCallWorker(tarotChatHistory);
+
+    // Replace loading
+    if (lastAssistant) {
+      lastAssistant.innerHTML = `
+        <div class="meta">${escapeHTML((dataPack().ui && dataPack().ui.reading) || "Reading")}</div>
+        ${escapeHTML(reply).replace(/\n/g,"<br>")}
+      `;
+    }
+
+    tarotChatHistory.push({ role:"assistant", content: reply });
+
+  } catch (err) {
+    if (lastAssistant) {
+      lastAssistant.innerHTML = `
+        <div class="meta">${escapeHTML((dataPack().ui && dataPack().ui.reading) || "Reading")}</div>
+        <div class="muted">${escapeHTML(String(err.message || err))}</div>
+      `;
+    }
+  }
+}
 
   /* ===== 绑定 DOM 元素 ===== */
   const langSel         = $('#langSelect');
