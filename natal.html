@@ -1555,54 +1555,66 @@ function toggleChat(open) {
     chatBody.scrollTop = chatBody.scrollHeight;
   }
 
-  async function butlerCallWorker(messages) {
-    const url = API_BASE + CHAT_ENDPOINT;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, meta: { module: "butler", lang: CUR } })
-    });
+async function butlerCallWorker(messages) {
+  const url = API_BASE + CHAT_ENDPOINT;
+  const lang = getLang(); // ✅ no CUR
 
-    if (!res.ok) {
-      const txt = await res.text().catch(() => res.statusText);
-      throw new Error(txt || res.statusText);
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      messages,
+      meta: { module: "butler", lang }
+    })
+  });
+
+  if (!res.ok) {
+    const txt = await res.text().catch(() => res.statusText);
+    throw new Error(txt || res.statusText);
+  }
+  const data = await res.json();
+  return (data.reply || data.text || (data.choices?.[0]?.message?.content) || "").trim();
+}
+
+function initButlerChat() {
+  if (!chatPanel || !chatBody || !chatInput || !chatSend) return;
+
+  resetButlerSystemPrompt();
+
+  chatFab?.addEventListener("click", () => toggleChat());
+  chatClose?.addEventListener("click", () => toggleChat(false));
+
+  async function sendNow() {
+    const text = (chatInput.value || "").trim();
+    if (!text) return;
+
+    appendButler(text, true);
+    chatInput.value = "";
+
+    // ✅ fix: use text, not userMsg
+    butlerHistory.push({ role: "user", content: text });
+
+    // loading bubble
+    appendButler("…", false);
+    const loadingNode = chatBody.lastElementChild;
+
+    try {
+      const reply = await butlerCallWorker(butlerHistory);
+      if (loadingNode) loadingNode.textContent = reply;
+      butlerHistory.push({ role: "assistant", content: reply });
+    } catch (err) {
+      if (loadingNode) loadingNode.textContent = `Error: ${String(err.message || err)}`;
     }
-    const data = await res.json();
-    return (data.reply || data.text || (data.choices?.[0]?.message?.content) || "").trim();
   }
 
-  function initButlerChat() {
-    if (!chatPanel || !chatBody || !chatInput || !chatSend) return;
-
-    resetButlerSystemPrompt();
-
-    chatFab?.addEventListener("click", () => toggleChat());
-    chatClose?.addEventListener("click", () => toggleChat(false));
-
-    chatSend.addEventListener("click", async () => {
-      const text = (chatInput.value || "").trim();
-      if (!text) return;
-
-      appendButler(text, true);
-      chatInput.value = "";
-
-      butlerHistory.push({ role: "user", content: userMsg });
-      appendButler("…", false);
-      const last = chatBody.lastElementChild;
-
-      try {
-        const reply = await butlerCallWorker(butlerHistory);
-        if (last) last.textContent = reply;
-        butlerHistory.push({ role: "assistant", content: reply });
-      } catch (err) {
-        if (last) last.textContent = `Error: ${String(err.message || err)}`;
-      }
-    });
-
-    chatInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") chatSend.click();
-    });
-  }
+  chatSend.addEventListener("click", sendNow);
+  chatInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      sendNow();
+    }
+  });
+}
 
   /* ========================= 表单提交处理 ========================= */
   function handleGenerate(evt){
@@ -1621,21 +1633,25 @@ function toggleChat(open) {
 
   /* ========================= 初始化 ========================= */
   document.addEventListener('DOMContentLoaded', ()=>{
-    const langSel = gid('langSelect');
-    if(langSel){
-      const saved = localStorage.getItem('natal_lang');
-      if(saved && Array.from(langSel.options).some(o=>o.value===saved)){
-        langSel.value = saved;
-      }
-      langSel.addEventListener('change', ()=>{
-        localStorage.setItem('natal_lang', langSel.value);
-        applyI18n();
-        if(lastModel){
-          renderHeaderSummary(lastModel);
-          renderReport(lastModel);
-        }
-      });
+const langSel = gid('langSelect');
+if (langSel) {
+  const saved = localStorage.getItem(LANG_KEY);
+  if (saved && Array.from(langSel.options).some(o => o.value === saved)) {
+    langSel.value = saved;
+  } else {
+    localStorage.setItem(LANG_KEY, langSel.value);
+  }
+
+  langSel.addEventListener('change', () => {
+    localStorage.setItem(LANG_KEY, langSel.value);
+    applyI18n();
+    resetButlerSystemPrompt(); // ✅ language changed -> reset system prompt
+    if (lastModel) {
+      renderHeaderSummary(lastModel);
+      renderReport(lastModel);
     }
+  });
+}
 
     applyI18n();
     startNowClock();
@@ -1667,6 +1683,7 @@ function toggleChat(open) {
 </script>
 </body>
 </html>
+
 
 
 
