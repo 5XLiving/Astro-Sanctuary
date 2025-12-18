@@ -1862,78 +1862,71 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 /* ========== XINLIAN BUTLER FLOAT CHAT (Worker) ========== */
-const chatFab   = gid("ssChatFab");
-const chatPanel = gid("chatPanel");
-const chatClose = gid("chatClose");
-const chatBody  = gid("chatBody");
-const chatInput = gid("chatInput");
-const chatSend  = gid("chatSend");
+const CHAT_ENDPOINT = "/api/chat";
+const $id = gid; // 你前面用的是 gid，这里统一别再用 $id
 
 let butlerHistory = [];
 
+function getCUR(){
+  // 语言用于 system prompt
+  return (typeof getLang === "function" ? getLang() : "zh-CN");
+}
+
 function resetButlerSystemPrompt(){
-  const lang = getLang();
-  // 你也可以改成更强的 system prompt
+  const cur = getCUR();
   butlerHistory = [{
     role: "system",
-    content:
-      `You are Xinlian Butler, a helpful numerology assistant for 5XLiving. ` +
-      `Reply in language code: ${lang}. ` +
-      `Be concise, practical, and friendly.`
+    content: `You are Xinlian Butler. Reply in ${cur}. Keep it helpful and concise.`
   }];
 }
 
-function setChatOpen(open){
-  if (!chatPanel) return;
-  chatPanel.style.display = open ? "block" : "none";   // ✅ show/hide
-  chatPanel.setAttribute("aria-hidden", open ? "false" : "true");
-
-  // greet once
-  if (open && chatBody && !chatBody.dataset.inited){
-    chatBody.dataset.inited = "1";
-    appendButler(t("chat_welcome"), false);
-  }
+// 可选：把本页灵数结果带入 GPT（很短，安全）
+function buildNumerologyContext(){
+  const p = window.lastNumCtx;
+  if (!p) return "";
+  return [
+    "Numerology context:",
+    `Birth date: ${p.iso}`,
+    `Life Path: ${p.lp}`,
+    `Love Number: ${p.lv}`
+  ].join("\n");
 }
 
-function toggleChat(force){
-  if (!chatPanel) return;
-  const isOpen = chatPanel.getAttribute("aria-hidden") === "false";
-  const next = (typeof force === "boolean") ? force : !isOpen;
-  setChatOpen(next);
-}
-
-function appendButler(text, me=false){
+function appendChatMsg(text, me=false){
+  const chatBody = $id("chatBody");
   if (!chatBody) return;
   const div = document.createElement("div");
   div.className = "ss-msg" + (me ? " me" : "");
   div.textContent = String(text ?? "");
   chatBody.appendChild(div);
   chatBody.scrollTop = chatBody.scrollHeight;
+  return div;
 }
 
-function buildNumerologyContext(){
-  const p = window.lastNumCtx;
-  if (!p) return "";
-  return [
-    "Numerology context:",
-    `- Birth date: ${p.iso}`,
-    `- Life Path: ${p.lp}`,
-    `- Love Number: ${p.lv}`
-  ].join("\n");
+function toggleChat(open){
+  const panel = $id("chatPanel");
+  if (!panel) return;
+
+  const isOpen = panel.getAttribute("aria-hidden") === "false";
+  const next = (typeof open === "boolean") ? open : !isOpen;
+
+  panel.setAttribute("aria-hidden", next ? "false" : "true");
+  panel.style.display = next ? "block" : "none";
+
+  if (next && !panel.dataset.inited){
+    panel.dataset.inited = "1";
+    appendChatMsg(t("chat_welcome"), false);
+  }
 }
 
 async function butlerCallWorker(messages){
   const url = API_BASE + CHAT_ENDPOINT;
   const res = await fetch(url, {
     method: "POST",
-    headers: {"Content-Type":"application/json"},
+    headers: { "Content-Type":"application/json" },
     body: JSON.stringify({
       messages,
-      meta: {
-        module: "numerology_butler",
-        lang: getLang(),
-        page: "numerology"
-      }
+      meta: { module: "butler", lang: getCUR() }
     })
   });
 
@@ -1941,62 +1934,57 @@ async function butlerCallWorker(messages){
     const txt = await res.text().catch(()=>res.statusText);
     throw new Error(txt || res.statusText);
   }
-  const data = await res.json();
+
+  const data = await res.json().catch(()=> ({}));
   return (data.reply || data.text || data.choices?.[0]?.message?.content || "").trim();
 }
 
 function initButlerChat(){
-  if (!chatPanel || !chatBody || !chatInput || !chatSend || !chatFab) return;
+  const fab      = $id("ssChatFab");
+  const panel    = $id("chatPanel");
+  const closeBtn = $id("chatClose");
+  const input    = $id("chatInput");
+  const sendBtn  = $id("chatSend");
+
+  if (!fab || !panel || !closeBtn || !input || !sendBtn) return;
 
   resetButlerSystemPrompt();
 
-  // start hidden
-  setChatOpen(false);
+  fab.addEventListener("click", ()=>toggleChat());
+  closeBtn.addEventListener("click", ()=>toggleChat(false));
 
-  chatFab.addEventListener("click", ()=>toggleChat());
-  chatClose?.addEventListener("click", ()=>toggleChat(false));
-
-  chatSend.addEventListener("click", async ()=>{
-    const text = (chatInput.value || "").trim();
+  async function sendNow(){
+    const text = (input.value || "").trim();
     if (!text) return;
 
-    appendButler(text, true);
-    chatInput.value = "";
+    appendChatMsg(text, true);
+    input.value = "";
 
-    // ✅ attach numerology context (not tarot)
+    // placeholder
+    const ph = appendChatMsg("…", false);
+
+    // 组合上下文（灵数 + 用户问题）
     const ctx = buildNumerologyContext();
-    const userMsg = ctx ? `${ctx}\n\nUser: ${text}` : text;
+    const userContent = ctx ? (ctx + "\n\nUser: " + text) : text;
 
-    butlerHistory.push({role:"user", content:userMsg});
-    appendButler("…", false);
-    const last = chatBody.lastElementChild;
+    butlerHistory.push({ role:"user", content: userContent });
 
     try{
       const reply = await butlerCallWorker(butlerHistory);
-      if (last) last.textContent = reply;
-      butlerHistory.push({role:"assistant", content:reply});
+      if (ph) ph.textContent = reply || "(no reply)";
+      butlerHistory.push({ role:"assistant", content: reply || "" });
     }catch(err){
-      if (last) last.textContent = `Error: ${String(err?.message || err)}`;
+      if (ph) ph.textContent = "Error: " + String(err?.message || err);
     }
-  });
+  }
 
-  chatInput.addEventListener("keydown", (e)=>{
-    if (e.key === "Enter") chatSend.click();
+  sendBtn.addEventListener("click", sendNow);
+  input.addEventListener("keydown", (e)=>{
+    if (e.key === "Enter") sendNow();
   });
 }
-
-/* ========== INIT ========== */
-document.addEventListener("DOMContentLoaded", ()=>{
-  // keep your existing init calls ABOVE this if they are valid
-  applyI18n();
-  applyChatI18n();
-
-  // ✅ do NOT call initHeaderScroll/initDrawButton/initShare here (they don't exist on this page)
-  initButlerChat();
-});
-
-})();
 </script>
 </body>  
 </html>  
+
 
