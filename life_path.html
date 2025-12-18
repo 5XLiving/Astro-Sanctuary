@@ -1861,108 +1861,142 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  /* ========== XINLIAN BUTLER FLOAT CHAT (Worker) ========== */
-  const chatPanel = $id("chatPanel");
-  const chatClose = $id("chatClose");
-  const chatBody = $id("chatBody");
-  const chatInput = $id("chatInput");
-  const chatSend = $id("chatSend");
+/* ========== XINLIAN BUTLER FLOAT CHAT (Worker) ========== */
+const chatFab   = gid("ssChatFab");
+const chatPanel = gid("chatPanel");
+const chatClose = gid("chatClose");
+const chatBody  = gid("chatBody");
+const chatInput = gid("chatInput");
+const chatSend  = gid("chatSend");
 
-  let butlerHistory = [];
+let butlerHistory = [];
 
-  function resetButlerSystemPrompt() {
-    butlerHistory = [
-      { role: "system", content: `You are Xinlian Butler. Reply in ${CUR}. Keep it helpful and concise.` }
-    ];
+function resetButlerSystemPrompt(){
+  const lang = getLang();
+  // 你也可以改成更强的 system prompt
+  butlerHistory = [{
+    role: "system",
+    content:
+      `You are Xinlian Butler, a helpful numerology assistant for 5XLiving. ` +
+      `Reply in language code: ${lang}. ` +
+      `Be concise, practical, and friendly.`
+  }];
+}
+
+function setChatOpen(open){
+  if (!chatPanel) return;
+  chatPanel.style.display = open ? "block" : "none";   // ✅ show/hide
+  chatPanel.setAttribute("aria-hidden", open ? "false" : "true");
+
+  // greet once
+  if (open && chatBody && !chatBody.dataset.inited){
+    chatBody.dataset.inited = "1";
+    appendButler(t("chat_welcome"), false);
   }
+}
 
-  function toggleChat(open) {
-    if (!chatPanel) return;
-    const isOpen = chatPanel.getAttribute("aria-hidden") === "false";
-    const next = (typeof open === "boolean") ? open : !isOpen;
-    chatPanel.setAttribute("aria-hidden", next ? "false" : "true");
+function toggleChat(force){
+  if (!chatPanel) return;
+  const isOpen = chatPanel.getAttribute("aria-hidden") === "false";
+  const next = (typeof force === "boolean") ? force : !isOpen;
+  setChatOpen(next);
+}
 
-    // first open -> greet once
-    if (next && chatBody && !chatBody.dataset.inited) {
-      chatBody.dataset.inited = "1";
-      appendButler(t("chat_welcome", "Hello!"), false);
-    }
-  }
+function appendButler(text, me=false){
+  if (!chatBody) return;
+  const div = document.createElement("div");
+  div.className = "ss-msg" + (me ? " me" : "");
+  div.textContent = String(text ?? "");
+  chatBody.appendChild(div);
+  chatBody.scrollTop = chatBody.scrollHeight;
+}
 
-  function appendButler(text, me = false) {
-    if (!chatBody) return;
-    const div = document.createElement("div");
-    div.className = "ss-msg" + (me ? " me" : "");
-    div.textContent = String(text ?? "");
-    chatBody.appendChild(div);
-    chatBody.scrollTop = chatBody.scrollHeight;
-  }
+function buildNumerologyContext(){
+  const p = window.lastNumCtx;
+  if (!p) return "";
+  return [
+    "Numerology context:",
+    `- Birth date: ${p.iso}`,
+    `- Life Path: ${p.lp}`,
+    `- Love Number: ${p.lv}`
+  ].join("\n");
+}
 
-  async function butlerCallWorker(messages) {
-    const url = API_BASE + CHAT_ENDPOINT;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, meta: { module: "butler", lang: CUR } })
-    });
-
-    if (!res.ok) {
-      const txt = await res.text().catch(() => res.statusText);
-      throw new Error(txt || res.statusText);
-    }
-    const data = await res.json();
-    return (data.reply || data.text || (data.choices?.[0]?.message?.content) || "").trim();
-  }
-  });
-  
-  function initButlerChat() {
-    if (!chatPanel || !chatBody || !chatInput || !chatSend) return;
-
-    resetButlerSystemPrompt();
-
-    chatFab?.addEventListener("click", () => toggleChat());
-    chatClose?.addEventListener("click", () => toggleChat(false));
-
-    chatSend.addEventListener("click", async () => {
-      const text = (chatInput.value || "").trim();
-      if (!text) return;
-
-      appendButler(text, true);
-      chatInput.value = "";
-
-      // Optionally include latest tarot context (only derived from current draw)
-      const tarotCtx = window.__TAROT_AI_SESSION ? buildTarotContext(window.__TAROT_AI_SESSION) : "";
-      const userMsg = tarotCtx ? `${tarotCtx}\n\nUser: ${text}` : text;
-
-      butlerHistory.push({ role: "user", content: userMsg });
-      appendButler("…", false);
-      const last = chatBody.lastElementChild;
-
-      try {
-        const reply = await butlerCallWorker(butlerHistory);
-        if (last) last.textContent = reply;
-        butlerHistory.push({ role: "assistant", content: reply });
-      } catch (err) {
-        if (last) last.textContent = `Error: ${String(err.message || err)}`;
+async function butlerCallWorker(messages){
+  const url = API_BASE + CHAT_ENDPOINT;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({
+      messages,
+      meta: {
+        module: "numerology_butler",
+        lang: getLang(),
+        page: "numerology"
       }
-    });
-
-    chatInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") chatSend.click();
-    });
-  }
-
-  /* ========== INIT ========== */
-  document.addEventListener("DOMContentLoaded", () => {
-    // set select to saved lang if exists
-
-    applyI18n();
-    initHeaderScroll();
-    initDrawButton();
-    initShare();
-    initButlerChat();
+    })
   });
+
+  if (!res.ok){
+    const txt = await res.text().catch(()=>res.statusText);
+    throw new Error(txt || res.statusText);
+  }
+  const data = await res.json();
+  return (data.reply || data.text || data.choices?.[0]?.message?.content || "").trim();
+}
+
+function initButlerChat(){
+  if (!chatPanel || !chatBody || !chatInput || !chatSend || !chatFab) return;
+
+  resetButlerSystemPrompt();
+
+  // start hidden
+  setChatOpen(false);
+
+  chatFab.addEventListener("click", ()=>toggleChat());
+  chatClose?.addEventListener("click", ()=>toggleChat(false));
+
+  chatSend.addEventListener("click", async ()=>{
+    const text = (chatInput.value || "").trim();
+    if (!text) return;
+
+    appendButler(text, true);
+    chatInput.value = "";
+
+    // ✅ attach numerology context (not tarot)
+    const ctx = buildNumerologyContext();
+    const userMsg = ctx ? `${ctx}\n\nUser: ${text}` : text;
+
+    butlerHistory.push({role:"user", content:userMsg});
+    appendButler("…", false);
+    const last = chatBody.lastElementChild;
+
+    try{
+      const reply = await butlerCallWorker(butlerHistory);
+      if (last) last.textContent = reply;
+      butlerHistory.push({role:"assistant", content:reply});
+    }catch(err){
+      if (last) last.textContent = `Error: ${String(err?.message || err)}`;
+    }
+  });
+
+  chatInput.addEventListener("keydown", (e)=>{
+    if (e.key === "Enter") chatSend.click();
+  });
+}
+
+/* ========== INIT ========== */
+document.addEventListener("DOMContentLoaded", ()=>{
+  // keep your existing init calls ABOVE this if they are valid
+  applyI18n();
+  applyChatI18n();
+
+  // ✅ do NOT call initHeaderScroll/initDrawButton/initShare here (they don't exist on this page)
+  initButlerChat();
+});
+
 })();
 </script>
-</body>
+</body>  
 </html>  
+
