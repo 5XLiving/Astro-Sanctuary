@@ -517,6 +517,44 @@ body::before{
 (function(){
   'use strict';
 
+  /* ========== CONFIG ========== */
+  const API_BASE = "https://throbbing-lab-1440.hello5xliving.workers.dev";
+  const CHAT_ENDPOINT = "/api/chat";
+  const LANG_KEY = "5x_lang"; // unify across pages
+
+    /* ========== HELPERS ========== */
+  const $id = (id) => document.getElementById(id);
+  const qs = (sel, root = document) => root.querySelector(sel);
+  const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+  const show = (el) => { if (el) el.style.display = ""; };
+  const hide = (el) => { if (el) el.style.display = "none"; };
+
+  const escapeHTML = (str) =>
+    String(str ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  const clampStr = (s, max = 1600) => {
+    s = String(s ?? "");
+    return s.length > max ? s.slice(0, max) + "…" : s;
+  };
+
+  const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
+  const deepGet = (obj, path) => {
+    if (!obj || !path) return undefined;
+    const parts = String(path).split(".");
+    let cur = obj;
+    for (const p of parts) {
+      if (!cur) return undefined;
+      cur = cur[p];
+    }
+    return cur;
+  };
+
   /* ========================= i18n 文案 ========================= */
   const I18N = {
     'zh-CN':{
@@ -1483,24 +1521,31 @@ const sunHtml = `
 
   let butlerHistory = [];
 
-  function resetButlerSystemPrompt() {
-    butlerHistory = [
-      { role: "system", content: `You are Xinlian Butler. Reply in ${CUR}. Keep it helpful and concise.` }
-    ];
-  }
-
-  function toggleChat(open) {
-    if (!chatPanel) return;
-    const isOpen = chatPanel.getAttribute("aria-hidden") === "false";
-    const next = (typeof open === "boolean") ? open : !isOpen;
-    chatPanel.setAttribute("aria-hidden", next ? "false" : "true");
-
-    // first open -> greet once
-    if (next && chatBody && !chatBody.dataset.inited) {
-      chatBody.dataset.inited = "1";
-      appendButler(t("chat_welcome", "Hello!"), false);
+function resetButlerSystemPrompt() {
+  const lang = getLang();
+  butlerHistory = [
+    {
+      role: "system",
+      content:
+        `You are Xinlian Butler. Reply in ${lang}. ` +
+        `Be warm, concise, structured.`
     }
+  ];
+}
+
+function toggleChat(open) {
+  if (!chatPanel) return;
+  const isOpen = chatPanel.getAttribute("aria-hidden") === "false";
+  const next = (typeof open === "boolean") ? open : !isOpen;
+
+  chatPanel.setAttribute("aria-hidden", next ? "false" : "true");
+  chatPanel.style.display = next ? "block" : "none";   // ✅ important
+
+  if (next && chatBody && !chatBody.dataset.inited) {
+    chatBody.dataset.inited = "1";
+    appendButler(t("chat_welcome"), false);
   }
+}
 
   function appendButler(text, me = false) {
     if (!chatBody) return;
@@ -1541,10 +1586,6 @@ const sunHtml = `
 
       appendButler(text, true);
       chatInput.value = "";
-
-      // Optionally include latest tarot context (only derived from current draw)
-      const tarotCtx = window.__TAROT_AI_SESSION ? buildTarotContext(window.__TAROT_AI_SESSION) : "";
-      const userMsg = tarotCtx ? `${tarotCtx}\n\nUser: ${text}` : text;
 
       butlerHistory.push({ role: "user", content: userMsg });
       appendButler("…", false);
@@ -1627,6 +1668,7 @@ const sunHtml = `
 </script>
 </body>
 </html>
+
 
 
 
