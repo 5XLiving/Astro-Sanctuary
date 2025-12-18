@@ -331,17 +331,80 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
       </section>
     </section>
 
-    <footer data-i18n="footer.copy">© 5XLiving • Astro Sanctuary</footer>
-  </main>
+  <footer>© 5XLiving • Astro Sanctuary</footer>
+</main>
+</body>
+  
+    <!-- GPT / 心怜管家（统一浮窗） -->
+<button class="ss-chat-fab" id="ssChatFab" type="button">
+  <span data-i18n="chat_fab">问</span>
+</button>
 
-  <script>window.API_BASE='https://throbbing-lab-1440.hello5xliving.workers.dev';</script>
+<div class="ss-chat-panel" id="chatPanel" aria-hidden="true">
+  <div class="ss-chat-head">
+    <div class="ss-chat-title" id="chatTitle" data-i18n="chat_title">
+      心怜管家 · GPT
+    </div>
+    <div class="ss-close" id="chatClose">✕</div>
+  </div>
+
+  <!-- 聊天内容区：保持为空，消息全部由 JS append -->
+  <div class="ss-chat-body" id="chatBody"></div>
+
+  <!-- 输入区 -->
+  <div class="ss-chat-input">
+    <input
+      id="chatInput"
+      placeholder="输入问题…"
+      data-i18n-ph="chat_input_ph"
+    />
+    <button class="btn" id="chatSend" data-i18n="chat_send">发送</button>
+  </div>
+</div>
 
   <!-- Main app -->
   <script>
   (() => {
     'use strict';
     const SG_TZ = 'Asia/Singapore';
-    const $ = id => document.getElementById(id);
+    /* ========== HELPERS ========== */
+  const $id = (id) => document.getElementById(id);
+  const qs = (sel, root = document) => root.querySelector(sel);
+  const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+  const show = (el) => { if (el) el.style.display = ""; };
+  const hide = (el) => { if (el) el.style.display = "none"; };
+
+  const escapeHTML = (str) =>
+    String(str ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  const clampStr = (s, max = 1600) => {
+    s = String(s ?? "");
+    return s.length > max ? s.slice(0, max) + "…" : s;
+  };
+
+  const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
+  const deepGet = (obj, path) => {
+    if (!obj || !path) return undefined;
+    const parts = String(path).split(".");
+    let cur = obj;
+    for (const p of parts) {
+      if (!cur) return undefined;
+      cur = cur[p];
+    }
+    return cur;
+  };
+    /* ========== CONFIG ========== */
+    const API_BASE = "https://throbbing-lab-1440.hello5xliving.workers.dev";
+    const CHAT_ENDPOINT = "/api/chat";
+    const LANG_KEY = "5x_lang"; // unify across pages
+    const $ = $id; // alias so $('id') works everywhere
+
     const state = (window.state = window.state || {});
     state.lang = 'zh-CN';  // this page is fixed to Simplified Chinese
     try { localStorage.setItem('5x_lang', 'zh-CN'); } catch {}
@@ -1097,24 +1160,13 @@ function onLangSelect(e){
         const sync = ()=>{ bt.disabled = !!unk.checked; bt.style.opacity = bt.disabled ? 0.5 : 1; };
         unk.addEventListener('change', sync); sync();
       }
-      $('genBtn')?.addEventListener('click', generate);
-
-      const chatToggle = $('chatToggle'), chatFloat  = $('chatFloat'), chatClose  = $('chatClose'), chatSend   = $('chatSend'), chatInput  = $('chatInput');
-      if (chatToggle && chatFloat){ chatToggle.addEventListener('click', ()=>{ const cur = getComputedStyle(chatFloat).display; chatFloat.style.display = (cur === 'none' ? 'flex' : 'none'); }); }
-      if (chatClose && chatFloat){ chatClose.addEventListener('click', ()=>{ chatFloat.style.display = 'none'; }); }
-      if (chatSend && chatInput){
-        const send = ()=>{ const q=(chatInput.value||'').trim(); if(!q) return; appendMsg(q,'user'); chatInput.value=''; const tpl=t('chatDyn.autoReply')||'收到：{q}。'; appendMsg(tpl.replace('{q}',q),'bot'); };
-        chatSend.addEventListener('click', send);
-        chatInput.addEventListener('keydown', (e)=>{ if (e.key === 'Enter'){ e.preventDefault(); send(); } });
-      }
-
-      tickNow(); if (!boot._clock) boot._clock = setInterval(tickNow, 60000);
-      setupAuthReveal();
+            $('genBtn')?.addEventListener('click', generate);
     }
 
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot, { once:true });
-    else boot();
+    // ✅ 启动
+    document.addEventListener('DOMContentLoaded', boot);
   })();
+
   </script>
 
 <!-- Clock + defaults keep-in-sync with language -->
