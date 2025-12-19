@@ -360,7 +360,6 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
 
   <footer>© 5XLiving • Astro Sanctuary</footer>
 </main>
-</body>
   
     <!-- GPT / 心怜管家（统一浮窗） -->
 <button class="ss-chat-fab" id="ssChatFab" type="button">
@@ -1071,9 +1070,6 @@ window.buildProReport = function buildProReport(ctx){
 
   const sec = $('butlerProfessional');
   if (sec) sec.style.display = 'block';
-
-  // 让 i18n 重刷时可以重建这份报告
-  window.lastCtx = ctx;
 };
     
     /* ===== Gen + UI ===== */
@@ -1120,19 +1116,11 @@ window.buildProReport = function buildProReport(ctx){
 
         const tg = calc.tenGods(d.stem, stems);
         const ctx = { pcts, dayStem: d.stem, tenGods: tg, unknown };
+        window.lastCtx = ctx;
 
         $('result').style.display='block';
       }catch(e){ console.error(e); showErr(t('err.generateFail')); }
       finally{ setGenLoading(false); }
-    }
-
-    function appendMsg(text, who='user'){
-      const box=$('chatMessages'); if(!box) return;
-      const div=document.createElement('div');
-      div.className = who==='user' ? 'me-msg' : 'ss-msg';
-      div.textContent = text;
-      box.appendChild(div);
-      box.scrollTop = box.scrollHeight;
     }
 
 function onLangSelect(e){
@@ -1165,6 +1153,147 @@ function onLangSelect(e){
       box.textContent = fmt.format(new Date()) + ' (SGT)';
     }
     window.tickNow = tickNow;
+
+    /* ===== Floating GPT Chat (ONLY this one) ===== */
+function initChat(){
+  const fab   = $('ssChatFab');
+  const panel = $('chatPanel');
+  const close = $('chatClose');
+  const body  = $('chatBody');
+  const input = $('chatInput');
+  const send  = $('chatSend');
+
+  if (!fab || !panel || !close || !body || !input || !send) {
+    console.warn('[chat] missing elements');
+    return;
+  }
+
+  // chat history for API
+  let chatHistory = [];
+
+  const open = () => { panel.setAttribute('aria-hidden','false'); setTimeout(()=>input.focus(), 50); };
+  const shut = () => { panel.setAttribute('aria-hidden','true'); };
+  const toggle = () => {
+    const hidden = panel.getAttribute('aria-hidden') !== 'false';
+    hidden ? open() : shut();
+  };
+
+  fab.addEventListener('click', toggle);
+  close.addEventListener('click', shut);
+
+  function pushMsg(text, who='bot'){
+    const div = document.createElement('div');
+    div.className = who === 'me' ? 'ss-msg me' : 'ss-msg';
+    div.textContent = text;
+    body.appendChild(div);
+    body.scrollTop = body.scrollHeight;
+  }
+
+  // optional welcome (only once)
+  if (!initChat._welcomed){
+    initChat._welcomed = true;
+    pushMsg(t('pro.welcome') || '你好，我是心怜管家 · GPT。你可以直接问八字、事业、感情、财运等问题。', 'bot');
+  }
+
+  function buildBaziChatContext(){
+    // if user already generated chart, reuse ctx
+    const ctx = window.lastCtx || null;
+    const name = ($('name')?.value || '').trim();
+    const gender = ($('gender')?.value || '').trim();
+    const birth = ($('birthdate')?.value || '').trim();
+    const timeUnknown = !!$('timeUnknown')?.checked;
+    const birthtime = ($('birthtime')?.value || '').trim();
+
+    return {
+      name, gender,
+      birthdate: birth,
+      birthtime: timeUnknown ? '' : birthtime,
+      timeUnknown,
+      chart: ctx
+    };
+  }
+
+  function extractReply(json){
+    // be tolerant with different worker schemas
+    if (!json) return '';
+    return (
+      json.reply ||
+      json.answer ||
+      json.content ||
+      json.message ||
+      json.text ||
+      (json.data && (json.data.reply || json.data.content || json.data.text)) ||
+      ''
+    );
+  }
+
+  async function callChatAPI(userText){
+    const lang = (window.state && window.state.lang) || 'zh-CN';
+    const ctx = buildBaziChatContext();
+
+    // set system prompt once
+    if (!chatHistory.length){
+      chatHistory.push({
+        role: 'system',
+        content:
+`你是「心怜管家 · GPT」，负责解读八字与给出可执行建议。
+- 语言：${lang}
+- 若用户尚未生成命盘(chart 为空)，先提示他点「生成八字」再问。
+- 回答要具体、分点、可落地；不要输出代码。`
+      });
+    }
+
+    chatHistory.push({ role:'user', content: userText });
+
+    const url = String(API_BASE).replace(/\/$/,'') + CHAT_ENDPOINT;
+    const payload = {
+      lang,
+      context: ctx,         // 给你 worker 用
+      messages: chatHistory // 兼容常见 chat API
+    };
+
+    const res = await fetch(url, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(payload)
+    });
+
+    // worker 不是 200 就直接 throw
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const json = await res.json().catch(()=>null);
+    const reply = extractReply(json);
+
+    // 保持 history
+    if (reply) chatHistory.push({ role:'assistant', content: reply });
+    return reply || '（没有拿到回复内容，检查 worker 返回字段）';
+  }
+
+  async function sendMsg(){
+    const text = (input.value || '').trim();
+    if (!text) return;
+
+    input.value = '';
+    pushMsg(text, 'me');
+    pushMsg('…', 'bot'); // typing placeholder
+    const typingNode = body.lastElementChild;
+
+    try{
+      const reply = await callChatAPI(text);
+      if (typingNode) typingNode.textContent = reply;
+      else pushMsg(reply, 'bot');
+    }catch(err){
+      console.error('[chat] error', err);
+      if (typingNode) typingNode.textContent = '⚠️ GPT 连接失败，请检查 API_BASE / /api/chat 是否可用。';
+      else pushMsg('⚠️ GPT 连接失败，请检查 API_BASE / /api/chat 是否可用。', 'bot');
+    }
+  }
+
+  send.addEventListener('click', sendMsg);
+  input.addEventListener('keydown', (e)=>{
+    if (e.key === 'Enter') sendMsg();
+  });
+}
 
     function boot(){
       if (boot._didBoot) return; boot._didBoot = true;
