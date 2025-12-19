@@ -91,28 +91,6 @@ input:focus,select:focus{box-shadow:var(--focus); border-color:#3a4c63}
 .panel .body{padding:18px}
 .spacer{height:12px}
 
-/* Butler / Pro report */
-.butler-professional{display:none; margin-top:20px; background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px}
-.butler-header{display:flex; align-items:center; gap:10px; margin-bottom:20px; color:var(--gold2); font-size:1.2rem; font-weight:700}
-.butler-content{line-height:1.8; max-height:600px; overflow-y:auto; padding:15px; background:var(--surface); border-radius:10px; border:1px solid #253245}
-.butler-section{margin-bottom:25px; padding-bottom:15px; border-bottom:1px solid #253245}
-.butler-section h4{color:var(--gold2); margin-bottom:10px; font-size:1.05rem}
-
-/* floating chat */
-.chat-float{position:fixed; bottom:20px; right:20px; width:350px; height:500px; background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); backdrop-filter:blur(10px); z-index:1000; display:none; flex-direction:column}
-.chat-float-header{padding:12px 16px; border-bottom:1px solid var(--line); background:rgba(212,175,55,.1); color:var(--gold2); font-weight:700; display:flex; justify-content:space-between; align-items:center; cursor:move}
-.chat-float-close{background:none; border:none; color:var(--gold2); font-size:1.2rem; cursor:pointer; padding:4px; border-radius:4px}
-.chat-float-close:hover{background:rgba(212,175,55,.2)}
-.chat-float-body{flex:1; display:flex; flex-direction:column; padding:0}
-.chat-float-messages{flex:1; overflow-y:auto; padding:12px; background:var(--surface); font-size:0.9rem}
-.chat-float-input-area{padding:12px; border-top:1px solid var(--line); background:var(--bg-accent)}
-.chat-toggle-btn{position:fixed; bottom:20px; right:20px; width:60px; height:60px; border-radius:50%; background:linear-gradient(180deg,#fff9e6,#e6c76e); border:1px solid #e6c76e; color:#191919; font-size:1.5rem; cursor:pointer; box-shadow:0 4px 12px rgba(230,199,110,.3); z-index:1001; display:flex; align-items:center; justify-content:center}
-.chat-toggle-btn:hover{transform:scale(1.05); box-shadow:0 6px 20px rgba(230,199,110,.5)}
-@media (max-width:768px){
-  .chat-float{width:300px; height:400px; bottom:10px; right:10px}
-  .chat-toggle-btn{width:50px; height:50px; bottom:10px; right:10px}
-}
-
 /* form focus simplification */
 input:focus,select:focus,textarea:focus{outline:none!important; box-shadow:none!important; border-color:#243244!important}
 button:focus,.btn:focus,a:focus{outline:none!important; box-shadow:none!important}
@@ -243,37 +221,6 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
       </div>
     </section>
 
-    <!-- Pro report -->
-    <section id="butlerProfessional" class="butler-professional">
-      <div class="butler-header">
-        <span>🧙‍♂️ Xinlian Butler · Professional Destiny Analysis</span>
-      </div>
-      <div class="butler-content" id="professionalReport"></div>
-    </section>
-
-    <!-- Floating chat -->
-    <button class="chat-toggle-btn" id="chatToggle">Ask</button>
-    <div class="chat-float" id="chatFloat">
-      <div class="chat-float-header">
-        <span>🧙‍♂️ Xinlian Butler · Q&amp;A</span>
-        <button class="chat-float-close" id="chatClose">×</button>
-      </div>
-      <div class="chat-float-body">
-        <div class="chat-float-messages" id="chatMessages">
-          <div class="ss-msg">
-            Hi, I’m your destiny consultant. I’ve generated a report based on your chart.
-            Ask any specific question about love, career, wealth, or timing.
-          </div>
-        </div>
-        <div class="chat-float-input-area">
-          <div style="display:flex;gap:8px;">
-            <input type="text" id="chatInput" placeholder="Type your question..." style="flex:1; padding:10px; border-radius:8px; border:1px solid #253245; background:#0e1520; color:#e8edf3;">
-            <button class="btn" id="chatSend" style="padding:8px 16px;">Send</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- VIP segment -->
     <section class="card section">
       <h2 class="group-title">🌙 VIP Segment</h2>
@@ -346,714 +293,1148 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
       </section>
     </section>
 
-    <footer>© 5XLiving • Astro Sanctuary</footer>
-  </main>
+<footer data-i18n="footer.copy">© 5XLiving • Astro Sanctuary</footer>
+</main>
 
-  <script>
-  // If you hook to your worker, set it here (optional)
-  window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+<!-- GPT / Xinlian Butler (Unified Floating Chat) -->
+<button class="ss-chat-fab" id="ssChatFab" type="button">
+  <span data-i18n="chat.toggle">Ask</span>
+</button>
 
-  (function(){
-    'use strict';
-    const SG_TZ = 'Asia/Singapore';
-    const $ = id => document.getElementById(id);
-    const state = window.state = window.state || {};
-    state.lang = 'en';
+<div class="ss-chat-panel" id="chatPanel" aria-hidden="true">
+  <div class="ss-chat-head">
+    <div class="ss-chat-title" id="chatTitle" data-i18n="chat_title">
+      Xinlian Butler · GPT
+    </div>
+    <div class="ss-close" id="chatClose">✕</div>
+  </div>
 
-    // current page language
-    const CURRENT_LANG = 'en'; // this page is the English version
+  <!-- Chat body: keep empty; messages are appended by JS -->
+  <div class="ss-chat-body" id="chatBody"></div>
 
-    // map language code -> page URL (relative paths)
-const LANG_PAGES = {
-  'zh-CN': '/bazi.html',
-  'en':    '/assets/bazi-language-pack/bazi-en.html', // 这页自己
-  'zh-TW': '/assets/bazi-language-pack/bazi-zh-TW.html',
-  'ja':    '/assets/bazi-language-pack/bazi-ja.html',
-  'th':    '/assets/bazi-language-pack/bazi-th.html',
-  'ms':    '/assets/bazi-language-pack/bazi-ms.html'
-};
+  <!-- Input area -->
+  <div class="ss-chat-input">
+    <input
+      id="chatInput"
+      placeholder="Type your question…"
+      data-i18n-ph="chat.placeholder"
+    />
+    <button class="btn" id="chatSend" data-i18n="chat.send">Send</button>
+  </div>
+</div>
 
-    /* ===== time in header (SG) ===== */
-    function updateNowBox(){
-      try{
-        const now = new Date();
-        const fmt = new Intl.DateTimeFormat('en-SG',{
-          timeZone:SG_TZ,
-          year:'numeric',month:'short',day:'2-digit',
-          hour:'2-digit',minute:'2-digit'
-        });
-        const box = $('nowBox');
-        if(box) box.textContent = fmt.format(now) + ' · SGT';
-      }catch(e){}
+<!-- Main app -->
+<script>
+(() => {
+  'use strict';
+  const SG_TZ = 'Asia/Singapore';
+
+  /* ========== HELPERS ========== */
+  const $id = (id) => document.getElementById(id);
+  const qs = (sel, root = document) => root.querySelector(sel);
+  const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+  const show = (el) => { if (el) el.style.display = ""; };
+  const hide = (el) => { if (el) el.style.display = "none"; };
+
+  const escapeHTML = (str) =>
+    String(str ?? "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+
+  const clampStr = (s, max = 1600) => {
+    s = String(s ?? "");
+    return s.length > max ? s.slice(0, max) + "…" : s;
+  };
+
+  const isObj = (v) => v && typeof v === "object" && !Array.isArray(v);
+  const deepGet = (obj, path) => {
+    if (!obj || !path) return undefined;
+    const parts = String(path).split(".");
+    let cur = obj;
+    for (const p of parts) {
+      if (!cur) return undefined;
+      cur = cur[p];
     }
-    updateNowBox();
-    setInterval(updateNowBox, 60000);
+    return cur;
+  };
 
-    /* ===== Bazi calculator (same logic as CN) ===== */
-    class BaziCalculator {
-      constructor(){
-        this.HEAVENLY_STEMS=['Jia','Yi','Bing','Ding','Wu','Ji','Geng','Xin','Ren','Gui']; // for display we keep EN pinyin
-        this.STEMS_CN=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸']; // internal CN for mapping
-        this.EARTHLY_BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-        this.NAYIN=[
-          'Metal in the Sea','Fire in the Furnace','Wood in the Forest','Earth by the Road',
-          'Metal on the Sword Edge','Fire on the Mountain','Water under the Stream','Earth on the City Wall',
-          'Metal of White Wax','Wood of Willow Tree','Water in the Spring','Earth on the Roof',
-          'Thunder Fire','Wood of Pine & Cypress','Flowing Water','Sand & Pebble Metal',
-          'Fire at the Foot of Mountain','Flatland Wood','Wall Earth','Gold Foil Metal',
-          'Lamp Fire','River in Heaven','Post-Station Earth','Jewellery Metal',
-          'Mulberry Wood','Great River Water','Sand Earth','Heavenly Fire',
-          'Pomegranate Wood','Ocean Water'
-        ];
-      }
-      stemCn(index){ return this.STEMS_CN[(index+10)%10]; }
-      yearPillar(year){
-        const s=(year-4)%10, b=(year-4)%12;
-        return {stemCn:this.stemCn(s), stem:this.HEAVENLY_STEMS[(s+10)%10], branch:this.EARTHLY_BRANCHES[(b+12)%12]};
-      }
-      solarMonthIndex(y,m,d){
-        const mmdd=m*100+d;
-        const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
-        let idx=11; for(const [thr,val] of gates){ if(mmdd>=thr) idx=val; }
-        const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
-        return {index:idx, branch:branchBy[idx]};
-      }
-      monthPillar(year,month,day){
-        const {index,branch}=this.solarMonthIndex(year,month,day);
-        const yStemIdx=(this.yearPillar(year).stemCn && this.STEMS_CN.indexOf(this.yearPillar(year).stemCn)) || 0;
-        const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
-        const stemIdx=(startMap[yStemIdx]+(index-1))%10;
-        return {stemCn:this.stemCn(stemIdx), stem:this.HEAVENLY_STEMS[stemIdx], branch};
-      }
-      dayPillar(year,month,day){
-        const baseUTC=Date.UTC(1900,0,31), targetUTC=Date.UTC(year,month-1,day);
-        const dayDiff=Math.floor((targetUTC-baseUTC)/86400000);
-        const stemIdx=(0+dayDiff)%10, branchIdx=(4+dayDiff)%12;
-        return {stemCn:this.stemCn(stemIdx), stem:this.HEAVENLY_STEMS[(stemIdx+10)%10],branch:this.EARTHLY_BRANCHES[(branchIdx+12)%12]};
-      }
-      hourPillar(dayStemCn,hour){
-        const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
-        const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};
-        const dayIdx=this.STEMS_CN.indexOf(dayStemCn);
-        const hourIndex=Math.floor((hour+1)/2)%12;
-        const stemIdx=(startMap[dayIdx]+hourIndex)%10;
-        return {stemCn:this.stemCn(stemIdx), stem:this.HEAVENLY_STEMS[stemIdx], branch:branchMap[hour]};
-      }
-      stemElem(cn){
-        return ({'甲':'Wood','乙':'Wood','丙':'Fire','丁':'Fire','戊':'Earth','己':'Earth',
-                 '庚':'Metal','辛':'Metal','壬':'Water','癸':'Water'})[cn]||'-';
-      }
-      branchElem(b){
-        return ({'子':'Water','丑':'Earth','寅':'Wood','卯':'Wood','辰':'Earth','巳':'Fire',
-                 '午':'Fire','未':'Earth','申':'Metal','酉':'Metal','戌':'Earth','亥':'Water'})[b]||'-';
-      }
+  /* ========== CONFIG ========== */
+  const API_BASE = "https://throbbing-lab-1440.hello5xliving.workers.dev";
+  const CHAT_ENDPOINT = "/api/chat";
+  const LANG_KEY = "5x_lang"; // unify across pages
+  const $ = $id; // alias so $('id') works everywhere
 
-      // 🔹 NEW: Stem name in English + element, e.g. "Yi (Wood)"
-      stemNameEn(stemCn){
-        const idx = this.STEMS_CN.indexOf(stemCn);
-        if (idx === -1) return stemCn;
-        const base = this.HEAVENLY_STEMS[idx];    // Jia, Yi, Bing...
-        const elem = this.stemElem(stemCn);       // Wood, Fire, Earth...
-        return `${base} (${elem})`;
-      }
+  const state = (window.state = window.state || {});
+  state.lang = 'en';  // ✅ This page is fixed to English
+  try { localStorage.setItem(LANG_KEY, 'en'); } catch {}
 
-      // 🔹 NEW: Branch name in English + animal, e.g. "Si (Snake)"
-      branchNameEn(b){
-        const map = {
-          '子':'Zi (Rat)',
-          '丑':'Chou (Ox)',
-          '寅':'Yin (Tiger)',
-          '卯':'Mao (Rabbit)',
-          '辰':'Chen (Dragon)',
-          '巳':'Si (Snake)',
-          '午':'Wu (Horse)',
-          '未':'Wei (Goat)',
-          '申':'Shen (Monkey)',
-          '酉':'You (Rooster)',
-          '戌':'Xu (Dog)',
-          '亥':'Hai (Pig)'
-        };
-        return map[b] || b;
-      }
+  /* ===== I18N core ===== */
+  window.I18N = window.I18N || {};
+  const I18N = window.I18N;
+  window.ensure = (code, dict) => { I18N[code] = Object.assign({}, I18N[code] || {}, dict); };
 
-      nayin(stemCn,branch){
-        const si=this.STEMS_CN.indexOf(stemCn), bi=this.EARTHLY_BRANCHES.indexOf(branch);
-        return this.NAYIN[(si*2+bi)%this.NAYIN.length];
-      }
-    }
+  // Base pack (EN)
+  I18N['en'] = Object.assign({}, I18N['en'] || {}, {
+    action:{
+      weekly:'Weekly',
+      energy:'Energy Practice',
+      career:'Career strategy: steady progress, focused output',
+      career2:'Consistent output & review (break goal → weekly plan → review & improve)',
+      relationship:'Relationships: honest communication, boundaries, timely responses',
+      wealth:'Wealth: budget/cashflow, monetize skills, manage risk'
+    },
+    brand:{ subtitle:'5xLiving · BaZi Quick Reading' },
+    nav:{ langLabel:'Language' },
+    lang:{ 'zh-CN':'简体中文','zh-TW':'繁體中文','en':'English','ja':'日本語','th':'ไทย','ms':'Bahasa Melayu' },
 
-    /* ===== Simple analysis helpers (English only) ===== */
-    const DayMasterText = {
-      '甲':'Jia Wood: pioneering, energetic, likes to open new paths.',
-      '乙':'Yi Wood: gentle, kind, supportive, values harmony.',
-      '丙':'Bing Fire: passionate, expressive, bright and visible.',
-      '丁':'Ding Fire: warm, steady, protective, values loyalty.',
-      '戊':'Wu Earth: stable, reliable, likes to build long-term results.',
-      '己':'Ji Earth: careful, considerate, service-minded, detail-oriented.',
-      '庚':'Geng Metal: bold, decisive, straightforward, action-driven.',
-      '辛':'Xin Metal: refined, precise, values quality and standards.',
-      '壬':'Ren Water: free, flexible, adaptable, loves movement and variety.',
-      '癸':'Gui Water: sensitive, thoughtful, deep inner world.'
+    app:{ title:'BaZi · Quick Chart' },
+    form:{
+      nameLabel:'Name (optional)',
+      namePlaceholder:'How should I address you? (for personalization)',
+      genderLabel:'Gender',
+      gender:{ hidden:'Prefer not to say', male:'Male', female:'Female' },
+      calendarLabel:'Calendar',
+      calendar:{ gregorian:'Gregorian (Solar)', lunar:'Lunar' },
+      birthdateLabel:'Birth date',
+      birthtimeLabel:'Birth time',
+      timeUnknown:'Time unknown'
+    },
+
+    btn:{ generate:'Generate BaZi', loading:'Calculating…' },
+    result:{ title:'Your BaZi (Four Pillars) Chart' },
+    pillar:{ year:'Year Pillar', month:'Month Pillar', day:'Day Pillar', hour:'Hour Pillar' },
+    table:{ row:{ stem:'Heavenly Stem', branch:'Earthly Branch', fiveElem:'Element', nayin:'NaYin' } },
+    energy:{ title:'Five Elements Energy' },
+    elem:{ wood:'Wood', fire:'Fire', earth:'Earth', metal:'Metal', water:'Water', month:'Month', fiveElements:'Five Elements' },
+
+    // used by your HTML: data-i18n="chat_title"
+    chat_title:'Xinlian Butler · GPT',
+
+    pro:{
+      title:'Xinlian Butler · Professional Reading',
+      welcome:'Hi! I’m Xinlian Butler · GPT. Generate your chart first, then ask about career, relationships, wealth, health, etc.'
+    },
+    chat:{ send:'Send', placeholder:'Type your question…', toggle:'Ask' },
+
+    vip:{
+      title:'VIP Area',
+      group:{ astrology:'BaZi Space', spiritual:'Soul Sanctuary' },
+      astrology:{
+        match:'Love & Marriage: relationship outlook',
+        career:'Career: job growth & entrepreneurship',
+        wealth:'Wealth: money direction & timing',
+        pet:'Pet Reading: personality & bond'
+      },
+      spiritual:{
+        record:'Spiritual journal: photos, dreams, audio, prayers',
+        courses:'Courses: BaZi / Tarot / Astrology / Numerology',
+        family:'Family memorial system',
+        practice:'Weekly practices / ritual tasks'
+      },
+      login:{ title:'VIP Login' },
+      services:{ header:'Member Services' },
+      upgrade:'Upgrade to VIP (Monthly)',
+      back:'← Back to Store',
+      priceNote:'$9.9 / month VIP (BaZi Space + Soul Sanctuary + Courses)'
+    },
+
+    auth:{
+      header:'Login / Register',
+      login:'Login',
+      reset:'Reset password',
+      register:'Register',
+      freeTrialNote:'Register to get 1 free trial',
+      emailPlaceholder:'Email',
+      passwordPlaceholder:'Password (min 8 chars, include upper/lower/number/symbol)'
+    },
+
+    footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+
+    err:{
+      fillBirthdate:'Please enter your birth date',
+      invalidDate:'Invalid format. Use YYYY-MM-DD',
+      generateFail:'Failed to generate. Please try again.'
+    },
+
+    ui:{
+      unknown:'Unknown',
+      timeUnknown:'Time unknown',
+      hourSuffix:'{hh}:{mm}',
+      birthSummary:'Birth: {y}-{m}-{d} {timeText}',
+      balance:'Strongest: {strongest}. Weakest: {weakest}.'
+    },
+
+    badge:{ noHour:'Hour pillar omitted' },
+
+    report:{
+      hourUnknownTip:'Note: Because the birth time is unknown, parts of the analysis are for reference only.',
+      tipTitle:'Tip',
+      generating:'Generating your professional report…',
+      failed:'Report generation failed. Please try again.'
+    },
+
+    reportTitles:{
+      overview:'Chart Overview',
+      fiveElements:'Five Elements',
+      tenGods:'Ten Gods',
+      useful:'Favorable Elements',
+      relationship:'Love & Relationships',
+      career:'Career',
+      wealth:'Wealth',
+      health:'Health',
+      nearTerm:'Near-term Outlook',
+      actions:'Action Checklist'
+    },
+
+    tenGodsNames:{
+      biJian:'Peer (Bi Jian)',
+      jieCai:'Rob Wealth (Jie Cai)',
+      shiShen:'Eating God (Shi Shen)',
+      shangGuan:'Hurting Officer (Shang Guan)',
+      zhengCai:'Direct Wealth (Zheng Cai)',
+      pianCai:'Indirect Wealth (Pian Cai)',
+      zhengGuan:'Direct Officer (Zheng Guan)',
+      qiSha:'Seven Killings (Qi Sha)',
+      zhengYin:'Direct Resource (Zheng Yin)',
+      pianYin:'Indirect Resource (Pian Yin)'
+    },
+    tenGodsHints:{
+      biJian:'Peers, self-reliance, competition/cooperation.',
+      jieCai:'Resource sharing/competition; watch impulsive spending.',
+      shiShen:'Output/creativity/enjoyment; good for expression.',
+      shangGuan:'Breakthrough & critique; innovate but mind authority.',
+      zhengCai:'Stable income & cashflow; steady accumulation.',
+      pianCai:'Opportunities/side income; set risk limits.',
+      zhengGuan:'Rules, structure, position & reputation.',
+      qiSha:'Pressure/challenges; strong execution, needs balance.',
+      zhengYin:'Support, learning, mentors; steady resources.',
+      pianYin:'Insight & unusual learning; avoid overthinking.'
+    },
+
+    reportLabels:{
+      dayMaster:'Day Master',
+      strength:'Strength',
+      usefulSpirit:'Favorable Elements',
+      elementCount:'Element Count',
+      elementStrength:'Element Strength',
+      supportElements:'Support Elements',
+      restrainElements:'Balancing Elements',
+      missingElements:'Missing Elements',
+      traits:'Relationship Traits',
+      marriageAdvice:'Marriage Advice',
+      relationshipTips:'How to Get Along',
+      suitableCareers:'Suitable Fields',
+      careerAdvice:'Career Advice',
+      favorableDirections:'Favorable Directions',
+      wealthCharacteristics:'Wealth Style',
+      wealthDirections:'Money Direction',
+      financialAdvice:'Financial Advice',
+      healthCharacteristics:'Body Focus',
+      healthTips:'Health Tips',
+      wellnessAdvice:'Wellness',
+      overallFortune:'Overall Outlook',
+      favorableTiming:'Favorable Timing',
+      cautions:'Cautions',
+      tenGods:'Ten Gods',
+      symbolise:'Meaning',
+      analysis:'Advice'
+    },
+
+    wellness:{ default:'Sleep regularly, move moderately, keep emotions stable, avoid late nights.' },
+    cautions:{ default:'Avoid emotional decisions; control spending.' },
+
+    fortune:{
+      steady:'A period of steady adjustment',
+      upward:'Momentum rising; good for exposure/output',
+      focus:'Focus & structure; good for execution',
+      study:'Study/research first; build then launch',
+      foundation:'Build foundations; keep a steady rhythm'
+    },
+
+    wealth:{
+      stable:'Mainly stable income; good for accumulation-style planning',
+      opportunity:'More opportunity gains; control risk and impulses',
+      steady:'Steady wealth; rely on skills & reputation to grow income'
+    },
+
+    // Day Master text
+    'report.dayMaster.jia':'Jia Wood: proactive pioneer spirit; energetic and resilient.',
+    'report.dayMaster.yi':'Yi Wood: gentle, flexible, compassionate; grows through consistency.',
+    'report.dayMaster.bing':'Bing Fire: warm, confident, expressive; thrives when you take the lead.',
+    'report.dayMaster.ding':'Ding Fire: refined and steady; values trust and meaningful connections.',
+    'report.dayMaster.wu':'Wu Earth: pragmatic and grounded; strong at building stable foundations.',
+    'report.dayMaster.ji':'Ji Earth: careful and supportive; good at planning and fine execution.',
+    'report.dayMaster.geng':'Geng Metal: bold and decisive; strong willpower and action focus.',
+    'report.dayMaster.xin':'Xin Metal: precise and principled; values quality and standards.',
+    'report.dayMaster.ren':'Ren Water: broad-minded and adaptable; quick thinking, freedom-loving.',
+    'report.dayMaster.gui':'Gui Water: sensitive and persistent; strong inner drive, can overthink.',
+
+    // Marriage/Career/Health preset lines
+    'report.marriage.stable':'Relationships tend to be stable; suitable for building long-term commitment.',
+    'report.marriage.experienced':'You may have more relationship experiences; choose a truly compatible partner.',
+    'report.marriage.default':'Marriage/long-term relationships require mutual effort and communication.',
+
+    'report.career.leadership':'Good for leadership roles or entrepreneurship; build structure and reputation.',
+    'report.career.business':'Good for business/finance; focus on cashflow and discipline.',
+    'report.career.creative':'Good for creative/tech output; build portfolio and consistent delivery.',
+    'report.career.steady':'Step by step—deepen expertise and grow through professional reputation.',
+
+    'report.health.tips.jia':'Check liver health regularly; protect eyesight.',
+    'report.health.tips.yi':'Manage emotions; reduce eye strain.',
+    'report.health.tips.bing':'Regulate emotions; avoid staying up late.',
+    'report.health.tips.ding':'Ensure sufficient sleep; reduce stress overload.',
+    'report.health.tips.wu':'Eat regularly; avoid overeating.',
+    'report.health.tips.ji':'Food hygiene matters; avoid damp environments.',
+    'report.health.tips.geng':'Keep warm; avoid overly dry environments.',
+    'report.health.tips.xin':'Ventilation matters; avoid smoke/dust.',
+    'report.health.tips.ren':'Maintain hydration balance; keep kidneys supported.',
+    'report.health.tips.gui':'Drink enough water; avoid overwork.'
+  });
+
+  function t(path, lang = (window.state && window.state.lang) || 'en') {
+    const pack = (window.I18N && window.I18N[lang]) || {};
+    const baseEN = (window.I18N && window.I18N['en']) || {};
+    const baseTW = (window.I18N && window.I18N['zh-TW']) || {};
+    const baseCN = (window.I18N && window.I18N['zh-CN']) || {};
+
+    // 1) flat key (current lang)
+    let v = pack[path];
+    if (v != null && v !== '') return v;
+
+    // 2) nested object (current lang)
+    v = deepGet(pack, path);
+    if (v != null && v !== '') return v;
+
+    // 3) EN fallback flat
+    v = baseEN[path];
+    if (v != null && v !== '') return v;
+
+    // 4) EN fallback nested
+    v = deepGet(baseEN, path);
+    if (v != null && v !== '') return v;
+
+    // 5) TW fallback (optional)
+    v = baseTW[path];
+    if (v != null && v !== '') return v;
+    v = deepGet(baseTW, path);
+    if (v != null && v !== '') return v;
+
+    // 6) CN fallback (optional)
+    v = baseCN[path];
+    if (v != null && v !== '') return v;
+    v = deepGet(baseCN, path);
+    if (v != null && v !== '') return v;
+
+    const defaults = {
+      'reportLabels.symbolise': 'Meaning',
+      'reportLabels.analysis': 'Advice',
+      'reportLabels.tenGods': 'Ten Gods',
+      'reportLabels.dayMaster': 'Day Master',
+      'reportLabels.elementCount': 'Element Count',
+      'reportLabels.missingElements': 'Missing Elements',
+      'reportLabels.suitableCareers': 'Suitable Fields',
+      'reportLabels.careerAdvice': 'Career Advice',
+      'reportLabels.favorableDirections': 'Favorable Directions',
+      'reportLabels.healthCharacteristics': 'Body Focus',
+      'reportLabels.healthTips': 'Health Tips',
+      'reportLabels.wellnessAdvice': 'Wellness',
+      'reportLabels.overallFortune': 'Overall Outlook',
+      'reportLabels.favorableTiming': 'Favorable Timing',
+      'reportLabels.cautions': 'Cautions',
+      'report.career.steady': 'Step by step—deepen expertise and grow through reputation.',
+      'report.marriage.experienced': 'You may have more relationship experiences; choose a compatible partner.',
+      'wealth.steady': 'Steady wealth; rely on skills & reputation to grow income.'
     };
-    const RelationText = {
-      '甲':{
-        traits:'You tend to be more active and leading in love, but partners still need space.',
-        tips:'Practice listening and slow down decisions in relationships.'
-      },
-      '乙':{
-        traits:'You are gentle and supportive, easily giving a lot to the partner.',
-        tips:'Keep healthy boundaries and communicate your needs clearly.'
-      },
-      '丙':{
-        traits:'You love warmth and passion, but emotions can be intense.',
-        tips:'Cool down before reacting; avoid sharp words in arguments.'
-      },
-      '丁':{
-        traits:'Quiet but loyal, you remember every detail of care.',
-        tips:'Express affection more directly so your partner can feel it.'
-      },
-      '戊':{
-        traits:'Very responsible in love, you think about stability and future.',
-        tips:'Romance and softness are also important—schedule quality time.'
-      },
-      '己':{
-        traits:'You worry a lot about loved ones and sometimes overthink.',
-        tips:'Trust the bond and don’t take all pressure on yourself.'
-      },
-      '庚':{
-        traits:'Direct and clear, you dislike games and gray zones.',
-        tips:'Be gentle when speaking truths; pace decisions with your partner.'
-      },
-      '辛':{
-        traits:'You have high standards and easily sense small changes.',
-        tips:'Accept that no one is perfect, including yourself.'
-      },
-      '壬':{
-        traits:'You need freshness and freedom even inside a relationship.',
-        tips:'Create shared adventures so you don’t seek excitement outside.'
-      },
-      '癸':{
-        traits:'Very sensitive to atmosphere, you feel small shifts quickly.',
-        tips:'Learn emotional grounding before talking about conflicts.'
-      }
-    };
+    return defaults[path] || '';
+  }
+  window.t = t;
 
-    function strongestWeakest(counts){
-      const order=['Wood','Fire','Earth','Metal','Water'];
-      let max = -1, min = 1e9, maxKey='Wood', minKey='Wood';
-      order.forEach(k=>{
-        const v = counts[k]||0;
-        if(v>max){ max=v; maxKey=k; }
-        if(v<min){ min=v; minKey=k; }
-      });
-      return {strongest:maxKey, weakest:minKey};
+  function applyI18n(){
+    const lang = state.lang || 'en';
+    document.documentElement.lang = lang;
+
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const key = el.getAttribute('data-i18n');
+      const val = t(key);
+      if (typeof val === 'string' && val !== '') el.textContent = val;
+    });
+
+    document.querySelectorAll('option[data-i18n]').forEach(opt=>{
+      const key = opt.getAttribute('data-i18n');
+      const val = t(key);
+      if (typeof val === 'string' && val !== '') opt.textContent = val;
+    });
+
+    const setPh = (id, value) => { const el=$(id); if (el && typeof value === 'string' && value) el.placeholder = value; };
+    setPh('name', t('form.namePlaceholder'));
+    setPh('chatInput', t('chat.placeholder'));
+
+    if (window.lastCtx && typeof window.buildProReport === 'function') window.buildProReport(window.lastCtx);
+  }
+  window.applyI18n = applyI18n;
+
+  /* ===== BaZi calculator ===== */
+  class BaziCalculator {
+    constructor(){
+      this.HEAVENLY_STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+      this.EARTHLY_BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+
+      // ✅ NaYin translated to English
+      this.NAYIN=[
+        'Metal in the Sea','Fire in the Furnace','Wood of the Great Forest','Earth by the Roadside','Sword-edge Metal',
+        'Fire on the Mountain Top','Water in the Mountain Stream','Earth on the City Wall','White Wax Metal','Willow Wood',
+        'Spring Water','Roof-top Earth','Thunderbolt Fire','Pine & Cypress Wood','Long-flowing Water',
+        'Sand/Gravel Metal','Fire at the Foot of the Mountain','Plain Wood','Earth on the Wall','Gold Leaf Metal',
+        'Buddha Lamp Fire','Heavenly River Water','Great Post Station Earth','Hairpin/Bracelet Metal','Mulberry Wood',
+        'Great Stream Water','Sand Earth','Heavenly Fire','Pomegranate Wood','Great Sea Water'
+      ];
     }
-
-    /* ===== Pro report builder (local, English) ===== */
-    function buildProReport(ctx){
-      const box = $('professionalReport');
-      if(!box || !ctx) return;
-      const dmStemCn = ctx.day.stemCn;
-      const rel = RelationText[dmStemCn] || {
-        traits:'You value sincerity and mutual support in relationships.',
-        tips:'Keep communication open and honest.'
+    yearPillar(year){ const s=(year-4)%10, b=(year-4)%12; return {stem:this.HEAVENLY_STEMS[(s+10)%10], branch:this.EARTHLY_BRANCHES[(b+12)%12]}; }
+    solarMonthIndex(y,m,d){ const mmdd=m*100+d;
+      const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
+      let idx=11; for(const [thr,val] of gates){ if(mmdd>=thr) idx=val; }
+      const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
+      return {index:idx, branch:branchBy[idx]};
+    }
+    monthPillar(year,month,day){
+      const {index,branch}=this.solarMonthIndex(year,month,day);
+      const yStemIdx=this.HEAVENLY_STEMS.indexOf(this.yearPillar(year).stem);
+      const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
+      const stemIdx=(startMap[yStemIdx]+(index-1))%10;
+      return {stem:this.HEAVENLY_STEMS[stemIdx], branch};
+    }
+    dayPillar(year,month,day){
+      const baseUTC=Date.UTC(1900,0,31), targetUTC=Date.UTC(year,month-1,day);
+      const dayDiff=Math.floor((targetUTC-baseUTC)/86400000);
+      const stemIdx=(0+dayDiff)%10, branchIdx=(4+dayDiff)%12;
+      return {stem:this.HEAVENLY_STEMS[(stemIdx+10)%10],branch:this.EARTHLY_BRANCHES[(branchIdx+12)%12]};
+    }
+    hourPillar(dayStem,hour){
+      const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
+      const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};
+      const dayIdx=this.HEAVENLY_STEMS.indexOf(dayStem);
+      const hourIndex=Math.floor((hour+1)/2)%12;
+      const stemIdx=(startMap[dayIdx]+hourIndex)%10;
+      return {stem:this.HEAVENLY_STEMS[stemIdx], branch:branchMap[hour]};
+    }
+    stemElem(s){ return ({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[s]||'-'; }
+    branchElem(b){ return ({子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'})[b]||'-'; }
+    nayin(s,b){ const si=this.HEAVENLY_STEMS.indexOf(s), bi=this.EARTHLY_BRANCHES.indexOf(b); return this.NAYIN[(si*2+bi)%this.NAYIN.length]; }
+    tenGods(dayStem, stems){
+      const map={
+        '甲':{'甲':'比肩','乙':'劫財','丙':'食神','丁':'傷官','戊':'偏財','己':'正財','庚':'七殺','辛':'正官','壬':'偏印','癸':'正印'},
+        '乙':{'甲':'劫財','乙':'比肩','丙':'傷官','丁':'食神','戊':'正財','己':'偏財','庚':'正官','辛':'七殺','壬':'正印','癸':'偏印'},
+        '丙':{'甲':'偏印','乙':'正印','丙':'比肩','丁':'劫財','戊':'食神','己':'傷官','庚':'偏財','辛':'正財','壬':'七殺','癸':'正官'},
+        '丁':{'甲':'正印','乙':'偏印','丙':'劫財','丁':'比肩','戊':'傷官','己':'食神','庚':'正財','辛':'偏財','壬':'正官','癸':'七殺'},
+        '戊':{'甲':'七殺','乙':'正官','丙':'偏印','丁':'正印','戊':'比肩','己':'劫財','庚':'食神','辛':'傷官','壬':'偏財','癸':'正財'},
+        '己':{'甲':'正官','乙':'七殺','丙':'正印','丁':'偏印','戊':'劫財','己':'比肩','庚':'傷官','辛':'食神','壬':'正財','癸':'偏財'},
+        '庚':{'甲':'偏財','乙':'正財','丙':'七殺','丁':'正官','戊':'偏印','己':'正印','庚':'比肩','辛':'劫財','壬':'食神','癸':'傷官'},
+        '辛':{'甲':'正財','乙':'偏財','丙':'正官','丁':'七殺','戊':'正印','己':'偏印','庚':'劫財','辛':'比肩','壬':'傷官','癸':'食神'},
+        '壬':{'甲':'食神','乙':'傷官','丙':'偏財','丁':'正財','戊':'七殺','己':'正官','庚':'偏印','辛':'正印','壬':'比肩','癸':'劫財'},
+        '癸':{'甲':'傷官','乙':'食神','丙':'正財','丁':'偏財','戊':'正官','己':'七殺','庚':'正印','辛':'偏印','壬':'劫財','癸':'比肩'}
       };
-      const dmLine = DayMasterText[dmStemCn] || 'Your Day Master personality is balanced and adaptable.';
-      const {strongest, weakest} = strongestWeakest(ctx.elements);
-
-      const parts = [];
-
-      // 1. Overview
-      parts.push(`
-        <div class="butler-section">
-          <h4>1. Overview · Day Master</h4>
-          <p><strong>Day Master:</strong> ${ctx.day.stemEn} (${dmStemCn})</p>
-          <p>${dmLine}</p>
-        </div>
-      `);
-
-      // 2. Five Elements
-      parts.push(`
-        <div class="butler-section">
-          <h4>2. Five Elements Balance</h4>
-          <p>
-            Wood: ${ctx.elements.Wood}% · Fire: ${ctx.elements.Fire}% ·
-            Earth: ${ctx.elements.Earth}% · Metal: ${ctx.elements.Metal}% · Water: ${ctx.elements.Water}%.
-          </p>
-          <p>
-            <strong>Strongest element:</strong> ${strongest}.<br/>
-            <strong>Weakest element:</strong> ${weakest}.
-          </p>
-          <p>
-            In practice: lean on your strongest element when you need confidence,
-            and intentionally grow the weakest element through environment, habits,
-            and people around you.
-          </p>
-        </div>
-      `);
-
-      // 3. Ten Gods (simple image)
-      parts.push(`
-        <div class="butler-section">
-          <h4>3. Ten-God Pattern (simple view)</h4>
-          <p>
-            In a full reading, the “Ten Gods” describe how your Day Master relates to
-            output, wealth, authority, resources, and companions.
-          </p>
-          <p>
-            A chart strong in output stars tends to express, create, and communicate a lot.
-            A chart strong in wealth or official stars often faces themes of money,
-            responsibility, status, and expectations from others.
-          </p>
-          <p>
-            This quick version does not list every Ten-God position,
-            but you can keep this image in mind when you think about your behaviour:
-            <em>“Where do I naturally over-give? Where do I avoid responsibility?
-            Where do I feel pushed by others’ demands?”</em>
-          </p>
-        </div>
-      `);
-
-      // 4. Favourable elements (yong-shen style, rough)
-      parts.push(`
-        <div class="butler-section">
-          <h4>4. Favourable Elements (rough guideline)</h4>
-          <p>
-            A strict “useful god” calculation needs a full professional reading,
-            but a safe guideline is:
-          </p>
-          <ul>
-            <li>Do <strong>not</strong> over-feed the element that is already strongest.</li>
-            <li>Gently support the element that is clearly weakest.</li>
-          </ul>
-          <p>
-            Example: if Fire is very strong, you already have plenty of pressure,
-            urgency, and activity. You do not need more “fire-type” stress.
-            Instead, grounding Earth and calming Water habits (sleep, pacing,
-            space to think) will keep you healthier.
-          </p>
-        </div>
-      `);
-
-      // 5. Relationships
-      parts.push(`
-        <div class="butler-section">
-          <h4>5. Relationships &amp; Marriage</h4>
-          <p><strong>Love traits:</strong> ${rel.traits}</p>
-          <p><strong>Advice:</strong> ${rel.tips}</p>
-          <p>
-            Generally, when your emotions are stable and your schedule is not overloaded,
-            relationships grow more smoothly. Avoid making big relationship decisions
-            during times of strong stress or financial pressure.
-          </p>
-        </div>
-      `);
-
-      // 6. Career
-      parts.push(`
-        <div class="butler-section">
-          <h4>6. Career &amp; Work Direction</h4>
-          <p>
-            <strong>Career note:</strong> This chart favours patient, skill-based growth.
-            Building long-term expertise and reputation is more important than short, dramatic jumps.
-          </p>
-          <p>
-            Try to align your work with your Day Master nature. If you are Wood or Fire heavy,
-            you do well in dynamic, people-oriented roles. If you are Metal or Water heavy,
-            you do better with analytical, technical, or research-style work.
-          </p>
-        </div>
-      `);
-
-      // 7. Wealth
-      parts.push(`
-        <div class="butler-section">
-          <h4>7. Wealth &amp; Practical Advice</h4>
-          <p>
-            This quick reading focuses on <strong>cash-flow awareness</strong>:
-            keep a simple system: monthly budget, small emergency fund, and a clear boundary
-            for “risk money” (speculation, trading, side bets).
-          </p>
-          <p>
-            Your best wealth pattern is to stabilize first (skills, core income),
-            then slowly add side income streams that fit your nature instead of forcing
-            something that feels off.
-          </p>
-        </div>
-      `);
-
-      // 8. Health &養生
-      parts.push(`
-        <div class="butler-section">
-          <h4>8. Health &amp; Self-care</h4>
-          <p>
-            Bazi is not a medical tool, but from a Five-Element perspective,
-            caring for the organs and life areas linked with your weaker elements
-            often brings more balance.
-          </p>
-          <p>
-            Basic foundations still matter most: regular sleep, blood circulation,
-            body temperature, digestion, and stress release. Find one or two
-            realistic routines (walking, stretching, baths, breathing, quiet time)
-            that you can repeat, not perfection.
-          </p>
-        </div>
-      `);
-
-      // 9. Near-future luck (ざっくり)
-      parts.push(`
-        <div class="butler-section">
-          <h4>9. Near-future Themes (outline)</h4>
-          <p>
-            This quick tool does not calculate every 10-year and yearly luck pillar,
-            but you can still use your element balance as a guide:
-          </p>
-          <ul>
-            <li>The <strong>strongest element</strong> often shows where chances and challenges appear.</li>
-            <li>The <strong>weakest element</strong> often shows what you are learning and stabilising.</li>
-          </ul>
-          <p>
-            In the coming period, watch how situations linked to your strongest element
-            keep repeating. Instead of thinking “good or bad”, ask:
-            <em>“What pattern is life asking me to master here?”</em>
-          </p>
-        </div>
-      `);
-
-      // 10. Action list
-      parts.push(`
-        <div class="butler-section">
-          <h4>10. Short-Term Action Checklist</h4>
-          <ul>
-            <li>Pick one realistic 30-day goal (career, money, or health) and write it down.</li>
-            <li>Design one weekly ritual (review, journaling, or planning) to reflect on this goal.</li>
-            <li>Protect your strongest element with the right environment (colors, activities, people).</li>
-            <li>Gently build your weakest element with small, repeatable habits.</li>
-          </ul>
-        </div>
-      `);
-
-      box.innerHTML = parts.join('\n');
-      const sec = $('butlerProfessional');
-      if(sec) sec.style.display = 'block';
+      const m=map[dayStem]||{}; return stems.map(s=>m[s]||'-');
     }
+  }
 
-    /* ===== Generate Bazi flow ===== */
-    const calc = new BaziCalculator();
+  /* ===== Analysis helpers ===== */
+  function stemToPinyin(stem){
+    const map = {'甲':'jia','乙':'yi','丙':'bing','丁':'ding','戊':'wu','己':'ji','庚':'geng','辛':'xin','壬':'ren','癸':'gui'};
+    return map[stem] || String(stem).toLowerCase();
+  }
+  const controlChain = { '木':'土', '土':'水', '水':'火', '火':'金', '金':'木' };
+  const motherOf     = { '木':'水', '火':'木', '土':'火', '金':'土', '水':'金' };
 
-    function showError(msg){
-      const e = $('error');
-      if(!e) return;
-      e.textContent = msg;
-      e.style.display = 'block';
+  const BaziAnalysis = {
+    dayMasterLine(stem){ return t('report.dayMaster.'+stemToPinyin(stem)) || ''; },
+
+    relation(dayStem){
+      const dict={
+        '甲':{traits:'Proactive in love; likes to lead. Remember to give the other person space.',tips:'Listen first, then respond. Keep communication balanced.'},
+        '乙':{traits:'Gentle and sensitive; needs stable emotional support. Avoid over-dependence.',tips:'Build confidence and express needs clearly.'},
+        '丙':{traits:'Passionate and expressive; can be impulsive when emotions rise.',tips:'Slow down before reacting; choose timing and words carefully.'},
+        '丁':{traits:'Loyal and devoted; may overthink or become suspicious under stress.',tips:'Practice trust; reduce unnecessary guessing.'},
+        '戊':{traits:'Stable and practical; values long-term security but may look “too serious”.',tips:'Add warmth/romance and emotional expression.'},
+        '己':{traits:'Caring and attentive; may lack a sense of safety at times.',tips:'Create emotional security through routines and clear agreements.'},
+        '庚':{traits:'Direct and decisive; dislikes ambiguity. Be mindful of the other person’s feelings.',tips:'Keep honesty, but soften delivery and pace.'},
+        '辛':{traits:'High standards; seeks quality and refinement in relationships.',tips:'Accept imperfections; focus on shared growth.'},
+        '壬':{traits:'Needs freshness and freedom; emotions can change quickly.',tips:'Build stable habits and shared interests to anchor the bond.'},
+        '癸':{traits:'Sensitive and intuitive; can be emotional when overwhelmed.',tips:'Learn emotion regulation; handle conflict with calm structure.'}
+      };
+      return dict[dayStem]||{traits:'Overall steady; relationship improves with intentional care.',tips:'Mutual respect and honest communication are key.'};
+    },
+
+    marriageAdvice(ten){
+      if(ten.includes('正官')||ten.includes('正財')) return t('report.marriage.stable');
+      if(ten.includes('七殺')||ten.includes('偏財')) return t('report.marriage.experienced');
+      return t('report.marriage.default');
+    },
+
+    career(dayStem,ten){
+      const map={
+        甲:'Leadership, entrepreneurship, operations, building/engineering',
+        乙:'Education, creative design, consulting, branding/content',
+        丙:'Marketing, sales, media/entertainment, energy-related industries',
+        丁:'R&D/tech, healthcare/service, precision/craft',
+        戊:'Finance, real estate, asset/resource management',
+        己:'HR, service industries, admin, agriculture-related',
+        庚:'Law, machinery/engineering, security/military/police',
+        辛:'Finance analysis, precision instruments, luxury/jewelry',
+        壬:'Trade/logistics, travel, creative industries',
+        癸:'Research, psychology/coaching, arts/creative writing'
+      };
+      let adv = t('report.career.steady');
+      if(ten.includes('正官')||ten.includes('七殺')) adv=t('report.career.leadership');
+      else if(ten.includes('正財')||ten.includes('偏財')) adv=t('report.career.business');
+      else if(ten.includes('食神')||ten.includes('傷官')) adv=t('report.career.creative');
+      return {suitable:map[dayStem]||'Build stable skills and long-term reputation.', advice:adv};
+    },
+
+    wealthDirs(dayStem){
+      const dirs={甲:'東方、東南方',乙:'東方、南方',丙:'南方',丁:'南方、西南方',戊:'中部、本地',己:'中部、西南方',庚:'西方、西北方',辛:'西方、北方',壬:'北方',癸:'北方、東方'};
+      return dirs[dayStem]||'-';
+    },
+
+    health(dayStem){
+      const c={
+        甲:'Liver/gallbladder, eyesight, tendons',
+        乙:'Liver function & emotional regulation',
+        丙:'Cardio & eyes; manage emotions',
+        丁:'Heart/circulation; prioritize sleep',
+        戊:'Digestive system; eat regularly',
+        己:'Digestion & skin; hygiene matters',
+        庚:'Respiratory system & large intestine; avoid dryness',
+        辛:'Lungs/respiration; keep air clean',
+        壬:'Kidneys/urinary; hydration balance',
+        癸:'Kidneys/bladder; avoid overwork'
+      };
+      return c[dayStem]||'Overall balanced—keep sleep and routine steady.';
     }
-    function clearError(){
-      const e = $('error');
-      if(e){ e.textContent=''; e.style.display='none'; }
-    }
+  };
 
-    function onGenerate(){
-      clearError();
-      const btn = $('genBtn');
-      const textSpan = $('genBtnText');
-      const loadSpan = $('genBtnLoading');
-      const birthdate = $('birthdate').value;
-      const timeStr = $('birthtime').value;
-      const timeUnknown = $('timeUnknown').checked;
+  // AI integration (single definition + breaker) —— unchanged
+  (function () {
+    const LS_DOWN = 'ai:insight:downUntil';
+    const now = () => Date.now();
+    const downUntil = () => { try { return parseInt(localStorage.getItem(LS_DOWN)||'0',10)||0; } catch { return 0; } };
+    const markDown = (ms = 180000) => { try { localStorage.setItem(LS_DOWN, String(now()+ms)); } catch {} };
+    const clearDown = () => { try { localStorage.removeItem(LS_DOWN); } catch {} };
 
-      if(!birthdate){
-        showError('Please enter your birth date.');
-        return;
-      }
-      const m = birthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if(!m){
-        showError('Invalid date format. Use YYYY-MM-DD.');
-        return;
-      }
-      const year = parseInt(m[1],10), month=parseInt(m[2],10), day=parseInt(m[3],10);
-
-      let hour = null, minute = null;
-      if(!timeUnknown && timeStr){
-        const tm = timeStr.match(/^(\d{2}):(\d{2})$/);
-        if(tm){
-          hour = parseInt(tm[1],10);
-          minute = parseInt(tm[2],10);
-        }
-      }
-
-      if(btn){ btn.disabled=true; }
-      if(textSpan) textSpan.style.display='none';
-      if(loadSpan) loadSpan.style.display='inline';
-
+    async function fetchJSON(url, init={}, timeoutMs=15000){
+      const ctrl = new AbortController(); const t=setTimeout(()=>ctrl.abort(), timeoutMs);
       try{
-        const yearP = calc.yearPillar(year);
-        const monthP = calc.monthPillar(year,month,day);
-        const dayP = calc.dayPillar(year,month,day);
-        const hasHour = hour!==null && !isNaN(hour);
-        const hourP = hasHour ? calc.hourPillar(dayP.stemCn,hour) : null;
-
-        const pillarsBox = $('bazi-pillars');
-        if(pillarsBox){
-          pillarsBox.innerHTML = '';
-          const arr = [
-            {label:'Year', p:yearP},
-            {label:'Month',p:monthP},
-            {label:'Day',p:dayP},
-            {label:'Hour',p:hourP}
-          ];
-          arr.forEach(item=>{
-            const div = document.createElement('div');
-            div.className='pillar';
-            if(item.p){
-              const stemFull = calc.stemNameEn(item.p.stemCn);      // e.g. "Yi (Wood)"
-              const branchFull = calc.branchNameEn(item.p.branch);  // e.g. "Si (Snake)"
-              div.innerHTML = `
-                <div class="tit">${item.label}</div>
-                <div class="gz">${stemFull} · ${branchFull}</div>
-                <div class="muted">${item.p.stemCn}${item.p.branch}</div>
-              `;
-            }else{
-              div.innerHTML = `
-                <div class="tit">${item.label}</div>
-                <div class="gz">—</div>
-                <div class="muted">N/A</div>
-              `;
-            }
-            pillarsBox.appendChild(div);
-          });
-        }
-
-        // Table fields
-        function setText(id,val){ const el=$(id); if(el) el.textContent = val==null?'-':val; }
-        // Stems: English + element, with CN in brackets
-        setText('year-stem',  `${calc.stemNameEn(yearP.stemCn)} (${yearP.stemCn})`);
-        setText('month-stem', `${calc.stemNameEn(monthP.stemCn)} (${monthP.stemCn})`);
-        setText('day-stem',   `${calc.stemNameEn(dayP.stemCn)} (${dayP.stemCn})`);
-        setText('hour-stem',  hourP ? `${calc.stemNameEn(hourP.stemCn)} (${hourP.stemCn})` : '—');
-
-        // Branches: English + animal, with CN in brackets
-        setText('year-branch',  `${calc.branchNameEn(yearP.branch)} (${yearP.branch})`);
-        setText('month-branch', `${calc.branchNameEn(monthP.branch)} (${monthP.branch})`);
-        setText('day-branch',   `${calc.branchNameEn(dayP.branch)} (${dayP.branch})`);
-        setText('hour-branch',  hourP ? `${calc.branchNameEn(hourP.branch)} (${hourP.branch})` : '—');
-
-        const yearElem = calc.stemElem(yearP.stemCn);
-        const monthElem = calc.stemElem(monthP.stemCn);
-        const dayElem = calc.stemElem(dayP.stemCn);
-        const hourElem = hourP ? calc.stemElem(hourP.stemCn) : '—';
-
-        setText('year-element',yearElem);
-        setText('month-element',monthElem);
-        setText('day-element',dayElem);
-        setText('hour-element',hourElem);
-
-        const yearNa = calc.nayin(yearP.stemCn,yearP.branch);
-        const monthNa = calc.nayin(monthP.stemCn,monthP.branch);
-        const dayNa = calc.nayin(dayP.stemCn,dayP.branch);
-        const hourNa = hourP?calc.nayin(hourP.stemCn,hourP.branch):'—';
-        setText('year-nayin',yearNa);
-        setText('month-nayin',monthNa);
-        setText('day-nayin',dayNa);
-        setText('hour-nayin',hourNa);
-
-        const dateBox = $('bazi-date');
-        if(dateBox){
-          let timePart = timeUnknown ? 'time unknown' : (hour!=null?`${String(hour).padStart(2,'0')}:${String(minute||0).padStart(2,'0')}`:'time unknown');
-          dateBox.textContent = `Birth: ${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')} · ${timePart}`;
-        }
-
-        // Element counts (stem + branch)
-        const counts = {Wood:0,Fire:0,Earth:0,Metal:0,Water:0};
-        function addElem(e){ if(e && counts.hasOwnProperty(e)) counts[e]++; }
-        const all = [yearP,monthP,dayP].concat(hourP? [hourP] : []);
-        all.forEach(p=>{
-          const se = calc.stemElem(p.stemCn);
-          const be = calc.branchElem(p.branch);
-          addElem(se); addElem(be);
-        });
-        const total = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
-        const pct = {};
-        Object.keys(counts).forEach(k=>{
-          pct[k] = Math.round(counts[k]/total*100);
-        });
-
-        function setBar(name,val){
-          const bar = $('bar-'+name.toLowerCase());
-          const txt = $('pct-'+name.toLowerCase());
-          if(bar) bar.style.width = val + '%';
-          if(txt) txt.textContent = val + '%';
-        }
-        setBar('wood',pct.Wood);
-        setBar('fire',pct.Fire);
-        setBar('earth',pct.Earth);
-        setBar('metal',pct.Metal);
-        setBar('water',pct.Water);
-
-        const bw = $('bazi-elements-balance');
-        const {strongest,weakest} = strongestWeakest(pct);
-        if(bw){
-          bw.textContent = `Among the Five Elements, ${strongest} is strongest and ${weakest} is weakest in this chart.`;
-        }
-
-        // Save context and build local report
-        const ctx = {
-          name: $('name').value || '',
-          gender: $('gender').value || '',
-          birth: {year,month,day,hour,minute,timeUnknown},
-          year: {stemCn:yearP.stemCn, stemEn:yearP.stem, branch:yearP.branch, element:yearElem, nayin:yearNa},
-          month:{stemCn:monthP.stemCn, stemEn:monthP.stem, branch:monthP.branch, element:monthElem, nayin:monthNa},
-          day:  {stemCn:dayP.stemCn, stemEn:dayP.stem, branch:dayP.branch, element:dayElem, nayin:dayNa},
-          hour: hourP?{stemCn:hourP.stemCn, stemEn:hourP.stem, branch:hourP.branch, element:hourElem, nayin:hourNa}:null,
-          elements:pct
-        };
-        window.lastCtx = ctx;
-
-        const resSec = $('result');
-        if(resSec) resSec.style.display = 'block';
-        buildProReport(ctx);
-
-      }catch(e){
-        console.error(e);
-        showError('Failed to generate chart. Please try again.');
-      }finally{
-        if(btn){ btn.disabled=false; }
-        if(textSpan) textSpan.style.display='inline';
-        if(loadSpan) loadSpan.style.display='none';
-      }
+        const res = await fetch(url, {...init, signal: ctrl.signal});
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } finally { clearTimeout(t); }
     }
 
-    /* ===== Chat behaviour (simple echo; you can replace with API) ===== */
-    function appendChat(role,text){
-      const box = $('chatMessages');
-      if(!box) return;
-      const div = document.createElement('div');
-      div.style.marginBottom = '8px';
-      div.style.whiteSpace = 'pre-wrap';
-      if(role==='user'){
-        div.style.textAlign='right';
-        div.innerHTML = `<strong>You:</strong> ${text}`;
-      }else{
-        div.innerHTML = `<strong>Butler:</strong> ${text}`;
-      }
-      box.appendChild(div);
-      box.scrollTop = box.scrollHeight;
+    async function _aiExplain(section, ctx, {lang, temperature=0.7, seed=null}={}){
+      if (!window.API_BASE) return null;
+      const json = await fetchJSON(`${String(window.API_BASE).replace(/\/$/,'')}/bazi/insight`, {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ section, lang, temperature, seed, ctx })
+      });
+      if (json && (json.symbolise || json.analysis)) return json;
+      return null;
     }
 
-    async function handleChatSend(){
-      const input = $('chatInput');
-      if(!input) return;
-      const q = input.value.trim();
-      if(!q) return;
-      appendChat('user', q);
-      input.value = '';
-
-      const ctx = window.lastCtx;
-      if(!ctx){
-        appendChat('bot','Please generate your Bazi chart first, then ask me about love, career, wealth, or timing.');
-        return;
+    window.aiExplain = async function (section, ctx, opts) {
+      if (now() < downUntil()) return null;
+      try {
+        const out = await _aiExplain(section, ctx, opts||{});
+        if (out) { clearDown(); return out; }
+        markDown(); return null;
+      } catch {
+        markDown(); return null;
       }
+    };
 
-      // Simple local reply; you can switch this to call your API_BASE if you want
-      const dm = ctx.day.stemEn || 'Day Master';
-      appendChat(
-        'bot',
-        `I see your Day Master is ${dm}. Based on this chart, your question "${q}" is best handled by:\n\n` +
-        `1) Checking whether this decision supports long-term stability (Earth element),\n` +
-        `2) Matching your nature (for example, Wood prefers growth and flexibility, Metal prefers clarity and rules),\n` +
-        `3) Moving step by step instead of all-in.`
-      );
-    }
+    window.injectAI = async function (section, symId, anaId, ctx, opts) {
+      try {
+        const out = await window.aiExplain(section, ctx, opts);
+        if (!out) return;
+        const $sym = document.getElementById(symId);
+        const $ana = document.getElementById(anaId);
+        if ($sym && out.symbolise) $sym.textContent = `${t('reportLabels.symbolise')}：${out.symbolise}`;
+        if ($ana && out.analysis)  $ana.textContent = `${t('reportLabels.analysis')}：${out.analysis}`;
+      } catch {}
+    };
 
-    /* ===== Chat toggle & drag ===== */
-    function initChat(){
-      const toggle = $('chatToggle');
-      const panel = $('chatFloat');
-      const closeBtn = $('chatClose');
-      const sendBtn = $('chatSend');
-      const input = $('chatInput');
-      if(!toggle || !panel) return;
-      toggle.addEventListener('click', ()=>{ panel.style.display = panel.style.display==='flex'?'none':'flex'; });
-      if(closeBtn) closeBtn.addEventListener('click', ()=>{ panel.style.display='none'; });
-      if(sendBtn) sendBtn.addEventListener('click', handleChatSend);
-      if(input) input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); handleChatSend(); } });
+    window.forceAiInsightRetry = function () { try { localStorage.removeItem(LS_DOWN); } catch {} };
+  })();
 
-      const header = panel.querySelector('.chat-float-header');
-      if(header){
-        let dragging=false, startX=0,startY=0,startLeft=0,startTop=0;
-        header.addEventListener('mousedown',e=>{
-          dragging=true;
-          startX=e.clientX; startY=e.clientY;
-          const rect=panel.getBoundingClientRect();
-          startLeft=rect.left; startTop=rect.top;
-          document.body.style.userSelect='none';
-        });
-        window.addEventListener('mousemove',e=>{
-          if(!dragging) return;
-          const dx=e.clientX-startX, dy=e.clientY-startY;
-          panel.style.left = (startLeft+dx)+'px';
-          panel.style.top = (startTop+dy)+'px';
-          panel.style.right = 'auto';
-          panel.style.bottom = 'auto';
-        });
-        window.addEventListener('mouseup',()=>{
-          dragging=false;
-          document.body.style.userSelect='';
-        });
-      }
-    }
+  /* ===== Renderers ===== */
+  function renderPillars(labels){
+    const titles=[t('pillar.year'),t('pillar.month'),t('pillar.day'),t('pillar.hour')];
+    const box = $('bazi-pillars'); if(!box) return;
+    box.innerHTML = labels.map((lab,i)=>`
+      <div class="pillar"><div class="tit">${titles[i]}</div><div class="gz">${lab||'-'}</div></div>
+    `).join('');
+  }
 
-    /* ===== Init ===== */
-document.addEventListener('DOMContentLoaded', ()=>{
-  const btn = $('genBtn');
-  if(btn) btn.addEventListener('click', onGenerate);
-  initChat();
-
-  // language selector: set current and handle change
-  const langSelect = $('langSelect');
-  if (langSelect) {
-    langSelect.value = CURRENT_LANG;
-    langSelect.addEventListener('change', e => {
-      const code = e.target.value;
-      const url = LANG_PAGES[code];
-      if (url) window.location.href = url;
+  function renderTable(data){
+    const keys=['year','month','day','hour'];
+    const translateElem = (val)=>{
+      const map = { '木': t('elem.wood'), '火': t('elem.fire'),'土': t('elem.earth'),'金': t('elem.metal'),'水': t('elem.water') };
+      return map[val] || val;
+    };
+    ['stem','branch','element','nayin'].forEach(row=>{
+      keys.forEach((k, i)=>{
+        const cell = $(k+'-'+row); if (!cell) return;
+        let v = (Array.isArray(data[row]) ? data[row][i] : '-') ?? '-';
+        if (row === 'element') v = translateElem(v);
+        cell.textContent = v;
+      });
     });
   }
 
-      // simple dummy handlers for auth buttons (no backend wired)
-      const loginForm = $('loginForm');
-      const registerForm = $('registerForm');
-      const resetBtn = $('resetBtn');
-      const authError = $('authError');
-      if(loginForm){
-        loginForm.addEventListener('submit', e=>{
-          e.preventDefault();
-          if(authError){
-            authError.textContent = 'Login API not connected yet. Please wire this form to your backend.';
-            authError.style.display='block';
-          }
-        });
-      }
-      if(registerForm){
-        registerForm.addEventListener('submit', e=>{
-          e.preventDefault();
-          if(authError){
-            authError.textContent = 'Registration API not connected yet. Please wire this form to your backend.';
-            authError.style.display='block';
-          }
-        });
-      }
-      if(resetBtn){
-        resetBtn.addEventListener('click', ()=>{
-          if(authError){
-            authError.textContent = 'Password reset not connected yet. Implement your reset flow here.';
-            authError.style.display='block';
-          }
-        });
-      }
+  function renderBars(pcts){
+    ['木','火','土','金','水'].forEach(e=>{
+      const pct=Math.max(0,Math.min(100,Math.round(pcts[e]||0)));
+      const bar=$('bar-'+e), lab=$('pct-'+e);
+      if(bar) bar.style.width=pct+'%';
+      if(lab) lab.textContent=pct+'%';
     });
-  })();
-  </script>
-  <!-- Clock + defaults keep-in-sync with language -->
+    const entries=Object.entries(pcts).sort((a,b)=>b[1]-a[1]);
+    if(entries.length){
+      const strongest = entries[0][0], weakest = entries.at(-1)[0];
+      const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+      const tpl = (t('ui.balance') || 'Strongest: {strongest}. Weakest: {weakest}.');
+      const txt = tpl.replace('{strongest}', mapName[strongest]).replace('{weakest}', mapName[weakest]);
+      const el=$('bazi-elements-balance'); if(el) el.textContent=txt;
+    }
+  }
+
+  /* ===== Pro Report ===== */
+  function i18nDirs(s){
+    if(!s) return '';
+    const L = state.lang;
+    const maps = {
+      'zh-TW': {'東方':'東方','東南方':'東南方','南方':'南方','西南方':'西南方','西方':'西方','西北方':'西北方','北方':'北方','東北方':'東北方','中部、本地':'中部/本地'},
+      'zh-CN': {'東方':'东方','東南方':'东南方','南方':'南方','西南方':'西南方','西方':'西方','西北方':'西北方','北方':'北方','東北方':'东北方','中部、本地':'中部/本地'},
+      'en':    {'東方':'East','東南方':'Southeast','南方':'South','西南方':'Southwest','西方':'West','西北方':'Northwest','北方':'North','東北方':'Northeast','中部、本地':'Center / Local'}
+    };
+    const map = maps[L] || maps['en'];
+    return Object.keys(map).reduce((acc,k)=> acc.replaceAll(k, map[k]), s);
+  }
+
+  const TG_KEY = {
+    '比肩':'tenGodsNames.biJian','劫財':'tenGodsNames.jieCai','食神':'tenGodsNames.shiShen','傷官':'tenGodsNames.shangGuan',
+    '正財':'tenGodsNames.zhengCai','偏財':'tenGodsNames.pianCai','正官':'tenGodsNames.zhengGuan','七殺':'tenGodsNames.qiSha',
+    '正印':'tenGodsNames.zhengYin','偏印':'tenGodsNames.pianYin'
+  };
+  function tenGodTipKey(cn){ const base = TG_KEY[cn]?.replace('tenGodsNames','tenGodsHints'); return base||''; }
+
+  function tenGodsAdviceList(arr){
+    const fallback = {
+      '比肩':'Self-reliant; avoid stubbornness.',
+      '劫財':'Shares resources; curb impulse spending.',
+      '食神':'Creative output; keep rhythm & health.',
+      '傷官':'Expressive/critical; mind your tone.',
+      '正財':'Stable income focus; budget first.',
+      '偏財':'Opportunistic gains; set risk limits.',
+      '正官':'Rules/structure; keep flexibility.',
+      '七殺':'Decisive drive; avoid recklessness.',
+      '正印':'Learning/support; avoid over-protection.',
+      '偏印':'Insightful/unique; don’t over-detach.'
+    };
+    return arr.map(cn => t(tenGodTipKey(cn)) || fallback[cn] || String(cn));
+  }
+
+  function supportElems(dm){
+    const map = { 甲:['水','木'], 乙:['水','木'], 丙:['木','火'], 丁:['木','火'], 戊:['火','土'], 己:['火','土'], 庚:['土','金'], 辛:['土','金'], 壬:['金','水'], 癸:['金','水'] };
+    const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
+    return (map[dm]||[]).map(key);
+  }
+  function restrainElems(dm){
+    const map = { 甲:['金'], 乙:['金'], 丙:['水'], 丁:['水'], 戊:['木'], 己:['木'], 庚:['火'], 辛:['火'], 壬:['土'], 癸:['土'] };
+    const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
+    return (map[dm]||[]).map(key);
+  }
+  function computeUseful(p){ // 2 weakest
+    const arr = Object.entries({木:p.木||0,火:p.火||0,土:p.土||0,金:p.金||0,水:p.水||0}).sort((a,b)=>a[1]-b[1]).slice(0,2).map(([k])=>k);
+    const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
+    return arr.map(key);
+  }
+
+  /* ===== Pro report builder (EN) · 10 sections ===== */
+  window.buildProReport = function buildProReport(ctx){
+    const box = $('professionalReport');
+    if (!box || !ctx) return;
+
+    const dm = ctx.dayStem || '';
+    const pctsCN = ctx.pcts || {};
+    const ten = Array.isArray(ctx.tenGods) ? ctx.tenGods.filter(Boolean) : [];
+
+    const elem = {
+      Wood:  pctsCN['木'] || 0,
+      Fire:  pctsCN['火'] || 0,
+      Earth: pctsCN['土'] || 0,
+      Metal: pctsCN['金'] || 0,
+      Water: pctsCN['水'] || 0,
+    };
+
+    function strongestWeakest(obj){
+      const arr = Object.entries(obj || {});
+      if (!arr.length) return { strongest:'', weakest:'' };
+      arr.sort((a,b)=> b[1] - a[1]);
+      return { strongest: arr[0][0], weakest: arr[arr.length - 1][0] };
+    }
+
+    const { strongest, weakest } = strongestWeakest(elem);
+
+    const ELEM_LABEL_EN = { Wood:'Wood', Fire:'Fire', Earth:'Earth', Metal:'Metal', Water:'Water' };
+    const strongestLabel = ELEM_LABEL_EN[strongest] || strongest || '-';
+    const weakestLabel   = ELEM_LABEL_EN[weakest]   || weakest   || '-';
+
+    const dmLine   = BaziAnalysis.dayMasterLine(dm) || 'Your Day Master profile is relatively balanced and adaptive.';
+    const rel      = BaziAnalysis.relation(dm);
+    const marriage = BaziAnalysis.marriageAdvice(ten);
+    const career   = BaziAnalysis.career(dm, ten);
+    const wealthDir= i18nDirs(BaziAnalysis.wealthDirs(dm));
+    const healthFo = BaziAnalysis.health(dm);
+
+    const supportKeys  = supportElems(dm);
+    const restrainKeys = restrainElems(dm);
+    const usefulKeys   = computeUseful({ 木:pctsCN['木']||0, 火:pctsCN['火']||0, 土:pctsCN['土']||0, 金:pctsCN['金']||0, 水:pctsCN['水']||0 });
+
+    const supportText  = supportKeys.map(k=>t(k)).filter(Boolean).join(', ') || '-';
+    const restrainText = restrainKeys.map(k=>t(k)).filter(Boolean).join(', ') || '-';
+    const usefulText   = usefulKeys.map(k=>t(k)).filter(Boolean).join(', ') || '-';
+
+    const elemLine = `
+      Wood: ${Math.round(elem.Wood)}% ·
+      Fire: ${Math.round(elem.Fire)}% ·
+      Earth: ${Math.round(elem.Earth)}% ·
+      Metal: ${Math.round(elem.Metal)}% ·
+      Water: ${Math.round(elem.Water)}%
+    `.replace(/\s+/g,' ');
+
+    let nearTermFocus  = t('fortune.foundation') || 'Build foundations; keep a steady rhythm';
+    let nearTermAdvice = t('cautions.default')   || 'Avoid emotional decisions; control spending.';
+
+    switch (strongest) {
+      case 'Wood':
+        nearTermFocus  = t('fortune.upward') || 'Momentum rising; good for exposure/output';
+        nearTermAdvice = 'Learn a new skill, expand network, and push one medium-term project weekly.';
+        break;
+      case 'Fire':
+        nearTermFocus  = t('fortune.upward') || 'Momentum rising; good for exposure/output';
+        nearTermAdvice = 'Good for launching, pitching, negotiating—avoid impulsive choices.';
+        break;
+      case 'Earth':
+        nearTermFocus  = t('fortune.focus') || 'Focus & structure; good for execution';
+        nearTermAdvice = 'Restructure time and money: concentrate on the top 1–2 highest-return directions.';
+        break;
+      case 'Metal':
+        nearTermFocus  = t('fortune.focus') || 'Focus & structure; good for execution';
+        nearTermAdvice = 'Set rules/process/contracts and backup plans to stabilize the next stage.';
+        break;
+      case 'Water':
+        nearTermFocus  = t('fortune.study') || 'Study/research first; build then launch';
+        nearTermAdvice = 'Observe and compare first. Run small experiments before committing big resources.';
+        break;
+    }
+
+    const title = {
+      overview:     t('reportTitles.overview')     || 'Chart Overview',
+      fiveElements: t('reportTitles.fiveElements') || 'Five Elements',
+      tenGods:      t('reportTitles.tenGods')      || 'Ten Gods',
+      useful:       t('reportTitles.useful')       || 'Favorable Elements',
+      relation:     t('reportTitles.relationship') || 'Love & Relationships',
+      career:       t('reportTitles.career')       || 'Career',
+      wealth:       t('reportTitles.wealth')       || 'Wealth',
+      health:       t('reportTitles.health')       || 'Health',
+      nearTerm:     t('reportTitles.nearTerm')     || 'Near-term Outlook',
+      actions:      t('reportTitles.actions')      || 'Action Checklist',
+    };
+
+    const parts = [];
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>1. ${title.overview}</h4>
+        <p><strong>${t('reportLabels.dayMaster') || 'Day Master'}:</strong> ${dm || '-'}</p>
+        <p>${dmLine}</p>
+        ${ctx.unknown ? `<p>${t('report.hourUnknownTip') || 'Note: Because the birth time is unknown, parts of the analysis are for reference only.'}</p>` : ''}
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>2. ${title.fiveElements}</h4>
+        <p>${elemLine}</p>
+        <p><strong>Strongest:</strong> ${strongestLabel} &nbsp;&nbsp; <strong>Weakest:</strong> ${weakestLabel}</p>
+        <p>
+          Your strongest element reflects your most natural performance style.
+          The weakest element is a long-term growth area—improve it steadily, not all at once.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>3. ${title.tenGods}</h4>
+        <p>
+          This quick report doesn’t list every Ten-God detail, but your structure suggests a key theme:
+          balance <strong>self-expression, resource management, and responsibility to others</strong>.
+        </p>
+        <p>
+          When you feel drained, ask: “Who is this for?” and “Did I communicate my boundary clearly?”
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>4. ${title.useful}</h4>
+        <p><strong>Support elements:</strong> ${supportText}</p>
+        <p><strong>Balancing elements:</strong> ${restrainText}</p>
+        <p><strong>Priority to strengthen now:</strong> ${usefulText || 'Overall balanced; adjust based on current goals.'}</p>
+        <p>
+          Strengthen favorable elements through colors, environment, routines, and the type of work you do.
+          Make it practical: pick one habit and keep it consistent.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>5. ${title.relation}</h4>
+        <p><strong>Relationship traits:</strong> ${rel.traits}</p>
+        <p><strong>How to get along:</strong> ${rel.tips}</p>
+        <p><strong>Marriage note:</strong> ${marriage}</p>
+        <p>
+          Love is not only romance—it’s long-term cooperation.
+          Clear boundaries + honest communication + stable life rhythm makes your relationships smoother.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>6. ${title.career}</h4>
+        <p><strong>Suitable fields:</strong> ${career.suitable}</p>
+        <p><strong>Career advice:</strong> ${career.advice}</p>
+        <p>
+          Your best strategy is <strong>long-term depth + professional reputation</strong>.
+          Aim to become “the person people think of” for a specific topic.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>7. ${title.wealth}</h4>
+        <p><strong>Money direction (reference):</strong> ${wealthDir || '-'}</p>
+        <p>
+          Wealth is not only “opportunity”—it’s cashflow discipline and risk awareness.
+          Stabilize core income first, then set a clear loss limit for high-risk moves.
+        </p>
+        <p>
+          Your most sustainable wealth model: grow income through skill + trust,
+          then expand a side stream that matches your strengths.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>8. ${title.health}</h4>
+        <p><strong>Body focus:</strong> ${healthFo}</p>
+        <p>
+          Keep wellness simple: stable sleep, light exercise, and not overeating.
+          Add one consistent emotional outlet (journaling, walking, meditation, prayer, etc.).
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>9. ${title.nearTerm}</h4>
+        <p><strong>Main theme:</strong> ${nearTermFocus}</p>
+        <p><strong>Advice:</strong> ${nearTermAdvice}</p>
+        <p>
+          When things feel messy, pause new projects.
+          Rank tasks: must-do first, nice-to-have later. Leave space to recover your rhythm.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>10. ${title.actions}</h4>
+        <ul class="action-list">
+          <li>Within 30 days, pick ONE most important goal (work / money / health). Write it down where you can see it daily.</li>
+          <li>Once a week, review real progress—not just mood. Adjust your next week plan.</li>
+          <li>Lean into your strongest element (${strongestLabel}) using environment, routines, and supportive people.</li>
+          <li>For your weakest element (${weakestLabel}), build 1–2 small habits you can keep weekly. No rush—consistency wins.</li>
+        </ul>
+      </div>
+    `);
+
+    box.innerHTML = parts.join('\n');
+
+    const sec = $('butlerProfessional');
+    if (sec) sec.style.display = 'block';
+  };
+
+  /* ===== Gen + UI ===== */
+  function showErr(msg){
+    const box=$('error'); if(!box) return;
+    box.textContent = msg || t('err.generateFail');
+    box.style.display='block';
+    setTimeout(()=>{ box.style.display='none'; }, 4000);
+  }
+  function setGenLoading(v){
+    const btn=$('genBtn'), txt=$('genBtnText'), ld=$('genBtnLoading');
+    if(btn) btn.disabled=!!v;
+    if(txt) txt.style.display=v?'none':'inline';
+    if(ld) ld.style.display=v?'inline':'none';
+  }
+
+  function generate(){
+    const birth = ($('birthdate')?.value||'').trim();
+    if(!birth) return showErr(t('err.fillBirthdate'));
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return showErr(t('err.invalidDate'));
+
+    const [Y,M,D]=birth.split('-').map(n=>parseInt(n,10));
+    const unknown = $('timeUnknown')?.checked;
+    const timeVal = $('birthtime')?.value || '00:00';
+    const hh = parseInt((timeVal.split(':')[0]||'0'),10) || 0;
+
+    setGenLoading(true);
+    try{
+      const calc = new BaziCalculator();
+      const y = calc.yearPillar(Y);
+      const m = calc.monthPillar(Y,M,D);
+      const d = calc.dayPillar(Y,M,D);
+      const h = unknown ? {stem:'-',branch:'-'} : calc.hourPillar(d.stem, hh);
+
+      renderPillars([y.stem+y.branch, m.stem+m.branch, d.stem+d.branch, unknown ? (t('badge.noHour')||'-') : (h.stem+h.branch)]);
+
+      const stems=[y.stem,m.stem,d.stem, unknown? '-' : h.stem];
+      const branch=[y.branch,m.branch,d.branch, unknown? '-' : h.branch];
+      const rawElems=[calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem), unknown? '-' : calc.stemElem(h.stem)];
+      const nayin=[calc.nayin(y.stem,y.branch),calc.nayin(m.stem,m.branch),calc.nayin(d.stem,d.branch), unknown? '-' : calc.nayin(h.stem,h.branch)];
+      renderTable({stem:stems,branch:branch,element:rawElems,nayin});
+
+      const allElems = [calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem)]
+        .concat(unknown?[]:[calc.stemElem(h.stem)])
+        .concat([calc.branchElem(y.branch),calc.branchElem(m.branch),calc.branchElem(d.branch)])
+        .concat(unknown?[]:[calc.branchElem(h.branch)]);
+      const counts = {木:0,火:0,土:0,金:0,水:0}; allElems.forEach(e=>{ if(counts[e]!=null) counts[e]++; });
+      const total = Object.values(counts).reduce((a,b)=>a+b,0)||1;
+      const pcts = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, 100*v/total]));
+      renderBars(pcts);
+
+      const timeText = unknown ? (t('ui.timeUnknown')||'Time unknown') :
+        (t('ui.hourSuffix')||'{hh}:{mm}')
+          .replace('{hh}', String(hh).padStart(2,'0'))
+          .replace('{mm}', String(parseInt((timeVal.split(':')[1]||'0'),10)||0).padStart(2,'0'));
+
+      const btxt = (t('ui.birthSummary')||'Birth: {y}-{m}-{d} {timeText}')
+        .replace('{y}',Y).replace('{m}',M).replace('{d}',D).replace('{timeText}', timeText);
+
+      const bd=$('bazi-date'); if (bd) bd.textContent = btxt;
+
+      const tg = calc.tenGods(d.stem, stems);
+      const ctx = { pcts, dayStem: d.stem, tenGods: tg, unknown };
+      window.lastCtx = ctx;
+
+      $('result').style.display='block';
+    }catch(e){
+      console.error(e);
+      showErr(t('err.generateFail'));
+    } finally {
+      setGenLoading(false);
+    }
+  }
+
+  function onLangSelect(e){
+    const lang = (e.target?.value) || 'en';
+    try { localStorage.setItem(LANG_KEY, lang); } catch {}
+
+    const LANG_PAGES = {
+      'en':    '/assets/bazi-language-pack/bazi-en.html',  // ✅ this page (English)
+      'zh-TW': '/assets/bazi-language-pack/bazi-zh-TW.html',
+      'zh-CN': '/bazi.html',
+      'ja':    '/assets/bazi-language-pack/bazi-ja.html',
+      'th':    '/assets/bazi-language-pack/bazi-th.html',
+      'ms':    '/assets/bazi-language-pack/bazi-ms.html'
+    };
+
+    const target = LANG_PAGES[lang] || LANG_PAGES['en'];
+    if (!target) return;
+
+    if (!window.location.pathname.endsWith(target)) {
+      window.location.href = target;
+    }
+  }
+
+  function tickNow(){
+    const box = $('nowBox'); if (!box) return;
+    const localeMap = { 'zh-CN':'zh-CN','zh-TW':'zh-TW','en':'en-US','ja':'ja-JP','th':'th-TH','ms':'ms' };
+    const loc = localeMap[state.lang || 'en'] || 'en-US';
+    const fmt = new Intl.DateTimeFormat(loc, { weekday:'short', year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', hour12:false, timeZone: SG_TZ });
+    box.textContent = fmt.format(new Date()) + ' (SGT)';
+  }
+  window.tickNow = tickNow;
+
+  /* ===== Floating GPT Chat (ONLY this one) ===== */
+  function initChat(){
+    const fab   = $('ssChatFab');
+    const panel = $('chatPanel');
+    const close = $('chatClose');
+    const body  = $('chatBody');
+    const input = $('chatInput');
+    const send  = $('chatSend');
+
+    if (!fab || !panel || !close || !body || !input || !send) {
+      console.warn('[chat] missing elements');
+      return;
+    }
+
+    let chatHistory = [];
+
+    const open = () => { panel.setAttribute('aria-hidden','false'); setTimeout(()=>input.focus(), 50); };
+    const shut = () => { panel.setAttribute('aria-hidden','true'); };
+    const toggle = () => {
+      const hidden = panel.getAttribute('aria-hidden') !== 'false';
+      hidden ? open() : shut();
+    };
+
+    fab.addEventListener('click', toggle);
+    close.addEventListener('click', shut);
+
+    function pushMsg(text, who='bot'){
+      const div = document.createElement('div');
+      div.className = who === 'me' ? 'ss-msg me' : 'ss-msg';
+      div.textContent = text;
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    if (!initChat._welcomed){
+      initChat._welcomed = true;
+      pushMsg(t('pro.welcome') || 'Hi! I’m Xinlian Butler · GPT. Generate your chart first, then ask me anything.', 'bot');
+    }
+
+    function buildBaziChatContext(){
+      const ctx = window.lastCtx || null;
+      const name = ($('name')?.value || '').trim();
+      const gender = ($('gender')?.value || '').trim();
+      const birth = ($('birthdate')?.value || '').trim();
+      const timeUnknown = !!$('timeUnknown')?.checked;
+      const birthtime = ($('birthtime')?.value || '').trim();
+
+      return { name, gender, birthdate: birth, birthtime: timeUnknown ? '' : birthtime, timeUnknown, chart: ctx };
+    }
+
+    function extractReply(json){
+      if (!json) return '';
+      return (
+        json.reply ||
+        json.answer ||
+        json.content ||
+        json.message ||
+        json.text ||
+        (json.data && (json.data.reply || json.data.content || json.data.text)) ||
+        ''
+      );
+    }
+
+    async function callChatAPI(userText){
+      const lang = (window.state && window.state.lang) || 'en';
+      const ctx = buildBaziChatContext();
+
+      if (!chatHistory.length){
+        chatHistory.push({
+          role: 'system',
+          content:
+`You are “Xinlian Butler · GPT”, responsible for BaZi interpretation and actionable advice.
+- Language: ${lang}
+- If the user has not generated the chart (chart is empty), ask them to click “Generate BaZi” first.
+- Be specific, bullet-pointed, and practical; do NOT output code.`
+        });
+      }
+
+      chatHistory.push({ role:'user', content: userText });
+
+      const url = String(API_BASE).replace(/\/$/,'') + CHAT_ENDPOINT;
+      const payload = { lang, context: ctx, messages: chatHistory };
+
+      const res = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const json = await res.json().catch(()=>null);
+      const reply = extractReply(json);
+
+      if (reply) chatHistory.push({ role:'assistant', content: reply });
+      return reply || '(No reply content returned — check your worker response fields.)';
+    }
+
+    async function sendMsg(){
+      const text = (input.value || '').trim();
+      if (!text) return;
+
+      input.value = '';
+      pushMsg(text, 'me');
+      pushMsg('…', 'bot');
+      const typingNode = body.lastElementChild;
+
+      try{
+        const reply = await callChatAPI(text);
+        if (typingNode) typingNode.textContent = reply;
+        else pushMsg(reply, 'bot');
+      }catch(err){
+        console.error('[chat] error', err);
+        const msg = '⚠️ GPT connection failed. Check API_BASE and /api/chat.';
+        if (typingNode) typingNode.textContent = msg;
+        else pushMsg(msg, 'bot');
+      }
+    }
+
+    send.addEventListener('click', sendMsg);
+    input.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter') sendMsg();
+    });
+  }
+
+  function boot(){
+    if (boot._didBoot) return; boot._didBoot = true;
+
+    const langSel = $('langSelect');
+    if (langSel) { langSel.value = state.lang; langSel.addEventListener('change', onLangSelect); }
+
+    applyI18n();
+
+    const unk = $('timeUnknown'), bt = $('birthtime');
+    if (unk && bt){
+      const sync = ()=>{ bt.disabled = !!unk.checked; bt.style.opacity = bt.disabled ? 0.5 : 1; };
+      unk.addEventListener('change', sync); sync();
+    }
+
+    $('genBtn')?.addEventListener('click', generate);
+
+    initChat();
+  }
+
+  document.addEventListener('DOMContentLoaded', boot);
+})();
+</script>
+
+<!-- Clock + defaults keep-in-sync with language -->
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -1061,7 +1442,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const localeMap = { 'zh-CN':'zh-CN','zh-TW':'zh-TW','en':'en-US','ja':'ja-JP','th':'th-TH','ms':'ms' };
   const getLocale = () => (localeMap[(window.state && window.state.lang) || 'en'] || 'en-US');
 
-  // Chain applyI18n without breaking the version the app set earlier
   window.applyI18n = (function(prev){
     return function(){
       if (typeof prev === 'function') prev();
@@ -1069,7 +1449,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     };
   })(window.applyI18n);
 
-  // Define tickNow only if the app hasn't already defined it
   if (typeof window.tickNow !== 'function') {
     window.tickNow = function tickNow(){
       const box = $('nowBox'); if (!box) return;
@@ -1081,7 +1460,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     };
   }
 
-  // One-time birth defaults (kept exactly as behavior you intended)
   function initBirthDefaults() {
     const bd = $('birthdate'); const bt = $('birthtime'); const unk = $('timeUnknown');
     const nowSG = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }));
@@ -1113,7 +1491,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
   }
 
-  // Initial render + clock; guard against duplicate intervals from the main app
   initBirthDefaults();
   if (typeof window.tickNow === 'function') window.tickNow();
   if (!window._clock) window._clock = setInterval(()=>{ try{ window.tickNow(); }catch{} }, 60000);
