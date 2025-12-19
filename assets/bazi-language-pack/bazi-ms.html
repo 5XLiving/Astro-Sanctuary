@@ -296,37 +296,6 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
       </div>
     </section>
 
-    <!-- Pro report -->
-    <section id="butlerProfessional" class="butler-professional">
-      <div class="butler-header">
-        <span>🧙‍♂️ Xinlian Butler · Analisis Takdir Profesional</span>
-      </div>
-      <div class="butler-content" id="professionalReport"></div>
-    </section>
-
-    <!-- Floating chat -->
-    <button class="chat-toggle-btn" id="chatToggle">Tanya</button>
-    <div class="chat-float" id="chatFloat">
-      <div class="chat-float-header">
-        <span>🧙‍♂️ Xinlian Butler · Soal Jawab</span>
-        <button class="chat-float-close" id="chatClose">×</button>
-      </div>
-      <div class="chat-float-body">
-        <div class="chat-float-messages" id="chatMessages">
-          <div class="ss-msg">
-            Hai, saya perunding takdir anda. Saya akan jana laporan berdasarkan carta anda.
-            Tanyalah soalan khusus tentang cinta, kerjaya, rezeki atau masa yang sesuai.
-          </div>
-        </div>
-        <div class="chat-float-input-area">
-          <div style="display:flex;gap:8px;">
-            <input type="text" id="chatInput" placeholder="Tulis soalan anda..." style="flex:1; padding:10px; border-radius:8px; border:1px solid #253245; background:#0e1520; color:#e8edf3;">
-            <button class="btn" id="chatSend" style="padding:8px 16px;">Hantar</button>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <!-- VIP segment -->
     <section class="card section">
       <h2 class="group-title">🌙 Segmen VIP</h2>
@@ -399,826 +368,1049 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
       </section>
     </section>
 
-    <footer>© 5XLiving • Astro Sanctuary</footer>
-  </main>
+<footer data-i18n="footer.copy">© 5XLiving • Astro Sanctuary</footer>
+</main>
 
-  <script>
-  // If you hook to your worker, set it here (optional)
-  window.API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+<!-- Xinlian Butler · GPT (Unified Floating Chat) -->
+<button class="ss-chat-fab" id="ssChatFab" type="button">
+  <span data-i18n="chat.toggle">Tanya</span>
+</button>
 
-  (function(){
-    'use strict';
-    const SG_TZ = 'Asia/Singapore';
-    const $ = id => document.getElementById(id);
-    const state = window.state = window.state || {};
-    state.lang = 'ms';
+<div class="ss-chat-panel" id="chatPanel" aria-hidden="true">
+  <div class="ss-chat-head">
+    <div class="ss-chat-title" id="chatTitle" data-i18n="chat_title">Butler Xinlian · GPT</div>
+    <div class="ss-close" id="chatClose">✕</div>
+  </div>
 
-    // current page language
-    const CURRENT_LANG = 'ms'; // this page is the Malay version
+  <!-- Chat messages are appended by JS -->
+  <div class="ss-chat-body" id="chatBody"></div>
 
-    // map language code -> page URL (relative paths)
-    const LANG_PAGES = {
-      'zh-CN': '/bazi.html',
-      'en':    '/assets/bazi-language-pack/bazi-en.html',
-      'zh-TW': '/assets/bazi-language-pack/bazi-zh-TW.html',
-      'ja':    '/assets/bazi-language-pack/bazi-ja.html',
-      'th':    '/assets/bazi-language-pack/bazi-th.html',
-      'ms':    '/assets/bazi-language-pack/bazi-ms.html' // this page
-    };
+  <!-- Input -->
+  <div class="ss-chat-input">
+    <input id="chatInput" placeholder="Taip soalan…" data-i18n-ph="chat.placeholder" />
+    <button class="btn" id="chatSend" data-i18n="chat.send">Hantar</button>
+  </div>
+</div>
 
-    /* ===== time in header (SG) ===== */
-    function updateNowBox(){
-      try{
-        const now = new Date();
-        const fmt = new Intl.DateTimeFormat('ms-MY',{
-          timeZone:SG_TZ,
-          year:'numeric',month:'short',day:'2-digit',
-          hour:'2-digit',minute:'2-digit'
-        });
-        const box = $('nowBox');
-        if(box) box.textContent = fmt.format(now) + ' · SGT';
-      }catch(e){}
+<script>
+(() => {
+  'use strict';
+
+  /* ===================== BASIC HELPERS ===================== */
+  const SG_TZ = 'Asia/Singapore';
+  const $id = (id) => document.getElementById(id);
+  const $ = $id;
+
+  const deepGet = (obj, path) => {
+    if (!obj || !path) return undefined;
+    const parts = String(path).split(".");
+    let cur = obj;
+    for (const p of parts) { if (!cur) return undefined; cur = cur[p]; }
+    return cur;
+  };
+
+  /* ===================== CONFIG ===================== */
+  const API_BASE = "https://throbbing-lab-1440.hello5xliving.workers.dev";
+  const CHAT_ENDPOINT = "/api/chat";
+  const LANG_KEY = "5x_lang";
+
+  const state = (window.state = window.state || {});
+  state.lang = 'ms-MY';              // ✅ This page is locked to Malay
+  try { localStorage.setItem(LANG_KEY, 'ms-MY'); } catch {}
+
+  /* ===================== I18N (MS ONLY) ===================== */
+  window.I18N = window.I18N || {};
+  const I18N = window.I18N;
+
+  I18N['ms-MY'] = Object.assign({}, I18N['ms-MY'] || {}, {
+    action:{
+      weekly:'Mingguan',
+      energy:'Latihan tenaga',
+      career:'Kerjaya: gerak konsisten, fokus jelas, kemudian barulah “tembak” hasil',
+      career2:'Lepaskan kerja secara konsisten & semak semula (matlamat→pelan mingguan→ulasan→penambahbaikan)',
+      relationship:'Hubungan: bercakap terus tetapi sopan, tetapkan sempadan, dan pilih masa balas yang sesuai',
+      wealth:'Kewangan: bajet & aliran tunai, jana duit dari kemahiran, dan urus risiko'
+    },
+    brand:{ subtitle:'5xLiving · Semakan Bazi Pantas' },
+
+    app:{ title:'Bazi · Carta Empat Tiang (Pantas)' },
+    form:{
+      nameLabel:'Nama (opsyenal)',
+      namePlaceholder:'Nama yang anda mahu saya panggil (opsyenal: untuk jawapan lebih tepat)',
+      genderLabel:'Jantina',
+      gender:{ hidden:'Tidak dinyatakan', male:'Lelaki', female:'Perempuan' },
+      calendarLabel:'Kalendar',
+      calendar:{ gregorian:'Gregorian (Solar)', lunar:'Lunar' },
+      birthdateLabel:'Tarikh lahir',
+      birthtimeLabel:'Masa lahir',
+      timeUnknown:'Tidak pasti masa lahir'
+    },
+
+    btn:{ generate:'Jana Bazi', loading:'Mengira…' },
+    result:{ title:'Bazi anda (Empat Tiang)' },
+    pillar:{ year:'Tiang Tahun', month:'Tiang Bulan', day:'Tiang Hari', hour:'Tiang Jam' },
+    table:{ row:{ stem:'Batang Langit (天干)', branch:'Dahan Bumi (地支)', fiveElem:'Lima Unsur', nayin:'NaYin (納音)' } },
+    energy:{ title:'Keseimbangan Lima Unsur' },
+    elem:{ wood:'Kayu', fire:'Api', earth:'Tanah', metal:'Logam', water:'Air', month:'Bulan', fiveElements:'Lima Unsur' },
+
+    chat_title:'Butler Xinlian · GPT',
+    pro:{
+      title:'Butler Xinlian · Analisis Pro',
+      welcome:'Hai, saya Butler Xinlian · GPT. Sila tekan “Jana Bazi” dahulu, kemudian anda boleh tanya tentang kerja, cinta, kewangan, kesihatan, dan lain-lain.'
+    },
+    chat:{ send:'Hantar', placeholder:'Taip soalan…', toggle:'Tanya' },
+
+    vip:{
+      title:'Zon VIP',
+      group:{ astrology:'Ruang Bazi', spiritual:'Soul Sanctuary' },
+      astrology:{
+        match:'Cinta & Perkahwinan: Keserasian dan trend',
+        career:'Kerjaya: Naik pangkat/tukar kerja/mula bisnes',
+        wealth:'Kewangan: Arah dan masa terbaik',
+        pet:'Bazi Haiwan Peliharaan: personaliti dan ikatan'
+      },
+      spiritual:{
+        record:'Rekod spiritual: foto/mimpi/audio/doa',
+        courses:'Kursus: Bazi/Tarot/Astrologi/Numerologi',
+        family:'Sistem memori keluarga',
+        practice:'Rutin mingguan/ritual'
+      },
+      login:{ title:'Log masuk VIP' },
+      services:{ header:'Perkhidmatan ahli' },
+      upgrade:'Naik taraf ke VIP (bulanan)',
+      back:'← Kembali ke kedai',
+      priceNote:'Bulanan $9.9 (Ruang Bazi + Soul Sanctuary + semua kursus)'
+    },
+
+    auth:{
+      header:'Log masuk / Daftar',
+      login:'Log masuk',
+      reset:'Set semula kata laluan',
+      register:'Daftar',
+      freeTrialNote:'Daftar untuk 1 kali percubaan percuma',
+      emailPlaceholder:'E-mel',
+      passwordPlaceholder:'Kata laluan (min 8 aksara: huruf besar/kecil, nombor & simbol)'
+    },
+
+    footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+
+    err:{
+      fillBirthdate:'Sila isi tarikh lahir',
+      invalidDate:'Format tidak sah. Sila guna YYYY-MM-DD',
+      generateFail:'Gagal menjana. Sila cuba lagi'
+    },
+
+    ui:{
+      timeUnknown:'Tidak pasti masa lahir',
+      hourSuffix:'{hh}:{mm}',
+      birthSummary:'Lahir: {y}-{m}-{d} {timeText}',
+      balance:'Unsur paling kuat: {strongest} · Unsur paling lemah: {weakest}'
+    },
+
+    badge:{ noHour:'Tiada Tiang Jam' },
+
+    report:{
+      hourUnknownTip:'Nota: Jika masa lahir tidak diketahui, sebahagian tafsiran hanyalah rujukan.',
+      tipTitle:'Tip',
+      generating:'Sedang menjana laporan Pro…',
+      failed:'Gagal menjana laporan. Sila cuba lagi'
+    },
+
+    reportTitles:{
+      overview:'Gambaran keseluruhan',
+      fiveElements:'Lima Unsur',
+      tenGods:'Sepuluh Dewa (十神)',
+      useful:'Unsur yang menyokong',
+      relationship:'Cinta & hubungan',
+      career:'Kerjaya',
+      wealth:'Kewangan',
+      health:'Kesihatan',
+      nearTerm:'Trend jangka dekat',
+      actions:'Senarai tindakan'
+    },
+
+    tenGodsNames:{
+      biJian:'比肩 (rakan/sebaya)',
+      jieCai:'劫財 (bersaing/ambil peluang)',
+      shiShen:'食神 (ekspresi/kegembiraan)',
+      shangGuan:'傷官 (pecah aturan/kritik)',
+      zhengCai:'正財 (pendapatan stabil)',
+      pianCai:'偏財 (peluang/pendapatan sampingan)',
+      zhengGuan:'正官 (sistem/jawatan)',
+      qiSha:'七殺 (tekanan/tindakan)',
+      zhengYin:'正印 (pembelajaran/sokongan)',
+      pianYin:'偏印 (intuisi/belajar sendiri)'
+    },
+    tenGodsHints:{
+      biJian:'Kerjasama, jati diri, persaingan sihat',
+      jieCai:'Bahagi/ambil; berhati-hati belanja ikut emosi',
+      shiShen:'Cipta hasil, kreativiti, nikmati proses',
+      shangGuan:'Inovasi & kritikan; elak bergesel dengan autoriti',
+      zhengCai:'Aliran tunai stabil; simpan konsisten',
+      pianCai:'Peluang/side income; tetapkan had risiko',
+      zhengGuan:'Peraturan, struktur, kredibiliti',
+      qiSha:'Tekanan & cabaran; kuat tindakan tapi perlu seimbang',
+      zhengYin:'Sumber, mentor, pembelajaran',
+      pianYin:'Idea tajam; elak overthink'
+    },
+
+    reportLabels:{
+      dayMaster:'Unsur Hari (日主)',
+      symbolise:'Maksud',
+      analysis:'Cadangan',
+      suitableCareers:'Kerja yang sesuai',
+      careerAdvice:'Nasihat kerjaya',
+      favorableDirections:'Arah baik (rujukan)',
+      healthCharacteristics:'Perhatian tubuh',
+      healthTips:'Tip kesihatan',
+      wellnessAdvice:'Kesejahteraan',
+      overallFortune:'Keseluruhan',
+      favorableTiming:'Masa baik',
+      cautions:'Perkara perlu elak'
+    },
+
+    cautions:{ default:'Jangan buat keputusan ikut emosi, dan kawal perbelanjaan' },
+
+    fortune:{
+      upward:'Fasa naik: sesuai tampil, komunikasi, hasilkan kerja',
+      focus:'Fokus & sistem: kuat pada operasi dan pelaksanaan',
+      study:'Fasa kaji: banding & uji kecil dulu sebelum skala',
+      foundation:'Fasa bina asas: konsisten, kumpul kekuatan'
+    },
+
+    // Day Master lines
+    'report.dayMaster.jia':'甲 (Kayu besar): perintis, tahan lasak, mampu bina jalan sendiri',
+    'report.dayMaster.yi':'乙 (Kayu kecil): fleksibel, lembut, membesar melalui konsistensi',
+    'report.dayMaster.bing':'丙 (Api besar): cerah, yakin, menyerlah bila memimpin',
+    'report.dayMaster.ding':'丁 (Api kecil): teliti, berhati-hati, hargai kepercayaan & kedalaman',
+    'report.dayMaster.wu':'戊 (Tanah besar): serius, stabil, pandai bina asas & urus sumber',
+    'report.dayMaster.ji':'己 (Tanah kecil): detail, bagus sistem & sokongan',
+    'report.dayMaster.geng':'庚 (Logam keras): cepat keputusan, berani; jaga terlalu “straight”',
+    'report.dayMaster.xin':'辛 (Logam halus): standard tinggi, suka kualiti & ketepatan',
+    'report.dayMaster.ren':'壬 (Air besar): fleksibel, idea laju, cintakan kebebasan',
+    'report.dayMaster.gui':'癸 (Air kecil): halus, sabar; tenaga dari dalam—jaga overthink',
+
+    // Presets
+    'report.marriage.stable':'Hubungan cenderung stabil; sesuai rancang jangka panjang',
+    'report.marriage.experienced':'Berpotensi melalui lebih banyak pengalaman cinta; pilih dengan sedar & lihat keserasian',
+    'report.marriage.default':'Cinta jangka panjang perlukan komunikasi dan penyesuaian kedua-dua pihak',
+
+    'report.career.leadership':'Sesuai jadi pemimpin / mula bisnes; kukuhkan sistem & kredibiliti',
+    'report.career.business':'Sesuai jual beli/kewangan; fokus aliran tunai & disiplin',
+    'report.career.creative':'Sesuai kreatif/teknologi; bina karya & komunikasi konsisten',
+    'report.career.steady':'Pergi perlahan tapi dalam: kuasai kemahiran, naik dengan reputasi'
+  });
+
+  function t(path, lang = (window.state && window.state.lang) || 'ms-MY') {
+    const pack = (window.I18N && window.I18N[lang]) || {};
+    const baseMS = (window.I18N && window.I18N['ms-MY']) || {};
+
+    let v = pack[path];
+    if (v != null && v !== '') return v;
+
+    v = deepGet(pack, path);
+    if (v != null && v !== '') return v;
+
+    v = baseMS[path];
+    if (v != null && v !== '') return v;
+
+    v = deepGet(baseMS, path);
+    if (v != null && v !== '') return v;
+
+    return '';
+  }
+  window.t = t;
+
+  function applyI18n(){
+    const lang = state.lang || 'ms-MY';
+    document.documentElement.lang = lang;
+
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const key = el.getAttribute('data-i18n');
+      const val = t(key);
+      if (typeof val === 'string' && val !== '') el.textContent = val;
+    });
+
+    const setPh = (id, value) => { const el=$(id); if (el && typeof value === 'string' && value) el.placeholder = value; };
+    setPh('name', t('form.namePlaceholder'));
+    setPh('chatInput', t('chat.placeholder'));
+
+    if (window.lastCtx && typeof window.buildProReport === 'function') window.buildProReport(window.lastCtx);
+  }
+  window.applyI18n = applyI18n;
+
+  /* ===================== BAZI CALCULATOR ===================== */
+  class BaziCalculator {
+    constructor(){
+      this.HEAVENLY_STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+      this.EARTHLY_BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+
+      // NaYin
+      this.NAYIN=[
+        '海中金','炉中火','大林木','路傍土','剣鋒金',
+        '山頭火','澗下水','城頭土','白蝋金','楊柳木',
+        '泉中水','屋上土','霹靂火','松柏木','長流水',
+        '砂中金','山下火','平地木','壁上土','金箔金',
+        '覆灯火','天河水','大駅土','釵釧金','桑柘木',
+        '大渓水','沙中土','天上火','石榴木','大海水'
+      ];
     }
-    updateNowBox();
-    setInterval(updateNowBox, 60000);
-
-    /* ===== Bazi calculator (same logic) ===== */
-    class BaziCalculator {
-      constructor(){
-        this.HEAVENLY_STEMS=['Jia','Yi','Bing','Ding','Wu','Ji','Geng','Xin','Ren','Gui'];
-        this.STEMS_CN=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
-        this.EARTHLY_BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-        this.NAYIN=[
-          'Logam di Laut','Api di Relau','Kayu di Hutan','Tanah di Tepi Jalan',
-          'Logam di Mata Pedang','Api di Gunung','Air di Bawah Aliran','Tanah di Tembok Kota',
-          'Logam Lilin Putih','Kayu Pokok Willow','Air di Mata Air','Tanah di Bumbung',
-          'Api Guruh','Kayu Pine & Cypress','Air Mengalir','Logam Batu Kerikil',
-          'Api di Kaki Gunung','Kayu Tanah Rata','Tanah Tembok','Logam Kerajang Emas',
-          'Api Pelita','Sungai di Langit','Tanah Stesen Penginapan','Logam Barang Kemas',
-          'Kayu Pokok Mulberi','Air Sungai Besar','Tanah Pasir','Api Syurga',
-          'Kayu Delima','Air Lautan'
-        ];
-      }
-      stemCn(index){ return this.STEMS_CN[(index+10)%10]; }
-      yearPillar(year){
-        const s=(year-4)%10, b=(year-4)%12;
-        return {stemCn:this.stemCn(s), stem:this.HEAVENLY_STEMS[(s+10)%10], branch:this.EARTHLY_BRANCHES[(b+12)%12]};
-      }
-      solarMonthIndex(y,m,d){
-        const mmdd=m*100+d;
-        const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
-        let idx=11; for(const [thr,val] of gates){ if(mmdd>=thr) idx=val; }
-        const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
-        return {index:idx, branch:branchBy[idx]};
-      }
-      monthPillar(year,month,day){
-        const {index,branch}=this.solarMonthIndex(year,month,day);
-        const yStemIdx=(this.yearPillar(year).stemCn && this.STEMS_CN.indexOf(this.yearPillar(year).stemCn)) || 0;
-        const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
-        const stemIdx=(startMap[yStemIdx]+(index-1))%10;
-        return {stemCn:this.stemCn(stemIdx), stem:this.HEAVENLY_STEMS[stemIdx], branch};
-      }
-      dayPillar(year,month,day){
-        const baseUTC=Date.UTC(1900,0,31), targetUTC=Date.UTC(year,month-1,day);
-        const dayDiff=Math.floor((targetUTC-baseUTC)/86400000);
-        const stemIdx=(0+dayDiff)%10, branchIdx=(4+dayDiff)%12;
-        return {stemCn:this.stemCn(stemIdx), stem:this.HEAVENLY_STEMS[(stemIdx+10)%10],branch:this.EARTHLY_BRANCHES[(branchIdx+12)%12]};
-      }
-      hourPillar(dayStemCn,hour){
-        const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
-        const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};
-        const dayIdx=this.STEMS_CN.indexOf(dayStemCn);
-        const hourIndex=Math.floor((hour+1)/2)%12;
-        const stemIdx=(startMap[dayIdx]+hourIndex)%10;
-        return {stemCn:this.stemCn(stemIdx), stem:this.HEAVENLY_STEMS[stemIdx], branch:branchMap[hour]};
-      }
-      stemElem(cn){
-        return ({'甲':'Kayu','乙':'Kayu','丙':'Api','丁':'Api','戊':'Tanah','己':'Tanah',
-                 '庚':'Logam','辛':'Logam','壬':'Air','癸':'Air'})[cn]||'-';
-      }
-      branchElem(b){
-        return ({'子':'Air','丑':'Tanah','寅':'Kayu','卯':'Kayu','辰':'Tanah','巳':'Api',
-                 '午':'Api','未':'Tanah','申':'Logam','酉':'Logam','戌':'Tanah','亥':'Air'})[b]||'-';
-      }
-
-      // Stem name in English + element
-      stemNameEn(stemCn){
-        const idx = this.STEMS_CN.indexOf(stemCn);
-        if (idx === -1) return stemCn;
-        const base = this.HEAVENLY_STEMS[idx];
-        const elem = this.stemElem(stemCn);
-        return `${base} (${elem})`;
-      }
-
-      // Branch name in English + animal
-      branchNameEn(b){
-        const map = {
-          '子':'Zi (Tikus)',
-          '丑':'Chou (Lembu)',
-          '寅':'Yin (Harimau)',
-          '卯':'Mao (Arnab)',
-          '辰':'Chen (Naga)',
-          '巳':'Si (Ular)',
-          '午':'Wu (Kuda)',
-          '未':'Wei (Kambing)',
-          '申':'Shen (Monyet)',
-          '酉':'You (Ayam)',
-          '戌':'Xu (Anjing)',
-          '亥':'Hai (Babi)'
-        };
-        return map[b] || b;
-      }
-
-      nayin(stemCn,branch){
-        const si=this.STEMS_CN.indexOf(stemCn), bi=this.EARTHLY_BRANCHES.indexOf(branch);
-        return this.NAYIN[(si*2+bi)%this.NAYIN.length];
-      }
+    yearPillar(year){ const s=(year-4)%10, b=(year-4)%12; return {stem:this.HEAVENLY_STEMS[(s+10)%10], branch:this.EARTHLY_BRANCHES[(b+12)%12]}; }
+    solarMonthIndex(y,m,d){
+      const mmdd=m*100+d;
+      const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
+      let idx=11; for(const [thr,val] of gates){ if(mmdd>=thr) idx=val; }
+      const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
+      return {index:idx, branch:branchBy[idx]};
     }
-
-    /* ===== Simple analysis helpers (text mostly in English for now) ===== */
-    const DayMasterText = {
-      '甲':'Jia Kayu: berani membuka jalan baharu, bersemangat dan suka memimpin.',
-      '乙':'Yi Kayu: lembut, menyokong, sangat mengambil berat tentang keharmonian.',
-      '丙':'Bing Api: penuh semangat, ekspresif, suka menonjol.',
-      '丁':'Ding Api: hangat, stabil, melindungi orang tersayang.',
-      '戊':'Wu Tanah: kukuh, boleh dipercayai, fokus pada hasil jangka panjang.',
-      '己':'Ji Tanah: teliti, berhati-hati, kuat dalam khidmat kepada orang lain.',
-      '庚':'Geng Logam: tegas, berani, suka tindakan terus.',
-      '辛':'Xin Logam: halus, kemas, pentingkan standard dan kualiti.',
-      '壬':'Ren Air: bebas, fleksibel, mudah menyesuaikan diri.',
-      '癸':'Gui Air: sensitif, berfikir dalam, dunia dalaman yang kaya.'
-    };
-    const RelationText = {
-      '甲':{
-        traits:'Dalam cinta, anda cenderung lebih aktif dan memimpin, tetapi tetap perlukan ruang sendiri.',
-        tips:'Belajar mendengar dengan tenang dan jangan terlalu cepat membuat keputusan besar.'
-      },
-      '乙':{
-        traits:'Anda lembut dan mudah memberi banyak kepada pasangan.',
-        tips:'Jaga sempadan sihat dan nyatakan keperluan anda dengan jelas.'
-      },
-      '丙':{
-        traits:'Anda sukakan kehangatan dan semangat, tetapi emosi boleh jadi kuat.',
-        tips:'Bertenang dahulu sebelum bertindak balas; elakkan kata-kata tajam ketika bergaduh.'
-      },
-      '丁':{
-        traits:'Tenang tetapi sangat setia, anda ingat setiap butiran penjagaan.',
-        tips:'Belajar meluahkan kasih sayang dengan lebih jelas supaya pasangan dapat merasainya.'
-      },
-      '戊':{
-        traits:'Sangat bertanggungjawab, anda fikir jauh tentang masa depan dan kestabilan.',
-        tips:'Jangan lupa unsur romantik dan kelembutan – rancang masa berdua dengan sengaja.'
-      },
-      '己':{
-        traits:'Anda banyak risau tentang orang yang disayang dan mudah overthinking.',
-        tips:'Percayai hubungan itu dan jangan tanggung semua beban seorang diri.'
-      },
-      '庚':{
-        traits:'Terus terang dan jelas, anda tidak suka “permainan” dalam hubungan.',
-        tips:'Lembutkan cara anda berkata benar; seimbangkan ketegasan dan empati.'
-      },
-      '辛':{
-        traits:'Standard anda tinggi dan cepat perasan perubahan halus.',
-        tips:'Belajarlah menerima bahawa tiada siapa yang sempurna, termasuk diri sendiri.'
-      },
-      '壬':{
-        traits:'Anda perlukan rasa segar dan bebas walaupun dalam hubungan.',
-        tips:'Cipta pengembaraan bersama supaya anda tidak cari keseronokan di luar.'
-      },
-      '癸':{
-        traits:'Sangat peka pada suasana, anda cepat rasa perubahan kecil.',
-        tips:'Belajar menstabilkan emosi sebelum memulakan perbualan tentang konflik.'
-      }
-    };
-
-    function strongestWeakest(counts){
-      const order=['Kayu','Api','Tanah','Logam','Air'];
-      let max = -1, min = 1e9, maxKey='Kayu', minKey='Kayu';
-      order.forEach(k=>{
-        const v = counts[k]||0;
-        if(v>max){ max=v; maxKey=k; }
-        if(v<min){ min=v; minKey=k; }
-      });
-      return {strongest:maxKey, weakest:minKey};
+    monthPillar(year,month,day){
+      const {index,branch}=this.solarMonthIndex(year,month,day);
+      const yStemIdx=this.HEAVENLY_STEMS.indexOf(this.yearPillar(year).stem);
+      const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
+      const stemIdx=(startMap[yStemIdx]+(index-1))%10;
+      return {stem:this.HEAVENLY_STEMS[stemIdx], branch};
     }
-
-    /* ===== Pro report builder ===== */
-    function buildProReport(ctx){
-      const box = $('professionalReport');
-      if(!box || !ctx) return;
-
-      const dmStemCn = ctx.day.stemCn;
-      const rel = RelationText[dmStemCn] || {
-        traits:'Anda menghargai keikhlasan dan saling menyokong dalam hubungan.',
-        tips:'Kekalkan komunikasi terbuka dan jujur.'
+    dayPillar(year,month,day){
+      const baseUTC=Date.UTC(1900,0,31), targetUTC=Date.UTC(year,month-1,day);
+      const dayDiff=Math.floor((targetUTC-baseUTC)/86400000);
+      const stemIdx=(0+dayDiff)%10, branchIdx=(4+dayDiff)%12;
+      return {stem:this.HEAVENLY_STEMS[(stemIdx+10)%10],branch:this.EARTHLY_BRANCHES[(branchIdx+12)%12]};
+    }
+    hourPillar(dayStem,hour){
+      const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
+      const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};
+      const dayIdx=this.HEAVENLY_STEMS.indexOf(dayStem);
+      const hourIndex=Math.floor((hour+1)/2)%12;
+      const stemIdx=(startMap[dayIdx]+hourIndex)%10;
+      return {stem:this.HEAVENLY_STEMS[stemIdx], branch:branchMap[hour]};
+    }
+    stemElem(s){ return ({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[s]||'-'; }
+    branchElem(b){ return ({子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'})[b]||'-'; }
+    nayin(s,b){ const si=this.HEAVENLY_STEMS.indexOf(s), bi=this.EARTHLY_BRANCHES.indexOf(b); return this.NAYIN[(si*2+bi)%this.NAYIN.length]; }
+    tenGods(dayStem, stems){
+      const map={
+        '甲':{'甲':'比肩','乙':'劫財','丙':'食神','丁':'傷官','戊':'偏財','己':'正財','庚':'七殺','辛':'正官','壬':'偏印','癸':'正印'},
+        '乙':{'甲':'劫財','乙':'比肩','丙':'傷官','丁':'食神','戊':'正財','己':'偏財','庚':'正官','辛':'七殺','壬':'正印','癸':'偏印'},
+        '丙':{'甲':'偏印','乙':'正印','丙':'比肩','丁':'劫財','戊':'食神','己':'傷官','庚':'偏財','辛':'正財','壬':'七殺','癸':'正官'},
+        '丁':{'甲':'正印','乙':'偏印','丙':'劫財','丁':'比肩','戊':'傷官','己':'食神','庚':'正財','辛':'偏財','壬':'正官','癸':'七殺'},
+        '戊':{'甲':'七殺','乙':'正官','丙':'偏印','丁':'正印','戊':'比肩','己':'劫財','庚':'食神','辛':'傷官','壬':'偏財','癸':'正財'},
+        '己':{'甲':'正官','乙':'七殺','丙':'正印','丁':'偏印','戊':'劫財','己':'比肩','庚':'傷官','辛':'食神','壬':'正財','癸':'偏財'},
+        '庚':{'甲':'偏財','乙':'正財','丙':'七殺','丁':'正官','戊':'偏印','己':'正印','庚':'比肩','辛':'劫財','壬':'食神','癸':'傷官'},
+        '辛':{'甲':'正財','乙':'偏財','丙':'正官','丁':'七殺','戊':'正印','己':'偏印','庚':'劫財','辛':'比肩','壬':'傷官','癸':'食神'},
+        '壬':{'甲':'食神','乙':'傷官','丙':'偏財','丁':'正財','戊':'七殺','己':'正官','庚':'偏印','辛':'正印','壬':'比肩','癸':'劫財'},
+        '癸':{'甲':'傷官','乙':'食神','丙':'正財','丁':'偏財','戊':'正官','己':'七殺','庚':'正印','辛':'偏印','壬':'劫財','癸':'比肩'}
       };
-      const dmLine = DayMasterText[dmStemCn] || 'Watak Day Master anda seimbang dan mudah menyesuaikan diri.';
-
-      const elemCounts = ctx.elements || {};
-      const elemSummary = strongestWeakest(elemCounts);
-      const strongestElem = elemSummary.strongest;
-      const weakestElem = elemSummary.weakest;
-
-      const dayElem = ctx.day.element || ''; // Kayu / Api / Tanah / Logam / Air
-
-      // — Health focus by Day Master element —
-      let healthFocus = 'keseimbangan tenaga keseluruhan';
-      let healthAdvice = 'Jaga tidur, makan teratur, dan elak tekanan berpanjangan.';
-      switch(dayElem){
-        case 'Kayu':
-          healthFocus = 'hati, sistem saraf dan mata';
-          healthAdvice = 'Elak marah terpendam, jaga waktu tidur awal, dan perbanyakkan aktiviti luar yang menenangkan.';
-          break;
-        case 'Api':
-          healthFocus = 'jantung, tekanan darah dan sistem peredaran darah';
-          healthAdvice = 'Elak kafein berlebihan, belajar teknik relaksasi, dan kawal ledakan emosi.';
-          break;
-        case 'Tanah':
-          healthFocus = 'sistem penghadaman, limpa dan perut';
-          healthAdvice = 'Makan ikut waktu, kurangkan makanan berminyak/manis, dan jaga perut daripada “makan emosi”.';
-          break;
-        case 'Logam':
-          healthFocus = 'paru-paru, kulit dan sistem pernafasan';
-          healthAdvice = 'Jaga kualiti udara, elak merokok, dan luahkan perasaan supaya tidak “menahan dalam dada”.';
-          break;
-        case 'Air':
-          healthFocus = 'buah pinggang, pundi kencing dan keseimbangan air dalam badan';
-          healthAdvice = 'Minum air mencukupi, elak kesejukan melampau, dan jaga tulang belakang/pinggang.';
-          break;
-      }
-
-      // — Near-term luck suggestion by strongest element —
-      let nearTermFocus = '3–6 bulan akan datang sesuai untuk mengukuhkan asas hidup anda.';
-      let nearTermAdvice = 'Utamakan kestabilan, jangan buat keputusan besar ketika emosi tidak stabil.';
-      switch(strongestElem){
-        case 'Kayu':
-          nearTermFocus = 'tempoh sesuai untuk pembelajaran, projek baharu dan pengembangan rangkaian.';
-          nearTermAdvice = 'Rancang satu projek jangka sederhana dan konsistenkan usaha setiap minggu.';
-          break;
-        case 'Api':
-          nearTermFocus = 'tempoh sesuai untuk promosi, pemasaran, dan menonjolkan diri.';
-          nearTermAdvice = 'Gunakan tenaga tinggi untuk presentasi, pelancaran, atau rundingan penting – tetapi kawal impuls.';
-          break;
-        case 'Tanah':
-          nearTermFocus = 'tempoh sesuai untuk menyusun semula struktur hidup, kewangan dan kerja.';
-          nearTermAdvice = 'Sediakan pelan kewangan, lunas hutang sedikit demi sedikit, dan kukuhkan asas kerja.';
-          break;
-        case 'Logam':
-          nearTermFocus = 'tempoh sesuai untuk sistem, peraturan, plan B dan perlindungan risiko.';
-          nearTermAdvice = 'Perkemas kontrak, dokumen dan insurans. Buat semakan menyeluruh pada perancangan jangka panjang.';
-          break;
-        case 'Air':
-          nearTermFocus = 'tempoh sesuai untuk bergerak, jelajah idea baharu dan fleksibiliti arah.';
-          nearTermAdvice = 'Teroka peluang, tetapi pilih satu-dua fokus utama supaya tenaga tidak berpecah.';
-          break;
-      }
-
-      const parts = [];
-
-      // 1. Overview
-      parts.push(`
-        <div class="butler-section">
-          <h4>1. Gambaran Umum · Day Master</h4>
-          <p><strong>Day Master:</strong> ${ctx.day.stemEn} (${dmStemCn})</p>
-          <p>${dmLine}</p>
-        </div>
-      `);
-
-      // 2. Five Elements
-      parts.push(`
-        <div class="butler-section">
-          <h4>2. Keseimbangan Lima Unsur</h4>
-          <p>
-            Kayu: ${elemCounts.Kayu || elemCounts.Wood || 0}% ·
-            Api: ${elemCounts.Api || elemCounts.Fire || 0}% ·
-            Tanah: ${elemCounts.Tanah || elemCounts.Earth || 0}% ·
-            Logam: ${elemCounts.Logam || elemCounts.Metal || 0}% ·
-            Air: ${elemCounts.Air || elemCounts.Water || 0}%.
-          </p>
-          <p>
-            <strong>Unsur paling kuat:</strong> ${strongestElem}.<br/>
-            <strong>Unsur paling lemah:</strong> ${weakestElem}.
-          </p>
-          <p>
-            Dalam praktik: gunakan unsur yang paling kuat bila anda perlukan keyakinan,
-            dan bina unsur yang paling lemah melalui persekitaran, tabiat harian dan
-            orang di sekeliling anda.
-          </p>
-        </div>
-      `);
-
-      // 3. Ten Gods (simplified)
-      parts.push(`
-        <div class="butler-section">
-          <h4>3. Konfigurasi “Sepuluh Dewa” (十神)</h4>
-          <p>
-            Versi ringkas ini tidak mengira semua 十神 secara teknikal seperti 伤官、正财、七杀
-            satu per satu, tetapi dari pola unsur dapat dilihat bahawa anda mempunyai campuran
-            tenaga <strong>ekspresi diri</strong>, <strong>fokus kewangan</strong> dan
-            <strong>tanggungjawab terhadap orang lain</strong>.
-          </p>
-          <p>
-            Secara umum, corak ini mengingatkan anda untuk seimbangkan:
-            jangan terlalu mengorbankan diri demi orang lain,
-            tetapi juga jangan hanya kejar diri sendiri tanpa memikirkan hubungan jangka panjang.
-          </p>
-        </div>
-      `);
-
-      // 4. Useful Elements (喜用神)
-      parts.push(`
-        <div class="butler-section">
-          <h4>4. Unsur Berfaedah (喜用神) · Arah Sokongan</h4>
-          <p>
-            Dalam bacaan klasik, 喜用神 merujuk kepada unsur yang paling membantu menstabilkan Day Master.
-            Berdasarkan carta ringkas ini, anda digalakkan untuk:
-          </p>
-          <ul>
-            <li><strong>Melindungi unsur terkuat</strong> (${strongestElem}) – ini adalah gaya semula jadi anda.</li>
-            <li><strong>Memupuk unsur paling lemah</strong> (${weakestElem}) – di sinilah banyak peluang pertumbuhan.</li>
-          </ul>
-          <p>
-            Anda boleh manifestasikan ini melalui warna, persekitaran,
-            jenis kerja dan rakan-rakan yang anda pilih untuk bersama.
-          </p>
-        </div>
-      `);
-
-      // 5. Relationships
-      parts.push(`
-        <div class="butler-section">
-          <h4>5. Cinta & Perkahwinan</h4>
-          <p><strong>Ciri cinta:</strong> ${rel.traits}</p>
-          <p><strong>Nasihat:</strong> ${rel.tips}</p>
-          <p>
-            Secara umum, bila emosi anda stabil dan jadual tidak terlalu padat,
-            hubungan akan berkembang dengan lebih lancar. Elakkan buat keputusan
-            besar tentang hubungan ketika stres atau tekanan kewangan terlalu tinggi.
-          </p>
-        </div>
-      `);
-
-      // 6. Career
-      parts.push(`
-        <div class="butler-section">
-          <h4>6. Kerjaya & Arah Kerja</h4>
-          <p>
-            <strong>Nota kerjaya:</strong> Carta ini cenderung kepada pertumbuhan berasaskan kemahiran dan kesabaran.
-            Membangun kepakaran dan reputasi jangka panjang lebih penting daripada lompatan singkat yang dramatik.
-          </p>
-          <p>
-            Cuba selaraskan kerja dengan sifat Day Master anda. Jika unsur Kayu/Api kuat,
-            anda serasi dengan peranan yang dinamik dan berurusan dengan orang. Jika Logam/Air lebih kuat,
-            anda lebih sesuai dengan kerja analitik, teknikal atau penyelidikan.
-          </p>
-        </div>
-      `);
-
-      // 7. Wealth
-      parts.push(`
-        <div class="butler-section">
-          <h4>7. Rezeki & Nasihat Praktikal</h4>
-          <p>
-            Bacaan ringkas ini menekankan <strong>aliran tunai yang sedar</strong>:
-            ada bajet bulanan mudah, dana kecemasan kecil, dan had yang jelas untuk
-            “wang risiko” (pelaburan spekulatif, trading, percubaan sampingan).
-          </p>
-          <p>
-            Corak rezeki terbaik ialah menstabilkan asas dahulu (kemahiran, pendapatan teras),
-            kemudian perlahan-lahan tambah sumber pendapatan sampingan yang serasi dengan watak anda.
-          </p>
-        </div>
-      `);
-
-      // 8. Health
-      parts.push(`
-        <div class="butler-section">
-          <h4>8. Kesihatan & Penjagaan Diri</h4>
-          <p>
-            <strong>Fokus tubuh:</strong> ${healthFocus}.
-          </p>
-          <p>
-            <strong>Cadangan asas:</strong> ${healthAdvice}
-          </p>
-          <p>
-            Selain itu, kekalkan rutin harian yang konsisten (tidur, makan, senaman ringan)
-            dan belajar melepaskan tekanan emosi melalui cara yang sihat (menulis jurnal,
-            berjalan, meditasi ringkas).
-          </p>
-        </div>
-      `);
-
-      // 9. Near-term luck
-      parts.push(`
-        <div class="butler-section">
-          <h4>9. Energi & Aliran 3–6 Bulan Akan Datang</h4>
-          <p>
-            <strong>Fokus tempoh dekat:</strong> ${nearTermFocus}
-          </p>
-          <p>
-            <strong>Nasihat:</strong> ${nearTermAdvice}
-          </p>
-          <p>
-            Bila terasa sangat penat atau “tak jelas”, berhenti seketika untuk
-            susun semula keutamaan, bukannya paksa diri meneruskan semua projek sekaligus.
-          </p>
-        </div>
-      `);
-
-      // 10. Action checklist
-      parts.push(`
-        <div class="butler-section">
-          <h4>10. Senarai Tindakan Jangka Pendek</h4>
-          <ul>
-            <li>Pilih satu matlamat 30 hari yang realistik (kerjaya, wang atau kesihatan) dan tulis dengan jelas.</li>
-            <li>Bina satu ritual mingguan (semakan, jurnal atau perancangan) untuk menilai kemajuan matlamat.</li>
-            <li>Lindungi unsur terkuat anda dengan persekitaran yang sesuai (warna, aktiviti, jenis manusia).</li>
-            <li>Bina unsur paling lemah dengan tabiat kecil yang konsisten.</li>
-          </ul>
-        </div>
-      `);
-
-      box.innerHTML = parts.join('\n');
-      const sec = $('butlerProfessional');
-      if(sec) sec.style.display = 'block';
+      const m=map[dayStem]||{};
+      return stems.map(s=>m[s]||'-');
     }
+  }
 
-    /* ===== Generate Bazi flow ===== */
-    const calc = new BaziCalculator();
+  /* ===================== ANALYSIS HELPERS ===================== */
+  function stemToPinyin(stem){
+    const map = {'甲':'jia','乙':'yi','丙':'bing','丁':'ding','戊':'wu','己':'ji','庚':'geng','辛':'xin','壬':'ren','癸':'gui'};
+    return map[stem] || String(stem).toLowerCase();
+  }
 
-    function showError(msg){
-      const e = $('error');
-      if(!e) return;
-      e.textContent = msg;
-      e.style.display = 'block';
+  const BaziAnalysis = {
+    dayMasterLine(stem){ return t('report.dayMaster.'+stemToPinyin(stem)) || ''; },
+
+    relation(dayStem){
+      const dict={
+        '甲':{traits:'Dalam cinta, anda cenderung memimpin; beri ruang untuk pasangan bernafas.',tips:'Dengar dulu sebelum jawab; seimbangkan komunikasi.'},
+        '乙':{traits:'Lembut dan teliti; perlukan rasa stabil. Elak terlalu bergantung.',tips:'Nyatakan keperluan dengan jelas; bina keyakinan sedikit demi sedikit.'},
+        '丙':{traits:'Mesra dan ekspresif; emosi naik turun boleh buat keputusan tergesa-gesa.',tips:'Ambil satu nafas dalam sebelum respon; pilih masa & kata yang sesuai.'},
+        '丁':{traits:'Serius dan setia; bila stres mudah overthink/curiga.',tips:'Latih kepercayaan; kurangkan andaian.'},
+        '戊':{traits:'Utamakan kestabilan; kadang nampak “keras”.',tips:'Tambah kelembutan dan romantik.'},
+        '己':{traits:'Prihatin dan pandai menjaga; kadang mudah rasa tidak yakin.',tips:'Kukuhkan dengan rutin & janji kecil yang konsisten.'},
+        '庚':{traits:'Terus terang dan cepat membuat keputusan; tak suka kabur.',tips:'Kekal jujur, tetapi lembutkan nada & kelajuan.'},
+        '辛':{traits:'Standard tinggi dan teliti pada kualiti.',tips:'Jangan terlalu perfeksionis; fokus berkembang bersama.'},
+        '壬':{traits:'Suka kelainan & kebebasan; emosi cepat berubah.',tips:'Stabilkan dengan rutin + aktiviti seronok bersama.'},
+        '癸':{traits:'Halus dan intuitif; bila tertekan mudah sensitif.',tips:'Urus emosi; berbincang secara berstruktur bila ada isu.'}
+      };
+      return dict[dayStem]||{traits:'Secara umum stabil jika dijaga konsisten.',tips:'Hormati satu sama lain dan berterus terang secara sopan.'};
+    },
+
+    marriageAdvice(ten){
+      if(ten.includes('正官')||ten.includes('正財')) return t('report.marriage.stable');
+      if(ten.includes('七殺')||ten.includes('偏財')) return t('report.marriage.experienced');
+      return t('report.marriage.default');
+    },
+
+    career(dayStem,ten){
+      const map={
+        甲:'Pemimpin/mula bisnes; operasi lapangan; kejuruteraan/pembinaan',
+        乙:'Pengajaran, reka bentuk, konsultasi, jenama/kandungan',
+        丙:'Pemasaran, jualan, media, event/kerja bertenaga',
+        丁:'R&D/IT, servis/kesihatan, kerja teknikal halus',
+        戊:'Kewangan, hartanah, urus aset/sumber',
+        己:'HR, servis, admin, pertanian/penjagaan sistem',
+        庚:'Undang-undang, mesin/kejuruteraan, keselamatan/security',
+        辛:'Analitik kewangan, peralatan tepat, mewah/perhiasan',
+        壬:'Perdagangan/logistik, pelancongan, industri kreatif',
+        癸:'Penyelidikan, psikologi/coach, seni/penulisan'
+      };
+      let adv = t('report.career.steady');
+      if(ten.includes('正官')||ten.includes('七殺')) adv=t('report.career.leadership');
+      else if(ten.includes('正財')||ten.includes('偏財')) adv=t('report.career.business');
+      else if(ten.includes('食神')||ten.includes('傷官')) adv=t('report.career.creative');
+      return { suitable: map[dayStem] || 'Kumpul kemahiran perlahan-lahan, bina kredibiliti jangka panjang', advice: adv };
+    },
+
+    // Directions (reference)
+    wealthDirs(dayStem){
+      const dirs={
+        甲:'Timur/Tenggara',
+        乙:'Timur/Selatan',
+        丙:'Selatan',
+        丁:'Selatan/Barat Daya',
+        戊:'Tengah/kawasan asal',
+        己:'Tengah/kawasan asal/Barat Daya',
+        庚:'Barat/Barat Laut',
+        辛:'Barat/Utara',
+        壬:'Utara',
+        癸:'Utara/Timur'
+      };
+      return dirs[dayStem] || '-';
+    },
+
+    health(dayStem){
+      const c={
+        甲:'Hati/pundi hempedu, mata, tendon',
+        乙:'Sistem hati dan pengurusan emosi',
+        丙:'Jantung/peredaran & mata; jaga emosi naik turun',
+        丁:'Jantung/peredaran; utamakan tidur',
+        戊:'Pencernaan; jadual makan konsisten',
+        己:'Pencernaan & kulit; jaga kebersihan/kelembapan',
+        庚:'Pernafasan & usus besar; elak terlalu kering',
+        辛:'Paru-paru/pernafasan; jaga kualiti udara',
+        壬:'Buah pinggang/salur kencing; seimbangkan hidrasi',
+        癸:'Buah pinggang/pundi kencing; elak overwork'
+      };
+      return c[dayStem] || 'Umumnya seimbang; jaga tidur dan ritma hidup';
     }
-    function clearError(){
-      const e = $('error');
-      if(e){ e.textContent=''; e.style.display='none'; }
-    }
+  };
 
-    function onGenerate(){
-      clearError();
-      const btn = $('genBtn');
-      const textSpan = $('genBtnText');
-      const loadSpan = $('genBtnLoading');
-      const birthdate = $('birthdate').value;
-      const timeStr = $('birthtime').value;
-      const timeUnknown = $('timeUnknown').checked;
+  /* ===================== AI INSIGHT (UNCHANGED) ===================== */
+  (function () {
+    const LS_DOWN = 'ai:insight:downUntil';
+    const now = () => Date.now();
+    const downUntil = () => { try { return parseInt(localStorage.getItem(LS_DOWN)||'0',10)||0; } catch { return 0; } };
+    const markDown = (ms = 180000) => { try { localStorage.setItem(LS_DOWN, String(now()+ms)); } catch {} };
+    const clearDown = () => { try { localStorage.removeItem(LS_DOWN); } catch {} };
 
-      if(!birthdate){
-        showError('Sila masukkan tarikh lahir anda.');
-        return;
-      }
-      const m = birthdate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-      if(!m){
-        showError('Format tarikh tidak sah. Guna YYYY-MM-DD.');
-        return;
-      }
-      const year = parseInt(m[1],10), month=parseInt(m[2],10), day=parseInt(m[3],10);
-
-      let hour = null, minute = null;
-      if(!timeUnknown && timeStr){
-        const tm = timeStr.match(/^(\d{2}):(\d{2})$/);
-        if(tm){
-          hour = parseInt(tm[1],10);
-          minute = parseInt(tm[2],10);
-        }
-      }
-
-      if(btn){ btn.disabled=true; }
-      if(textSpan) textSpan.style.display='none';
-      if(loadSpan) loadSpan.style.display='inline';
-
+    async function fetchJSON(url, init={}, timeoutMs=15000){
+      const ctrl = new AbortController(); const t=setTimeout(()=>ctrl.abort(), timeoutMs);
       try{
-        const yearP = calc.yearPillar(year);
-        const monthP = calc.monthPillar(year,month,day);
-        const dayP = calc.dayPillar(year,month,day);
-        const hasHour = hour!==null && !isNaN(hour);
-        const hourP = hasHour ? calc.hourPillar(dayP.stemCn,hour) : null;
-
-        const pillarsBox = $('bazi-pillars');
-        if(pillarsBox){
-          pillarsBox.innerHTML = '';
-          const arr = [
-            {label:'Tahun', p:yearP},
-            {label:'Bulan',p:monthP},
-            {label:'Hari',p:dayP},
-            {label:'Jam',p:hourP}
-          ];
-          arr.forEach(item=>{
-            const div = document.createElement('div');
-            div.className='pillar';
-            if(item.p){
-              const stemFull = calc.stemNameEn(item.p.stemCn);
-              const branchFull = calc.branchNameEn(item.p.branch);
-              div.innerHTML = `
-                <div class="tit">${item.label}</div>
-                <div class="gz">${stemFull} · ${branchFull}</div>
-                <div class="muted">${item.p.stemCn}${item.p.branch}</div>
-              `;
-            }else{
-              div.innerHTML = `
-                <div class="tit">${item.label}</div>
-                <div class="gz">—</div>
-                <div class="muted">Tiada</div>
-              `;
-            }
-            pillarsBox.appendChild(div);
-          });
-        }
-
-        function setText(id,val){ const el=$(id); if(el) el.textContent = val==null?'-':val; }
-        setText('year-stem',  `${calc.stemNameEn(yearP.stemCn)} (${yearP.stemCn})`);
-        setText('month-stem', `${calc.stemNameEn(monthP.stemCn)} (${monthP.stemCn})`);
-        setText('day-stem',   `${calc.stemNameEn(dayP.stemCn)} (${dayP.stemCn})`);
-        setText('hour-stem',  hourP ? `${calc.stemNameEn(hourP.stemCn)} (${hourP.stemCn})` : '—');
-
-        setText('year-branch',  `${calc.branchNameEn(yearP.branch)} (${yearP.branch})`);
-        setText('month-branch', `${calc.branchNameEn(monthP.branch)} (${monthP.branch})`);
-        setText('day-branch',   `${calc.branchNameEn(dayP.branch)} (${dayP.branch})`);
-        setText('hour-branch',  hourP ? `${calc.branchNameEn(hourP.branch)} (${hourP.branch})` : '—');
-
-        const yearElem = calc.stemElem(yearP.stemCn);
-        const monthElem = calc.stemElem(monthP.stemCn);
-        const dayElem = calc.stemElem(dayP.stemCn);
-        const hourElem = hourP ? calc.stemElem(hourP.stemCn) : '—';
-
-        setText('year-element',yearElem);
-        setText('month-element',monthElem);
-        setText('day-element',dayElem);
-        setText('hour-element',hourElem);
-
-        const yearNa = calc.nayin(yearP.stemCn,yearP.branch);
-        const monthNa = calc.nayin(monthP.stemCn,monthP.branch);
-        const dayNa = calc.nayin(dayP.stemCn,dayP.branch);
-        const hourNa = hourP?calc.nayin(hourP.stemCn,hourP.branch):'—';
-        setText('year-nayin',yearNa);
-        setText('month-nayin',monthNa);
-        setText('day-nayin',dayNa);
-        setText('hour-nayin',hourNa);
-
-        const dateBox = $('bazi-date');
-        if(dateBox){
-          let timePart = timeUnknown ? 'masa tidak diketahui' : (hour!=null?`${String(hour).padStart(2,'0')}:${String(minute||0).padStart(2,'0')}`:'masa tidak diketahui');
-          dateBox.textContent = `Lahir: ${year}-${String(month).padStart(2,'0')}-${String(day).padStart(2,'0')} · ${timePart}`;
-        }
-
-        const counts = {Kayu:0,Api:0,Tanah:0,Logam:0,Air:0};
-        function addElem(e){ if(e && counts.hasOwnProperty(e)) counts[e]++; }
-        const all = [yearP,monthP,dayP].concat(hourP? [hourP] : []);
-        all.forEach(p=>{
-          const se = calc.stemElem(p.stemCn);
-          const be = calc.branchElem(p.branch);
-          addElem(se); addElem(be);
-        });
-        const total = Object.values(counts).reduce((a,b)=>a+b,0) || 1;
-        const pct = {};
-        Object.keys(counts).forEach(k=>{
-          pct[k] = Math.round(counts[k]/total*100);
-        });
-
-        function setBar(name,val){
-          const bar = $('bar-'+name.toLowerCase());
-          const txt = $('pct-'+name.toLowerCase());
-          if(bar) bar.style.width = val + '%';
-          if(txt) txt.textContent = val + '%';
-        }
-        setBar('wood',pct.Kayu);
-        setBar('fire',pct.Api);
-        setBar('earth',pct.Tanah);
-        setBar('metal',pct.Logam);
-        setBar('water',pct.Air);
-
-        const bw = $('bazi-elements-balance');
-        const {strongest,weakest} = strongestWeakest(pct);
-        if(bw){
-          bw.textContent = `Dalam Lima Unsur, ${strongest} paling kuat dan ${weakest} paling lemah dalam carta ini.`;
-        }
-
-        const ctx = {
-          name: $('name').value || '',
-          gender: $('gender').value || '',
-          birth: {year,month,day,hour,minute,timeUnknown},
-          year: {stemCn:yearP.stemCn, stemEn:yearP.stem, branch:yearP.branch, element:yearElem, nayin:yearNa},
-          month:{stemCn:monthP.stemCn, stemEn:monthP.stem, branch:monthP.branch, element:monthElem, nayin:monthNa},
-          day:  {stemCn:dayP.stemCn, stemEn:dayP.stem, branch:dayP.branch, element:dayElem, nayin:dayNa},
-          hour: hourP?{stemCn:hourP.stemCn, stemEn:hourP.stem, branch:hourP.branch, element:hourElem, nayin:hourNa}:null,
-          elements:{
-            Kayu:pct.Kayu, Api:pct.Api, Tanah:pct.Tanah, Logam:pct.Logam, Air:pct.Air,
-            Wood:pct.Kayu, Fire:pct.Api, Earth:pct.Tanah, Metal:pct.Logam, Water:pct.Air
-          }
-        };
-        window.lastCtx = ctx;
-
-        const resSec = $('result');
-        if(resSec) resSec.style.display = 'block';
-        buildProReport(ctx);
-
-      }catch(e){
-        console.error(e);
-        showError('Gagal menjana carta. Sila cuba lagi.');
-      }finally{
-        if(btn){ btn.disabled=false; }
-        if(textSpan) textSpan.style.display='inline';
-        if(loadSpan) loadSpan.style.display='none';
-      }
+        const res = await fetch(url, {...init, signal: ctrl.signal});
+        if(!res.ok) throw new Error(`HTTP ${res.status}`);
+        return await res.json();
+      } finally { clearTimeout(t); }
     }
 
-    /* ===== Chat behaviour (simple local reply) ===== */
-    function appendChat(role,text){
-      const box = $('chatMessages');
-      if(!box) return;
+    async function _aiExplain(section, ctx, {lang, temperature=0.7, seed=null}={}){
+      if (!window.API_BASE) return null;
+      const json = await fetchJSON(`${String(window.API_BASE).replace(/\/$/,'')}/bazi/insight`, {
+        method:'POST', headers:{ 'Content-Type':'application/json' },
+        body: JSON.stringify({ section, lang, temperature, seed, ctx })
+      });
+      if (json && (json.symbolise || json.analysis)) return json;
+      return null;
+    }
+
+    window.aiExplain = async function (section, ctx, opts) {
+      if (now() < downUntil()) return null;
+      try {
+        const out = await _aiExplain(section, ctx, opts||{});
+        if (out) { clearDown(); return out; }
+        markDown(); return null;
+      } catch {
+        markDown(); return null;
+      }
+    };
+
+    window.injectAI = async function (section, symId, anaId, ctx, opts) {
+      try {
+        const out = await window.aiExplain(section, ctx, opts);
+        if (!out) return;
+        const $sym = document.getElementById(symId);
+        const $ana = document.getElementById(anaId);
+        if ($sym && out.symbolise) $sym.textContent = `${t('reportLabels.symbolise')}：${out.symbolise}`;
+        if ($ana && out.analysis)  $ana.textContent = `${t('reportLabels.analysis')}：${out.analysis}`;
+      } catch {}
+    };
+
+    window.forceAiInsightRetry = function () { try { localStorage.removeItem(LS_DOWN); } catch {} };
+  })();
+
+  /* ===================== RENDERERS ===================== */
+  function renderPillars(labels){
+    const titles=[t('pillar.year'),t('pillar.month'),t('pillar.day'),t('pillar.hour')];
+    const box = $('bazi-pillars'); if(!box) return;
+    box.innerHTML = labels.map((lab,i)=>`
+      <div class="pillar"><div class="tit">${titles[i]}</div><div class="gz">${lab||'-'}</div></div>
+    `).join('');
+  }
+
+  function renderTable(data){
+    const keys=['year','month','day','hour'];
+    const translateElem = (val)=>{
+      const map = { '木': t('elem.wood'), '火': t('elem.fire'),'土': t('elem.earth'),'金': t('elem.metal'),'水': t('elem.water') };
+      return map[val] || val;
+    };
+    ['stem','branch','element','nayin'].forEach(row=>{
+      keys.forEach((k, i)=>{
+        const cell = $(k+'-'+row); if (!cell) return;
+        let v = (Array.isArray(data[row]) ? data[row][i] : '-') ?? '-';
+        if (row === 'element') v = translateElem(v);
+        cell.textContent = v;
+      });
+    });
+  }
+
+  function renderBars(pcts){
+    ['木','火','土','金','水'].forEach(e=>{
+      const pct=Math.max(0,Math.min(100,Math.round(pcts[e]||0)));
+      const bar=$('bar-'+e), lab=$('pct-'+e);
+      if(bar) bar.style.width=pct+'%';
+      if(lab) lab.textContent=pct+'%';
+    });
+    const entries=Object.entries(pcts).sort((a,b)=>b[1]-a[1]);
+    if(entries.length){
+      const strongest = entries[0][0], weakest = entries.at(-1)[0];
+      const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
+      const tpl = (t('ui.balance') || 'Unsur paling kuat: {strongest} · Unsur paling lemah: {weakest}');
+      const txt = tpl.replace('{strongest}', mapName[strongest]).replace('{weakest}', mapName[weakest]);
+      const el=$('bazi-elements-balance'); if(el) el.textContent=txt;
+    }
+  }
+
+  /* ===================== PRO REPORT (MS, 10 SECTIONS) ===================== */
+  function supportElems(dm){
+    const map = { 甲:['水','木'], 乙:['水','木'], 丙:['木','火'], 丁:['木','火'], 戊:['火','土'], 己:['火','土'], 庚:['土','金'], 辛:['土','金'], 壬:['金','水'], 癸:['金','水'] };
+    const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
+    return (map[dm]||[]).map(key);
+  }
+  function restrainElems(dm){
+    const map = { 甲:['金'], 乙:['金'], 丙:['水'], 丁:['水'], 戊:['木'], 己:['木'], 庚:['火'], 辛:['火'], 壬:['土'], 癸:['土'] };
+    const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
+    return (map[dm]||[]).map(key);
+  }
+  function computeUseful(p){ // two weakest elements
+    const arr = Object.entries({木:p.木||0,火:p.火||0,土:p.土||0,金:p.金||0,水:p.水||0})
+      .sort((a,b)=>a[1]-b[1])
+      .slice(0,2)
+      .map(([k])=>k);
+    const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
+    return arr.map(key);
+  }
+
+  window.buildProReport = function buildProReport(ctx){
+    const box = $('professionalReport');
+    if (!box || !ctx) return;
+
+    const dm = ctx.dayStem || '';
+    const pctsCN = ctx.pcts || {};
+    const ten = Array.isArray(ctx.tenGods) ? ctx.tenGods.filter(Boolean) : [];
+
+    const elem = {
+      Wood:  pctsCN['木'] || 0,
+      Fire:  pctsCN['火'] || 0,
+      Earth: pctsCN['土'] || 0,
+      Metal: pctsCN['金'] || 0,
+      Water: pctsCN['水'] || 0,
+    };
+
+    function strongestWeakest(obj){
+      const arr = Object.entries(obj || {});
+      if (!arr.length) return { strongest:'', weakest:'' };
+      arr.sort((a,b)=> b[1] - a[1]);
+      return { strongest: arr[0][0], weakest: arr[arr.length - 1][0] };
+    }
+
+    const { strongest, weakest } = strongestWeakest(elem);
+    const strongestLabel = strongest || '-';
+    const weakestLabel   = weakest   || '-';
+
+    const dmLine   = BaziAnalysis.dayMasterLine(dm) || 'Sifat Unsur Hari boleh berubah mengikut keadaan.';
+    const rel      = BaziAnalysis.relation(dm);
+    const marriage = BaziAnalysis.marriageAdvice(ten);
+    const career   = BaziAnalysis.career(dm, ten);
+    const wealthDir= BaziAnalysis.wealthDirs(dm);
+    const healthFo = BaziAnalysis.health(dm);
+
+    const supportText  = supportElems(dm).map(k=>t(k)).filter(Boolean).join('、') || '-';
+    const restrainText = restrainElems(dm).map(k=>t(k)).filter(Boolean).join('、') || '-';
+    const usefulText   = computeUseful({ 木:pctsCN['木']||0, 火:pctsCN['火']||0, 土:pctsCN['土']||0, 金:pctsCN['金']||0, 水:pctsCN['水']||0 })
+      .map(k=>t(k)).filter(Boolean).join('、') || '-';
+
+    const elemLine = `
+      Kayu: ${Math.round(elem.Wood)}% ·
+      Api: ${Math.round(elem.Fire)}% ·
+      Tanah: ${Math.round(elem.Earth)}% ·
+      Logam: ${Math.round(elem.Metal)}% ·
+      Air: ${Math.round(elem.Water)}%
+    `.replace(/\s+/g,' ');
+
+    let nearTermFocus  = t('fortune.foundation') || 'Fasa bina asas: konsisten, kumpul kekuatan';
+    let nearTermAdvice = t('cautions.default')   || 'Jangan buat keputusan ikut emosi, dan kawal perbelanjaan';
+
+    switch (strongest) {
+      case 'Wood':
+      case 'Fire':
+        nearTermFocus  = t('fortune.upward') || 'Fasa naik: sesuai tampil, komunikasi, hasilkan kerja';
+        nearTermAdvice = strongest === 'Wood'
+          ? 'Pilih 1 kemahiran baru, luaskan rangkaian, dan gerakkan projek utama sekali seminggu'
+          : 'Sesuai untuk present/berunding/tutup kerja; elak keputusan tergesa-gesa';
+        break;
+      case 'Earth':
+      case 'Metal':
+        nearTermFocus  = t('fortune.focus') || 'Fokus & sistem: kuat pada operasi dan pelaksanaan';
+        nearTermAdvice = strongest === 'Earth'
+          ? 'Urus masa & duit: fokus 1–2 arah dengan pulangan paling tinggi'
+          : 'Stabilkan sistem: peraturan, SOP, kontrak, dan backup';
+        break;
+      case 'Water':
+        nearTermFocus  = t('fortune.study') || 'Fasa kaji: banding & uji kecil dulu sebelum skala';
+        nearTermAdvice = 'Kaji–banding–uji kecil dahulu, kemudian baru tingkatkan pelaburan';
+        break;
+    }
+
+    const title = {
+      overview:     t('reportTitles.overview')     || 'Gambaran keseluruhan',
+      fiveElements: t('reportTitles.fiveElements') || 'Lima Unsur',
+      tenGods:      t('reportTitles.tenGods')      || 'Sepuluh Dewa (十神)',
+      useful:       t('reportTitles.useful')       || 'Unsur yang menyokong',
+      relation:     t('reportTitles.relationship') || 'Cinta & hubungan',
+      career:       t('reportTitles.career')       || 'Kerjaya',
+      wealth:       t('reportTitles.wealth')       || 'Kewangan',
+      health:       t('reportTitles.health')       || 'Kesihatan',
+      nearTerm:     t('reportTitles.nearTerm')     || 'Trend jangka dekat',
+      actions:      t('reportTitles.actions')      || 'Senarai tindakan',
+    };
+
+    const parts = [];
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>1. ${title.overview}</h4>
+        <p><strong>${t('reportLabels.dayMaster') || 'Unsur Hari (日主)'}:</strong> ${dm || '-'}</p>
+        <p>${dmLine}</p>
+        ${ctx.unknown ? `<p>${t('report.hourUnknownTip')}</p>` : ''}
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>2. ${title.fiveElements}</h4>
+        <p>${elemLine}</p>
+        <p><strong>Unsur paling kuat:</strong> ${strongestLabel} &nbsp;&nbsp; <strong>Unsur paling lemah:</strong> ${weakestLabel}</p>
+        <p>
+          Unsur “kuat” ialah gaya semula jadi anda.
+          Unsur “lemah” ialah ruang pertumbuhan jangka panjang—tambah sedikit demi sedikit lebih tahan lama.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>3. ${title.tenGods}</h4>
+        <p>
+          Versi pantas ini tidak mengira semua Sepuluh Dewa sepenuhnya,
+          tetapi teras anda ialah menyeimbangkan
+          <strong>ekspresi · urus sumber · tanggungjawab</strong>.
+        </p>
+        <p>
+          Bila penat atau hilang tenaga, tanya diri: “Saya buat untuk siapa?” dan “Sempadan saya sudah jelas?”
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>4. ${title.useful}</h4>
+        <p><strong>Unsur yang menambah momentum:</strong> ${supportText}</p>
+        <p><strong>Unsur yang perlu diseimbangkan:</strong> ${restrainText}</p>
+        <p><strong>Unsur yang patut dilatih sekarang:</strong> ${usefulText}</p>
+        <p>
+          Gunakan “unsur sokongan” secara praktikal: warna/persekitaran/rutin/jenis kerja.
+          Pilih 1 tabiat kecil dan buat konsisten dahulu.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>5. ${title.relation}</h4>
+        <p><strong>Trend cinta:</strong> ${rel.traits}</p>
+        <p><strong>Kunci untuk lancar:</strong> ${rel.tips}</p>
+        <p><strong>Nota perkahwinan:</strong> ${marriage}</p>
+        <p>
+          Cinta bukan sekadar romantik—ia kerjasama jangka panjang.
+          “Sempadan + terus terang + ritma hidup stabil” membantu hubungan lebih kukuh.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>6. ${title.career}</h4>
+        <p><strong>${t('reportLabels.suitableCareers') || 'Kerja yang sesuai'}:</strong> ${career.suitable}</p>
+        <p><strong>${t('reportLabels.careerAdvice') || 'Nasihat kerjaya'}:</strong> ${career.advice}</p>
+        <p>
+          Strategi membesar: <strong>kedalaman jangka panjang + reputasi pakar</strong>.
+          Bina “satu perkara” yang orang ingat tentang anda dahulu.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>7. ${title.wealth}</h4>
+        <p><strong>${t('reportLabels.favorableDirections') || 'Arah baik (rujukan)'}:</strong> ${wealthDir}</p>
+        <p>
+          Duit bukan sekadar “peluang”—ia disiplin aliran tunai dan kawalan risiko.
+          Stabilkan pendapatan utama dahulu, kemudian baru naikkan had risiko yang anda mampu.
+        </p>
+        <p>
+          Model yang tahan lama: besarkan dari kemahiran × kredibiliti, kemudian tambah sumber lain yang selari dengan kekuatan.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>8. ${title.health}</h4>
+        <p><strong>${t('reportLabels.healthCharacteristics') || 'Perhatian tubuh'}:</strong> ${healthFo}</p>
+        <p>
+          Permudahkan kesihatan: cukup tidur, bergerak ringan, makan sederhana.
+          Ada 1 saluran emosi (journaling/berjalan/meditasi/doa) sangat membantu keseimbangan.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>9. ${title.nearTerm}</h4>
+        <p><strong>Tema utama:</strong> ${nearTermFocus}</p>
+        <p><strong>${t('reportLabels.analysis') || 'Cadangan'}:</strong> ${nearTermAdvice}</p>
+        <p>
+          Jika rasa berselerak, jangan tambah kerja baru—kemaskan yang sedia ada dahulu.
+          Susun keutamaan dan beri ruang rehat.
+        </p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>10. ${title.actions}</h4>
+        <ul class="action-list">
+          <li>Dalam 30 hari, pilih 1 matlamat utama (kerja/duit/kesihatan) dan letak di tempat yang anda nampak setiap hari</li>
+          <li>Seminggu sekali, semak berdasarkan “hasil” bukan emosi, kemudian ubah pelan minggu depan sedikit demi sedikit</li>
+          <li>Gunakan unsur kuat (${strongestLabel}) melalui persekitaran, rutin, dan pemilihan orang sekeliling</li>
+          <li>Unsur lemah (${weakestLabel}) tambah dengan tabiat kecil 1–2 perkara seminggu; konsistensi menang segalanya</li>
+        </ul>
+      </div>
+    `);
+
+    box.innerHTML = parts.join('\n');
+    const sec = $('butlerProfessional');
+    if (sec) sec.style.display = 'block';
+  };
+
+  /* ===================== GENERATE + UI ===================== */
+  function showErr(msg){
+    const box=$('error'); if(!box) return;
+    box.textContent = msg || t('err.generateFail');
+    box.style.display='block';
+    setTimeout(()=>{ box.style.display='none'; }, 4000);
+  }
+  function setGenLoading(v){
+    const btn=$('genBtn'), txt=$('genBtnText'), ld=$('genBtnLoading');
+    if(btn) btn.disabled=!!v;
+    if(txt) txt.style.display=v?'none':'inline';
+    if(ld) ld.style.display=v?'inline':'none';
+  }
+
+  function generate(){
+    const birth = ($('birthdate')?.value||'').trim();
+    if(!birth) return showErr(t('err.fillBirthdate'));
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return showErr(t('err.invalidDate'));
+
+    const [Y,M,D]=birth.split('-').map(n=>parseInt(n,10));
+    const unknown = $('timeUnknown')?.checked;
+    const timeVal = $('birthtime')?.value || '00:00';
+    const hh = parseInt((timeVal.split(':')[0]||'0'),10) || 0;
+
+    setGenLoading(true);
+    try{
+      const calc = new BaziCalculator();
+      const y = calc.yearPillar(Y);
+      const m = calc.monthPillar(Y,M,D);
+      const d = calc.dayPillar(Y,M,D);
+      const h = unknown ? {stem:'-',branch:'-'} : calc.hourPillar(d.stem, hh);
+
+      renderPillars([y.stem+y.branch, m.stem+m.branch, d.stem+d.branch, unknown ? (t('badge.noHour')||'-') : (h.stem+h.branch)]);
+
+      const stems=[y.stem,m.stem,d.stem, unknown? '-' : h.stem];
+      const branch=[y.branch,m.branch,d.branch, unknown? '-' : h.branch];
+      const rawElems=[calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem), unknown? '-' : calc.stemElem(h.stem)];
+      const nayin=[calc.nayin(y.stem,y.branch),calc.nayin(m.stem,m.branch),calc.nayin(d.stem,d.branch), unknown? '-' : calc.nayin(h.stem,h.branch)];
+      renderTable({stem:stems,branch:branch,element:rawElems,nayin});
+
+      const allElems = [calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem)]
+        .concat(unknown?[]:[calc.stemElem(h.stem)])
+        .concat([calc.branchElem(y.branch),calc.branchElem(m.branch),calc.branchElem(d.branch)])
+        .concat(unknown?[]:[calc.branchElem(h.branch)]);
+
+      const counts = {木:0,火:0,土:0,金:0,水:0};
+      allElems.forEach(e=>{ if(counts[e]!=null) counts[e]++; });
+      const total = Object.values(counts).reduce((a,b)=>a+b,0)||1;
+      const pcts = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, 100*v/total]));
+      renderBars(pcts);
+
+      const timeText = unknown ? (t('ui.timeUnknown')||'Tidak pasti masa lahir') :
+        (t('ui.hourSuffix')||'{hh}:{mm}')
+          .replace('{hh}', String(hh).padStart(2,'0'))
+          .replace('{mm}', String(parseInt((timeVal.split(':')[1]||'0'),10)||0).padStart(2,'0'));
+
+      const btxt = (t('ui.birthSummary')||'Lahir: {y}-{m}-{d} {timeText}')
+        .replace('{y}',Y).replace('{m}',M).replace('{d}',D).replace('{timeText}', timeText);
+
+      const bd=$('bazi-date'); if (bd) bd.textContent = btxt;
+
+      const tg = calc.tenGods(d.stem, stems);
+      const ctx = { pcts, dayStem: d.stem, tenGods: tg, unknown };
+      window.lastCtx = ctx;
+
+      $('result').style.display='block';
+    }catch(e){
+      console.error(e);
+      showErr(t('err.generateFail'));
+    } finally {
+      setGenLoading(false);
+    }
+  }
+
+  /* ===================== CLOCK ===================== */
+  function tickNow(){
+    const box = $('nowBox'); if (!box) return;
+    const fmt = new Intl.DateTimeFormat('ms-MY', {
+      weekday:'short', year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', hour12:false, timeZone: SG_TZ
+    });
+    box.textContent = fmt.format(new Date()) + ' (SGT)';
+  }
+  window.tickNow = tickNow;
+
+  /* ===================== FLOATING GPT CHAT ===================== */
+  function initChat(){
+    const fab   = $('ssChatFab');
+    const panel = $('chatPanel');
+    const close = $('chatClose');
+    const body  = $('chatBody');
+    const input = $('chatInput');
+    const send  = $('chatSend');
+
+    if (!fab || !panel || !close || !body || !input || !send) {
+      console.warn('[chat] missing elements');
+      return;
+    }
+
+    let chatHistory = [];
+
+    const open = () => { panel.setAttribute('aria-hidden','false'); setTimeout(()=>input.focus(), 50); };
+    const shut = () => { panel.setAttribute('aria-hidden','true'); };
+    const toggle = () => {
+      const hidden = panel.getAttribute('aria-hidden') !== 'false';
+      hidden ? open() : shut();
+    };
+
+    fab.addEventListener('click', toggle);
+    close.addEventListener('click', shut);
+
+    function pushMsg(text, who='bot'){
       const div = document.createElement('div');
-      div.style.marginBottom = '8px';
-      div.style.whiteSpace = 'pre-wrap';
-      if(role==='user'){
-        div.style.textAlign='right';
-        div.innerHTML = `<strong>Anda:</strong> ${text}`;
-      }else{
-        div.innerHTML = `<strong>Butler:</strong> ${text}`;
-      }
-      box.appendChild(div);
-      box.scrollTop = box.scrollHeight;
+      div.className = who === 'me' ? 'ss-msg me' : 'ss-msg';
+      div.textContent = text;
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
     }
 
-    async function handleChatSend(){
-      const input = $('chatInput');
-      if(!input) return;
-      const q = input.value.trim();
-      if(!q) return;
-      appendChat('user', q);
-      input.value = '';
+    if (!initChat._welcomed){
+      initChat._welcomed = true;
+      pushMsg(t('pro.welcome') || 'Hai, saya Butler Xinlian · GPT. Sila tekan “Jana Bazi” dahulu, kemudian anda boleh tanya.', 'bot');
+    }
 
-      const ctx = window.lastCtx;
-      if(!ctx){
-        appendChat('bot','Sila jana carta Bazi anda dahulu, kemudian tanya soalan tentang cinta, kerjaya, rezeki atau masa yang sesuai.');
-        return;
-      }
+    function buildBaziChatContext(){
+      const ctx = window.lastCtx || null;
+      const name = ($('name')?.value || '').trim();
+      const gender = ($('gender')?.value || '').trim();
+      const birth = ($('birthdate')?.value || '').trim();
+      const timeUnknown = !!$('timeUnknown')?.checked;
+      const birthtime = ($('birthtime')?.value || '').trim();
 
-      const dm = ctx.day.stemEn || 'Day Master';
-      appendChat(
-        'bot',
-        `Saya nampak Day Master anda ialah ${dm}. Berdasarkan carta ini, soalan "${q}" paling baik dijawab dengan:\n\n` +
-        `1) Semak sama ada keputusan ini menyokong kestabilan jangka panjang (unsur Tanah),\n` +
-        `2) Selaraskan dengan sifat anda (contohnya, Kayu suka pertumbuhan & fleksibiliti, Logam suka kejelasan & peraturan),\n` +
-        `3) Bergerak langkah demi langkah, bukan semua sekali gus.`
+      return { name, gender, birthdate: birth, birthtime: timeUnknown ? '' : birthtime, timeUnknown, chart: ctx };
+    }
+
+    function extractReply(json){
+      if (!json) return '';
+      return (
+        json.reply ||
+        json.answer ||
+        json.content ||
+        json.message ||
+        json.text ||
+        (json.data && (json.data.reply || json.data.content || json.data.text)) ||
+        ''
       );
     }
 
-    /* ===== Chat toggle & drag ===== */
-    function initChat(){
-      const toggle = $('chatToggle');
-      const panel = $('chatFloat');
-      const closeBtn = $('chatClose');
-      const sendBtn = $('chatSend');
-      const input = $('chatInput');
-      if(!toggle || !panel) return;
-      toggle.addEventListener('click', ()=>{ panel.style.display = panel.style.display==='flex'?'none':'flex'; });
-      if(closeBtn) closeBtn.addEventListener('click', ()=>{ panel.style.display='none'; });
-      if(sendBtn) sendBtn.addEventListener('click', handleChatSend);
-      if(input) input.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); handleChatSend(); } });
+    async function callChatAPI(userText){
+      const lang = 'ms-MY';
+      const ctx = buildBaziChatContext();
 
-      const header = panel.querySelector('.chat-float-header');
-      if(header){
-        let dragging=false, startX=0,startY=0,startLeft=0,startTop=0;
-        header.addEventListener('mousedown',e=>{
-          dragging=true;
-          startX=e.clientX; startY=e.clientY;
-          const rect=panel.getBoundingClientRect();
-          startLeft=rect.left; startTop=rect.top;
-          document.body.style.userSelect='none';
+      if (!chatHistory.length){
+        chatHistory.push({
+          role: 'system',
+          content:
+`Anda ialah “Butler Xinlian · GPT”. Berikan penjelasan Bazi dan cadangan yang praktikal.
+- Bahasa: ms-MY
+- Jika carta (chart) tiada/ kosong, minta pengguna tekan “Jana Bazi” dahulu
+- Jawab jelas; boleh guna bullet; fokus boleh buat terus
+- Jangan paparkan kod`
         });
-        window.addEventListener('mousemove',e=>{
-          if(!dragging) return;
-          const dx=e.clientX-startX, dy=e.clientY-startY;
-          panel.style.left = (startLeft+dx)+'px';
-          panel.style.top = (startTop+dy)+'px';
-          panel.style.right = 'auto';
-          panel.style.bottom = 'auto';
-        });
-        window.addEventListener('mouseup',()=>{
-          dragging=false;
-          document.body.style.userSelect='';
-        });
+      }
+
+      chatHistory.push({ role:'user', content: userText });
+
+      const url = String(API_BASE).replace(/\/$/,'') + CHAT_ENDPOINT;
+      const payload = { lang, context: ctx, messages: chatHistory };
+
+      const res = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const json = await res.json().catch(()=>null);
+      const reply = extractReply(json);
+
+      if (reply) chatHistory.push({ role:'assistant', content: reply });
+      return reply || '（Balasan kosong. Sila semak nama field yang Worker pulangkan.)';
+    }
+
+    async function sendMsg(){
+      const text = (input.value || '').trim();
+      if (!text) return;
+
+      input.value = '';
+      pushMsg(text, 'me');
+      pushMsg('…', 'bot');
+      const typingNode = body.lastElementChild;
+
+      try{
+        const reply = await callChatAPI(text);
+        if (typingNode) typingNode.textContent = reply;
+        else pushMsg(reply, 'bot');
+      }catch(err){
+        console.error('[chat] error', err);
+        const msg = '⚠️ Sambungan GPT gagal. Sila semak API_BASE dan /api/chat';
+        if (typingNode) typingNode.textContent = msg;
+        else pushMsg(msg, 'bot');
       }
     }
 
-    /* ===== Init ===== */
-    document.addEventListener('DOMContentLoaded', ()=>{
-      const btn = $('genBtn');
-      if(btn) btn.addEventListener('click', onGenerate);
-      initChat();
-
-      // language selector
-      const langSelect = $('langSelect');
-      if (langSelect) {
-        langSelect.value = CURRENT_LANG;
-        langSelect.addEventListener('change', e => {
-          const code = e.target.value;
-          const url = LANG_PAGES[code];
-          if (url) window.location.href = url;
-        });
-      }
-
-      // dummy auth handlers
-      const loginForm = $('loginForm');
-      const registerForm = $('registerForm');
-      const resetBtn = $('resetBtn');
-      const authError = $('authError');
-      if(loginForm){
-        loginForm.addEventListener('submit', e=>{
-          e.preventDefault();
-          if(authError){
-            authError.textContent = 'API log masuk belum disambungkan. Sila sambungkan borang ini ke backend anda.';
-            authError.style.display='block';
-          }
-        });
-      }
-      if(registerForm){
-        registerForm.addEventListener('submit', e=>{
-          e.preventDefault();
-          if(authError){
-            authError.textContent = 'API pendaftaran belum disambungkan. Sila sambungkan borang ini ke backend anda.';
-            authError.style.display='block';
-          }
-        });
-      }
-      if(resetBtn){
-        resetBtn.addEventListener('click', ()=>{
-          if(authError){
-            authError.textContent = 'Fungsi tetap semula kata laluan belum disambungkan. Laksanakan aliran reset di sini.';
-            authError.style.display='block';
-          }
-        });
-      }
+    send.addEventListener('click', sendMsg);
+    input.addEventListener('keydown', (e)=>{
+      if (e.key === 'Enter') sendMsg();
     });
-  })();
-  </script>
+  }
 
-  <!-- Clock + defaults keep-in-sync with language -->
-  <script>
-  (function () {
-    const $ = (id) => document.getElementById(id);
-    const TZ = 'Asia/Singapore';
-    const localeMap = { 'zh-CN':'zh-CN','zh-TW':'zh-TW','en':'en-US','ja':'ja-JP','th':'th-TH','ms':'ms-MY' };
-    const getLocale = () => (localeMap[(window.state && window.state.lang) || 'ms'] || 'ms-MY');
+  /* ===================== BOOT ===================== */
+  function boot(){
+    if (boot._didBoot) return; boot._didBoot = true;
 
-    // Chain applyI18n without breaking the version the app set earlier
-    window.applyI18n = (function(prev){
-      return function(){
-        if (typeof prev === 'function') prev();
-        if (typeof window.tickNow === 'function') window.tickNow();
-      };
-    })(window.applyI18n);
+    applyI18n();
 
-    if (typeof window.tickNow !== 'function') {
-      window.tickNow = function tickNow(){
-        const box = $('nowBox'); if (!box) return;
-        const fmt = new Intl.DateTimeFormat(getLocale(), {
-          weekday:'short', year:'numeric', month:'2-digit', day:'2-digit',
-          hour:'2-digit', minute:'2-digit', hour12:false, timeZone: TZ
-        });
-        box.textContent = fmt.format(new Date()) + ' (SGT)';
-      };
+    const unk = $('timeUnknown'), bt = $('birthtime');
+    if (unk && bt){
+      const sync = ()=>{ bt.disabled = !!unk.checked; bt.style.opacity = bt.disabled ? 0.5 : 1; };
+      unk.addEventListener('change', sync); sync();
     }
 
-    function initBirthDefaults() {
-      const bd = $('birthdate'); const bt = $('birthtime'); const unk = $('timeUnknown');
-      const nowSG = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }));
+    $('genBtn')?.addEventListener('click', generate);
 
-      if (bd && !bd.value){
-        const y=nowSG.getFullYear(), m=String(nowSG.getMonth()+1).padStart(2,'0'), d=String(nowSG.getDate()).padStart(2,'0');
-        bd.value = `${y}-${m}-${d}`;
-      }
+    initChat();
+    tickNow();
+  }
 
-      if (bt){
-        const hh=String(nowSG.getHours()).padStart(2,'0'), mm=String(nowSG.getMinutes()).padStart(2,'0');
-        if (!bt.value) bt.value = `${hh}:${mm}`;
-        const setUnknownState = ()=>{ const isUnknown = !!(unk && unk.checked); bt.disabled = isUnknown; if (isUnknown) bt.value = ''; };
-        setUnknownState();
-        if (unk && !unk._wired){
-          unk._wired = true;
-          unk.addEventListener('change', ()=>{
-            if (unk.checked){
-              bt.disabled = true; bt.value = '';
-            } else {
-              bt.disabled = false;
-              if (!bt.value){
-                const n = new Date(new Date().toLocaleString('en-US',{timeZone:TZ}));
-                bt.value = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
-              }
+  document.addEventListener('DOMContentLoaded', boot);
+})();
+</script>
+
+<!-- Clock + Birthdate defaults (MS) -->
+<script>
+(function () {
+  const $ = (id) => document.getElementById(id);
+  const TZ = 'Asia/Singapore';
+
+  window.applyI18n = (function(prev){
+    return function(){
+      if (typeof prev === 'function') prev();
+      if (typeof window.tickNow === 'function') window.tickNow();
+    };
+  })(window.applyI18n);
+
+  if (typeof window.tickNow !== 'function') {
+    window.tickNow = function tickNow(){
+      const box = $('nowBox'); if (!box) return;
+      const fmt = new Intl.DateTimeFormat('ms-MY', {
+        weekday:'short', year:'numeric', month:'2-digit', day:'2-digit',
+        hour:'2-digit', minute:'2-digit', hour12:false, timeZone: TZ
+      });
+      box.textContent = fmt.format(new Date()) + ' (SGT)';
+    };
+  }
+
+  function initBirthDefaults() {
+    const bd = $('birthdate'); const bt = $('birthtime'); const unk = $('timeUnknown');
+    const nowSG = new Date(new Date().toLocaleString('ms-MY', { timeZone: TZ }));
+
+    if (bd && !bd.value){
+      const y=nowSG.getFullYear(), m=String(nowSG.getMonth()+1).padStart(2,'0'), d=String(nowSG.getDate()).padStart(2,'0');
+      bd.value = `${y}-${m}-${d}`;
+    }
+
+    if (bt){
+      const hh=String(nowSG.getHours()).padStart(2,'0'), mm=String(nowSG.getMinutes()).padStart(2,'0');
+      if (!bt.value) bt.value = `${hh}:${mm}`;
+      const setUnknownState = ()=>{ const isUnknown = !!(unk && unk.checked); bt.disabled = isUnknown; if (isUnknown) bt.value = ''; };
+      setUnknownState();
+      if (unk && !unk._wired){
+        unk._wired = true;
+        unk.addEventListener('change', ()=>{
+          if (unk.checked){
+            bt.disabled = true; bt.value = '';
+          } else {
+            bt.disabled = false;
+            if (!bt.value){
+              const n = new Date(new Date().toLocaleString('ms-MY',{timeZone:TZ}));
+              bt.value = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
             }
-          });
-        }
+          }
+        });
       }
     }
+  }
 
-    initBirthDefaults();
-    if (typeof window.tickNow === 'function') window.tickNow();
-    if (!window._clock) window._clock = setInterval(()=>{ try{ window.tickNow(); }catch{} }, 60000);
-  })();
-  </script>
+  initBirthDefaults();
+  if (typeof window.tickNow === 'function') window.tickNow();
+  if (!window._clock) window._clock = setInterval(()=>{ try{ window.tickNow(); }catch{} }, 60000);
+})();
+</script>
 </body>
 </html>
+
 
