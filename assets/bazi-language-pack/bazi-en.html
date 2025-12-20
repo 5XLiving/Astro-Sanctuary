@@ -425,15 +425,21 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
     <button class="btn" id="chatSend" data-i18n="chat.send">Send</button>
   </div>
 </div>
-<script src="/assets/bazi-language-pack/lang-switch.js"></script>
+
+  <script src="/assets/bazi-language-pack/lang-switch.js"></script>
+
 <script>
 (() => {
   'use strict';
 
-  /* ===================== BASIC HELPERS ===================== */
+  /* ===================== CONFIG ===================== */
   const SG_TZ = 'Asia/Singapore';
-  const $id = (id) => document.getElementById(id);
-  const $ = $id;
+  const API_BASE = "https://throbbing-lab-1440.hello5xliving.workers.dev";
+  const CHAT_ENDPOINT = "/api/chat";
+  const LANG_KEY = "5x_lang";
+  const CURRENT_LANG = "en"; // ✅ EN page identity
+
+  const $ = (id) => document.getElementById(id);
 
   const deepGet = (obj, path) => {
     if (!obj || !path) return undefined;
@@ -443,14 +449,57 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
     return cur;
   };
 
-  /* ===================== CONFIG ===================== */
-  const API_BASE = "https://throbbing-lab-1440.hello5xliving.workers.dev";
-  const CHAT_ENDPOINT = "/api/chat";
-  const LANG_KEY = "5x_lang";
+  /* ===================== LANGUAGE ROUTING (IMPORTANT) ===================== */
+  // ✅ This EN page does NOT “translate in place”.
+  // ✅ Switching language will NAVIGATE to the corresponding language HTML page.
+  // ✅ If user previously chose another language, opening EN page will auto-redirect there.
+  const LANG_PAGES = {
+    'zh-CN': '/bazi.html',
+    'en':    '/assets/bazi-language-pack/bazi-en.html',
+    'zh-TW': '/assets/bazi-language-pack/bazi-zh-TW.html',
+    'ja':    '/assets/bazi-language-pack/bazi-ja.html',
+    'th':    '/assets/bazi-language-pack/bazi-th.html',
+    'ms':    '/assets/bazi-language-pack/bazi-ms.html'
+  };
 
+  function getSavedLang(){
+    try { return localStorage.getItem(LANG_KEY) || ''; } catch { return ''; }
+  }
+  function saveLang(v){
+    try { localStorage.setItem(LANG_KEY, v); } catch {}
+  }
+
+  function normPath(p){ return String(p || '').replace(/\/+$/, '') || '/'; }
+
+  function gotoLang(lang){
+    const target = LANG_PAGES[lang] || LANG_PAGES['zh-CN'];
+    const url = new URL(target, window.location.origin);
+
+    // preserve query/hash (optional but usually desired)
+    url.search = window.location.search;
+    url.hash = window.location.hash;
+
+    const curPath = normPath(window.location.pathname);
+    const tgtPath = normPath(url.pathname);
+
+    if (curPath !== tgtPath) window.location.assign(url.href);
+  }
+
+  function ensureLangMatchesPage(){
+    const saved = getSavedLang();
+    // If user had selected a different language previously, respect it and redirect.
+    if (saved && saved !== CURRENT_LANG) {
+      gotoLang(saved);
+      return false; // stop boot (page will navigate)
+    }
+    // Otherwise, default to EN and keep it.
+    if (!saved) saveLang(CURRENT_LANG);
+    return true;
+  }
+
+  /* ===================== STATE ===================== */
   const state = (window.state = window.state || {});
-  state.lang = 'en';                 // ✅ This page is locked to English
-  try { localStorage.setItem(LANG_KEY, 'en'); } catch {}
+  state.lang = CURRENT_LANG; // ✅ EN-only runtime (for dynamic strings)
 
   /* ===================== I18N (EN ONLY) ===================== */
   window.I18N = window.I18N || {};
@@ -612,7 +661,6 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
       foundation:'Build foundations; keep a steady rhythm'
     },
 
-    // Day Master lines
     'report.dayMaster.jia':'Jia Wood: proactive pioneer spirit; energetic and resilient.',
     'report.dayMaster.yi':'Yi Wood: gentle, flexible, compassionate; grows through consistency.',
     'report.dayMaster.bing':'Bing Fire: warm, confident, expressive; thrives when you take the lead.',
@@ -624,7 +672,6 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
     'report.dayMaster.ren':'Ren Water: broad-minded and adaptable; quick thinking, freedom-loving.',
     'report.dayMaster.gui':'Gui Water: sensitive and persistent; strong inner drive, can overthink.',
 
-    // Presets
     'report.marriage.stable':'Relationships tend to be stable; suitable for building long-term commitment.',
     'report.marriage.experienced':'You may have more relationship experiences; choose a truly compatible partner.',
     'report.marriage.default':'Marriage/long-term relationships require mutual effort and communication.',
@@ -635,29 +682,18 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
     'report.career.steady':'Step by step—deepen expertise and grow through professional reputation.'
   });
 
-  function t(path, lang = (window.state && window.state.lang) || 'en') {
-    const pack = (window.I18N && window.I18N[lang]) || {};
-    const baseEN = (window.I18N && window.I18N['en']) || {};
-
+  function t(path){
+    const pack = (window.I18N && window.I18N[CURRENT_LANG]) || {};
     let v = pack[path];
     if (v != null && v !== '') return v;
-
     v = deepGet(pack, path);
     if (v != null && v !== '') return v;
-
-    v = baseEN[path];
-    if (v != null && v !== '') return v;
-
-    v = deepGet(baseEN, path);
-    if (v != null && v !== '') return v;
-
     return '';
   }
   window.t = t;
 
   function applyI18n(){
-    const lang = state.lang || 'en';
-    document.documentElement.lang = lang;
+    document.documentElement.lang = CURRENT_LANG;
 
     document.querySelectorAll('[data-i18n]').forEach(el=>{
       const key = el.getAttribute('data-i18n');
@@ -665,9 +701,15 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
       if (typeof val === 'string' && val !== '') el.textContent = val;
     });
 
-    const setPh = (id, value) => { const el=$(id); if (el && typeof value === 'string' && value) el.placeholder = value; };
-    setPh('name', t('form.namePlaceholder'));
-    setPh('chatInput', t('chat.placeholder'));
+    document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+      const key = el.getAttribute('data-i18n-ph');
+      const val = t(key);
+      if (typeof val === 'string' && val !== '') el.setAttribute('placeholder', val);
+    });
+
+    // manual placeholders
+    const name = $('name'); if (name) name.placeholder = t('form.namePlaceholder') || name.placeholder;
+    const chatInput = $('chatInput'); if (chatInput) chatInput.placeholder = t('chat.placeholder') || chatInput.placeholder;
 
     if (window.lastCtx && typeof window.buildProReport === 'function') window.buildProReport(window.lastCtx);
   }
@@ -678,8 +720,6 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
     constructor(){
       this.HEAVENLY_STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
       this.EARTHLY_BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
-
-      // NaYin (English)
       this.NAYIN=[
         'Metal in the Sea','Fire in the Furnace','Wood of the Great Forest','Earth by the Roadside','Sword-edge Metal',
         'Fire on the Mountain Top','Water in the Mountain Stream','Earth on the City Wall','White Wax Metal','Willow Wood',
@@ -790,7 +830,6 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
       return { suitable: map[dayStem] || 'Build stable skills and long-term reputation.', advice: adv };
     },
 
-    // English directions (reference)
     wealthDirs(dayStem){
       const dirs={
         甲:'East, Southeast',
@@ -824,64 +863,12 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
     }
   };
 
-  /* ===================== AI INSIGHT (UNCHANGED) ===================== */
-  (function () {
-    const LS_DOWN = 'ai:insight:downUntil';
-    const now = () => Date.now();
-    const downUntil = () => { try { return parseInt(localStorage.getItem(LS_DOWN)||'0',10)||0; } catch { return 0; } };
-    const markDown = (ms = 180000) => { try { localStorage.setItem(LS_DOWN, String(now()+ms)); } catch {} };
-    const clearDown = () => { try { localStorage.removeItem(LS_DOWN); } catch {} };
-
-    async function fetchJSON(url, init={}, timeoutMs=15000){
-      const ctrl = new AbortController(); const t=setTimeout(()=>ctrl.abort(), timeoutMs);
-      try{
-        const res = await fetch(url, {...init, signal: ctrl.signal});
-        if(!res.ok) throw new Error(`HTTP ${res.status}`);
-        return await res.json();
-      } finally { clearTimeout(t); }
-    }
-
-    async function _aiExplain(section, ctx, {lang, temperature=0.7, seed=null}={}){
-      if (!window.API_BASE) return null;
-      const json = await fetchJSON(`${String(window.API_BASE).replace(/\/$/,'')}/bazi/insight`, {
-        method:'POST', headers:{ 'Content-Type':'application/json' },
-        body: JSON.stringify({ section, lang, temperature, seed, ctx })
-      });
-      if (json && (json.symbolise || json.analysis)) return json;
-      return null;
-    }
-
-    window.aiExplain = async function (section, ctx, opts) {
-      if (now() < downUntil()) return null;
-      try {
-        const out = await _aiExplain(section, ctx, opts||{});
-        if (out) { clearDown(); return out; }
-        markDown(); return null;
-      } catch {
-        markDown(); return null;
-      }
-    };
-
-    window.injectAI = async function (section, symId, anaId, ctx, opts) {
-      try {
-        const out = await window.aiExplain(section, ctx, opts);
-        if (!out) return;
-        const $sym = document.getElementById(symId);
-        const $ana = document.getElementById(anaId);
-        if ($sym && out.symbolise) $sym.textContent = `${t('reportLabels.symbolise')}：${out.symbolise}`;
-        if ($ana && out.analysis)  $ana.textContent = `${t('reportLabels.analysis')}：${out.analysis}`;
-      } catch {}
-    };
-
-    window.forceAiInsightRetry = function () { try { localStorage.removeItem(LS_DOWN); } catch {} };
-  })();
-
   /* ===================== RENDERERS ===================== */
   function renderPillars(labels){
     const titles=[t('pillar.year'),t('pillar.month'),t('pillar.day'),t('pillar.hour')];
     const box = $('bazi-pillars'); if(!box) return;
     box.innerHTML = labels.map((lab,i)=>`
-      <div class="pillar"><div class="tit">${titles[i]}</div><div class="gz">${lab||'-'}</div></div>
+      <div class="pillar"><div class="tit">${titles[i]||''}</div><div class="gz">${lab||'-'}</div></div>
     `).join('');
   }
 
@@ -901,29 +888,26 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
     });
   }
 
-function renderBars(pcts){
-  const map = { wood:'木', fire:'火', earth:'土', metal:'金', water:'水' };
+  function renderBars(pcts){
+    const map = { wood:'木', fire:'火', earth:'土', metal:'金', water:'水' };
 
-  ['wood','fire','earth','metal','water'].forEach(k=>{
-    const pct = Math.max(0, Math.min(100, Math.round(pcts[map[k]] || 0)));
-    const bar = $('bar-' + k);
-    const lab = $('pct-' + k);
-    if (bar) bar.style.width = pct + '%';
-    if (lab) lab.textContent = pct + '%';
-  });
+    ['wood','fire','earth','metal','water'].forEach(k=>{
+      const pct = Math.max(0, Math.min(100, Math.round(pcts[map[k]] || 0)));
+      const bar = $('bar-' + k);
+      const lab = $('pct-' + k);
+      if (bar) bar.style.width = pct + '%';
+      if (lab) lab.textContent = pct + '%';
+    });
 
-  // strongest/weakest text
-  const entries = Object.entries(map).map(([k, cn]) => [k, pcts[cn] || 0]).sort((a,b)=>b[1]-a[1]);
-  if(entries.length){
-    const strongest = entries[0][0], weakest = entries[entries.length-1][0];
-    const nameMap = {
-      wood: t('elem.wood'), fire: t('elem.fire'), earth: t('elem.earth'), metal: t('elem.metal'), water: t('elem.water')
-    };
-    const tpl = (t('ui.balance') || 'Strongest: {strongest}. Weakest: {weakest}.');
-    const txt = tpl.replace('{strongest}', nameMap[strongest]).replace('{weakest}', nameMap[weakest]);
-    const el = $('bazi-elements-balance'); if(el) el.textContent = txt;
+    const entries = Object.entries(map).map(([k, cn]) => [k, pcts[cn] || 0]).sort((a,b)=>b[1]-a[1]);
+    if(entries.length){
+      const strongest = entries[0][0], weakest = entries[entries.length-1][0];
+      const nameMap = { wood:t('elem.wood'), fire:t('elem.fire'), earth:t('elem.earth'), metal:t('elem.metal'), water:t('elem.water') };
+      const tpl = t('ui.balance') || 'Strongest: {strongest}. Weakest: {weakest}.';
+      const txt = tpl.replace('{strongest}', nameMap[strongest]||strongest).replace('{weakest}', nameMap[weakest]||weakest);
+      const el = $('bazi-elements-balance'); if(el) el.textContent = txt;
+    }
   }
-}
 
   /* ===================== PRO REPORT (EN, 10 SECTIONS) ===================== */
   function supportElems(dm){
@@ -936,11 +920,9 @@ function renderBars(pcts){
     const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
     return (map[dm]||[]).map(key);
   }
-  function computeUseful(p){ // two weakest elements
+  function computeUseful(p){
     const arr = Object.entries({木:p.木||0,火:p.火||0,土:p.土||0,金:p.金||0,水:p.水||0})
-      .sort((a,b)=>a[1]-b[1])
-      .slice(0,2)
-      .map(([k])=>k);
+      .sort((a,b)=>a[1]-b[1]).slice(0,2).map(([k])=>k);
     const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
     return arr.map(key);
   }
@@ -969,8 +951,6 @@ function renderBars(pcts){
     }
 
     const { strongest, weakest } = strongestWeakest(elem);
-    const strongestLabel = strongest || '-';
-    const weakestLabel   = weakest   || '-';
 
     const dmLine   = BaziAnalysis.dayMasterLine(dm) || 'Your Day Master profile is relatively balanced and adaptive.';
     const rel      = BaziAnalysis.relation(dm);
@@ -984,13 +964,7 @@ function renderBars(pcts){
     const usefulText   = computeUseful({ 木:pctsCN['木']||0, 火:pctsCN['火']||0, 土:pctsCN['土']||0, 金:pctsCN['金']||0, 水:pctsCN['水']||0 })
       .map(k=>t(k)).filter(Boolean).join(', ') || '-';
 
-    const elemLine = `
-      Wood: ${Math.round(elem.Wood)}% ·
-      Fire: ${Math.round(elem.Fire)}% ·
-      Earth: ${Math.round(elem.Earth)}% ·
-      Metal: ${Math.round(elem.Metal)}% ·
-      Water: ${Math.round(elem.Water)}%
-    `.replace(/\s+/g,' ');
+    const elemLine = `Wood: ${Math.round(elem.Wood)}% · Fire: ${Math.round(elem.Fire)}% · Earth: ${Math.round(elem.Earth)}% · Metal: ${Math.round(elem.Metal)}% · Water: ${Math.round(elem.Water)}%`;
 
     let nearTermFocus  = t('fortune.foundation') || 'Build foundations; keep a steady rhythm';
     let nearTermAdvice = t('cautions.default')   || 'Avoid emotional decisions; control spending.';
@@ -1036,7 +1010,7 @@ function renderBars(pcts){
         <h4>1. ${title.overview}</h4>
         <p><strong>${t('reportLabels.dayMaster') || 'Day Master'}:</strong> ${dm || '-'}</p>
         <p>${dmLine}</p>
-        ${ctx.unknown ? `<p>${t('report.hourUnknownTip')}</p>` : ''}
+        ${ctx.unknown ? `<p>${t('report.hourUnknownTip') || ''}</p>` : ''}
       </div>
     `);
 
@@ -1044,24 +1018,16 @@ function renderBars(pcts){
       <div class="butler-section">
         <h4>2. ${title.fiveElements}</h4>
         <p>${elemLine}</p>
-        <p><strong>Strongest:</strong> ${strongestLabel} &nbsp;&nbsp; <strong>Weakest:</strong> ${weakestLabel}</p>
-        <p>
-          Your strongest element reflects your most natural performance style.
-          The weakest element is a long-term growth area—improve it steadily, not all at once.
-        </p>
+        <p><strong>Strongest:</strong> ${strongest || '-'} &nbsp;&nbsp; <strong>Weakest:</strong> ${weakest || '-'}</p>
+        <p>Your strongest element reflects your natural performance style. The weakest element is a growth area—build it steadily.</p>
       </div>
     `);
 
     parts.push(`
       <div class="butler-section">
         <h4>3. ${title.tenGods}</h4>
-        <p>
-          This quick report doesn’t list every Ten-God detail, but your structure suggests a key theme:
-          balance <strong>self-expression, resource management, and responsibility to others</strong>.
-        </p>
-        <p>
-          When you feel drained, ask: “Who is this for?” and “Did I communicate my boundary clearly?”
-        </p>
+        <p>This quick report focuses on actionable direction. Your structure suggests the theme: <strong>balance self-expression, resource management, and responsibility</strong>.</p>
+        <p>When you feel drained, ask: “Who is this for?” and “Did I state my boundary clearly?”</p>
       </div>
     `);
 
@@ -1071,10 +1037,7 @@ function renderBars(pcts){
         <p><strong>Support elements:</strong> ${supportText}</p>
         <p><strong>Balancing elements:</strong> ${restrainText}</p>
         <p><strong>Priority to strengthen now:</strong> ${usefulText}</p>
-        <p>
-          Strengthen favorable elements through colors, environment, routines, and the type of work you do.
-          Keep it practical: pick one habit and stay consistent.
-        </p>
+        <p>Pick one habit and stay consistent. Small weekly actions beat big short bursts.</p>
       </div>
     `);
 
@@ -1084,10 +1047,7 @@ function renderBars(pcts){
         <p><strong>Relationship traits:</strong> ${rel.traits}</p>
         <p><strong>How to get along:</strong> ${rel.tips}</p>
         <p><strong>Marriage note:</strong> ${marriage}</p>
-        <p>
-          Love is not only romance—it’s long-term cooperation.
-          Clear boundaries + honest communication + stable life rhythm makes relationships smoother.
-        </p>
+        <p>Clear boundaries + honest communication + stable rhythm makes relationships smoother.</p>
       </div>
     `);
 
@@ -1096,10 +1056,7 @@ function renderBars(pcts){
         <h4>6. ${title.career}</h4>
         <p><strong>${t('reportLabels.suitableCareers') || 'Suitable Fields'}:</strong> ${career.suitable}</p>
         <p><strong>${t('reportLabels.careerAdvice') || 'Career Advice'}:</strong> ${career.advice}</p>
-        <p>
-          Your best strategy is <strong>long-term depth + professional reputation</strong>.
-          Aim to become “the person people think of” for a specific topic.
-        </p>
+        <p>Best strategy: <strong>long-term depth + professional reputation</strong>. Become “the person people think of” for one topic.</p>
       </div>
     `);
 
@@ -1107,14 +1064,7 @@ function renderBars(pcts){
       <div class="butler-section">
         <h4>7. ${title.wealth}</h4>
         <p><strong>${t('reportLabels.favorableDirections') || 'Favorable Directions'} (reference):</strong> ${wealthDir}</p>
-        <p>
-          Wealth is not only “opportunity”—it’s cashflow discipline and risk awareness.
-          Stabilize core income first, then set a clear loss limit for high-risk moves.
-        </p>
-        <p>
-          Your most sustainable model: grow income through skill + trust,
-          then add a side stream aligned with your strengths.
-        </p>
+        <p>Wealth = cashflow discipline + risk control. Stabilize core income first, then add a side stream aligned with strengths.</p>
       </div>
     `);
 
@@ -1122,10 +1072,7 @@ function renderBars(pcts){
       <div class="butler-section">
         <h4>8. ${title.health}</h4>
         <p><strong>${t('reportLabels.healthCharacteristics') || 'Body Focus'}:</strong> ${healthFo}</p>
-        <p>
-          Keep wellness simple: stable sleep, light exercise, and not overeating.
-          Add one consistent emotional outlet (journaling, walking, meditation, prayer, etc.).
-        </p>
+        <p>Keep it simple: stable sleep, light exercise, and one emotional outlet (journaling/walking/meditation/prayer).</p>
       </div>
     `);
 
@@ -1134,10 +1081,7 @@ function renderBars(pcts){
         <h4>9. ${title.nearTerm}</h4>
         <p><strong>Main theme:</strong> ${nearTermFocus}</p>
         <p><strong>${t('reportLabels.analysis') || 'Advice'}:</strong> ${nearTermAdvice}</p>
-        <p>
-          When things feel messy, pause new projects.
-          Rank tasks: must-do first, nice-to-have later. Leave space to recover your rhythm.
-        </p>
+        <p>When messy: pause new projects, rank tasks, recover rhythm first.</p>
       </div>
     `);
 
@@ -1145,10 +1089,10 @@ function renderBars(pcts){
       <div class="butler-section">
         <h4>10. ${title.actions}</h4>
         <ul class="action-list">
-          <li>Within 30 days, pick ONE most important goal (work / money / health). Write it down where you see it daily.</li>
-          <li>Once a week, review real progress—not just mood. Adjust your plan for next week.</li>
-          <li>Lean into your strongest element (${strongestLabel}) using environment, routines, and supportive people.</li>
-          <li>For your weakest element (${weakestLabel}), build 1–2 small weekly habits. Consistency wins.</li>
+          <li>Within 30 days, pick ONE most important goal (work / money / health). Write it where you see it daily.</li>
+          <li>Weekly review: track real progress (not mood). Adjust next week’s plan.</li>
+          <li>Lean into your strongest element (${strongest || '-'}) with environment + routines.</li>
+          <li>For your weakest element (${weakest || '-'}), build 1–2 tiny weekly habits. Consistency wins.</li>
         </ul>
       </div>
     `);
@@ -1161,7 +1105,7 @@ function renderBars(pcts){
   /* ===================== GENERATE + UI ===================== */
   function showErr(msg){
     const box=$('error'); if(!box) return;
-    box.textContent = msg || t('err.generateFail');
+    box.textContent = msg || (t('err.generateFail') || 'Failed to generate. Please try again.');
     box.style.display='block';
     setTimeout(()=>{ box.style.display='none'; }, 4000);
   }
@@ -1174,8 +1118,8 @@ function renderBars(pcts){
 
   function generate(){
     const birth = ($('birthdate')?.value||'').trim();
-    if(!birth) return showErr(t('err.fillBirthdate'));
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return showErr(t('err.invalidDate'));
+    if(!birth) return showErr(t('err.fillBirthdate') || 'Please enter your birth date');
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return showErr(t('err.invalidDate') || 'Invalid format. Use YYYY-MM-DD');
 
     const [Y,M,D]=birth.split('-').map(n=>parseInt(n,10));
     const unknown = $('timeUnknown')?.checked;
@@ -1190,7 +1134,7 @@ function renderBars(pcts){
       const d = calc.dayPillar(Y,M,D);
       const h = unknown ? {stem:'-',branch:'-'} : calc.hourPillar(d.stem, hh);
 
-      renderPillars([y.stem+y.branch, m.stem+m.branch, d.stem+d.branch, unknown ? (t('badge.noHour')||'-') : (h.stem+h.branch)]);
+      renderPillars([y.stem+y.branch, m.stem+m.branch, d.stem+d.branch, unknown ? (t('badge.noHour')||'Hour pillar omitted') : (h.stem+h.branch)]);
 
       const stems=[y.stem,m.stem,d.stem, unknown? '-' : h.stem];
       const branch=[y.branch,m.branch,d.branch, unknown? '-' : h.branch];
@@ -1224,38 +1168,16 @@ function renderBars(pcts){
       window.lastCtx = ctx;
       if (typeof window.buildProReport === 'function') window.buildProReport(ctx);
 
-      $('result').style.display='block';
+      const result = $('result'); if (result) result.style.display='block';
     }catch(e){
       console.error(e);
-      showErr(t('err.generateFail'));
+      showErr(t('err.generateFail') || 'Failed to generate. Please try again.');
     } finally {
       setGenLoading(false);
     }
   }
 
-function onLangSelect(e){
-  const lang = (e.target?.value) || 'zh-CN';
-  try { localStorage.setItem('5x_lang', lang); } catch {}
-
-  const LANG_PAGES = {
-    'zh-CN': '/bazi.html',
-    'en':    '/assets/bazi-language-pack/bazi-en.html',
-    'zh-TW': '/assets/bazi-language-pack/bazi-zh-TW.html',
-    'ja':    '/assets/bazi-language-pack/bazi-ja.html',
-    'th':    '/assets/bazi-language-pack/bazi-th.html',
-    'ms':    '/assets/bazi-language-pack/bazi-ms.html'
-  };
-
-  const target = LANG_PAGES[lang] || LANG_PAGES['zh-CN'];
-  const targetUrl = new URL(target, window.location.origin);
-
-  const curPath = window.location.pathname.replace(/\/+$/, '');
-  const tgtPath = targetUrl.pathname.replace(/\/+$/, '');
-
-  if (curPath !== tgtPath) window.location.href = targetUrl.href;
-}
-
-  /* ===================== CLOCK ===================== */
+  /* ===================== CLOCK + DEFAULTS ===================== */
   function tickNow(){
     const box = $('nowBox'); if (!box) return;
     const fmt = new Intl.DateTimeFormat('en-US', {
@@ -1266,13 +1188,41 @@ function onLangSelect(e){
   }
   window.tickNow = tickNow;
 
-  const langSel = $('langSelect');
-if (langSel) {
-  const saved = (()=>{ try { return localStorage.getItem('5x_lang'); } catch { return null; } })();
-  if (saved) langSel.value = saved;
-  langSel.addEventListener('change', onLangSelect);
-}
-  
+  function initBirthDefaults(){
+    const bd = $('birthdate');
+    const bt = $('birthtime');
+    const unk = $('timeUnknown');
+
+    const nowSG = new Date(new Date().toLocaleString('en-US', { timeZone: SG_TZ }));
+
+    if (bd && !bd.value){
+      const y=nowSG.getFullYear(), m=String(nowSG.getMonth()+1).padStart(2,'0'), d=String(nowSG.getDate()).padStart(2,'0');
+      bd.value = `${y}-${m}-${d}`;
+    }
+
+    if (bt){
+      const hh=String(nowSG.getHours()).padStart(2,'0'), mm=String(nowSG.getMinutes()).padStart(2,'0');
+      if (!bt.value) bt.value = `${hh}:${mm}`;
+
+      const sync = ()=>{
+        const isUnknown = !!(unk && unk.checked);
+        bt.disabled = isUnknown;
+        bt.style.opacity = bt.disabled ? 0.5 : 1;
+        if (isUnknown) bt.value = '';
+        else if (!bt.value){
+          const n = new Date(new Date().toLocaleString('en-US', { timeZone: SG_TZ }));
+          bt.value = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+        }
+      };
+
+      if (unk && !unk._wired){
+        unk._wired = true;
+        unk.addEventListener('change', sync);
+      }
+      sync();
+    }
+  }
+
   /* ===================== FLOATING GPT CHAT ===================== */
   function initChat(){
     const fab   = $('ssChatFab');
@@ -1282,10 +1232,7 @@ if (langSel) {
     const input = $('chatInput');
     const send  = $('chatSend');
 
-    if (!fab || !panel || !close || !body || !input || !send) {
-      console.warn('[chat] missing elements');
-      return;
-    }
+    if (!fab || !panel || !close || !body || !input || !send) return;
 
     let chatHistory = [];
 
@@ -1319,7 +1266,6 @@ if (langSel) {
       const birth = ($('birthdate')?.value || '').trim();
       const timeUnknown = !!$('timeUnknown')?.checked;
       const birthtime = ($('birthtime')?.value || '').trim();
-
       return { name, gender, birthdate: birth, birthtime: timeUnknown ? '' : birthtime, timeUnknown, chart: ctx };
     }
 
@@ -1337,7 +1283,6 @@ if (langSel) {
     }
 
     async function callChatAPI(userText){
-      const lang = 'en';
       const ctx = buildBaziChatContext();
 
       if (!chatHistory.length){
@@ -1354,14 +1299,13 @@ if (langSel) {
       chatHistory.push({ role:'user', content: userText });
 
       const url = String(API_BASE).replace(/\/$/,'') + CHAT_ENDPOINT;
-      const payload = { lang, context: ctx, messages: chatHistory };
+      const payload = { lang: 'en', context: ctx, messages: chatHistory };
 
       const res = await fetch(url, {
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body: JSON.stringify(payload)
       });
-
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
 
       const json = await res.json().catch(()=>null);
@@ -1393,91 +1337,39 @@ if (langSel) {
     }
 
     send.addEventListener('click', sendMsg);
-    input.addEventListener('keydown', (e)=>{
-      if (e.key === 'Enter') sendMsg();
-    });
+    input.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') sendMsg(); });
   }
 
   /* ===================== BOOT ===================== */
   function boot(){
-    if (boot._didBoot) return; boot._didBoot = true;
+    // ✅ key fix: respect saved language -> redirect to correct language page
+    if (!ensureLangMatchesPage()) return;
+
+    // language selector: navigate on change (no in-place translate)
+    const langSel = $('langSelect');
+    if (langSel){
+      const saved = getSavedLang() || CURRENT_LANG;
+      langSel.value = saved;
+
+      langSel.addEventListener('change', (e)=>{
+        const v = e.target?.value || 'zh-CN';
+        saveLang(v);
+        gotoLang(v);
+      });
+    }
 
     applyI18n();
 
-    const unk = $('timeUnknown'), bt = $('birthtime');
-    if (unk && bt){
-      const sync = ()=>{ bt.disabled = !!unk.checked; bt.style.opacity = bt.disabled ? 0.5 : 1; };
-      unk.addEventListener('change', sync); sync();
-    }
-
     $('genBtn')?.addEventListener('click', generate);
 
+    initBirthDefaults();
     initChat();
+
     tickNow();
+    if (!window._clock) window._clock = setInterval(()=>{ try{ tickNow(); }catch{} }, 60000);
   }
 
   document.addEventListener('DOMContentLoaded', boot);
-})();
-</script>
-
-<!-- Clock + Birthdate defaults (EN) -->
-<script>
-(function () {
-  const $ = (id) => document.getElementById(id);
-  const TZ = 'Asia/Singapore';
-
-  window.applyI18n = (function(prev){
-    return function(){
-      if (typeof prev === 'function') prev();
-      if (typeof window.tickNow === 'function') window.tickNow();
-    };
-  })(window.applyI18n);
-
-  if (typeof window.tickNow !== 'function') {
-    window.tickNow = function tickNow(){
-      const box = $('nowBox'); if (!box) return;
-      const fmt = new Intl.DateTimeFormat('en-US', {
-        weekday:'short', year:'numeric', month:'2-digit', day:'2-digit',
-        hour:'2-digit', minute:'2-digit', hour12:false, timeZone: TZ
-      });
-      box.textContent = fmt.format(new Date()) + ' (SGT)';
-    };
-  }
-
-  function initBirthDefaults() {
-    const bd = $('birthdate'); const bt = $('birthtime'); const unk = $('timeUnknown');
-    const nowSG = new Date(new Date().toLocaleString('en-US', { timeZone: TZ }));
-
-    if (bd && !bd.value){
-      const y=nowSG.getFullYear(), m=String(nowSG.getMonth()+1).padStart(2,'0'), d=String(nowSG.getDate()).padStart(2,'0');
-      bd.value = `${y}-${m}-${d}`;
-    }
-
-    if (bt){
-      const hh=String(nowSG.getHours()).padStart(2,'0'), mm=String(nowSG.getMinutes()).padStart(2,'0');
-      if (!bt.value) bt.value = `${hh}:${mm}`;
-      const setUnknownState = ()=>{ const isUnknown = !!(unk && unk.checked); bt.disabled = isUnknown; if (isUnknown) bt.value = ''; };
-      setUnknownState();
-      if (unk && !unk._wired){
-        unk._wired = true;
-        unk.addEventListener('change', ()=>{
-          if (unk.checked){
-            bt.disabled = true; bt.value = '';
-          } else {
-            bt.disabled = false;
-            if (!bt.value){
-              const n = new Date(new Date().toLocaleString('en-US',{timeZone:TZ}));
-              bt.value = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
-            }
-          }
-        });
-      }
-    }
-  }
-
-  initBirthDefaults();
-  if (typeof window.tickNow === 'function') window.tickNow();
-  if (!window._clock) window._clock = setInterval(()=>{ try{ window.tickNow(); }catch{} }, 60000);
 })();
 </script>
 </body>
