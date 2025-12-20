@@ -1570,17 +1570,35 @@ const utils = {
     if (obj == null) return def;
     const parts = Array.isArray(path) ? path : String(path).split('.').filter(Boolean);
     let cur = obj;
-    for (const p of parts){ if (cur == null) return def; cur = cur[p]; }
+    for (const p of parts){
+      if (cur == null) return def;
+      cur = cur[p];
+    }
     return cur === undefined ? def : cur;
+  },
+  hasOwn(obj, key){
+    return obj != null && Object.prototype.hasOwnProperty.call(obj, key);
   }
 };
 
-  function t(key){
-    const dict = (typeof I18N === 'object' && I18N[state.lang]) ? I18N[state.lang] : (I18N && I18N['zh-CN']) || {};
-    let val = get(dict, key); if (val != null) return val;
-    val = I18N ? get(I18N['zh-CN'] || {}, key) : undefined;
-    return (val != null) ? val : key;
-  }
+function t(key){
+  const dict = (I18N && I18N[state.lang]) ? I18N[state.lang] : (I18N && I18N['zh-CN']) || {};
+  const base = (I18N && I18N['zh-CN']) ? I18N['zh-CN'] : {};
+
+  // 1) 先支持“扁平 key”（例如 'report.dayMaster.jia'）
+  if (utils.hasOwn(dict, key)) return dict[key];
+
+  // 2) 再支持“点路径”（例如 brand.subtitle）
+  let val = utils.get(dict, key);
+  if (val != null) return val;
+
+  // 3) fallback zh-CN：同样先扁平、再点路径
+  if (utils.hasOwn(base, key)) return base[key];
+  val = utils.get(base, key);
+
+  return (val != null) ? val : key;
+}
+  
   function applyI18n(){
     document.documentElement.lang = state.lang;
 
@@ -2027,6 +2045,20 @@ function buildProReport(ctx){
     }
   }
 
+  function bindLang(){
+  const sel = $('langSelect');
+  if (!sel) return;
+  sel.value = state.lang;
+  sel.addEventListener('change', () => {
+    state.lang = sel.value || 'zh-CN';
+    localStorage.setItem('5x_lang', state.lang);
+    applyI18n();
+  });
+}
+
+bindLang();
+applyI18n();
+  
   /* =========================
    * CHAT FLOAT (local echo)
    * ========================= */
@@ -2271,6 +2303,7 @@ if(chatSend && chatInput){
     }
   }
 
+  
   // Run now
   initBirthDefaults();
   tickNow(); setInterval(tickNow, 60_000);
