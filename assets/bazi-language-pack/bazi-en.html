@@ -296,6 +296,11 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
       </div>
     </section>
 
+    <div class="card" id="butlerProfessional" style="display:none;">
+  <div class="h2">Xinlian Butler · Professional Reading</div>
+  <div id="professionalReport" class="analysis-content"></div>
+</div>
+
     <!-- VIP segment -->
     <section class="card section">
       <h2 class="group-title">🌙 VIP Segment</h2>
@@ -867,22 +872,29 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
     });
   }
 
-  function renderBars(pcts){
-    ['木','火','土','金','水'].forEach(e=>{
-      const pct=Math.max(0,Math.min(100,Math.round(pcts[e]||0)));
-      const bar=$('bar-'+e), lab=$('pct-'+e);
-      if(bar) bar.style.width=pct+'%';
-      if(lab) lab.textContent=pct+'%';
-    });
-    const entries=Object.entries(pcts).sort((a,b)=>b[1]-a[1]);
-    if(entries.length){
-      const strongest = entries[0][0], weakest = entries.at(-1)[0];
-      const mapName = {木:t('elem.wood'),火:t('elem.fire'),土:t('elem.earth'),金:t('elem.metal'),水:t('elem.water')};
-      const tpl = (t('ui.balance') || 'Strongest: {strongest}. Weakest: {weakest}.');
-      const txt = tpl.replace('{strongest}', mapName[strongest]).replace('{weakest}', mapName[weakest]);
-      const el=$('bazi-elements-balance'); if(el) el.textContent=txt;
-    }
+function renderBars(pcts){
+  const map = { wood:'木', fire:'火', earth:'土', metal:'金', water:'水' };
+
+  ['wood','fire','earth','metal','water'].forEach(k=>{
+    const pct = Math.max(0, Math.min(100, Math.round(pcts[map[k]] || 0)));
+    const bar = $('bar-' + k);
+    const lab = $('pct-' + k);
+    if (bar) bar.style.width = pct + '%';
+    if (lab) lab.textContent = pct + '%';
+  });
+
+  // strongest/weakest text
+  const entries = Object.entries(map).map(([k, cn]) => [k, pcts[cn] || 0]).sort((a,b)=>b[1]-a[1]);
+  if(entries.length){
+    const strongest = entries[0][0], weakest = entries[entries.length-1][0];
+    const nameMap = {
+      wood: t('elem.wood'), fire: t('elem.fire'), earth: t('elem.earth'), metal: t('elem.metal'), water: t('elem.water')
+    };
+    const tpl = (t('ui.balance') || 'Strongest: {strongest}. Weakest: {weakest}.');
+    const txt = tpl.replace('{strongest}', nameMap[strongest]).replace('{weakest}', nameMap[weakest]);
+    const el = $('bazi-elements-balance'); if(el) el.textContent = txt;
   }
+}
 
   /* ===================== PRO REPORT (EN, 10 SECTIONS) ===================== */
   function supportElems(dm){
@@ -1181,6 +1193,7 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
       const tg = calc.tenGods(d.stem, stems);
       const ctx = { pcts, dayStem: d.stem, tenGods: tg, unknown };
       window.lastCtx = ctx;
+      if (typeof window.buildProReport === 'function') window.buildProReport(ctx);
 
       $('result').style.display='block';
     }catch(e){
