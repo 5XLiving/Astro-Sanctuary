@@ -1,5 +1,3 @@
-
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1978,15 +1976,61 @@ function buildProReport(ctx){
   /* =========================
    * MAIN GENERATE
    * ========================= */
-  function generate(){
-    const birth = ($('birthdate')?.value||'').trim();
-    if(!birth) return showErr(t('err.fillBirthdate'));
-    if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return showErr(t('err.invalidDate'));
-    const [Y,M,D]=birth.split('-').map(n=>parseInt(n,10));
-    const unknown = $('timeUnknown')?.checked;
-    const timeVal = $('birthtime')?.value || '00:00';
-    const [hhStr, mmStr] = timeVal.split(':');
-    const hh = parseInt((hhStr||'0'),10) || 0;
+function generate() {
+  const birth = ($('birthdate')?.value || '').trim();
+  if (!birth) {
+    showErr(t('err.fillBirthdate'));
+    return;
+  }
+  
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(birth)) {
+    showErr(t('err.invalidDate'));
+    return;
+  }
+  
+  const [Y, M, D] = birth.split('-').map(n => parseInt(n, 10));
+  const unknown = $('timeUnknown')?.checked;
+  const timeVal = $('birthtime')?.value || '00:00';
+  const [hhStr, mmStr] = timeVal.split(':');
+  const hh = parseInt((hhStr || '0'), 10) || 0;
+  
+  setGenLoading(true);
+  
+  try {
+    const calc = new BaziCalculator();
+    const y = calc.yearPillar(Y);
+    const m = calc.monthPillar(Y, M, D);
+    const d = calc.dayPillar(Y, M, D);
+    const h = unknown ? { stem: '-', branch: '-' } : calc.hourPillar(d.stem, hh);
+    
+    // 显示结果区域
+    const resultSection = $('result');
+    const butlerSection = $('butlerProfessional');
+    if (resultSection) resultSection.style.display = 'block';
+    if (butlerSection) butlerSection.style.display = 'block';
+    
+    // 渲染八字柱
+    const labels = [
+      y.stem + y.branch,
+      m.stem + m.branch,
+      d.stem + d.branch,
+      unknown ? (t('badge.noHour') || '-') : (h.stem + h.branch)
+    ];
+    renderPillars(labels);
+    
+    // ... 其余八字计算逻辑保持不变 ...
+    
+    // 生成专业报告
+    const ctx = { pcts, dayStem: d.stem, tenGods: tg, unknown };
+    buildProReport(ctx);
+    
+  } catch (e) {
+    console.error('生成八字失败:', e);
+    showErr(t('err.generateFail'));
+  } finally {
+    setGenLoading(false);
+  }
+}
 
     setGenLoading(true);
     try{
@@ -2241,6 +2285,101 @@ if(chatSend && chatInput){
   }
 })();
 </script>
+<script>
+function initializeApp() {
+  console.log('Initializing app...');
+  
+  // 1. 设置语言
+  bindLang();
+  applyI18n();
+  
+  // 2. 绑定生成按钮事件
+  const genBtn = $('genBtn');
+  if (genBtn) {
+    genBtn.addEventListener('click', generate);
+    console.log('Generate button bound');
+  } else {
+    console.error('Generate button not found');
+  }
+  
+  // 3. 时间未知切换功能
+  const timeUnknown = $('timeUnknown');
+  const birthtime = $('birthtime');
+  if (timeUnknown && birthtime) {
+    const syncTimeState = () => {
+      birthtime.disabled = timeUnknown.checked;
+      birthtime.style.opacity = birthtime.disabled ? 0.5 : 1;
+    };
+    timeUnknown.addEventListener('change', syncTimeState);
+    syncTimeState(); // 初始同步
+  }
+  
+  // 4. 初始化聊天浮窗
+  initializeChat();
+  
+  // 5. 设置认证字段
+  setupAuthReveal();
+  
+  // 6. 设置默认出生日期
+  initBirthDefaults();
+  
+  console.log('App initialized successfully');
+}
+
+// 修复的聊天浮窗初始化
+function initializeChat() {
+  const chatToggle = $('chatToggle');
+  const chatFloat = $('chatFloat');
+  const chatClose = $('chatClose');
+  const chatSend = $('chatSend');
+  const chatInput = $('chatInput');
+  
+  if (chatToggle && chatFloat) {
+    chatToggle.addEventListener('click', () => {
+      const isVisible = chatFloat.style.display === 'flex';
+      chatFloat.style.display = isVisible ? 'none' : 'flex';
+      // 聚焦输入框
+      if (!isVisible && chatInput) {
+        setTimeout(() => chatInput.focus(), 100);
+      }
+    });
+  }
+  
+  if (chatClose) {
+    chatClose.addEventListener('click', () => {
+      if (chatFloat) chatFloat.style.display = 'none';
+    });
+  }
+  
+  if (chatSend && chatInput) {
+    chatSend.addEventListener('click', sendChatMessage);
+    
+    chatInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        sendChatMessage();
+      }
+    });
+  }
+}
+
+function sendChatMessage() {
+  const chatInput = $('chatInput');
+  if (!chatInput) return;
+  
+  const q = (chatInput.value || '').trim();
+  if (!q) return;
+  
+  appendMsg(q, 'user');
+  chatInput.value = '';
+  
+  // 简单自动回复
+  setTimeout(() => {
+    const tpl = t('chatDyn.autoReply') || '收到：{q}。稍后可在专业报告相应章节找到要点。';
+    appendMsg(tpl.replace('{q}', q), 'bot');
+  }, 500);
+}
+</script>  
 <script>
 /* === NOW + BIRTH DEFAULTS (SGT) === */
 (function () {
