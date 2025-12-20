@@ -564,6 +564,12 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
     energy:{ title:'Tenaga Lima Unsur' },
     elem:{ wood:'Kayu', fire:'Api', earth:'Tanah', metal:'Logam', water:'Air', month:'Bulan', fiveElements:'Lima Unsur' },
 
+    // NEW: display label for hidden CN (optional)
+    ui2:{
+      stemBranchFormat:'{stem}-{branch}',
+      stemBranchWithAnimal:'{stem}-{branch} ({animal})'
+    },
+
     chat_title:'Butler Xinlian · GPT',
     pro:{
       title:'Butler Xinlian · Bacaan Profesional',
@@ -741,6 +747,77 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
     });
   }
 
+  /* ===================== DISPLAY MAPPING (CN -> MS) ===================== */
+  // Pengiraan kekal guna CN. Paparan untuk pengguna Malay.
+  const MS_MAP = {
+    stems: {
+      '甲': { roman:'Jia',  elem:'木' },
+      '乙': { roman:'Yi',   elem:'木' },
+      '丙': { roman:'Bing', elem:'火' },
+      '丁': { roman:'Ding', elem:'火' },
+      '戊': { roman:'Wu',   elem:'土' },
+      '己': { roman:'Ji',   elem:'土' },
+      '庚': { roman:'Geng', elem:'金' },
+      '辛': { roman:'Xin',  elem:'金' },
+      '壬': { roman:'Ren',  elem:'水' },
+      '癸': { roman:'Gui',  elem:'水' }
+    },
+    branches: {
+      '子': { roman:'Zi',   animal:'Tikus',   elem:'水' },
+      '丑': { roman:'Chou', animal:'Lembu',   elem:'土' },
+      '寅': { roman:'Yin',  animal:'Harimau', elem:'木' },
+      '卯': { roman:'Mao',  animal:'Arnab',   elem:'木' },
+      '辰': { roman:'Chen', animal:'Naga',    elem:'土' },
+      '巳': { roman:'Si',   animal:'Ular',    elem:'火' },
+      '午': { roman:'Wu',   animal:'Kuda',    elem:'火' },
+      '未': { roman:'Wei',  animal:'Kambing', elem:'土' },
+      '申': { roman:'Shen', animal:'Monyet',  elem:'金' },
+      '酉': { roman:'You',  animal:'Ayam',    elem:'金' },
+      '戌': { roman:'Xu',   animal:'Anjing',  elem:'土' },
+      '亥': { roman:'Hai',  animal:'Babi',    elem:'水' }
+    },
+    // Ten Gods (CN -> MS label). Optional for UI.
+    tenGods: {
+      '比肩':'Rakan Sebaya (Bi Jian)',
+      '劫財':'Rival / Rebut Rezeki (Jie Cai)',
+      '食神':'Rezeki Tenang / Bakat Alami (Shi Shen)',
+      '傷官':'Output Tajam / Kreatif (Shang Guan)',
+      '偏財':'Kekayaan Sampingan (Pian Cai)',
+      '正財':'Kekayaan Utama (Zheng Cai)',
+      '七殺':'Kuasa / Persaingan Kuat (Qi Sha)',
+      '正官':'Jawatan / Peraturan (Zheng Guan)',
+      '偏印':'Sokongan / Ilmu Sampingan (Pian Yin)',
+      '正印':'Sokongan / Ilmu Utama (Zheng Yin)'
+    }
+  };
+
+  function msStem(stem){
+    if (!stem || stem === '-') return '-';
+    const x = MS_MAP.stems[stem];
+    return x ? x.roman : String(stem);
+  }
+  function msBranch(branch){
+    if (!branch || branch === '-') return '-';
+    const x = MS_MAP.branches[branch];
+    return x ? `${x.roman} (${x.animal})` : String(branch);
+  }
+  function msGZ(stem, branch){
+    if (!stem || stem === '-' || !branch || branch === '-') return '-';
+    const s = MS_MAP.stems[stem];
+    const b = MS_MAP.branches[branch];
+    if (!s || !b) return `${stem}${branch}`;
+    // "Yi-Si (Ular)"
+    const tpl = t('ui2.stemBranchWithAnimal') || '{stem}-{branch} ({animal})';
+    return tpl
+      .replace('{stem}', s.roman)
+      .replace('{branch}', b.roman)
+      .replace('{animal}', b.animal);
+  }
+  function msTenGod(cn){
+    if (!cn || cn === '-') return '-';
+    return MS_MAP.tenGods[cn] || cn;
+  }
+
   /* ===================== BAZI CALCULATOR (KEEP CN IDs) ===================== */
   class BaziCalculator {
     constructor(){
@@ -893,28 +970,60 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
     }
   };
 
-  /* ===================== RENDER ===================== */
-  function renderPillars(labels){
+  /* ===================== RENDER (WITH MAPPING) ===================== */
+  function renderPillarsFromPillars(pillars, unknown){
+    // pillars: [y,m,d,h] each = {stem,branch}
     const titles=[t('pillar.year'),t('pillar.month'),t('pillar.day'),t('pillar.hour')];
     const box = $('bazi-pillars'); if(!box) return;
+
+    const labels = pillars.map((p, i)=>{
+      if (!p || !p.stem || !p.branch || p.stem === '-' || p.branch === '-') return '-';
+      // show Malay-friendly format
+      return msGZ(p.stem, p.branch);
+    });
+
+    if (unknown) labels[3] = (t('badge.noHour') || 'Tiang jam tidak dipaparkan');
+
     box.innerHTML = labels.map((lab,i)=>`
       <div class="pillar"><div class="tit">${titles[i]}</div><div class="gz">${lab||'-'}</div></div>
     `).join('');
   }
 
   function renderTable(data){
+    // data.stem/data.branch are CN arrays
     const keys=['year','month','day','hour'];
+
     const translateElem = (val)=>{
       const map = { '木': t('elem.wood'), '火': t('elem.fire'),'土': t('elem.earth'),'金': t('elem.metal'),'水': t('elem.water') };
       return map[val] || val;
     };
-    ['stem','branch','element','nayin'].forEach(row=>{
-      keys.forEach((k, i)=>{
-        const cell = $(k+'-'+row); if (!cell) return;
-        let v = (Array.isArray(data[row]) ? data[row][i] : '-') ?? '-';
-        if (row === 'element') v = translateElem(v);
-        cell.textContent = v;
-      });
+
+    // stem row -> roman
+    keys.forEach((k,i)=>{
+      const cell = $(k+'-stem'); if(!cell) return;
+      const v = (data.stem && data.stem[i]) ? data.stem[i] : '-';
+      cell.textContent = (v === '-' ? '-' : msStem(v));
+    });
+
+    // branch row -> roman + animal
+    keys.forEach((k,i)=>{
+      const cell = $(k+'-branch'); if(!cell) return;
+      const v = (data.branch && data.branch[i]) ? data.branch[i] : '-';
+      cell.textContent = (v === '-' ? '-' : msBranch(v));
+    });
+
+    // element row -> Malay element
+    keys.forEach((k,i)=>{
+      const cell = $(k+'-element'); if(!cell) return;
+      const v = (data.element && data.element[i]) ? data.element[i] : '-';
+      cell.textContent = (v === '-' ? '-' : translateElem(v));
+    });
+
+    // nayin row -> keep English
+    keys.forEach((k,i)=>{
+      const cell = $(k+'-nayin'); if(!cell) return;
+      const v = (data.nayin && data.nayin[i]) ? data.nayin[i] : '-';
+      cell.textContent = v || '-';
     });
   }
 
@@ -967,7 +1076,8 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
 
     const dm = ctx.dayStem || '';
     const pctsCN = ctx.pcts || {};
-    const ten = Array.isArray(ctx.tenGods) ? ctx.tenGods.filter(Boolean) : [];
+    const tenCN = Array.isArray(ctx.tenGods) ? ctx.tenGods.filter(Boolean) : [];
+    const tenMS = tenCN.map(msTenGod).filter(Boolean);
 
     const elem = {
       Wood:  pctsCN['木'] || 0,
@@ -987,8 +1097,11 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
 
     const dmLine   = BaziAnalysis.dayMasterLine(dm) || 'Profil Day Master anda agak seimbang dan mudah menyesuaikan diri.';
     const rel      = BaziAnalysis.relation(dm);
-    const marriage = BaziAnalysis.marriageAdvice(ten);
-    const career   = BaziAnalysis.career(dm, ten);
+
+    // marriageAdvice/career logic still uses CN tokens, so pass CN list
+    const marriage = BaziAnalysis.marriageAdvice(tenCN);
+    const career   = BaziAnalysis.career(dm, tenCN);
+
     const wealthDir= BaziAnalysis.wealthDirs(dm);
     const healthFo = BaziAnalysis.health(dm);
 
@@ -1047,7 +1160,7 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
     parts.push(`
       <div class="butler-section">
         <h4>1. ${title.overview}</h4>
-        <p><strong>${t('reportLabels.dayMaster') || 'Day Master'}:</strong> ${dm || '-'}</p>
+        <p><strong>${t('reportLabels.dayMaster') || 'Day Master'}:</strong> ${dm ? msStem(dm) : '-'}</p>
         <p>${dmLine}</p>
         ${ctx.unknown ? `<p>${t('report.hourUnknownTip')}</p>` : ''}
       </div>
@@ -1066,6 +1179,7 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
       <div class="butler-section">
         <h4>3. ${title.tenGods}</h4>
         <p>Laporan ringkas ini fokus pada hala tuju praktikal: seimbangkan ekspresi diri, pengurusan sumber, dan tanggungjawab.</p>
+        <p><strong>Ringkasan Ten Gods (rujukan):</strong> ${tenMS.length ? tenMS.join(' · ') : '-'}</p>
         <p>Bila letih, tanya: “Ini untuk siapa?” dan “Adakah saya jelaskan batasan dengan jelas?”</p>
       </div>
     `);
@@ -1131,7 +1245,7 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
           <li>Dalam 30 hari, pilih SATU matlamat utama (kerja / wang / kesihatan). Jadikan ia nampak setiap hari.</li>
           <li>Mingguan: semak kemajuan sebenar (bukan mood). Laras pelan minggu depan.</li>
           <li>Guna unsur paling kuat (${strongest || '-'}) melalui rutin, persekitaran, dan orang yang menyokong.</li>
-          <li>Untuk unsur paling lemah (${weakest || '-'}), bina 1–2 tabiat kecil setiap minggu. Konsistensi menang.</li>
+          <li>Untuk unsur paling lemah (${weakest || '-'}) bina 1–2 tabiat kecil setiap minggu. Konsistensi menang.</li>
         </ul>
       </div>
     `);
@@ -1174,7 +1288,8 @@ footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; marg
       const d = calc.dayPillar(Y,M,D);
       const h = unknown ? {stem:'-',branch:'-'} : calc.hourPillar(d.stem, hh);
 
-      renderPillars([y.stem+y.branch, m.stem+m.branch, d.stem+d.branch, unknown ? (t('badge.noHour')||'-') : (h.stem+h.branch)]);
+      // Pillar big display: Malay-friendly (Roman + animal)
+      renderPillarsFromPillars([y,m,d,h], unknown);
 
       const stems=[y.stem,m.stem,d.stem, unknown? '-' : h.stem];
       const branch=[y.branch,m.branch,d.branch, unknown? '-' : h.branch];
