@@ -394,38 +394,106 @@
       </section>
     </section>
 
-    <footer>© 5XLiving • Astro Sanctuary</footer>
-  </main>
+  <footer>© 5XLiving • Astro Sanctuary</footer>
+</main>
+</body>
+          
+<!-- GPT / 心怜管家（统一浮窗） -->
+<button class="ss-chat-fab" id="ssChatFab" type="button">
+  <span data-i18n="chat_fab">问</span>
+</button>
+
+<div class="ss-chat-panel" id="chatPanel" aria-hidden="true">
+  <div class="ss-chat-head">
+    <div class="ss-chat-title" id="chatTitle" data-i18n="chat_title">
+      心怜管家 · GPT
+    </div>
+    <div class="ss-close" id="chatClose">✕</div>
+  </div>
+
+  <!-- 聊天内容区：保持为空，消息全部由 JS append -->
+  <div class="ss-chat-body" id="chatBody"></div>
+
+  <!-- 输入区 -->
+  <div class="ss-chat-input">
+    <input
+      id="chatInput"
+      placeholder="输入问题…"
+      data-i18n-ph="chat_input_ph"
+    />
+    <button class="btn" id="chatSend" data-i18n="chat_send">发送</button>
+  </div>
+</div>
 
   <!-- 功能脚本：后端代理 + 多语言 + Chat 浮窗 -->
 <script>
-  // ============== 统一配置（你的 Worker 域名） ==============
-  const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+(() => {
+  'use strict';
 
-  // 工具函数
-  const $ = id => document.getElementById(id);
-  function showErr(msg){ const e=$("error"); e.textContent=msg; e.style.display="block"; setTimeout(()=>{e.style.display='none'},5000); }
-  function hideErr(){ const e=$("error"); e.style.display="none"; e.textContent=""; }
-  function lock(el, v){ if(el) el.disabled = v; }
+  /* ===================== CONFIG ===================== */
+  const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+  const LANG_KEY = 'site_lang';
+
+  /* ===================== DOM ===================== */
+  const $ = (id) => document.getElementById(id);
+
+  /* ===================== UI HELPERS ===================== */
+  function showErr(msg){
+    const e = $('error');
+    if (!e) return;
+    e.textContent = msg || '';
+    e.style.display = 'block';
+    window.clearTimeout(showErr._t);
+    showErr._t = window.setTimeout(() => {
+      e.style.display = 'none';
+      e.textContent = '';
+    }, 5000);
+  }
+  function hideErr(){
+    const e = $('error');
+    if (!e) return;
+    e.style.display = 'none';
+    e.textContent = '';
+  }
+  function lock(el, v){ if (el) el.disabled = !!v; }
+
   function strongPwd(pw){
-    return pw.length>=8 && /[A-Z]/.test(pw) && /[a-z]/.test(pw) && /[0-9]/.test(pw) && /[^A-Za-z0-9]/.test(pw);
+    if (!pw) return false;
+    return pw.length >= 8 &&
+      /[A-Z]/.test(pw) &&
+      /[a-z]/.test(pw) &&
+      /[0-9]/.test(pw) &&
+      /[^A-Za-z0-9]/.test(pw);
   }
 
-  // ============== 多语言 ==============
-  const LANG_KEY = "site_lang";
-  function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
+  async function safeJson(resp){
+    try { return await resp.json(); } catch { return { ok:false, msg:'upstream_error' }; }
+  }
 
-  // 翻译表（补上 chat_title，避免回退）
+  /* ===================== I18N ===================== */
+  function getLang(){
+    return localStorage.getItem(LANG_KEY) || document.documentElement.lang || 'zh-CN';
+  }
+  function setLang(code){
+    localStorage.setItem(LANG_KEY, code);
+    document.documentElement.lang = code;
+  }
+
   const translations = {
-    "zh-CN": {
-      brand:'5xLiving · 命理心怜空间 · Soul Sanctuary', 
+    'zh-CN': {
       page_title:"命理心怜空间 · Index",
       site_title:"命理心怜空间 · Soul Sanctuary",
-      site_subtitle:"免费体验 & 会员专区 · 统一风格版",
       lang_label:"语言",
+
       free_title:"🌀 免费体验区 Free Segment",
-      link_bazi:"八字命理分析", link_natal:"本命星盘分析", link_life:"灵数分析",
-      link_tarot:"塔罗指引分析", link_kyuusei:"九星气学分析", link_energy:"能量类型分析", link_vedic:"印度命理吠陀占星",
+      link_bazi:"八字命理分析",
+      link_natal:"本命星盘分析",
+      link_life:"灵数分析",
+      link_tarot:"塔罗指引分析",
+      link_kyuusei:"九星气学分析",
+      link_energy:"能量类型分析",
+      link_vedic:"印度命理吠陀占星",
+
       vip_title:"🌙 会员区域 VIP Segment",
       vip_mingli:"🗝 命理空间专属内容",
       vip_love:"姻缘方向：恋爱缘分、婚姻走势",
@@ -435,303 +503,826 @@
       vip_hepan:"合盘分析：婚期择日、新生择时",
       vip_name:"测名分析：公司名、宝宝名、命名改运",
       vip_fengshui:"财位合盘：住家 / 办公室动线配合",
+
       vip_xinlian:"🌙 心怜空间专属内容",
       vip_record:"灵性记录：照片、梦境、声音、愿望祈祷",
       vip_course:"命理课程：八字 / 塔罗 / 占星 / 灵数 / 人类图",
       vip_memorial:"家族纪念系统：亲人灵性纪念 & 延续",
       vip_tasks:"每周能量练习 / 神明仪式任务",
       vip_shop:"能量商城专属折扣 & 御守订制",
+
       login_title:"💎 登入 VIP 功能",
+
+      // placeholders
       ph_email:"邮箱 Email",
       ph_password:"密码 Password（至少8位，含大小写数字符号）",
-      btn_register:"注册账户",
+
+      // buttons
       btn_login:"登入账户",
+      btn_register:"注册账户",
+      btn_reset:"🔑 重设密码",
       btn_upgrade:"💎 升级为 VIP（月费）",
       btn_backshop:"← 返回命理商城",
-      btn_reset:"🔑 重设密码",
+
       note_price:"注册账号赠送一次免费体验",
       note_price1:"$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）",
+
+      // auth field toggle (privacy preference)
+      btn_show_fields:"显示登录输入框",
+      btn_hide_fields:"隐藏登录输入框",
+
+      // errors / prompts
       err_need_ep:"请输入邮箱与密码",
       err_pwd_rule:"密码至少8位，需包含大写/小写/数字/特殊符号",
-      err_exists:"此邮箱已注册，请直接登入",
-      err_register_fail:"注册失败：",
       err_no_account:"账户不存在，请先注册",
       err_wrong_pwd:"密码错误",
       err_expired:"会员已过期，请续费",
       err_login_fail:"登入失败：",
+      err_register_fail:"注册失败：",
+      err_reset_fail:"重设失败：",
       prompt_email:"请输入注册邮箱：",
       err_email_empty:"邮箱不能为空",
       prompt_newpwd:"请输入新密码（至少8位，含大小写、数字、符号）：",
       err_pwd_empty:"密码不能为空",
-      err_reset_fail:"重设失败：",
       msg_reset_ok:"密码已成功更新，请用新密码重新登入。",
-      chat_title:"心怜管家 · Chat",
-      chat_fab:"问", chat_placeholder:"请问您想了解什么？（如：如何开始免费体验）", chat_send:"发送"
+
+      // chat
+      chat_title:"心怜管家 · GPT",
+      chat_fab:"问",
+      chat_input_ph:"输入问题…",
+      chat_send:"发送",
+      chat_welcome:"你好，我是心怜管家。你可以问：如何开始免费体验？VIP包含什么？如何登录？",
+      chat_busy:"抱歉，服务暂时繁忙，请稍后重试。",
+      chat_net_err:"网络异常，请稍后再试。"
     },
-    "zh-TW": { /* 其余同上，略，为简洁仅示关键新增键 */ 
+
+    'zh-TW': {
       page_title:"命理心憐空間 · Index",
       site_title:"命理心憐空間 · Soul Sanctuary",
-      /* ...其余省略... */
-      chat_title:"心憐管家 · Chat",
-      chat_fab:"問", chat_placeholder:"想了解什麼？（例如：如何開始免費體驗）", chat_send:"發送"
+      lang_label:"語言",
+
+      free_title:"🌀 免費體驗區 Free Segment",
+      link_bazi:"八字命理分析",
+      link_natal:"本命星盤分析",
+      link_life:"靈數分析",
+      link_tarot:"塔羅指引分析",
+      link_kyuusei:"九星氣學分析",
+      link_energy:"能量類型分析",
+      link_vedic:"印度命理吠陀占星",
+
+      vip_title:"🌙 會員區域 VIP Segment",
+      vip_mingli:"🗝 命理空間專屬內容",
+      vip_love:"姻緣方向：戀愛緣分、婚姻走勢",
+      vip_career:"事業方向：職場發展、創業潛力",
+      vip_wealth:"財運方向：財位分析、理財時機",
+      vip_pet:"寵物命理：伴侶動物的性格與緣分",
+      vip_hepan:"合盤分析：婚期擇日、新生擇時",
+      vip_name:"測名分析：公司名、寶寶名、命名改運",
+      vip_fengshui:"財位合盤：住家 / 辦公室動線配合",
+
+      vip_xinlian:"🌙 心憐空間專屬內容",
+      vip_record:"靈性記錄：照片、夢境、聲音、願望祈禱",
+      vip_course:"命理課程：八字 / 塔羅 / 占星 / 靈數 / 人類圖",
+      vip_memorial:"家族紀念系統：親人靈性紀念 & 延續",
+      vip_tasks:"每週能量練習 / 神明儀式任務",
+      vip_shop:"能量商城專屬折扣 & 御守訂製",
+
+      login_title:"💎 登入 VIP 功能",
+      ph_email:"信箱 Email",
+      ph_password:"密碼 Password（至少8位，含大小寫數字符號）",
+      btn_login:"登入帳戶",
+      btn_register:"註冊帳戶",
+      btn_reset:"🔑 重設密碼",
+      btn_upgrade:"💎 升級為 VIP（月費）",
+      btn_backshop:"← 返回命理商城",
+      note_price:"註冊帳號贈送一次免費體驗",
+      note_price1:"$9.9 / 月費 VIP（命理空間 + 心憐空間 + 靈性課程）",
+      btn_show_fields:"顯示登入輸入框",
+      btn_hide_fields:"隱藏登入輸入框",
+
+      err_need_ep:"請輸入信箱與密碼",
+      err_pwd_rule:"密碼至少8位，需包含大寫/小寫/數字/特殊符號",
+      err_no_account:"帳戶不存在，請先註冊",
+      err_wrong_pwd:"密碼錯誤",
+      err_expired:"會員已過期，請續費",
+      err_login_fail:"登入失敗：",
+      err_register_fail:"註冊失敗：",
+      err_reset_fail:"重設失敗：",
+      prompt_email:"請輸入註冊信箱：",
+      err_email_empty:"信箱不能為空",
+      prompt_newpwd:"請輸入新密碼（至少8位，含大小寫、數字、符號）：",
+      err_pwd_empty:"密碼不能為空",
+      msg_reset_ok:"密碼已更新，請用新密碼重新登入。",
+
+      chat_title:"心憐管家 · GPT",
+      chat_fab:"問",
+      chat_input_ph:"輸入問題…",
+      chat_send:"發送",
+      chat_welcome:"你好，我是心憐管家。你可以問：如何開始免費體驗？VIP包含什麼？如何登入？",
+      chat_busy:"抱歉，服務繁忙，請稍後再試。",
+      chat_net_err:"網路異常，請稍後再試。"
     },
-    "en": {
+
+    'en': {
       page_title:"Soul Sanctuary · Index",
       site_title:"Soul Sanctuary",
-      /* ... */
-      chat_title:"Concierge · Chat",
-      chat_fab:"Chat", chat_placeholder:"What would you like to know? (e.g., how to start the free trial)", chat_send:"Send"
+      lang_label:"Language",
+
+      free_title:"🌀 Free Segment",
+      link_bazi:"BaZi Reading",
+      link_natal:"Natal Chart",
+      link_life:"Numerology",
+      link_tarot:"Tarot Guidance",
+      link_kyuusei:"Nine Star Ki",
+      link_energy:"Energy Type",
+      link_vedic:"Vedic Astrology",
+
+      vip_title:"🌙 VIP Segment",
+      vip_mingli:"🗝 BaZi Members Area",
+      vip_love:"Love & Relationship: romance, marriage trends",
+      vip_career:"Career: work growth, entrepreneurship potential",
+      vip_wealth:"Wealth: money timing & wealth spots",
+      vip_pet:"Pet Reading: personality & bond",
+      vip_hepan:"Compatibility: wedding date & birth timing",
+      vip_name:"Naming: company name, baby name",
+      vip_fengshui:"Wealth Layout: home/office flow matching",
+
+      vip_xinlian:"🌙 Soul Sanctuary Members Area",
+      vip_record:"Spiritual logs: photos, dreams, voice, wishes",
+      vip_course:"Courses: BaZi / Tarot / Astrology / Numerology / Human Design",
+      vip_memorial:"Family memorial system",
+      vip_tasks:"Weekly energy practice / rituals",
+      vip_shop:"Members-only discounts & custom charms",
+
+      login_title:"💎 VIP Login",
+      ph_email:"Email",
+      ph_password:"Password (8+ chars with upper/lower/number/symbol)",
+      btn_login:"Log in",
+      btn_register:"Register",
+      btn_reset:"🔑 Reset Password",
+      btn_upgrade:"💎 Upgrade to VIP (Monthly)",
+      btn_backshop:"← Back to Shop",
+      note_price:"Register to get 1 free trial",
+      note_price1:"$9.9/month VIP (BaZi + Soul Sanctuary + Courses)",
+
+      btn_show_fields:"Show login inputs",
+      btn_hide_fields:"Hide login inputs",
+
+      err_need_ep:"Please enter email and password",
+      err_pwd_rule:"Password must be 8+ chars with upper/lower/number/symbol",
+      err_no_account:"Account not found. Please register first.",
+      err_wrong_pwd:"Wrong password",
+      err_expired:"Membership expired. Please renew.",
+      err_login_fail:"Login failed:",
+      err_register_fail:"Registration failed:",
+      err_reset_fail:"Reset failed:",
+      prompt_email:"Enter your registered email:",
+      err_email_empty:"Email cannot be empty",
+      prompt_newpwd:"Enter a new password (8+ chars with upper/lower/number/symbol):",
+      err_pwd_empty:"Password cannot be empty",
+      msg_reset_ok:"Password updated. Please log in again with your new password.",
+
+      chat_title:"Concierge · GPT",
+      chat_fab:"Chat",
+      chat_input_ph:"Type a question…",
+      chat_send:"Send",
+      chat_welcome:"Hi, I’m the concierge. Ask me: how to start free trials, what VIP includes, or how to log in.",
+      chat_busy:"Sorry, the service is busy. Please try again later.",
+      chat_net_err:"Network error. Please try again."
     },
-    "ja": { page_title:"ソウル・サンクチュアリ · Index", site_title:"ソウル・サンクチュアリ",
-      /* ... */ chat_title:"心怜コンシェルジュ · チャット", chat_fab:"問", chat_placeholder:"何を知りたいですか？（例：無料体験の始め方）", chat_send:"送信" },
-    "th": { page_title:"Soul Sanctuary · หน้าแรก", site_title:"Soul Sanctuary",
-      /* ... */ chat_title:"ผู้ช่วย · แชต", chat_fab:"ถาม", chat_placeholder:"อยากรู้อะไร (เช่น เริ่มทดลองฟรีอย่างไร)", chat_send:"ส่ง" },
-    "ms": { page_title:"Soul Sanctuary · Indeks", site_title:"Soul Sanctuary",
-      /* ... */ chat_title:"Pembantu · Sembang", chat_fab:"Tanya", chat_placeholder:"Anda mahu tahu apa? (cth: cara mula percubaan)", chat_send:"Hantar" }
+
+    'ja': {
+      page_title:"ソウル・サンクチュアリ · Index",
+      site_title:"ソウル・サンクチュアリ",
+      lang_label:"言語",
+
+      free_title:"🌀 無料体験エリア",
+      link_bazi:"BaZi（八字）",
+      link_natal:"ネイタルチャート",
+      link_life:"数秘",
+      link_tarot:"タロット",
+      link_kyuusei:"九星気学",
+      link_energy:"エネルギータイプ",
+      link_vedic:"ヴェーダ占星術",
+
+      vip_title:"🌙 VIP エリア",
+      vip_mingli:"🗝 命理メンバー内容",
+      vip_love:"恋愛・結婚の流れ",
+      vip_career:"仕事・起業の可能性",
+      vip_wealth:"金運・タイミング",
+      vip_pet:"ペット鑑定",
+      vip_hepan:"相性・择日/择时",
+      vip_name:"命名（会社/赤ちゃん）",
+      vip_fengshui:"住居/オフィス動線の調整",
+
+      vip_xinlian:"🌙 Soul Sanctuary メンバー内容",
+      vip_record:"記録：写真/夢/音声/祈り",
+      vip_course:"講座：八字/タロット/占星/数秘/人類図",
+      vip_memorial:"家族メモリアル",
+      vip_tasks:"週の練習/儀式",
+      vip_shop:"会員割引 & 御守",
+
+      login_title:"💎 VIP ログイン",
+      ph_email:"メール",
+      ph_password:"パスワード（8文字以上：大/小/数字/記号）",
+      btn_login:"ログイン",
+      btn_register:"新規登録",
+      btn_reset:"🔑 パスワード再設定",
+      btn_upgrade:"💎 VIP（月額）にアップグレード",
+      btn_backshop:"← ショップへ戻る",
+      note_price:"登録で無料体験（1回）",
+      note_price1:"$9.9 / 月 VIP（命理 + Soul Sanctuary + コース）",
+
+      btn_show_fields:"入力欄を表示",
+      btn_hide_fields:"入力欄を非表示",
+
+      err_need_ep:"メールとパスワードを入力してください",
+      err_pwd_rule:"パスワードは8文字以上（大/小/数字/記号）",
+      err_no_account:"アカウントがありません。先に登録してください。",
+      err_wrong_pwd:"パスワードが違います",
+      err_expired:"会員期限が切れています。更新してください。",
+      err_login_fail:"ログイン失敗：",
+      err_register_fail:"登録失敗：",
+      err_reset_fail:"再設定失敗：",
+      prompt_email:"登録メールを入力：",
+      err_email_empty:"メールは必須です",
+      prompt_newpwd:"新しいパスワード（8+：大/小/数字/記号）：",
+      err_pwd_empty:"パスワードは必須です",
+      msg_reset_ok:"更新しました。新しいパスワードでログインしてください。",
+
+      chat_title:"心怜バトラー · GPT",
+      chat_fab:"問",
+      chat_input_ph:"質問を入力…",
+      chat_send:"送信",
+      chat_welcome:"こんにちは。無料体験の始め方、VIP内容、ログイン方法などを案内します。",
+      chat_busy:"混雑しています。少し待って再試行してください。",
+      chat_net_err:"ネットワークエラー。再試行してください。"
+    },
+
+    'th': {
+      page_title:"Soul Sanctuary · หน้าแรก",
+      site_title:"Soul Sanctuary",
+      lang_label:"ภาษา",
+
+      free_title:"🌀 โซนฟรี",
+      link_bazi:"BaZi (ดวงจีน)",
+      link_natal:"ดวงกำเนิด",
+      link_life:"เลขศาสตร์",
+      link_tarot:"ไพ่ทาโรต์",
+      link_kyuusei:"Nine Star Ki",
+      link_energy:"ประเภทพลังงาน",
+      link_vedic:"โหราศาสตร์เวท",
+
+      vip_title:"🌙 โซน VIP",
+      vip_mingli:"🗝 พื้นที่ BaZi VIP",
+      vip_love:"ความรัก/ความสัมพันธ์",
+      vip_career:"การงาน/ธุรกิจ",
+      vip_wealth:"การเงิน/จังหวะเงิน",
+      vip_pet:"ดวงสัตว์เลี้ยง",
+      vip_hepan:"ความเข้ากันได้",
+      vip_name:"ตั้งชื่อ",
+      vip_fengshui:"ผังบ้าน/ออฟฟิศ",
+
+      vip_xinlian:"🌙 Soul Sanctuary VIP",
+      vip_record:"บันทึก: รูป/ฝัน/เสียง/คำอธิษฐาน",
+      vip_course:"คอร์ส: BaZi / Tarot / Astrology / Numerology / Human Design",
+      vip_memorial:"ระบบรำลึกครอบครัว",
+      vip_tasks:"แบบฝึกหัดประจำสัปดาห์",
+      vip_shop:"ส่วนลดสมาชิก & เครื่องราง",
+
+      login_title:"💎 เข้าสู่ระบบ VIP",
+      ph_email:"อีเมล",
+      ph_password:"รหัสผ่าน (8+ ตัว มี A/a/0-9/สัญลักษณ์)",
+      btn_login:"เข้าสู่ระบบ",
+      btn_register:"สมัครสมาชิก",
+      btn_reset:"🔑 รีเซ็ตรหัสผ่าน",
+      btn_upgrade:"💎 อัปเกรด VIP (รายเดือน)",
+      btn_backshop:"← กลับร้านค้า",
+      note_price:"สมัครเพื่อรับทดลองฟรี 1 ครั้ง",
+      note_price1:"$9.9/เดือน VIP (BaZi + Soul Sanctuary + คอร์ส)",
+
+      btn_show_fields:"แสดงช่องเข้าสู่ระบบ",
+      btn_hide_fields:"ซ่อนช่องเข้าสู่ระบบ",
+
+      err_need_ep:"กรุณากรอกอีเมลและรหัสผ่าน",
+      err_pwd_rule:"รหัสผ่านต้อง 8+ ตัว มี A/a/0-9/สัญลักษณ์",
+      err_no_account:"ไม่พบบัญชี กรุณาสมัครก่อน",
+      err_wrong_pwd:"รหัสผ่านไม่ถูกต้อง",
+      err_expired:"สมาชิกหมดอายุ กรุณาต่ออายุ",
+      err_login_fail:"เข้าสู่ระบบล้มเหลว:",
+      err_register_fail:"สมัครล้มเหลว:",
+      err_reset_fail:"รีเซ็ตล้มเหลว:",
+      prompt_email:"กรอกอีเมลที่สมัครไว้:",
+      err_email_empty:"อีเมลห้ามว่าง",
+      prompt_newpwd:"กรอกรหัสผ่านใหม่ (8+ มี A/a/0-9/สัญลักษณ์):",
+      err_pwd_empty:"รหัสผ่านห้ามว่าง",
+      msg_reset_ok:"อัปเดตรหัสผ่านแล้ว กรุณาเข้าสู่ระบบใหม่",
+
+      chat_title:"ผู้ช่วย · GPT",
+      chat_fab:"ถาม",
+      chat_input_ph:"พิมพ์คำถาม…",
+      chat_send:"ส่ง",
+      chat_welcome:"สวัสดีค่ะ/ครับ ถามได้เลย: เริ่มทดลองใช้ฟรีอย่างไร? VIP มีอะไรบ้าง? เข้าสู่ระบบอย่างไร?",
+      chat_busy:"ระบบไม่ว่าง กรุณาลองใหม่ภายหลัง",
+      chat_net_err:"เครือข่ายมีปัญหา กรุณาลองใหม่"
+    },
+
+    'ms': {
+      page_title:"Soul Sanctuary · Indeks",
+      site_title:"Soul Sanctuary",
+      lang_label:"Bahasa",
+
+      free_title:"🌀 Segmen Percuma",
+      link_bazi:"BaZi",
+      link_natal:"Carta Natal",
+      link_life:"Numerologi",
+      link_tarot:"Tarot",
+      link_kyuusei:"Nine Star Ki",
+      link_energy:"Jenis Tenaga",
+      link_vedic:"Astrologi Veda",
+
+      vip_title:"🌙 Segmen VIP",
+      vip_mingli:"🗝 Ruang BaZi VIP",
+      vip_love:"Cinta & hubungan",
+      vip_career:"Kerjaya & bisnes",
+      vip_wealth:"Kewangan & masa",
+      vip_pet:"Bacaan haiwan peliharaan",
+      vip_hepan:"Keserasian",
+      vip_name:"Penamaan",
+      vip_fengshui:"Susun atur rumah/pejabat",
+
+      vip_xinlian:"🌙 Soul Sanctuary VIP",
+      vip_record:"Rekod: foto/mimpi/audio/doa",
+      vip_course:"Kursus: BaZi / Tarot / Astrology / Numerology / Human Design",
+      vip_memorial:"Sistem memorial keluarga",
+      vip_tasks:"Latihan mingguan",
+      vip_shop:"Diskaun ahli & azimat",
+
+      login_title:"💎 Log masuk VIP",
+      ph_email:"Email",
+      ph_password:"Kata laluan (8+ aksara, ada A/a/nombor/simbol)",
+      btn_login:"Log masuk",
+      btn_register:"Daftar",
+      btn_reset:"🔑 Tetap semula kata laluan",
+      btn_upgrade:"💎 Naik taraf VIP (Bulanan)",
+      btn_backshop:"← Kembali ke kedai",
+      note_price:"Daftar untuk 1 percubaan percuma",
+      note_price1:"$9.9/bulan VIP (BaZi + Soul Sanctuary + Kursus)",
+
+      btn_show_fields:"Tunjukkan input log masuk",
+      btn_hide_fields:"Sembunyikan input log masuk",
+
+      err_need_ep:"Sila masukkan email dan kata laluan",
+      err_pwd_rule:"Kata laluan mesti 8+ (A/a/nombor/simbol)",
+      err_no_account:"Akaun tiada. Sila daftar dahulu.",
+      err_wrong_pwd:"Kata laluan salah",
+      err_expired:"Keahlian tamat. Sila perbaharui.",
+      err_login_fail:"Log masuk gagal:",
+      err_register_fail:"Pendaftaran gagal:",
+      err_reset_fail:"Reset gagal:",
+      prompt_email:"Masukkan email berdaftar:",
+      err_email_empty:"Email tidak boleh kosong",
+      prompt_newpwd:"Masukkan kata laluan baru (8+ A/a/nombor/simbol):",
+      err_pwd_empty:"Kata laluan tidak boleh kosong",
+      msg_reset_ok:"Kata laluan dikemas kini. Sila log masuk semula.",
+
+      chat_title:"Pembantu · GPT",
+      chat_fab:"Tanya",
+      chat_input_ph:"Taip soalan…",
+      chat_send:"Hantar",
+      chat_welcome:"Hai! Tanya: cara mula percubaan percuma, apa kandungan VIP, atau cara log masuk.",
+      chat_busy:"Perkhidmatan sibuk. Cuba lagi nanti.",
+      chat_net_err:"Ralat rangkaian. Sila cuba lagi."
+    }
   };
 
   function t(key){
-    const L = translations[getLang()] || translations["zh-CN"];
-    return L[key] || (translations["zh-CN"][key] || key);
+    const lang = getLang();
+    const pack = translations[lang] || translations['zh-CN'];
+    return pack[key] ?? translations['zh-CN'][key] ?? key;
   }
+
   function applyI18n(){
-    document.querySelectorAll("[data-i18n]").forEach(el=>{
-      const key = el.getAttribute("data-i18n");
-      el.textContent = t(key);
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const key = el.getAttribute('data-i18n');
+      const val = t(key);
+      if (typeof val === 'string') el.textContent = val;
     });
-    document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
-      const key = el.getAttribute("data-i18n-ph");
-      el.setAttribute("placeholder", t(key));
+    document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+      const key = el.getAttribute('data-i18n-ph');
+      const val = t(key);
+      if (typeof val === 'string') el.setAttribute('placeholder', val);
     });
-    const titleEl = document.querySelector("title[data-i18n]");
-    if (titleEl) titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
-  }
-  function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
 
-  // ============== Chat 浮窗（走 /api/chat） ==============
-  function applyChatI18n(){
-    const fab = document.getElementById('ssChatFab');
-    const inp = document.getElementById('ssChatInput');
-    const btn = document.getElementById('ssChatSend');
-    const title = document.querySelector('.ss-chat-title');
-    if (fab) fab.textContent = t('chat_fab');
-    if (inp) inp.placeholder = t('chat_placeholder');
-    if (btn) btn.textContent = t('chat_send');
-    if (title) title.textContent = t('chat_title');
+    // <title data-i18n="page_title">
+    const titleEl = document.querySelector('title[data-i18n]');
+    if (titleEl){
+      const key = titleEl.getAttribute('data-i18n');
+      titleEl.textContent = t(key);
+    }
   }
 
-  document.addEventListener('DOMContentLoaded', ()=>{
-    // Chat 按钮与面板
-    const chatFab = document.createElement('div');
-    chatFab.className = 'ss-chat-fab'; chatFab.id = 'ssChatFab'; chatFab.title = '心怜管家';
+  function wireLangSelect(){
+    const sel = $('langSelect');
+    if (!sel) return;
 
-    const chatPanel = document.createElement('div');
-    chatPanel.className = 'ss-chat-panel'; chatPanel.id = 'ssChatPanel'; chatPanel.setAttribute('role','dialog'); chatPanel.setAttribute('aria-label','心怜管家');
-    chatPanel.innerHTML = `
-      <div class="ss-chat-head">
-        <div class="ss-chat-title">${t('chat_title') || '心怜管家 · Chat'}</div>
-        <div class="ss-close" id="ssChatClose">✕</div>
-      </div>
-      <div class="ss-chat-body" id="ssChatBody" aria-live="polite"></div>
-      <div class="ss-chat-input">
-        <input id="ssChatInput" type="text" />
-        <button id="ssChatSend"></button>
-      </div>`;
+    // keep user choice
+    const cur = getLang();
+    sel.value = cur;
 
-    document.body.appendChild(chatFab);
-    document.body.appendChild(chatPanel);
+    sel.addEventListener('change', () => {
+      setLang(sel.value);
+      applyI18n();
+      // chat title/fab/input placeholders are already data-i18n/data-i18n-ph, so applyI18n is enough.
+    });
+  }
 
-    // 让回车 → 触发“登入账户”
-    const fields = document.getElementById('authFields');
-    const loginBtn = document.getElementById('loginBtn');
-    if (fields && loginBtn) {
-      fields.addEventListener('keydown', (e)=>{
-        if (e.key === 'Enter') {
-          e.preventDefault();
-          loginBtn.click();
-        }
-      });
+  /* ===================== AUTH FIELDS PRIVACY (HIDE BY DEFAULT) ===================== */
+  function initAuthFieldPrivacy(){
+    const fields = $('authFields');
+    if (!fields) return;
+
+    // hide fields by default
+    fields.style.display = 'none';
+
+    // insert toggle button (UI only; no password echo/log)
+    const panelBody = fields.closest('.body');
+    if (!panelBody) return;
+
+    let toggle = $('authToggleBtn');
+    if (!toggle){
+      toggle = document.createElement('button');
+      toggle.type = 'button';
+      toggle.id = 'authToggleBtn';
+      toggle.className = 'btn ghost block';
+      toggle.textContent = t('btn_show_fields');
+      panelBody.insertBefore(toggle, fields);
+      // spacer
+      const spacer = document.createElement('div');
+      spacer.className = 'spacer';
+      panelBody.insertBefore(spacer, fields);
     }
 
-    // 初始语言（页面 + chat）
-    const select = document.getElementById("langSelect");
-    const current = getLang();
-    if (select) select.value = current;
-    applyI18n();
-    applyChatI18n();
-
-    const $body  = document.getElementById('ssChatBody');
-    const $input = document.getElementById('ssChatInput');
-    const $send  = document.getElementById('ssChatSend');
-    const $close = document.getElementById('ssChatClose');
-
-    const openPanel  = () => { chatPanel.style.display = 'flex'; $input.focus(); };
-    const closePanel = () => { chatPanel.style.display = 'none'; };
-    chatFab.addEventListener('click', openPanel);
-    $close.addEventListener('click', closePanel);
-
-    function addMsg(text, me=false){
-      const div = document.createElement('div');
-      div.className = 'ss-msg' + (me ? ' me' : '');
-      div.textContent = text;
-      $body.appendChild(div);
-      $body.scrollTop = $body.scrollHeight;
+    function setVisible(v){
+      fields.style.display = v ? 'grid' : 'none';
+      toggle.textContent = v ? t('btn_hide_fields') : t('btn_show_fields');
     }
 
-    async function askChat(prompt){
-      addMsg(prompt, true);
-      $input.value = '';
-      $input.focus();
-      try{
-        const r = await fetch(`${API_BASE}/api/chat`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messages: [
-              { role:'system', content:'你是“心怜管家”，帮助访客了解命理心怜空间的功能、导航与会员说明，语气温暖专业、简洁有条理。' },
-              { role:'user', content: prompt }
-            ]
-          })
-        });
-        let data, reply = '';
-        try { data = await r.json(); } catch { data = {}; }
-        reply = data.reply ?? data.text ?? data?.choices?.[0]?.message?.content ?? "";
-        if (!reply) return addMsg('抱歉，服务暂时繁忙，请稍后重试。');
-        addMsg(reply);
-      }catch(e){
-        addMsg('网络异常，请稍后再试。');
+    toggle.addEventListener('click', () => {
+      const isHidden = fields.style.display === 'none';
+      setVisible(isHidden);
+      if (isHidden){
+        // focus email when showing
+        setTimeout(() => $('email')?.focus(), 50);
       }
-    }
-    $send.addEventListener('click', ()=>{ const v=$input.value.trim(); if(v) askChat(v); });
-    $input.addEventListener('keydown', (e)=>{ if(e.key==='Enter'){ const v=$input.value.trim(); if(v) askChat(v); }});
+    });
 
-    // 语言切换
-    if (select) {
-      select.addEventListener("change", ()=>{
-        setLang(select.value);
-        applyI18n();
-        applyChatI18n();
-      });
-    }
-  });
+    // if user clicks login/register while hidden -> reveal instead of submitting
+    const loginBtn = $('loginBtn');
+    const registerBtn = $('registerBtn');
 
-  // ============== 登录流程（集中处理 exists / expired / expiresAt） ==============
-  async function safeJson(resp){
-    try { return await resp.json(); } catch { return { ok:false, msg:'upstream_error' }; }
+    function ensureVisibleOrWarn(){
+      if (fields.style.display === 'none'){
+        setVisible(true);
+        showErr(t('err_need_ep'));
+        return false;
+      }
+      return true;
+    }
+
+    // Intercept form submits if hidden
+    const loginForm = $('loginForm');
+    const regForm = $('registerForm');
+
+    if (loginForm){
+      loginForm.addEventListener('submit', (e) => {
+        if (!ensureVisibleOrWarn()){
+          e.preventDefault();
+          return;
+        }
+      }, true);
+    }
+
+    if (regForm){
+      regForm.addEventListener('submit', (e) => {
+        if (!ensureVisibleOrWarn()){
+          e.preventDefault();
+          return;
+        }
+      }, true);
+    }
+
+    // Also allow click buttons
+    if (loginBtn){
+      loginBtn.addEventListener('click', () => { ensureVisibleOrWarn(); }, true);
+    }
+    if (registerBtn){
+      registerBtn.addEventListener('click', () => { ensureVisibleOrWarn(); }, true);
+    }
   }
 
+  /* ===================== LOGIN / REGISTER / RESET ===================== */
   async function loginFlow(email, password){
     const res = await safeJson(await fetch(`${API_BASE}/api/login`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ email, password })
     }));
 
-    const msg = (res.msg || "").toString().toLowerCase();
+    const msg = (res.msg || '').toString().toLowerCase();
 
-    // ✅ 统一判断是否过期（兼容 msg/flag/时间戳）
+    // expired compatibility
     let expired = false;
     if (res.expired === true) expired = true;
     else if (msg === 'expired') expired = true;
-    else if (res.expiresAt) {
+    else if (res.expiresAt){
       const ts = Date.parse(res.expiresAt);
       if (!Number.isNaN(ts) && ts < Date.now()) expired = true;
     }
 
-    if (expired) {
-      const go = confirm(t('err_expired') + "。是否前往续费？");
-      if (go) window.open("https://yourshopifyshop.com/products/monthly-vip", "_blank");
+    if (expired){
+      const go = confirm(t('err_expired') + '。是否前往续费？');
+      if (go) window.open('https://yourshopifyshop.com/products/monthly-vip', '_blank');
       return;
     }
 
-    if (res.ok === true) {
-      localStorage.setItem("vipEmail", res.email || email);
-      location.href = "https://astro.5xliving.com/vip_soul_sanctuary.html";
+    if (res.ok === true){
+      localStorage.setItem('vipEmail', res.email || email);
+      location.href = 'https://astro.5xliving.com/vip_soul_sanctuary.html';
       return;
     }
 
     if (msg === 'no_account') return showErr(t('err_no_account'));
     if (msg === 'wrong_pwd')  return showErr(t('err_wrong_pwd'));
+
     return showErr(t('err_login_fail') + (res.msg ? ` ${res.msg}` : ''));
   }
 
-  // ======== 表单事件（注册 / 登录 / 重设） ========
-  document.addEventListener('DOMContentLoaded', ()=>{
-    document.getElementById("registerForm").addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      hideErr();
-      const email = $("email").value.trim();
-      const password = $("password").value.trim();
-      if (!email || !password) return showErr(t('err_need_ep'));
-      if (!strongPwd(password)) return showErr(t('err_pwd_rule'));
+  function wireAuthForms(){
+    const registerForm = $('registerForm');
+    const loginForm = $('loginForm');
+    const resetBtn = $('resetBtn');
 
-      lock($("registerBtn"), true);
-      try{
-        const res = await safeJson(await fetch(`${API_BASE}/api/register`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
-        }));
+    if (registerForm){
+      registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideErr();
 
-        if (res.ok === true){
-          localStorage.setItem("vipEmail", email);
-          location.href = "vip_trial.html";
-          return;
+        const email = ($('email')?.value || '').trim();
+        const password = ($('password')?.value || '').trim();
+
+        if (!email || !password) return showErr(t('err_need_ep'));
+        if (!strongPwd(password)) return showErr(t('err_pwd_rule'));
+
+        lock($('registerBtn'), true);
+        try{
+          const res = await safeJson(await fetch(`${API_BASE}/api/register`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ email, password })
+          }));
+
+          if (res.ok === true){
+            localStorage.setItem('vipEmail', email);
+            location.href = 'vip_trial.html';
+            return;
+          }
+
+          if ((res.msg || '').toString() === 'exists'){
+            // if already exists, try login directly
+            await loginFlow(email, password);
+            return;
+          }
+
+          return showErr(t('err_register_fail') + (res.msg ? ` ${res.msg}` : ''));
+        } catch(err){
+          return showErr(t('err_register_fail') + (err?.message || ''));
+        } finally {
+          lock($('registerBtn'), false);
         }
+      });
+    }
 
-        if ((res.msg||"").toString() === 'exists'){
+    if (loginForm){
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        hideErr();
+
+        const email = ($('email')?.value || '').trim();
+        const password = ($('password')?.value || '').trim();
+
+        if (!email || !password) return showErr(t('err_need_ep'));
+
+        lock($('loginBtn'), true);
+        try{
           await loginFlow(email, password);
-          return;
+        } catch(err){
+          showErr(t('err_login_fail') + (err?.message || ''));
+        } finally {
+          lock($('loginBtn'), false);
         }
+      });
+    }
 
-        return showErr((res.msg && (res.msg+'')) || t('err_register_fail'));
-      } catch(err){
-        showErr(t('err_register_fail') + (err?.message || ''));
-      } finally{
-        lock($("registerBtn"), false);
+    if (resetBtn){
+      resetBtn.addEventListener('click', async () => {
+        hideErr();
+
+        let email = prompt(t('prompt_email'));
+        if (email === null) return;
+        email = email.trim();
+        if (!email) return showErr(t('err_email_empty'));
+
+        let newPassword = prompt(t('prompt_newpwd'));
+        if (newPassword === null) return;
+        newPassword = newPassword.trim();
+        if (!newPassword) return showErr(t('err_pwd_empty'));
+        if (!strongPwd(newPassword)) return showErr(t('err_pwd_rule'));
+
+        lock(resetBtn, true);
+        try{
+          const res = await safeJson(await fetch(`${API_BASE}/api/reset`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ email, newPassword })
+          }));
+
+          if (!res.ok){
+            return showErr(t('err_reset_fail') + (res.msg ? ` ${res.msg}` : ''));
+          }
+          alert(t('msg_reset_ok'));
+        } catch(err){
+          showErr(t('err_reset_fail') + (err?.message || ''));
+        } finally {
+          lock(resetBtn, false);
+        }
+      });
+    }
+  }
+
+  /* ===================== STATIC CHAT (USE YOUR NEW HTML) ===================== */
+  function initStaticChatWidget(){
+    const fab   = $('ssChatFab');
+    const panel = $('chatPanel');
+    const close = $('chatClose');
+    const body  = $('chatBody');
+    const input = $('chatInput');
+    const send  = $('chatSend');
+
+    if (!fab || !panel || !close || !body || !input || !send) return;
+
+    // ensure initial state
+    panel.style.display = 'none';
+    panel.setAttribute('aria-hidden', 'true');
+
+    const openPanel = () => {
+      panel.style.display = 'block';
+      panel.setAttribute('aria-hidden','false');
+      setTimeout(() => input.focus(), 50);
+    };
+    const closePanel = () => {
+      panel.style.display = 'none';
+      panel.setAttribute('aria-hidden','true');
+    };
+    const togglePanel = () => {
+      const hidden = panel.getAttribute('aria-hidden') !== 'false';
+      hidden ? openPanel() : closePanel();
+    };
+
+    fab.addEventListener('click', togglePanel);
+    close.addEventListener('click', closePanel);
+
+    // chat history
+    const chatHistory = [];
+
+    function addMsg(text, me=false){
+      const div = document.createElement('div');
+      div.className = 'ss-msg' + (me ? ' me' : '');
+      div.textContent = text;
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
+      return div;
+    }
+
+    function buildSystemPrompt(){
+      const lang = getLang();
+      const promptByLang = {
+        'zh-CN': '你是“心怜管家”，帮助访客了解命理心怜空间的功能、导航与会员说明。语气温暖专业、简洁有条理。不要输出代码。',
+        'zh-TW': '你是「心憐管家」，協助訪客了解命理心憐空間的功能、導覽與會員說明。語氣溫暖專業、簡潔有條理。不要輸出程式碼。',
+        'en':    'You are the Soul Sanctuary Concierge. Help visitors navigate features and membership clearly, warmly, and concisely. Do not output code.',
+        'ja':    'あなたは「心怜コンシェルジュ」です。機能案内と会員説明を、丁寧で分かりやすく短くまとめて案内してください。コードは出力しないでください。',
+        'th':    'คุณคือผู้ช่วย Soul Sanctuary แนะนำฟีเจอร์และสมาชิกภาพอย่างชัดเจน สุภาพ กระชับ และห้ามแสดงโค้ด',
+        'ms':    'Anda ialah Concierge Soul Sanctuary. Terangkan fungsi & keahlian dengan jelas, mesra, ringkas. Jangan keluarkan kod.'
+      };
+      return promptByLang[lang] || promptByLang['zh-CN'];
+    }
+
+    function extractReply(json){
+      if (!json) return '';
+      return (
+        json.reply ||
+        json.answer ||
+        json.content ||
+        json.message ||
+        json.text ||
+        (json.data && (json.data.reply || json.data.content || json.data.text)) ||
+        (json.choices && json.choices[0] && json.choices[0].message && json.choices[0].message.content) ||
+        ''
+      );
+    }
+
+    async function callChatAPI(userText){
+      const lang = getLang();
+
+      if (!chatHistory.length){
+        chatHistory.push({ role:'system', content: buildSystemPrompt() });
       }
-    });
+      chatHistory.push({ role:'user', content: userText });
 
-    document.getElementById("loginForm").addEventListener("submit", async (e)=>{
-      e.preventDefault();
-      hideErr();
-      const email = $("email").value.trim();
-      const password = $("password").value.trim();
-      if (!email || !password) return showErr(t('err_need_ep'));
-      lock($("loginBtn"), true);
+      const res = await fetch(`${API_BASE}/api/chat`, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          lang,
+          context: {
+            page: 'index',
+            vipEmail: localStorage.getItem('vipEmail') || ''
+          },
+          messages: chatHistory
+        })
+      });
+
+      const json = await res.json().catch(() => null);
+      const reply = extractReply(json);
+
+      if (reply) chatHistory.push({ role:'assistant', content: reply });
+      return reply || t('chat_busy');
+    }
+
+    // welcome once
+    if (!initStaticChatWidget._welcomed){
+      initStaticChatWidget._welcomed = true;
+      addMsg(t('chat_welcome'), false);
+    }
+
+    async function sendMsg(){
+      const text = (input.value || '').trim();
+      if (!text) return;
+      input.value = '';
+
+      addMsg(text, true);
+      const typing = addMsg('…', false);
+
       try{
-        await loginFlow(email, password);
-      } catch(err){
-        showErr(t('err_login_fail') + (err?.message || ''));
-      } finally{
-        lock($("loginBtn"), false);
+        const reply = await callChatAPI(text);
+        typing.textContent = reply;
+      }catch(e){
+        typing.textContent = t('chat_net_err');
+      }
+    }
+
+    send.addEventListener('click', sendMsg);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendMsg();
+    });
+  }
+
+  /* ===================== ENTER-TO-LOGIN (WHEN FIELDS VISIBLE) ===================== */
+  function wireEnterToLogin(){
+    const fields = $('authFields');
+    const loginBtn = $('loginBtn');
+    if (!fields || !loginBtn) return;
+
+    fields.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        // if fields are hidden, do nothing; privacy toggle will reveal
+        if (fields.style.display === 'none') return;
+        e.preventDefault();
+        loginBtn.click();
       }
     });
+  }
 
-    document.getElementById("resetBtn").addEventListener("click", async ()=>{
-      hideErr();
-      let email = prompt(t('prompt_email'));
-      if (email === null) return; email = email.trim();
-      if (!email) return showErr(t('err_email_empty'));
+  /* ===================== BOOT ===================== */
+  document.addEventListener('DOMContentLoaded', () => {
+    // set dropdown to current stored lang
+    const sel = $('langSelect');
+    const cur = getLang();
+    if (sel) sel.value = cur;
+    document.documentElement.lang = cur;
 
-      let newPassword = prompt(t('prompt_newpwd'));
-      if (newPassword === null) return; newPassword = newPassword.trim();
-      if (!newPassword) return showErr(t('err_pwd_empty'));
-      if (!strongPwd(newPassword)) return showErr(t('err_pwd_rule'));
+    applyI18n();
+    wireLangSelect();
 
-      lock($("resetBtn"), true);
-      try{
-        const res = await safeJson(await fetch(`${API_BASE}/api/reset`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, newPassword })
-        }));
-        if (!res.ok) return showErr((res.msg && (res.msg+'')) || t('err_reset_fail'));
-        alert(t('msg_reset_ok'));
-      } catch(err){
-        showErr(t('err_reset_fail') + (err?.message || ''));
-      } finally{
-        lock($("resetBtn"), false);
-      }
-    });
+    initAuthFieldPrivacy();  // default hide email/password
+    wireAuthForms();
+    wireEnterToLogin();
+
+    // IMPORTANT: use your static chat DOM (no dynamic create)
+    initStaticChatWidget();
   });
+
+})();
 </script>
 </body>
 </html>
