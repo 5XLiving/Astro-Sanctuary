@@ -875,30 +875,46 @@
         <div class="auth-grid">
           <div class="panel">
             <div class="head" data-i18n="panel_login_head">账户登录 / 注册</div>
-            <div class="body">
-              <div class="row" id="authFields">
-                <label for="email" class="sr-only" data-i18n="ph_email">邮箱 Email</label>
-                <input id="email" name="email" type="email" inputmode="email" autocomplete="username" placeholder="邮箱 Email">
-                <label for="password" class="sr-only" data-i18n="ph_label_password">密码 Password</label>
-                <input id="password" type="password" autocomplete="new-password" placeholder="密码 Password（至少8位，含大小写数字符号）" data-i18n-ph="ph_password" required/>
-              </div>
-              <div class="spacer"></div>
-              <form id="loginForm" class="row one">
-                <button class="btn block" id="loginBtn" type="submit" data-i18n="btn_login">登入账户</button>
-              </form>
-              <div class="spacer"></div>
-              <div class="row one">
-                <button class="btn ghost block" id="resetBtn" type="button" data-i18n="btn_reset">🔑 重设密码</button>
-              </div>
-              <div class="spacer"></div>
-              <form class="row one" id="registerForm">
-                <button class="btn block" id="registerBtn" type="submit" data-i18n="btn_register">注册账户</button>
-                <div class="muted" data-i18n="note_price">注册账号赠送一次免费体验</div>
-                <div class="spacer"></div>
-                <div class="error-message" id="authError" style="display:none"></div>
-              </form>
-            </div>
-          </div>
+      <div class="body">
+        <!-- NEW: reveal button -->
+        <div class="row one">
+          <button class="btn ghost block" id="revealAuthBtn" type="button" data-i18n="btn_show_login_fields">显示登录栏</button>
+        </div>
+
+        <div class="spacer"></div>
+
+        <!-- Auth fields hidden by default -->
+        <div class="row" id="authFields" style="display:none">
+          <label for="email" class="sr-only" data-i18n="ph_email">邮箱 Email</label>
+          <input id="email" name="email" type="email" inputmode="email" autocomplete="username"
+                 placeholder="邮箱 Email" data-i18n-ph="ph_email"/>
+      
+          <label for="password" class="sr-only" data-i18n="ph_label_password">密码 Password</label>
+          <input id="password" type="password" autocomplete="current-password"
+                 placeholder="密码 Password（至少8位，含大小写数字符号）" data-i18n-ph="ph_password" required/>
+        </div>
+
+        <div class="spacer"></div>
+
+        <form id="loginForm" class="row one">
+          <button class="btn block" id="loginBtn" type="submit" data-i18n="btn_login">登入账户</button>
+        </form>
+
+        <div class="spacer"></div>
+
+        <div class="row one">
+          <button class="btn ghost block" id="resetBtn" type="button" data-i18n="btn_reset">🔑 重设密码</button>
+        </div>
+
+        <div class="spacer"></div>
+
+        <form class="row one" id="registerForm">
+          <button class="btn block" id="registerBtn" type="submit" data-i18n="btn_register">注册账户</button>
+          <div class="muted" data-i18n="note_price">注册账号赠送一次免费体验</div>
+          <div class="spacer"></div>
+          <div class="error-message" id="authError" style="display:none"></div>
+        </form>
+      </div>
 
           <div class="panel">
             <div class="head" data-i18n="panel_member_head">会员服务</div>
@@ -1067,15 +1083,20 @@ const translations = {
     "butler_title": "心怜管家 · 建议",
     "elements_balance_tpl": "元素平衡：偏强 {max} · 偏弱 {min}",
     "btn_logout": "登出",
-    "btn_upgrade_now": "立即升级"
-  },
-  // 其他语言可以后续添加
-  "en": {},
-  "zh-TW": {},
-  "ja": {},
-  "th": {},
-  "ms": {}
-};
+    "btn_upgrade_now": "立即升级",
+    "chat_title": "心怜管家 · GPT",
+    "chat_input_ph": "输入问题…",
+    "btn_show_login_fields": "显示登录栏",
+    "btn_hide_login_fields": "隐藏登录栏",
+    "time_unknown": "不详"
+   },
+      // 其他语言可以后续添加
+      "en": {},
+      "zh-TW": {},
+      "ja": {},
+      "th": {},
+      "ms": {}
+    };
 
 // ============================================
 // 工具函数
@@ -1098,10 +1119,15 @@ function setText(id, txt){ const el=$(id); if(el) el.textContent = (txt ?? ''); 
 function setBar(el, pct){ if(!el) return; const v=Math.max(0,Math.min(100,Number(pct)||0)); el.style.width = v+'%'; el.setAttribute('aria-valuenow', String(Math.round(v))); }
 
 // 语言管理
-const LANG_KEY = "site_lang";
+const LANG_KEY = "5x_lang";
 function getLang(){ return localStorage.getItem(LANG_KEY) || document.documentElement.lang || "zh-CN"; }
 function setLang(code){ localStorage.setItem(LANG_KEY, code); document.documentElement.lang = code; }
-function t(key){ const lang = getLang(); const pack = translations[lang] || translations["zh-CN"]; return pack[key] || key; }
+function t(key){
+  const lang = getLang();
+  return (translations[lang] && translations[lang][key])
+      || (translations["zh-CN"] && translations["zh-CN"][key])
+      || key;
+}
 function applyI18n(){
   document.querySelectorAll("[data-i18n]").forEach(el=>{ const key = el.getAttribute("data-i18n"); el.textContent = t(key); });
   document.querySelectorAll("[data-i18n-ph]").forEach(el=>{ const key = el.getAttribute("data-i18n-ph"); el.setAttribute("placeholder", t(key)); });
@@ -1881,16 +1907,305 @@ function getVedicElementDesc(element) {
   const map = {
     '火': '行动力强，充满能量，具有领导才能。',
     '土': '务实稳定，注重安全，具有持久耐力。',
-    '风': '思维活跃，善于沟通，具有学习能力。',
-    '水': '情感丰富，直觉敏锐，具有创造潜力。'
+    '风': '思维活跃，善于沟通，学习吸收快。',
+    '水': '情感丰富，直觉敏锐，感受力强。'
   };
-  return map[element] || '具有该元素的基本特质。';
+  return map[element] || '具有独特的能量特质。';
 }
 
-function getVedicFortune(rashi) {
-  return '独特的能量模式和生命节奏，需要在不同阶段采取相应的策略。';
+function getVedicFortune(rashi){
+  const map = {
+    'Mesha': '开创力强，适合主动开启新计划。',
+    'Vrishabha': '稳扎稳打，适合积累与长期投资。',
+    'Mithuna': '沟通与学习旺，适合拓展人脉与技能。',
+    'Karka': '家庭与情感议题突出，适合修复关系与疗愈。',
+    'Simha': '自信表现力强，适合领导与公开表达。',
+    'Kanya': '细节与系统能力强，适合优化与专业深耕。',
+    'Tula': '合作与平衡主题强，适合谈判与伙伴关系。',
+    'Vrishchika': '洞察与转化力强，适合断舍离与重塑。',
+    'Dhanu': '远景与扩张力强，适合学习旅行与跨界。',
+    'Makara': '目标感与责任强，适合建立事业结构。',
+    'Kumbha': '创新与社群能量强，适合新模式与新科技。',
+    'Meena': '灵性与想象力强，适合创作与内在成长。'
+  };
+  return map[rashi] || '整体能量稳定，适合稳步推进。';
 }
 
+function getCareerDirection(dayStem){
+  const map = {
+    '甲':'管理、教育、项目推进、品牌领导',
+    '乙':'顾问、设计、关系经营、服务行业',
+    '丙':'销售、市场、内容传播、公众表达',
+    '丁':'研究、策划、心理/疗愈、精细化运营',
+    '戊':'地产、供应链、管理、财务结构',
+    '己':'人事、协调、客户成功、社区运营',
+    '庚':'技术、工程、法务、执行与改革',
+    '辛':'审美、珠宝/精品、品控、策略分析',
+    '壬':'媒体、贸易、跨境、流动型行业',
+    '癸':'艺术、疗愈、咨询、隐性价值挖掘'
+  };
+  return map[dayStem] || '适合发挥个人优势的领域';
+}
+
+function getWealthElement(dayStem){
+  const map = {'甲':'土','乙':'土','丙':'金','丁':'金','戊':'水','己':'水','庚':'木','辛':'木','壬':'火','癸':'火'};
+  return map[dayStem] || '土';
+}
+
+function getWealthDirection(yearStem){
+  const map = {
+    '甲':'以长期项目与复利为主，避免短炒。',
+    '乙':'以合作与渠道为主，重视口碑。',
+    '丙':'以曝光与成交为主，现金流优先。',
+    '丁':'以专业壁垒为主，做高质量高溢价。',
+    '戊':'以资产配置为主，稳健扩张。',
+    '己':'以客户关系为主，累积会员与复购。',
+    '庚':'以效率与执行为主，敢砍掉低效。',
+    '辛':'以精品路线为主，少而精更赚钱。',
+    '壬':'以流量与跨界为主，多渠道分散。',
+    '癸':'以内容与信任为主，慢就是快。'
+  };
+  return map[yearStem] || '稳健规划、控制风险。';
+}
+
+function getFengShuiAdvice(dayStem, pillars){
+  // 简化：给一套“可执行”的建议
+  return '建议保持玄关/入口明亮整洁，床头与办公位背后有靠（墙/柜），避免背门；若五行偏弱可用对应色系与材质做软装补气。';
+}
+
+/* ====== Chat (floating) ====== */
+const CHAT_ENDPOINT = "/api/chat";
+let chatHistory = [];
+
+function appendChat(role, text){
+  const body = $("chatBody");
+  if (!body) return;
+  const msg = document.createElement("div");
+  msg.className = "ss-msg" + (role === "user" ? " me" : "");
+  msg.textContent = text;
+  body.appendChild(msg);
+  body.scrollTop = body.scrollHeight;
+}
+
+function toggleChat(open){
+  const panel = $("chatPanel");
+  if (!panel) return;
+  panel.setAttribute("aria-hidden", open ? "false" : "true");
+}
+
+async function sendChat(){
+  const input = $("chatInput");
+  const text = (input?.value || "").trim();
+  if (!text) return;
+
+  appendChat("user", text);
+  input.value = "";
+
+  // Keep short history
+  chatHistory.push({ role: "user", content: text });
+  chatHistory = chatHistory.slice(-12);
+
+  try{
+    const res = await fetch(API_BASE + CHAT_ENDPOINT, {
+      method:"POST",
+      headers:{ "Content-Type":"application/json" },
+      body: JSON.stringify({
+        lang: getLang(),
+        messages: chatHistory
+      })
+    });
+    if (!res.ok) throw new Error("chat api error");
+    const data = await res.json();
+    const reply = data?.reply || data?.text || data?.message || "（系统繁忙，请稍后再试）";
+    chatHistory.push({ role:"assistant", content: reply });
+    appendChat("assistant", reply);
+  }catch(e){
+    appendChat("assistant", "（网络错误 / API 暂时不可用）");
+  }
+}
+
+/* ====== Main report generation ====== */
+function clearResultArea(){
+  const host = $("butler-host");
+  const rich = $("rich-report");
+  if (host) host.innerHTML = "";
+  if (rich) rich.innerHTML = "";
+  const free = $("xl-free-report");
+  if (free) free.innerHTML = ""; // will be rebuilt by ensureResultHost()
+}
+
+function getCultureSelected(){
+  const c = $("culture")?.value || "auto";
+  return c === "auto" ? "东方" : c;
+}
+
+function readPerson(prefix){
+  const name = ($(prefix === 1 ? "name1" : "name2")?.value || "").trim();
+  const birth = $(prefix === 1 ? "birthdate1" : "birthdate2")?.value || "";
+  const timeEl = $(prefix === 1 ? "birthtime1" : "birthtime2");
+  const unknown = !!$(prefix === 1 ? "timeUnknown" : "timeUnknown2")?.checked;
+  const time = unknown ? "" : (timeEl?.value || "");
+  const country = ($(prefix === 1 ? "country1" : "country2")?.value || "").trim();
+
+  if (!name || !birth || !country) return null;
+
+  const [y,m,d] = birth.split("-").map(n=>parseInt(n,10));
+  let hour = 0;
+  if (!unknown && time){
+    hour = parseInt(time.split(":")[0] || "0", 10);
+  }
+  return { name, y, m, d, hour, timeUnknown: unknown, country };
+}
+
+function getFocus(){
+  const type = $("type")?.value || "personal";
+  const sel = type === "compatibility" ? $("purpose_compatibility") : $("purpose_personal");
+  return sel?.value || "";
+}
+
+function runSingleReport(){
+  const p1 = readPerson(1);
+  if (!p1){
+    showErr("请填写：姓名 / 出生日期 / 出生国家地区（出生时间可选）");
+    return;
+  }
+
+  const culture = getCultureSelected();
+  const calc = calculators[culture] || calculators["东方"];
+
+  const result = calc.calculate(p1.y, p1.m, p1.d, p1.hour, p1.timeUnknown);
+
+  $("result").style.display = "block";
+  clearResultArea();
+  ensureResultHost();
+
+  // Render + analysis
+  calc.render(result, { year:p1.y, month:p1.m, day:p1.d, hour:p1.hour, timeUnknown:p1.timeUnknown });
+
+  const rich = $("rich-report");
+  if (rich){
+    const focus = getFocus();
+    if (culture === "东方"){
+      rich.innerHTML = `<div class="report"><div class="sec"><h3>${t("res_title")}</h3><div class="ai-content">${
+        calc.analysis({ pillars: result.pillars, percents: result.percents, focus })
+      }</div></div></div>`;
+    }else{
+      rich.innerHTML = `<div class="report"><div class="sec"><h3>${t("res_title")}</h3><div class="ai-content">${
+        (culture === "西方") ? generateWesternReport(result, focus)
+        : (culture === "日式") ? generateJapaneseReport(result, focus)
+        : generateVedicReport(result, focus)
+      }</div></div></div>`;
+    }
+  }
+}
+
+function initAuthReveal(){
+  const btn = $("revealAuthBtn");
+  const fields = $("authFields");
+  if (!btn || !fields) return;
+
+  // hidden by default (your standard)
+  fields.style.display = "none";
+
+  btn.addEventListener("click", ()=>{
+    const isHidden = fields.style.display === "none";
+    fields.style.display = isHidden ? "block" : "none";
+    btn.textContent = isHidden ? t("btn_hide_login_fields") : t("btn_show_login_fields");
+  });
+}
+
+function initHeaderScroll(){
+  const header = document.querySelector(".site-header");
+  if (!header) return;
+  window.addEventListener("scroll", ()=>{
+    if (window.scrollY > 8) header.classList.add("scrolled");
+    else header.classList.remove("scrolled");
+  }, { passive:true });
+}
+
+function initTimeUnknown(){
+  const cb1 = $("timeUnknown"), t1 = $("birthtime1");
+  if (cb1 && t1){
+    cb1.addEventListener("change", ()=>{
+      t1.disabled = cb1.checked;
+      if (cb1.checked) t1.value = "";
+    });
+  }
+  const cb2 = $("timeUnknown2"), t2 = $("birthtime2");
+  if (cb2 && t2){
+    cb2.addEventListener("change", ()=>{
+      t2.disabled = cb2.checked;
+      if (cb2.checked) t2.value = "";
+    });
+  }
+}
+
+function initPurposeOptions(){
+  const typeSel = $("type");
+  const cultureSel = $("culture");
+  if (typeSel) typeSel.addEventListener("change", ()=>togglePartner(typeSel.value));
+  if (cultureSel) cultureSel.addEventListener("change", ()=>updatePurposeOptions(cultureSel.value));
+
+  // initial
+  togglePartner(typeSel?.value || "personal");
+  updatePurposeOptions(cultureSel?.value || "auto");
+}
+
+function initLang(){
+  const sel = $("langSelect");
+  if (!sel) return;
+  sel.value = getLang();
+  sel.addEventListener("change", ()=>{
+    setLang(sel.value);
+    applyI18n();
+    // update reveal button text if currently visible
+    const fields = $("authFields");
+    const btn = $("revealAuthBtn");
+    if (btn && fields){
+      const isHidden = fields.style.display === "none";
+      btn.textContent = isHidden ? t("btn_show_login_fields") : t("btn_hide_login_fields");
+    }
+  });
+}
+
+function initChatUI(){
+  const fab = $("ssChatFab");
+  const close = $("chatClose");
+  const send = $("chatSend");
+  const input = $("chatInput");
+
+  if (fab) fab.addEventListener("click", ()=>toggleChat(true));
+  if (close) close.addEventListener("click", ()=>toggleChat(false));
+  if (send) send.addEventListener("click", sendChat);
+  if (input) input.addEventListener("keydown", (e)=>{
+    if (e.key === "Enter") sendChat();
+  });
+}
+
+function initMain(){
+  applyI18n();
+  initLang();
+  initHeaderScroll();
+  initTimeUnknown();
+  initPurposeOptions();
+  initAuthReveal();
+  initChatUI();
+
+  const btnNext = $("btnNext");
+  if (btnNext) btnNext.addEventListener("click", ()=>{
+    hideErr();
+    runSingleReport(); // (先做单人版；你要合盘我也能继续补完整逻辑)
+  });
+
+  // Fix chat placeholder key if you keep old HTML attribute
+  const chatInput = $("chatInput");
+  if (chatInput){
+    chatInput.setAttribute("placeholder", t("chat_input_ph"));
+  }
+}
+
+document.addEventListener("DOMContentLoaded", initMain);
+  
 // ============================================
 // 心怜管家卡片
 // ============================================
