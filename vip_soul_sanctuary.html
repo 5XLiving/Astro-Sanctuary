@@ -1183,11 +1183,24 @@ function updatePurposeOptions(culture) {
   const type = $('type').value; // 'personal' or 'compatibility'
   const config = culturePurposeMap[cultureType] || culturePurposeMap['东方'];
   
-  if (type === 'personal') {
-    updatePersonalPurposeOptions(config.personal);
+if (type === 'personal') {
+  if (calculator.analysis){
+    // IMPORTANT: generateBaziReport expects {pillars, percents, focus}
+    if (culture === "东方") {
+      reportContent = calculator.analysis({
+        pillars: data?.pillars,
+        percents: data?.percents,
+        focus: focusArea || ""
+      });
+    } else {
+      // for other systems you may keep their generator style
+      reportContent = calculator.analysis(data, focusArea);
+    }
   } else {
-    updateCompatibilityPurposeOptions(config.compatibility);
+    reportContent = `<p>${culture}命理分析正在生成中...</p>`;
   }
+} else {
+  reportContent = generateCompatibilityReport(data, culture, focusArea);
 }
 
 // 更新个人命盘选题
@@ -1604,9 +1617,12 @@ function renderVedicReport(result, info) {
 // 报告生成函数
 // ============================================
 // 八字报告生成
-function generateBaziReport({ pillars, percents, focus }) {
-  const dayStem = pillars.day.stem;
-  const dayBranch = pillars.day.branch;
+function generateBaziReport({ pillars, percents, focus = "" } = {}) {
+  pillars = pillars || {};
+  percents = percents || { wood:0, fire:0, earth:0, metal:0, water:0 };
+
+  const dayStem = pillars?.day?.stem || "甲";
+  const dayBranch = pillars?.day?.branch || "子";
   
   // 五行分析
   const elements = [
