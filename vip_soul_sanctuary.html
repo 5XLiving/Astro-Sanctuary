@@ -786,23 +786,45 @@ footer{
 <script>
 'use strict';
 
+/* =========================================================
+   VIP Soul Sanctuary — Full Script (Single + Dual Person)
+   - No duplicate "$" declarations
+   - Personal + Compatibility render for: 东方/西方/日式/吠陀
+   - Robust even if some ids are missing (won’t crash)
+========================================================= */
+
 /* ==============================
    CONFIG
 ============================== */
 const API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
-const CHAT_ENDPOINT = "/api/chat";
-const DEFAULT_LANG = "zh-CN";
-const LANG_KEY = "5x_lang";
+const CHAT_ENDPOINT = '/api/chat';
+const DEFAULT_LANG = 'zh-CN';
+const LANG_KEY = '5x_lang';
 
 /* ==============================
-   i18n (use your existing translations object)
-   Keep your translations object as-is.
+   DOM helpers
+============================== */
+const $ = (id) => document.getElementById(id);
+const qs = (sel, root = document) => root.querySelector(sel);
+const qsa = (sel, root = document) => Array.from(root.querySelectorAll(sel));
+
+function escapeHtml(s){
+  return String(s ?? '')
+    .replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;')
+    .replaceAll('"','&quot;').replaceAll("'","&#39;");
+}
+
+/* ==============================
+   i18n dictionary (TW / EN / JA / TH / MS)
+   (Covers keys used in your HTML + script)
 ============================== */
 const translations = window.translations || {
   "zh-CN": {
+    brand:"5xLiving · Soul Sanctuary",
     page_title:"命理心怜空间 · VIP Soul Sanctuary",
     site_title:"命理心怜空间 · VIP Soul Sanctuary",
     lang_label:"语言",
+
     form_title:"命理分析 · 生成报告",
     choose_type:"选择命盘类型",
     type_personal:"个人命盘",
@@ -812,47 +834,781 @@ const translations = window.translations || {
     culture_west:"西方 Astrology / Tarot",
     culture_jp:"日式九星 Japanese",
     culture_vedic:"印度吠陀 Vedic",
+
     self_info:"本人资料",
+    partner_info:"第二人资料（合盘）",
     ph_name1:"姓名（本人）",
     ph_time1:"出生时间",
-    cal_g:"阳历 (Gregorian)",
-    cal_l:"农历 (Lunar)",
     ph_country1:"出生国家 / 地区",
-    btn_next:"生成分析",
-    partner_info:"第二人资料（合盘）",
     ph_name2:"姓名（第二人）",
     ph_time2:"出生时间",
     ph_country2:"出生国家 / 地区",
+    cal_g:"阳历 (Gregorian)",
+    cal_l:"农历 (Lunar)",
+
     focus_title:"命理选题（报告聚焦）",
+    btn_next:"生成分析",
+    time_unknown:"不详",
+
+    // focus options
+    opt_love:"姻缘 Love",
+    opt_dating:"恋爱缘分",
+    opt_marriage:"婚姻走势",
+    opt_career:"事业 Career",
+    opt_work:"职场发展",
+    opt_startup:"创业潜力",
+    opt_wealth:"财运 Wealth",
+    opt_wealthpos:"财位分析",
+    opt_timing:"理财时机",
+    opt_dates:"择日 Auspicious Date",
+    opt_wedding:"婚期择日",
+    opt_babydate:"新生宝宝择日",
+    opt_house:"新家入住择日",
+    opt_office:"新公司入住择日",
+    opt_name:"测名 Name Analysis",
+    opt_babyname:"宝宝名",
+    opt_petname:"宠物名",
+    opt_companyname:"公司名",
+    opt_rename:"命名改运",
+    opt_fs:"风水 Feng Shui",
+    opt_home:"住家",
+    opt_officefs:"办公室",
+    opt_comp:"合盘分析 Compatibility",
+    opt_couple:"情侣合盘（缘分起落 / 暧昧进展）",
+    opt_spouse:"夫妻流年（婚姻发展）",
+    opt_personality:"个性合盘（冲突 / 互补）",
+    opt_partner:"事业合盘（合伙人 / 员工）",
+    opt_reconnect:"断联修复（朋友 / 情人 / 家人）",
+    opt_petbond:"宠物合盘（主人与宠物）",
+
+    // portal
     portal_title:"心怜空间 · 功能入口",
-    vip_title:"🌙 会员区域 VIP Segment",
-    login_title:"💎 登入 VIP 功能",
+    diary_title:"灵性日记",
+    diary_desc:"照片上传 / 语音记录 / 灵性笔记 / 家庭日志 / 愿望祈祷（每日加持）",
+    btn_personal:"个人隐藏记录",
+    btn_family:"家庭共享记录",
+    btn_upload:"上传记录",
+    course_title:"命理课程专区",
+    course_bazi:"八字命理：十神 / 流年 / 用神分析",
+    course_tarot:"塔罗牌：牌阵解读 / 情境实战",
+    course_coming:"以下课程酝酿中：占星 / 灵数 / 人类图 / 六爻 / 冥想引导 / 奇门 / 日式神明 / 紫微 / 能量学 / 西洋占星 / 心灵课程……",
+    btn_enter_course:"进入课程",
+    shop_title:"能量商城 · VIP折扣 & 御守订制",
+    shop_desc:"专属祈愿包分类：",
+    wish_title:"梦想提交 Dream Submission",
+    btn_manifest:"梦想规划 / Manifestation",
+    memorial_title:"灵性空间 ~ 往生记怜录",
+    memorial_desc:"灵魂档案 / 纪念回忆（图文音） / 灵性延续（功德传承）",
+    btn_login_memorial:"登入灵性空间",
+    btn_upload_memorial:"上传往生录",
+    btn_register_memorial:"注册灵性空间",
+
+    // vip list
+    vip_title:"会员区域 VIP Segment",
+    vip_mingli:"命理空间专属内容",
+    vip_love:"姻缘方向：恋爱缘分、婚姻走势",
+    vip_career:"事业方向：职场发展、创业潜力",
+    vip_wealth:"财运方向：财位分析、理财时机",
+    vip_pet:"宠物命理：伴侣动物的性格与缘分",
+    vip_hepan:"合盘分析：婚期择日、新生择时",
+    vip_name:"测名分析：公司名、宝宝名、命名改运",
+    vip_fengshui:"财位合盘：住家 / 办公室动线配合",
+    vip_xinlian:"心怜空间专属内容",
+    vip_record:"灵性记录：照片、梦境、声音、愿望祈祷",
+    vip_course:"命理课程：八字 / 塔罗 / 占星 / 灵数 / 人类图",
+    vip_memorial:"家族纪念系统：亲人灵性纪念 & 延续",
+    vip_tasks:"每周能量练习 / 神明仪式任务",
+    vip_shop:"能量商城专属折扣 & 御守订制",
+
+    // auth
+    login_title:"登入 VIP 功能",
     panel_login_head:"账户登录 / 注册",
     ph_email:"邮箱 Email",
     ph_label_password:"密码 Password",
     ph_password:"密码 Password（至少8位，含大小写数字符号）",
     btn_login:"登入账户",
-    btn_reset:"🔑 重设密码",
+    btn_reset:"重设密码",
     btn_register:"注册账户",
     note_price:"注册账号赠送一次免费体验",
     panel_member_head:"会员服务",
-    btn_upgrade:"💎 升级为 VIP（月费）",
-    btn_backshop:"← 返回命理商城",
+    btn_upgrade:"升级为 VIP（月费）",
+    btn_backshop:"返回命理商城",
     note_price1:"$9.9 / 月费 VIP（命理空间 + 心怜空间 + 灵性课程）",
+
+    // result + chat
     res_title:"心怜管家解读与建议",
     chat_fab:"💬",
     chat_title:"心怜管家 · GPT",
     chat_input_ph:"输入问题…",
     chat_send:"发送",
+    chat_welcome:"你好，我是心怜管家。你想先看哪一块？（姻缘 / 事业 / 财运 / 健康 / 风水）",
+
     btn_show_login_fields:"显示登录栏",
     btn_hide_login_fields:"隐藏登录栏",
-    time_unknown:"不详"
+
+    // errors
+    err_need_name1:"请填写姓名（本人）",
+    err_need_birthdate1:"请填写出生日期（本人）",
+    err_need_country1:"请填写出生国家/地区（本人）",
+    err_need_name2:"请填写第二人姓名（合盘）",
+    err_need_birthdate2:"请填写第二人出生日期（合盘）",
+    err_need_country2:"请填写第二人出生国家/地区（合盘）",
   },
-  "en": {}, "zh-TW": {}, "ja": {}, "th": {}, "ms": {}
+
+  "zh-TW": {
+    brand:"5xLiving · Soul Sanctuary",
+    page_title:"命理心憐空間 · VIP Soul Sanctuary",
+    site_title:"命理心憐空間 · VIP Soul Sanctuary",
+    lang_label:"語言",
+
+    form_title:"命理分析 · 生成報告",
+    choose_type:"選擇命盤類型",
+    type_personal:"個人命盤",
+    type_compat:"合盤（兩人資料）",
+    culture_auto:"自動辨識 Auto Detect",
+    culture_cn:"東方 Chinese / Bazi",
+    culture_west:"西方 Astrology / Tarot",
+    culture_jp:"日式九星 Japanese",
+    culture_vedic:"印度吠陀 Vedic",
+
+    self_info:"本人資料",
+    partner_info:"第二人資料（合盤）",
+    ph_name1:"姓名（本人）",
+    ph_time1:"出生時間",
+    ph_country1:"出生國家 / 地區",
+    ph_name2:"姓名（第二人）",
+    ph_time2:"出生時間",
+    ph_country2:"出生國家 / 地區",
+    cal_g:"陽曆 (Gregorian)",
+    cal_l:"農曆 (Lunar)",
+
+    focus_title:"命理選題（報告聚焦）",
+    btn_next:"生成分析",
+    time_unknown:"不詳",
+
+    opt_love:"姻緣 Love",
+    opt_dating:"戀愛緣分",
+    opt_marriage:"婚姻走勢",
+    opt_career:"事業 Career",
+    opt_work:"職場發展",
+    opt_startup:"創業潛力",
+    opt_wealth:"財運 Wealth",
+    opt_wealthpos:"財位分析",
+    opt_timing:"理財時機",
+    opt_dates:"擇日 Auspicious Date",
+    opt_wedding:"婚期擇日",
+    opt_babydate:"新生寶寶擇日",
+    opt_house:"新家入住擇日",
+    opt_office:"新公司入駐擇日",
+    opt_name:"測名 Name Analysis",
+    opt_babyname:"寶寶名",
+    opt_petname:"寵物名",
+    opt_companyname:"公司名",
+    opt_rename:"命名改運",
+    opt_fs:"風水 Feng Shui",
+    opt_home:"住家",
+    opt_officefs:"辦公室",
+    opt_comp:"合盤分析 Compatibility",
+    opt_couple:"情侶合盤（緣分起落 / 曖昧進展）",
+    opt_spouse:"夫妻流年（婚姻發展）",
+    opt_personality:"個性合盤（衝突 / 互補）",
+    opt_partner:"事業合盤（合夥人 / 員工）",
+    opt_reconnect:"斷聯修復（朋友 / 情人 / 家人）",
+    opt_petbond:"寵物合盤（主人與寵物）",
+
+    portal_title:"心憐空間 · 功能入口",
+    diary_title:"靈性日記",
+    diary_desc:"照片上傳 / 語音記錄 / 靈性筆記 / 家庭日誌 / 願望祈禱（每日加持）",
+    btn_personal:"個人隱藏記錄",
+    btn_family:"家庭共享記錄",
+    btn_upload:"上傳記錄",
+    course_title:"命理課程專區",
+    course_bazi:"八字命理：十神 / 流年 / 用神分析",
+    course_tarot:"塔羅牌：牌陣解讀 / 情境實戰",
+    course_coming:"以下課程醞釀中：占星 / 靈數 / 人類圖 / 六爻 / 冥想引導 / 奇門 / 日式神明 / 紫微 / 能量學 / 西洋占星 / 心靈課程……",
+    btn_enter_course:"進入課程",
+    shop_title:"能量商城 · VIP折扣 & 御守訂製",
+    shop_desc:"專屬祈願包分類：",
+    wish_title:"夢想提交 Dream Submission",
+    btn_manifest:"夢想規劃 / Manifestation",
+    memorial_title:"靈性空間 ~ 往生記憐錄",
+    memorial_desc:"靈魂檔案 / 紀念回憶（圖文音） / 靈性延續（功德傳承）",
+    btn_login_memorial:"登入靈性空間",
+    btn_upload_memorial:"上傳往生錄",
+    btn_register_memorial:"註冊靈性空間",
+
+    vip_title:"會員區域 VIP Segment",
+    vip_mingli:"命理空間專屬內容",
+    vip_love:"姻緣方向：戀愛緣分、婚姻走勢",
+    vip_career:"事業方向：職場發展、創業潛力",
+    vip_wealth:"財運方向：財位分析、理財時機",
+    vip_pet:"寵物命理：伴侶動物的性格與緣分",
+    vip_hepan:"合盤分析：婚期擇日、新生擇時",
+    vip_name:"測名分析：公司名、寶寶名、命名改運",
+    vip_fengshui:"財位合盤：住家 / 辦公室動線配合",
+    vip_xinlian:"心憐空間專屬內容",
+    vip_record:"靈性記錄：照片、夢境、聲音、願望祈禱",
+    vip_course:"命理課程：八字 / 塔羅 / 占星 / 靈數 / 人類圖",
+    vip_memorial:"家族紀念系統：親人靈性紀念 & 延續",
+    vip_tasks:"每週能量練習 / 神明儀式任務",
+    vip_shop:"能量商城專屬折扣 & 御守訂製",
+
+    login_title:"登入 VIP 功能",
+    panel_login_head:"帳戶登入 / 註冊",
+    ph_email:"信箱 Email",
+    ph_label_password:"密碼 Password",
+    ph_password:"密碼 Password（至少8位，含大小寫數字與符號）",
+    btn_login:"登入帳戶",
+    btn_reset:"重設密碼",
+    btn_register:"註冊帳戶",
+    note_price:"註冊帳號贈送一次免費體驗",
+    panel_member_head:"會員服務",
+    btn_upgrade:"升級為 VIP（月費）",
+    btn_backshop:"返回命理商城",
+    note_price1:"$9.9 / 月費 VIP（命理空間 + 心憐空間 + 靈性課程）",
+
+    res_title:"心憐管家解讀與建議",
+    chat_fab:"💬",
+    chat_title:"心憐管家 · GPT",
+    chat_input_ph:"輸入問題…",
+    chat_send:"送出",
+    chat_welcome:"你好，我是心憐管家。你想先看哪一塊？（姻緣 / 事業 / 財運 / 健康 / 風水）",
+
+    btn_show_login_fields:"顯示登入欄",
+    btn_hide_login_fields:"隱藏登入欄",
+
+    err_need_name1:"請填寫姓名（本人）",
+    err_need_birthdate1:"請填寫出生日期（本人）",
+    err_need_country1:"請填寫出生國家/地區（本人）",
+    err_need_name2:"請填寫第二人姓名（合盤）",
+    err_need_birthdate2:"請填寫第二人出生日期（合盤）",
+    err_need_country2:"請填寫第二人出生國家/地區（合盤）",
+  },
+
+  "en-US": {
+    brand:"5xLiving · Soul Sanctuary",
+    page_title:"Soul Sanctuary · VIP",
+    site_title:"Soul Sanctuary · VIP",
+    lang_label:"Language",
+
+    form_title:"Metaphysics Report · Generate",
+    choose_type:"Choose Chart Type",
+    type_personal:"Personal Chart",
+    type_compat:"Compatibility (Two Profiles)",
+    culture_auto:"Auto Detect",
+    culture_cn:"Chinese / Bazi",
+    culture_west:"Western Astrology / Tarot",
+    culture_jp:"Japanese Nine Star Ki",
+    culture_vedic:"Vedic Astrology",
+
+    self_info:"Your Details",
+    partner_info:"Second Person (Compatibility)",
+    ph_name1:"Name (You)",
+    ph_time1:"Birth Time",
+    ph_country1:"Birth Country / Region",
+    ph_name2:"Name (Second Person)",
+    ph_time2:"Birth Time",
+    ph_country2:"Birth Country / Region",
+    cal_g:"Gregorian",
+    cal_l:"Lunar",
+
+    focus_title:"Focus Topic (Report)",
+    btn_next:"Generate Analysis",
+    time_unknown:"Unknown",
+
+    opt_love:"Love",
+    opt_dating:"Dating & Attraction",
+    opt_marriage:"Marriage Trend",
+    opt_career:"Career",
+    opt_work:"Work Development",
+    opt_startup:"Startup Potential",
+    opt_wealth:"Wealth",
+    opt_wealthpos:"Wealth Position (Feng Shui)",
+    opt_timing:"Investment Timing",
+    opt_dates:"Auspicious Date",
+    opt_wedding:"Wedding Date",
+    opt_babydate:"Baby Date Selection",
+    opt_house:"Move-in Date",
+    opt_office:"Office Move-in Date",
+    opt_name:"Name Analysis",
+    opt_babyname:"Baby Name",
+    opt_petname:"Pet Name",
+    opt_companyname:"Company Name",
+    opt_rename:"Rename for Luck",
+    opt_fs:"Feng Shui",
+    opt_home:"Home",
+    opt_officefs:"Office",
+    opt_comp:"Compatibility",
+    opt_couple:"Couple (Chemistry / Progress)",
+    opt_spouse:"Spouse (Marriage Development)",
+    opt_personality:"Personality Sync (Conflict / Complement)",
+    opt_partner:"Business Partners / Team",
+    opt_reconnect:"Reconnect (Friends / Family / Love)",
+    opt_petbond:"Owner & Pet Bond",
+
+    portal_title:"Soul Sanctuary · Portal",
+    diary_title:"Spiritual Journal",
+    diary_desc:"Upload photos / Voice notes / Spiritual notes / Family logs / Daily wishes (blessing)",
+    btn_personal:"Private Records",
+    btn_family:"Family Shared Records",
+    btn_upload:"Upload",
+    course_title:"Courses",
+    course_bazi:"Bazi: Ten Gods / Annual Luck / Useful Elements",
+    course_tarot:"Tarot: Spreads / Real scenarios",
+    course_coming:"Coming soon: Astrology / Numerology / Human Design / I Ching / Meditation / Qimen / Deities / Zi Wei / Energy work…",
+    btn_enter_course:"Enter Courses",
+    shop_title:"Energy Store · VIP Discounts & Talismans",
+    shop_desc:"Wish-pack categories:",
+    wish_title:"Dream Submission",
+    btn_manifest:"Dream Plan / Manifestation",
+    memorial_title:"Soul Memorial",
+    memorial_desc:"Soul archive / Memories (photo-text-audio) / Spiritual continuation",
+    btn_login_memorial:"Login to Memorial",
+    btn_upload_memorial:"Upload Memorial",
+    btn_register_memorial:"Register Memorial",
+
+    vip_title:"🌙 VIP Segment",
+    vip_mingli:"Metaphysics (VIP)",
+    vip_love:"Love: Dating & Marriage",
+    vip_career:"Career: Work & Startup",
+    vip_wealth:"Wealth: Positions & Timing",
+    vip_pet:"Pets: Personality & Bond",
+    vip_hepan:"Compatibility: Wedding date / Baby timing",
+    vip_name:"Names: Company / Baby / Rename",
+    vip_fengshui:"Feng Shui: Home / Office flow",
+    vip_xinlian:"Soul Sanctuary (VIP)",
+    vip_record:"Records: Photos, dreams, voice, wishes",
+    vip_course:"Courses: Bazi / Tarot / Astrology / Numerology / Human Design",
+    vip_memorial:"Family memorial system",
+    vip_tasks:"Weekly energy practices & rituals",
+    vip_shop:"VIP discounts & custom talismans",
+
+    login_title:"💎 VIP Login",
+    panel_login_head:"Login / Sign Up",
+    ph_email:"Email",
+    ph_label_password:"Password",
+    ph_password:"Password (min 8 chars, upper/lowercase, numbers & symbols)",
+    btn_login:"Log in",
+    btn_reset:"Reset Password",
+    btn_register:"Sign up",
+    note_price:"Sign up to get one free trial",
+    panel_member_head:"Member Services",
+    btn_upgrade:"Upgrade to VIP (Monthly)",
+    btn_backshop:"Back to Store",
+    note_price1:"$9.9 / month VIP (Metaphysics + Soul Sanctuary + Courses)",
+
+    res_title:"Butler Insights & Suggestions",
+    chat_fab:"💬",
+    chat_title:"Xinlian Butler · GPT",
+    chat_input_ph:"Type your question…",
+    chat_send:"Send",
+    chat_welcome:"Hi, I’m Xinlian Butler. What would you like to focus on? (Love / Career / Wealth / Health / Feng Shui)",
+
+    btn_show_login_fields:"Show login fields",
+    btn_hide_login_fields:"Hide login fields",
+
+    err_need_name1:"Please enter your name.",
+    err_need_birthdate1:"Please select your birth date.",
+    err_need_country1:"Please enter your birth country/region.",
+    err_need_name2:"Please enter the second person’s name.",
+    err_need_birthdate2:"Please select the second person’s birth date.",
+    err_need_country2:"Please enter the second person’s birth country/region.",
+  },
+
+  "ja-JP": {
+    brand:"5xLiving · Soul Sanctuary",
+    page_title:"心怜空間 · VIP Soul Sanctuary",
+    site_title:"心怜空間 · VIP Soul Sanctuary",
+    lang_label:"言語",
+
+    form_title:"命理分析 · レポート生成",
+    choose_type:"チャートタイプを選択",
+    type_personal:"個人チャート",
+    type_compat:"相性（2人の情報）",
+    culture_auto:"自動判定 Auto Detect",
+    culture_cn:"東洋 Chinese / Bazi",
+    culture_west:"西洋 Astrology / Tarot",
+    culture_jp:"九星気学 Japanese",
+    culture_vedic:"インド占星術 Vedic",
+
+    self_info:"本人情報",
+    partner_info:"お相手情報（相性）",
+    ph_name1:"名前（本人）",
+    ph_time1:"出生時刻",
+    ph_country1:"出生国 / 地域",
+    ph_name2:"名前（2人目）",
+    ph_time2:"出生時刻",
+    ph_country2:"出生国 / 地域",
+    cal_g:"西暦 (Gregorian)",
+    cal_l:"旧暦 (Lunar)",
+
+    focus_title:"テーマ（レポートの焦点）",
+    btn_next:"分析を生成",
+    time_unknown:"不明",
+
+    opt_love:"恋愛 Love",
+    opt_dating:"恋愛運・ご縁",
+    opt_marriage:"結婚運の流れ",
+    opt_career:"仕事 Career",
+    opt_work:"職場での発展",
+    opt_startup:"起業の可能性",
+    opt_wealth:"金運 Wealth",
+    opt_wealthpos:"財位（風水）",
+    opt_timing:"資産タイミング",
+    opt_dates:"吉日 Auspicious Date",
+    opt_wedding:"結婚日選び",
+    opt_babydate:"出産日選び",
+    opt_house:"引っ越し日",
+    opt_office:"オフィス入居日",
+    opt_name:"命名 Name Analysis",
+    opt_babyname:"赤ちゃんの名前",
+    opt_petname:"ペットの名前",
+    opt_companyname:"会社名",
+    opt_rename:"改名で運気",
+    opt_fs:"風水 Feng Shui",
+    opt_home:"住まい",
+    opt_officefs:"オフィス",
+    opt_comp:"相性 Compatibility",
+    opt_couple:"恋人（進展 / ご縁）",
+    opt_spouse:"夫婦（結婚の流れ）",
+    opt_personality:"性格相性（衝突 / 補完）",
+    opt_partner:"仕事相性（パートナー / チーム）",
+    opt_reconnect:"関係修復（友人 / 家族 / 恋人）",
+    opt_petbond:"飼い主とペットの相性",
+
+    portal_title:"心怜空間 · ポータル",
+    diary_title:"スピリチュアル日記",
+    diary_desc:"写真 / 音声 / ノート / 家族ログ / 毎日の祈り",
+    btn_personal:"個人（非公開）",
+    btn_family:"家族共有",
+    btn_upload:"アップロード",
+    course_title:"講座エリア",
+    course_bazi:"八字：十神 / 流年 / 用神",
+    course_tarot:"タロット：スプレッド / 実戦",
+    course_coming:"準備中：占星 / 数秘 / 人類図 / 易 / 瞑想 / 奇門 / 神様 / 紫微 / エネルギー…",
+    btn_enter_course:"講座へ",
+    shop_title:"エネルギーストア · VIP割引",
+    shop_desc:"祈願パック：",
+    wish_title:"願いの提出",
+    btn_manifest:"願いの設計 / Manifestation",
+    memorial_title:"魂の記録（追憶）",
+    memorial_desc:"魂のアーカイブ / 思い出（写真・文字・音） / 霊的継承",
+    btn_login_memorial:"ログイン",
+    btn_upload_memorial:"アップロード",
+    btn_register_memorial:"登録",
+
+    vip_title:"VIPエリア",
+    vip_mingli:"命理（VIP）",
+    vip_love:"恋愛：ご縁 / 結婚",
+    vip_career:"仕事：職場 / 起業",
+    vip_wealth:"金運：財位 / 時期",
+    vip_pet:"ペット：性格 / ご縁",
+    vip_hepan:"相性：結婚日 / 出生時",
+    vip_name:"命名：会社 / 赤ちゃん / 改名",
+    vip_fengshui:"風水：住まい / オフィス",
+    vip_xinlian:"心怜空間（VIP）",
+    vip_record:"記録：写真・夢・音声・祈り",
+    vip_course:"講座：八字 / タロット / 占星 / 数秘 / 人類図",
+    vip_memorial:"家族追憶システム",
+    vip_tasks:"毎週のエネルギー練習",
+    vip_shop:"VIP割引・御守",
+
+    login_title:"VIPログイン",
+    panel_login_head:"ログイン / 登録",
+    ph_email:"メール Email",
+    ph_label_password:"パスワード Password",
+    ph_password:"パスワード（8文字以上：大/小文字・数字・記号）",
+    btn_login:"ログイン",
+    btn_reset:"パスワード再設定",
+    btn_register:"新規登録",
+    note_price:"登録で無料体験1回",
+    panel_member_head:"会員サービス",
+    btn_upgrade:"VIPにアップグレード（月額）",
+    btn_backshop:"ストアへ戻る",
+    note_price1:"$9.9 / 月 VIP（命理 + 心怜空間 + 講座）",
+
+    res_title:"心怜バトラーの解釈と提案",
+    chat_fab:"💬",
+    chat_title:"心怜バトラー · GPT",
+    chat_input_ph:"質問を入力…",
+    chat_send:"送信",
+    chat_welcome:"こんにちは。心怜バトラーです。どのテーマから見ますか？（恋愛 / 仕事 / 金運 / 健康 / 風水）",
+
+    btn_show_login_fields:"ログイン欄を表示",
+    btn_hide_login_fields:"ログイン欄を非表示",
+
+    err_need_name1:"名前（本人）を入力してください。",
+    err_need_birthdate1:"生年月日（本人）を選択してください。",
+    err_need_country1:"出生国/地域（本人）を入力してください。",
+    err_need_name2:"お相手の名前を入力してください。",
+    err_need_birthdate2:"お相手の生年月日を選択してください。",
+    err_need_country2:"お相手の出生国/地域を入力してください。",
+  },
+
+  "th-TH": {
+    brand:"5xLiving · Soul Sanctuary",
+    page_title:"Soul Sanctuary · VIP",
+    site_title:"Soul Sanctuary · VIP",
+    lang_label:"ภาษา",
+
+    form_title:"การวิเคราะห์ดวง · สร้างรายงาน",
+    choose_type:"เลือกประเภทดวง",
+    type_personal:"ดวงส่วนตัว",
+    type_compat:"ดวงคู่ (ข้อมูล 2 คน)",
+    culture_auto:"ตรวจจับอัตโนมัติ Auto Detect",
+    culture_cn:"จีน Chinese / Bazi",
+    culture_west:"ตะวันตก Astrology / Tarot",
+    culture_jp:"ญี่ปุ่น Japanese",
+    culture_vedic:"เวท / โหราศาสตร์อินเดีย Vedic",
+
+    self_info:"ข้อมูลของคุณ",
+    partner_info:"ข้อมูลอีกคน (ดวงคู่)",
+    ph_name1:"ชื่อ (คุณ)",
+    ph_time1:"เวลาเกิด",
+    ph_country1:"ประเทศ / ภูมิภาคเกิด",
+    ph_name2:"ชื่อ (อีกคน)",
+    ph_time2:"เวลาเกิด",
+    ph_country2:"ประเทศ / ภูมิภาคเกิด",
+    cal_g:"ปฏิทินสากล (Gregorian)",
+    cal_l:"ปฏิทินจันทรคติ (Lunar)",
+
+    focus_title:"หัวข้อโฟกัส (รายงาน)",
+    btn_next:"สร้างการวิเคราะห์",
+    time_unknown:"ไม่ทราบ",
+
+    opt_love:"ความรัก",
+    opt_dating:"ความรัก/แรงดึงดูด",
+    opt_marriage:"แนวโน้มการแต่งงาน",
+    opt_career:"การงาน",
+    opt_work:"เติบโตในงาน",
+    opt_startup:"ศักยภาพธุรกิจ",
+    opt_wealth:"การเงิน",
+    opt_wealthpos:"ตำแหน่งเงิน (ฮวงจุ้ย)",
+    opt_timing:"จังหวะการเงิน",
+    opt_dates:"ฤกษ์มงคล",
+    opt_wedding:"ฤกษ์แต่งงาน",
+    opt_babydate:"ฤกษ์คลอด/วันเกิด",
+    opt_house:"ฤกษ์ย้ายบ้าน",
+    opt_office:"ฤกษ์ย้ายออฟฟิศ",
+    opt_name:"วิเคราะห์ชื่อ",
+    opt_babyname:"ชื่อเด็ก",
+    opt_petname:"ชื่อสัตว์เลี้ยง",
+    opt_companyname:"ชื่อบริษัท",
+    opt_rename:"เปลี่ยนชื่อเสริมดวง",
+    opt_fs:"ฮวงจุ้ย",
+    opt_home:"บ้าน",
+    opt_officefs:"ออฟฟิศ",
+    opt_comp:"ดวงคู่",
+    opt_couple:"คู่รัก (เคมี/ความคืบหน้า)",
+    opt_spouse:"คู่สมรส (แนวโน้มแต่งงาน)",
+    opt_personality:"บุคลิกเข้ากัน/เสริมกัน",
+    opt_partner:"หุ้นส่วน/ทีมงาน",
+    opt_reconnect:"คืนดี/กลับมาคุยกัน",
+    opt_petbond:"ความผูกพันเจ้าของ-สัตว์เลี้ยง",
+
+    portal_title:"Soul Sanctuary · ทางเข้าฟังก์ชัน",
+    diary_title:"บันทึกจิตวิญญาณ",
+    diary_desc:"อัปโหลดรูป / บันทึกเสียง / โน้ต / บันทึกครอบครัว / คำอธิษฐานรายวัน",
+    btn_personal:"บันทึกส่วนตัว",
+    btn_family:"บันทึกครอบครัว",
+    btn_upload:"อัปโหลด",
+    course_title:"คอร์ส",
+    course_bazi:"Bazi: Ten Gods / ดวงรายปี / ธาตุส่งเสริม",
+    course_tarot:"Tarot: สเปรด / เคสจริง",
+    course_coming:"กำลังมา: Astrology / Numerology / Human Design / I Ching / Meditation / Qimen / Deities / Zi Wei / Energy…",
+    btn_enter_course:"เข้าสู่คอร์ส",
+    shop_title:"ร้านพลังงาน · ส่วนลด VIP",
+    shop_desc:"หมวดหมู่แพ็กขอพร:",
+    wish_title:"ส่งความฝัน",
+    btn_manifest:"วางแผนความฝัน / Manifestation",
+    memorial_title:"บันทึกผู้ล่วงลับ (Memorial)",
+    memorial_desc:"แฟ้มวิญญาณ / ความทรงจำ (รูป-ข้อความ-เสียง) / การสืบทอดทางจิตวิญญาณ",
+    btn_login_memorial:"เข้าสู่ระบบ Memorial",
+    btn_upload_memorial:"อัปโหลด Memorial",
+    btn_register_memorial:"สมัคร Memorial",
+
+    vip_title:"โซนสมาชิก VIP",
+    vip_mingli:"Metaphysics (VIP)",
+    vip_love:"ความรัก: เดต/แต่งงาน",
+    vip_career:"การงาน: งาน/ธุรกิจ",
+    vip_wealth:"การเงิน: ตำแหน่ง/จังหวะ",
+    vip_pet:"สัตว์เลี้ยง: บุคลิก/ความผูกพัน",
+    vip_hepan:"ดวงคู่: ฤกษ์แต่ง/เวลาเกิด",
+    vip_name:"ชื่อ: บริษัท/เด็ก/เปลี่ยนชื่อ",
+    vip_fengshui:"ฮวงจุ้ย: บ้าน/ออฟฟิศ",
+    vip_xinlian:"Soul Sanctuary (VIP)",
+    vip_record:"บันทึก: รูป/ความฝัน/เสียง/คำอธิษฐาน",
+    vip_course:"คอร์ส: Bazi / Tarot / Astrology / Numerology / Human Design",
+    vip_memorial:"ระบบ Memorial ครอบครัว",
+    vip_tasks:"ฝึกพลังงานประจำสัปดาห์",
+    vip_shop:"ส่วนลด VIP / เครื่องราง",
+
+    login_title:"เข้าสู่ระบบ VIP",
+    panel_login_head:"เข้าสู่ระบบ / สมัครสมาชิก",
+    ph_email:"อีเมล Email",
+    ph_label_password:"รหัสผ่าน Password",
+    ph_password:"รหัสผ่าน (อย่างน้อย 8 ตัวอักษร มีตัวพิมพ์ใหญ่/เล็ก ตัวเลข และสัญลักษณ์)",
+    btn_login:"เข้าสู่ระบบ",
+    btn_reset:"รีเซ็ตรหัสผ่าน",
+    btn_register:"สมัครสมาชิก",
+    note_price:"สมัครสมาชิก รับสิทธิ์ทดลองฟรี 1 ครั้ง",
+    panel_member_head:"บริการสมาชิก",
+    btn_upgrade:"อัปเกรดเป็น VIP (รายเดือน)",
+    btn_backshop:"กลับไปที่ร้านค้า",
+    note_price1:"$9.9 / เดือน VIP (Metaphysics + Soul Sanctuary + Courses)",
+
+    res_title:"คำแนะนำจากผู้ช่วย",
+    chat_fab:"💬",
+    chat_title:"Xinlian Butler · GPT",
+    chat_input_ph:"พิมพ์คำถาม…",
+    chat_send:"ส่ง",
+    chat_welcome:"สวัสดี ฉันคือ Xinlian Butler อยากโฟกัสเรื่องไหนก่อน? (ความรัก / การงาน / การเงิน / สุขภาพ / ฮวงจุ้ย)",
+
+    btn_show_login_fields:"แสดงช่องเข้าสู่ระบบ",
+    btn_hide_login_fields:"ซ่อนช่องเข้าสู่ระบบ",
+
+    err_need_name1:"กรุณากรอกชื่อของคุณ",
+    err_need_birthdate1:"กรุณาเลือกวันเกิดของคุณ",
+    err_need_country1:"กรุณากรอกประเทศ/ภูมิภาคเกิด",
+    err_need_name2:"กรุณากรอกชื่ออีกคน",
+    err_need_birthdate2:"กรุณาเลือกวันเกิดอีกคน",
+    err_need_country2:"กรุณากรอกประเทศ/ภูมิภาคเกิดของอีกคน",
+  },
+
+  "ms-MY": {
+    brand:"5xLiving · Soul Sanctuary",
+    page_title:"Soul Sanctuary · VIP",
+    site_title:"Soul Sanctuary · VIP",
+    lang_label:"Bahasa",
+
+    form_title:"Analisis Metafizik · Jana Laporan",
+    choose_type:"Pilih Jenis Carta",
+    type_personal:"Carta Peribadi",
+    type_compat:"Padanan (2 orang)",
+    culture_auto:"Kesan Automatik Auto Detect",
+    culture_cn:"Cina Chinese / Bazi",
+    culture_west:"Barat Astrology / Tarot",
+    culture_jp:"Jepun Nine Star Ki",
+    culture_vedic:"Vedic Astrology",
+
+    self_info:"Maklumat Anda",
+    partner_info:"Maklumat Orang Kedua (Padanan)",
+    ph_name1:"Nama (Anda)",
+    ph_time1:"Masa Lahir",
+    ph_country1:"Negara / Wilayah Lahir",
+    ph_name2:"Nama (Orang Kedua)",
+    ph_time2:"Masa Lahir",
+    ph_country2:"Negara / Wilayah Lahir",
+    cal_g:"Gregorian",
+    cal_l:"Lunar",
+
+    focus_title:"Topik Fokus (Laporan)",
+    btn_next:"Jana Analisis",
+    time_unknown:"Tidak diketahui",
+
+    opt_love:"Cinta",
+    opt_dating:"Tarikan & Jodoh",
+    opt_marriage:"Arah Perkahwinan",
+    opt_career:"Kerjaya",
+    opt_work:"Perkembangan Kerja",
+    opt_startup:"Potensi Perniagaan",
+    opt_wealth:"Rezeki",
+    opt_wealthpos:"Posisi Rezeki (Feng Shui)",
+    opt_timing:"Masa Pelaburan",
+    opt_dates:"Tarikh Baik",
+    opt_wedding:"Tarikh Kahwin",
+    opt_babydate:"Tarikh Kelahiran Bayi",
+    opt_house:"Tarikh Masuk Rumah",
+    opt_office:"Tarikh Masuk Pejabat",
+    opt_name:"Analisis Nama",
+    opt_babyname:"Nama Bayi",
+    opt_petname:"Nama Haiwan",
+    opt_companyname:"Nama Syarikat",
+    opt_rename:"Tukar Nama",
+    opt_fs:"Feng Shui",
+    opt_home:"Rumah",
+    opt_officefs:"Pejabat",
+    opt_comp:"Padanan",
+    opt_couple:"Pasangan (Kimia / Perkembangan)",
+    opt_spouse:"Suami Isteri (Perkahwinan)",
+    opt_personality:"Keserasian Personaliti",
+    opt_partner:"Rakan Niaga / Pekerja",
+    opt_reconnect:"Pulih Hubungan",
+    opt_petbond:"Ikatan Pemilik-Haiwan",
+
+    portal_title:"Soul Sanctuary · Portal",
+    diary_title:"Jurnal Spiritual",
+    diary_desc:"Muat naik foto / Nota suara / Nota spiritual / Log keluarga / Doa harian",
+    btn_personal:"Rekod Peribadi",
+    btn_family:"Rekod Keluarga",
+    btn_upload:"Muat naik",
+    course_title:"Kursus",
+    course_bazi:"Bazi: Ten Gods / Rezeki Tahunan / Unsur Sokongan",
+    course_tarot:"Tarot: Susun atur / Situasi sebenar",
+    course_coming:"Akan datang: Astrology / Numerology / Human Design / I Ching / Meditation / Qimen / Deities / Zi Wei / Energy…",
+    btn_enter_course:"Masuk Kursus",
+    shop_title:"Kedai Tenaga · Diskaun VIP",
+    shop_desc:"Kategori pakej doa:",
+    wish_title:"Hantar Impian",
+    btn_manifest:"Rancang Impian / Manifestation",
+    memorial_title:"Memorial Rohani",
+    memorial_desc:"Arkib roh / Kenangan (foto-teks-audio) / kesinambungan spiritual",
+    btn_login_memorial:"Log Masuk Memorial",
+    btn_upload_memorial:"Muat naik Memorial",
+    btn_register_memorial:"Daftar Memorial",
+
+    vip_title:"Segmen VIP",
+    vip_mingli:"Metafizik (VIP)",
+    vip_love:"Cinta: Jodoh & Kahwin",
+    vip_career:"Kerjaya: Kerja & Niaga",
+    vip_wealth:"Rezeki: Posisi & Masa",
+    vip_pet:"Haiwan: Personaliti & Ikatan",
+    vip_hepan:"Padanan: Tarikh kahwin / masa lahir",
+    vip_name:"Nama: Syarikat / Bayi / Tukar nama",
+    vip_fengshui:"Feng Shui: Rumah / Pejabat",
+    vip_xinlian:"Soul Sanctuary (VIP)",
+    vip_record:"Rekod: Foto, mimpi, suara, doa",
+    vip_course:"Kursus: Bazi / Tarot / Astrology / Numerology / Human Design",
+    vip_memorial:"Sistem memorial keluarga",
+    vip_tasks:"Latihan tenaga mingguan",
+    vip_shop:"Diskaun VIP & azimat",
+
+    login_title:"Log Masuk VIP",
+    panel_login_head:"Log Masuk / Daftar",
+    ph_email:"E-mel Email",
+    ph_label_password:"Kata Laluan Password",
+    ph_password:"Kata Laluan (min 8 aksara, huruf besar/kecil, nombor & simbol)",
+    btn_login:"Log Masuk",
+    btn_reset:"Tetapkan Semula Kata Laluan",
+    btn_register:"Daftar Akaun",
+    note_price:"Daftar akaun dapat 1 percubaan percuma",
+    panel_member_head:"Perkhidmatan Ahli",
+    btn_upgrade:"Naik taraf VIP (Bulanan)",
+    btn_backshop:"Kembali ke Kedai",
+    note_price1:"$9.9 / bulan VIP (Metafizik + Soul Sanctuary + Kursus)",
+
+    res_title:"Tafsiran & Cadangan Butler",
+    chat_fab:"💬",
+    chat_title:"Xinlian Butler · GPT",
+    chat_input_ph:"Taip soalan…",
+    chat_send:"Hantar",
+    chat_welcome:"Hai, saya Xinlian Butler. Nak fokus topik mana dulu? (Cinta / Kerjaya / Rezeki / Kesihatan / Feng Shui)",
+
+    btn_show_login_fields:"Tunjukkan ruangan log masuk",
+    btn_hide_login_fields:"Sembunyikan ruangan log masuk",
+
+    err_need_name1:"Sila masukkan nama anda",
+    err_need_birthdate1:"Sila pilih tarikh lahir anda",
+    err_need_country1:"Sila masukkan negara/wilayah lahir",
+    err_need_name2:"Sila masukkan nama orang kedua",
+    err_need_birthdate2:"Sila pilih tarikh lahir orang kedua",
+    err_need_country2:"Sila masukkan negara/wilayah lahir orang kedua",
+  }
 };
 
-function $(id){ return document.getElementById(id); }
-
+/* ==============================
+   i18n runtime
+============================== */
 function getLang(){
   return localStorage.getItem(LANG_KEY) || document.documentElement.lang || DEFAULT_LANG;
 }
@@ -863,24 +1619,50 @@ function setLang(code){
 function t(key){
   const lang = getLang();
   return (translations[lang] && translations[lang][key])
-      || (translations["zh-CN"] && translations["zh-CN"][key])
-      || key;
+    || (translations["zh-CN"] && translations["zh-CN"][key])
+    || key;
 }
+
 function applyI18n(){
-  document.querySelectorAll("[data-i18n]").forEach(el=>{
-    const key = el.getAttribute("data-i18n");
+  // text
+  qsa('[data-i18n]').forEach(el=>{
+    const key = el.getAttribute('data-i18n');
+    if (!key) return;
+
+    // OPTGROUP uses label attr, not textContent
+    if (el.tagName === 'OPTGROUP'){
+      el.label = t(key);
+      return;
+    }
+
+    // OPTION uses textContent
+    if (el.tagName === 'OPTION'){
+      el.textContent = t(key);
+      return;
+    }
+
     el.textContent = t(key);
   });
-  document.querySelectorAll("[data-i18n-ph]").forEach(el=>{
-    const key = el.getAttribute("data-i18n-ph");
-    el.setAttribute("placeholder", t(key));
+
+  // placeholders
+  qsa('[data-i18n-ph]').forEach(el=>{
+    const key = el.getAttribute('data-i18n-ph');
+    if (!key) return;
+    el.setAttribute('placeholder', t(key));
   });
-  const titleEl = document.querySelector("title[data-i18n]");
-  if (titleEl) titleEl.textContent = t(titleEl.getAttribute("data-i18n"));
+
+  // title
+  const titleEl = qs('title[data-i18n]');
+  if (titleEl){
+    const key = titleEl.getAttribute('data-i18n');
+    titleEl.textContent = t(key);
+  }
+
+  // header brand text is in data-i18n="brand" already
 }
 
 /* ==============================
-   Error helper
+   Error helper (top-level)
 ============================== */
 function ensureErrorBox(){
   let box = $('error');
@@ -889,7 +1671,8 @@ function ensureErrorBox(){
     box.id = 'error';
     box.className = 'error';
     box.style.cssText = 'margin-top:10px;color:#ff8b8b';
-    (document.querySelector('.card.section') || document.body).appendChild(box);
+    const host = qs('.card.section') || qs('main.container') || document.body;
+    host.appendChild(box);
   }
   return box;
 }
@@ -897,30 +1680,62 @@ function showErr(msg){
   const e = ensureErrorBox();
   e.textContent = msg;
   e.style.display = 'block';
-  setTimeout(()=>{ e.style.display='none'; }, 5000);
+  clearTimeout(showErr._t);
+  showErr._t = setTimeout(()=>{ e.style.display='none'; }, 5200);
 }
 
 /* ==============================
-   UI helpers (bars)
+   Ensure result section exists
 ============================== */
-function setText(id, txt){
-  const el = $(id);
-  if (el) el.textContent = (txt ?? '');
+function ensureResultSection(){
+  let result = $('result');
+  if (!result){
+    // create if missing
+    result = document.createElement('section');
+    result.id = 'result';
+    result.className = 'card section';
+    result.style.display = 'none';
+    result.innerHTML = `<h2 data-i18n="res_title">${escapeHtml(t('res_title'))}</h2>`;
+    const main = qs('main.container') || document.body;
+    main.appendChild(result);
+  }
+  // ensure hosts
+  if (!$('butler-host')){
+    const bh = document.createElement('div');
+    bh.id = 'butler-host';
+    result.appendChild(bh);
+  }
+  if (!$('rich-report')){
+    const rr = document.createElement('div');
+    rr.id = 'rich-report';
+    result.appendChild(rr);
+  }
+  return result;
 }
-function setBar(el, pct){
-  if(!el) return;
-  const v = Math.max(0, Math.min(100, Number(pct)||0));
-  el.style.width = v + '%';
-  el.setAttribute('aria-valuenow', String(Math.round(v)));
+
+function clearResultArea(){
+  const result = ensureResultSection();
+  const bh = $('butler-host'); if (bh) bh.innerHTML = '';
+  const rr = $('rich-report'); if (rr) rr.innerHTML = '';
+  result.style.display = 'none';
 }
 
 /* ==============================
-   Culture -> focus options map
+   Culture normalize
+============================== */
+function normalizeCulture(v){
+  if (!v || v === 'auto') return '东方';
+  // your select values are Chinese: 东方/西方/日式/吠陀
+  return v;
+}
+
+/* ==============================
+   Purpose options map (dynamic)
 ============================== */
 const culturePurposeMap = {
   '东方': {
     personal: ['恋爱缘分','婚姻走势','职场发展','创业潜力','财位分析','理财时机','婚期择日','新生宝宝择日','新家入住择日','新公司入住择日','宝宝名','宠物名','公司名','命名改运','住家','办公室'],
-    compatibility: ['情侣合盘（缘分起落 / 暧昧进展）','夫妻流年（婚姻发展）','合盘分析','事业共事','断联修复','宠物缘分']
+    compatibility: ['情侣合盘（缘分起落 / 暧昧进展）','夫妻流年（婚姻发展）','个性合盘（冲突 / 互补）','事业合盘（合伙人 / 员工）','断联修复（朋友 / 情人 / 家人）','宠物合盘（主人与宠物）']
   },
   '西方': {
     personal: ['爱情运势','职业发展','财富增长','心灵成长','塔罗占卜','星盘解读','人际关系','健康运势'],
@@ -936,43 +1751,14 @@ const culturePurposeMap = {
   }
 };
 
-function normalizeCulture(v){
-  if (!v || v === 'auto') return '东方';
-  return v;
-}
-
-/* ==============================
-   Toggle partner + focus selector
-============================== */
-function togglePartner(value){
-  const section = $('partner-section');
-  const personal = $('purpose_personal');
-  const compat = $('purpose_compatibility');
-  const show = (value === "compatibility");
-
-  if (section) section.style.display = show ? "block" : "none";
-  if (personal){
-    personal.style.display = show ? "none" : "block";
-    personal.disabled = show;
-  }
-  if (compat){
-    compat.style.display = show ? "block" : "none";
-    compat.disabled = !show;
-  }
-  updatePurposeOptions($('culture')?.value || 'auto');
-}
-
 function updatePurposeOptions(cultureRaw){
   const culture = normalizeCulture(cultureRaw);
   const typeSel = $('type')?.value || 'personal';
   const config = culturePurposeMap[culture] || culturePurposeMap['东方'];
   const options = (typeSel === 'compatibility') ? config.compatibility : config.personal;
 
-  if (typeSel === 'compatibility'){
-    updateCompatibilityPurposeOptions(options);
-  }else{
-    updatePersonalPurposeOptions(options);
-  }
+  if (typeSel === 'compatibility') updateCompatibilityPurposeOptions(options);
+  else updatePersonalPurposeOptions(options);
 }
 
 function updatePersonalPurposeOptions(options){
@@ -982,44 +1768,44 @@ function updatePersonalPurposeOptions(options){
   const currentValue = select.value;
   select.innerHTML = '';
 
-  // If the selected culture is not 东方, just dump as plain options (simpler + no missing i18n)
   const culture = normalizeCulture($('culture')?.value || 'auto');
-  if (culture !== '东方'){
-    options.forEach(item=>{
+
+  // 东方: keep grouped experience
+  if (culture === '东方'){
+    const groups = {
+      [t('opt_love')]: ['恋爱缘分', '婚姻走势'],
+      [t('opt_career')]: ['职场发展', '创业潜力'],
+      [t('opt_wealth')]: ['财位分析', '理财时机'],
+      [t('opt_dates')]: ['婚期择日', '新生宝宝择日', '新家入住择日', '新公司入住择日'],
+      [t('opt_name')]: ['宝宝名', '宠物名', '公司名', '命名改运'],
+      [t('opt_fs')]: ['住家', '办公室']
+    };
+
+    Object.entries(groups).forEach(([label, items])=>{
+      const avail = items.filter(it => options.includes(it));
+      if (!avail.length) return;
+      const og = document.createElement('optgroup');
+      og.label = label;
+      avail.forEach(it=>{
+        const opt = document.createElement('option');
+        opt.value = it; opt.textContent = it;
+        og.appendChild(opt);
+      });
+      select.appendChild(og);
+    });
+  } else {
+    // other cultures: just plain list
+    options.forEach(it=>{
       const opt = document.createElement('option');
-      opt.value = item;
-      opt.textContent = item;
+      opt.value = it;
+      opt.textContent = it;
       select.appendChild(opt);
     });
-    if (currentValue && select.querySelector(`option[value="${currentValue}"]`)) select.value = currentValue;
-    return;
   }
 
-  // 东方: keep your grouped experience
-  const groups = {
-    '姻缘 Love': ['恋爱缘分', '婚姻走势'],
-    '事业 Career': ['职场发展', '创业潜力'],
-    '财运 Wealth': ['财位分析', '理财时机'],
-    '择日 Auspicious Date': ['婚期择日', '新生宝宝择日', '新家入住择日', '新公司入住择日'],
-    '测名 Name Analysis': ['宝宝名', '宠物名', '公司名', '命名改运'],
-    '风水 Feng Shui': ['住家', '办公室']
-  };
-
-  Object.entries(groups).forEach(([label, items])=>{
-    const availableItems = items.filter(item => options.includes(item));
-    if (!availableItems.length) return;
-    const og = document.createElement('optgroup');
-    og.label = label;
-    availableItems.forEach(item=>{
-      const opt = document.createElement('option');
-      opt.value = item;
-      opt.textContent = item;
-      og.appendChild(opt);
-    });
-    select.appendChild(og);
-  });
-
-  if (currentValue && select.querySelector(`option[value="${currentValue}"]`)) select.value = currentValue;
+  if (currentValue && select.querySelector(`option[value="${CSS.escape(currentValue)}"]`)) {
+    select.value = currentValue;
+  }
 }
 
 function updateCompatibilityPurposeOptions(options){
@@ -1030,25 +1816,73 @@ function updateCompatibilityPurposeOptions(options){
   select.innerHTML = '';
 
   const og = document.createElement('optgroup');
-  og.label = '合盘分析 Compatibility';
-  options.forEach(item=>{
+  og.label = t('opt_comp');
+  options.forEach(it=>{
     const opt = document.createElement('option');
-    opt.value = item;
-    opt.textContent = item;
+    opt.value = it; opt.textContent = it;
     og.appendChild(opt);
   });
   select.appendChild(og);
 
-  if (currentValue && select.querySelector(`option[value="${currentValue}"]`)) select.value = currentValue;
+  if (currentValue && select.querySelector(`option[value="${CSS.escape(currentValue)}"]`)) {
+    select.value = currentValue;
+  }
 }
 
 /* ==============================
-   Bazi calculator (your simplified version)
+   Toggle partner section (global for onchange)
+============================== */
+function togglePartner(value){
+  const section = $('partner-section');
+  const personal = $('purpose_personal');
+  const compat = $('purpose_compatibility');
+  const show = (value === 'compatibility');
+
+  if (section) section.style.display = show ? 'block' : 'none';
+  if (personal){
+    personal.style.display = show ? 'none' : 'block';
+    personal.disabled = show;
+  }
+  if (compat){
+    compat.style.display = show ? 'block' : 'none';
+    compat.disabled = !show;
+  }
+
+  updatePurposeOptions($('culture')?.value || 'auto');
+}
+window.togglePartner = togglePartner;
+
+/* ==============================
+   Input parsers
+============================== */
+function parseDateInput(v){
+  if(!v) return null;
+  const [yy,mm,dd] = v.split('-').map(n=>parseInt(n,10));
+  if(!yy||!mm||!dd) return null;
+  return {yy,mm,dd};
+}
+function parseTimeHour(v){
+  if(!v) return null;
+  const [hh] = v.split(':').map(n=>parseInt(n,10));
+  return Number.isFinite(hh) ? hh : null;
+}
+function getFocus(){
+  const isCompat = (($('type')?.value || 'personal') === 'compatibility');
+  const sel = isCompat ? $('purpose_compatibility') : $('purpose_personal');
+  return sel?.value || '';
+}
+function getTimeUnknown(chkId){
+  const c = $(chkId);
+  return !!(c && c.checked);
+}
+
+/* ==============================
+   Lightweight calculators (same spirit as yours)
+   NOTE: These are simplified placeholders.
 ============================== */
 const baziCalculator = {
   heavenlyStems: ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'],
   earthlyBranches: ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'],
-
   getStemElement(stem){
     const map={'甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水'};
     return map[stem] || '木';
@@ -1057,7 +1891,6 @@ const baziCalculator = {
     const map={'子':'水','丑':'土','寅':'木','卯':'木','辰':'土','巳':'火','午':'火','未':'土','申':'金','酉':'金','戌':'土','亥':'水'};
     return map[branch] || '木';
   },
-
   calculateYearPillar(year){
     const stemIndex = (year - 4) % 10;
     const branchIndex = (year - 4) % 12;
@@ -1065,9 +1898,7 @@ const baziCalculator = {
     const branch = this.earthlyBranches[(branchIndex+12)%12];
     return { stem, branch, element:this.getStemElement(stem) };
   },
-
   calculateMonthPillar(year, month){
-    // simplified mapping (same as your version)
     const monthMap = {
       1:{stem:'丙',branch:'寅'},2:{stem:'丁',branch:'卯'},3:{stem:'戊',branch:'辰'},4:{stem:'己',branch:'巳'},
       5:{stem:'庚',branch:'午'},6:{stem:'辛',branch:'未'},7:{stem:'壬',branch:'申'},8:{stem:'癸',branch:'酉'},
@@ -1076,7 +1907,6 @@ const baziCalculator = {
     const p = monthMap[month] || monthMap[1];
     return { stem:p.stem, branch:p.branch, element:this.getStemElement(p.stem) };
   },
-
   calculateDayPillar(year, month, day){
     const date = new Date(year, month-1, day);
     const startDate = new Date(1900,0,1);
@@ -1085,14 +1915,13 @@ const baziCalculator = {
     const branch = this.earthlyBranches[(dayNum%12+12)%12];
     return { stem, branch, element:this.getStemElement(stem) };
   },
-
   calculateHourPillar(dayStem, hour){
     const hourIndex = Math.floor((hour + 1) / 2) % 12;
     const startStems = {'甲':'甲','乙':'丙','丙':'戊','丁':'庚','戊':'壬','己':'甲','庚':'丙','辛':'戊','壬':'庚','癸':'壬'};
+    // simplified (keeps your style)
     const stem = startStems[dayStem] || '甲';
     return { stem, branch:this.earthlyBranches[hourIndex], element:this.getStemElement(stem) };
   },
-
   calculateBazi(year, month, day, hour, timeUnknown){
     const dayP = this.calculateDayPillar(year, month, day);
     const pillars = {
@@ -1109,6 +1938,7 @@ const baziCalculator = {
         elements[this.getBranchElement(p.branch)] += 2;
       }
     });
+
     const total = Object.values(elements).reduce((a,b)=>a+b,0) || 1;
     const percents = {
       wood: Math.round(elements['木']/total*100),
@@ -1117,38 +1947,30 @@ const baziCalculator = {
       metal: Math.round(elements['金']/total*100),
       water: Math.round(elements['水']/total*100),
     };
+
     return { pillars, percents, timeUnknown };
   }
 };
 
-/* ==============================
-   Other calculators (your simplified versions)
-============================== */
+function zodiacFromMonth(m){
+  const signs=['Capricorn','Aquarius','Pisces','Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius'];
+  return signs[(m-1)%12];
+}
+
 const calculators = {
   '东方': {
-    name:'八字命理',
     calculate:(y,m,d,h,tu)=>baziCalculator.calculateBazi(y,m,d,h,tu),
-    render: renderBaziReport,
-    analysis: generateBaziReport
   },
   '西方': {
-    name:'西洋占星',
-    calculate:(y,m,d,h,tu)=>{
-      const zodiacSigns=['摩羯座','水瓶座','双鱼座','白羊座','金牛座','双子座','巨蟹座','狮子座','处女座','天秤座','天蝎座','射手座'];
-      const signIndex = (m-1)%12;
-      return {
-        zodiac:zodiacSigns[signIndex],
-        rising: tu ? '未知' : ['白羊座','金牛座','双子座','巨蟹座','狮子座','处女座','天秤座','天蝎座','射手座','摩羯座','水瓶座','双鱼座'][h%12],
-        moon: ['巨蟹座','狮子座','处女座','天秤座','天蝎座','射手座','摩羯座','水瓶座','双鱼座','白羊座','金牛座','双子座'][d%12],
-        elements:{fire:30,earth:25,air:25,water:20}
-      };
-    },
-    render: renderWesternReport,
-    analysis: generateWesternReport
+    calculate:(y,m,d,h,tu)=>({
+      sun: zodiacFromMonth(m),
+      moon: ['Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces','Aries','Taurus','Gemini'][d%12],
+      rising: tu ? 'Unknown' : ['Aries','Taurus','Gemini','Cancer','Leo','Virgo','Libra','Scorpio','Sagittarius','Capricorn','Aquarius','Pisces'][h%12],
+      elements:{fire:30,earth:25,air:25,water:20}
+    }),
   },
   '日式': {
-    name:'九星気学',
-    calculate:(y,m,d)=>{
+    calculate:(y,m,d)=> {
       const numbers=['一白水星','二黒土星','三碧木星','四緑木星','五黄土星','六白金星','七赤金星','八白土星','九紫火星'];
       const idx=(y+m+d)%9;
       return {
@@ -1157,347 +1979,449 @@ const calculators = {
         direction:['北','西南','東','東南','中央','西北','西','東北','南'][idx],
         luck:['吉','凶','吉','吉','凶','吉','吉','吉','吉'][idx]
       };
-    },
-    render: renderJapaneseReport,
-    analysis: generateJapaneseReport
+    }
   },
   '吠陀': {
-    name:'印度吠陀',
-    calculate:(y,m,d)=>{
+    calculate:(y,m,d)=> {
       const rashis=['Mesha','Vrishabha','Mithuna','Karka','Simha','Kanya','Tula','Vrishchika','Dhanu','Makara','Kumbha','Meena'];
       const idx=(m-1)%12;
       return {
         rashi:rashis[idx],
         nakshatra:['Ashwini','Bharani','Krittika','Rohini','Mrigashira','Ardra','Punarvasu','Pushya','Ashlesha','Magha','Purva Phalguni','Uttara Phalguni'][d%12],
-        element:['火','土','風','水','火','土','風','水','火','土','風','水'][idx]
+        element:['Fire','Earth','Air','Water','Fire','Earth','Air','Water','Fire','Earth','Air','Water'][idx]
       };
-    },
-    render: renderVedicReport,
-    analysis: generateVedicReport
+    }
   }
 };
 
 /* ==============================
-   Result host builder (for 东方)
+   Render utilities (single/dual)
 ============================== */
-function ensureResultHost(){
-  const result = $('result');
-  if (!result) return null;
-  // Ensure these placeholders exist
-  if (!$('butler-host')){
-    const bh = document.createElement('div');
-    bh.id = 'butler-host';
-    result.appendChild(bh);
-  }
-  if (!$('rich-report')){
-    const rr = document.createElement('div');
-    rr.id = 'rich-report';
-    result.appendChild(rr);
-  }
-  if (!$('xl-free-report')){
-    const free = document.createElement('div');
-    free.id = 'xl-free-report';
-    free.innerHTML = `
-      <div class="card" style="margin-top:8px">
-        <div class="group-title">命理简报</div>
-        <div id="bazi-date" class="sub" style="margin-bottom:8px"></div>
-        <div id="bazi-pillars" class="pillars"></div>
-        <div class="row" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:center;margin-top:10px">
-          <div><div>木</div><div class="bar"><i id="bar-木"></i></div><div id="pct-木" class="muted" style="margin-top:4px"></div></div>
-          <div><div>火</div><div class="bar"><i id="bar-火"></i></div><div id="pct-火" class="muted" style="margin-top:4px"></div></div>
-          <div><div>土</div><div class="bar"><i id="bar-土"></i></div><div id="pct-土" class="muted" style="margin-top:4px"></div></div>
-          <div><div>金</div><div class="bar"><i id="bar-金"></i></div><div id="pct-金" class="muted" style="margin-top:4px"></div></div>
-          <div><div>水</div><div class="bar"><i id="bar-水"></i></div><div id="pct-水" class="muted" style="margin-top:4px"></div></div>
-        </div>
-        <div id="bazi-elements-balance" class="sub" style="margin-top:8px"></div>
-      </div>
-    `;
-    result.appendChild(free);
-  }
-  return result;
+function pillHtml(title, value, sub=''){
+  return `
+    <div class="list-block" style="padding:14px 14px">
+      <div class="group-title" style="margin:0 0 8px">${escapeHtml(title)}</div>
+      <div style="font-size:1.25rem;font-weight:800;color:var(--gold2)">${escapeHtml(value)}</div>
+      ${sub ? `<div class="muted" style="margin-top:6px">${escapeHtml(sub)}</div>` : ``}
+    </div>
+  `;
 }
 
-function renderPillars(root, p, timeUnknown=false){
-  if(!root) return;
-  root.innerHTML='';
-  [['年柱',p.year],['月柱',p.month],['日柱',p.day],['时柱',p.hour]].forEach(([tit,v])=>{
-    const isUnknown = (tit==='时柱' && timeUnknown);
-    const stem = isUnknown ? '？' : v.stem;
-    const branch = isUnknown ? '？' : v.branch;
-    const div = document.createElement('div');
-    div.className='pillar';
-    div.innerHTML = `
-      <div class="tit">${tit}</div>
-      <div class="gz">${stem}${branch}</div>
-      ${v.element && v.element!=='未知' ? `<div style="color:#98a7b7;font-size:.75rem;margin-top:4px">${v.element}</div>` : ''}
+function renderBars5(perc){
+  // uses your existing .bar <i> style if present; otherwise inline width works
+  const rows = [
+    ['木', perc.wood], ['火', perc.fire], ['土', perc.earth], ['金', perc.metal], ['水', perc.water]
+  ];
+  return `
+    <div class="card" style="margin-top:10px">
+      <div class="group-title" style="margin:0 0 10px">五行比例</div>
+      <div class="row" style="display:grid;grid-template-columns:repeat(5,1fr);gap:10px;align-items:center">
+        ${rows.map(([k,v])=>`
+          <div>
+            <div style="font-weight:700">${k}</div>
+            <div class="bar" style="position:relative;height:10px;border-radius:999px;background:#0f1624;border:1px solid var(--line);overflow:hidden">
+              <i style="display:block;height:100%;width:${Number(v)||0}%;background:linear-gradient(90deg, rgba(212,175,55,.35), rgba(212,175,55,.85))"></i>
+            </div>
+            <div class="muted" style="margin-top:4px">${Number(v)||0}%</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderPillars(pillars, timeUnknown){
+  const items = [
+    ['年柱', pillars.year],
+    ['月柱', pillars.month],
+    ['日柱', pillars.day],
+    ['时柱', pillars.hour]
+  ];
+  return `
+    <div class="card" style="margin-top:10px">
+      <div class="group-title" style="margin:0 0 10px">四柱</div>
+      <div style="display:grid;grid-template-columns:repeat(4, minmax(0,1fr));gap:10px">
+        ${items.map(([tit,v])=>{
+          const isHour = (tit==='时柱');
+          const stem = (isHour && timeUnknown) ? '？' : v.stem;
+          const br   = (isHour && timeUnknown) ? '？' : v.branch;
+          return `
+            <div class="list-block" style="padding:12px 12px;text-align:center">
+              <div class="muted" style="font-size:.85rem">${escapeHtml(tit)}</div>
+              <div style="font-size:1.25rem;font-weight:900;color:var(--gold2)">${escapeHtml(stem+br)}</div>
+              ${v.element && v.element!=='未知' ? `<div class="muted" style="margin-top:4px">${escapeHtml(v.element)}</div>` : ``}
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+  `;
+}
+
+/* ==============================
+   Personal renderers
+============================== */
+function renderPersonal(culture, data, pInfo, focus){
+  const result = ensureResultSection();
+  const bh = $('butler-host');
+  const rr = $('rich-report');
+
+  const name = pInfo.name || '';
+  const dateLine = `${pInfo.year}-${String(pInfo.month).padStart(2,'0')}-${String(pInfo.day).padStart(2,'0')}`;
+  const timeLine = pInfo.timeUnknown ? t('time_unknown') : `${String(pInfo.hour).padStart(2,'0')}:00`;
+
+  // Header summary card (always)
+  bh.innerHTML = `
+    <div class="card" style="margin-top:10px">
+      <div class="group-title" style="margin:0 0 8px">${escapeHtml(name || '—')}</div>
+      <div class="muted">${escapeHtml(dateLine)} · ${escapeHtml(timeLine)} · ${escapeHtml(pInfo.country || '')}</div>
+      <div class="muted" style="margin-top:6px">Focus: ${escapeHtml(focus || '综合')}</div>
+    </div>
+  `;
+
+  if (culture === '东方'){
+    const pillars = data.pillars;
+    const perc = data.percents;
+    bh.innerHTML += renderPillars(pillars, data.timeUnknown) + renderBars5(perc);
+
+    const sorted = [
+      ['木', perc.wood], ['火', perc.fire], ['土', perc.earth], ['金', perc.metal], ['水', perc.water]
+    ].sort((a,b)=>b[1]-a[1]);
+
+    rr.innerHTML = `
+      <div class="card" style="margin-top:12px">
+        <h3 style="margin:0 0 10px;color:var(--gold)">${escapeHtml(t('res_title'))} · 八字建议</h3>
+        <div class="muted" style="line-height:1.7">
+          <div><strong>日主：</strong>${escapeHtml(pillars.day.stem + pillars.day.branch)}</div>
+          <div style="margin-top:8px"><strong>五行概览：</strong>偏强：${escapeHtml(sorted[0][0])}（${sorted[0][1]}%） · 偏弱：${escapeHtml(sorted[4][0])}（${sorted[4][1]}%）</div>
+          <div style="margin-top:8px"><strong>建议方向：</strong>把资源集中到最少的关键目标；先稳后快。针对「${escapeHtml(focus || '综合')}」可做更细分策略。</div>
+          ${pInfo.timeUnknown ? `<div style="margin-top:8px;color:#ffcf7a"><strong>提示：</strong>出生时间不详，时柱为估算/留空，建议后续补时更准。</div>` : ``}
+        </div>
+      </div>
     `;
-    root.appendChild(div);
+  }
+
+  if (culture === '西方'){
+    rr.innerHTML = `
+      <div class="card" style="margin-top:12px">
+        <h3 style="margin:0 0 10px;color:var(--gold)">${escapeHtml(t('res_title'))} · Western</h3>
+        <div class="muted" style="line-height:1.7">
+          <div><strong>Sun:</strong> ${escapeHtml(data.sun)}</div>
+          <div><strong>Moon:</strong> ${escapeHtml(data.moon)}</div>
+          <div><strong>Rising:</strong> ${escapeHtml(data.rising)}</div>
+          <div style="margin-top:10px"><strong>Focus:</strong> ${escapeHtml(focus || 'overall')}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (culture === '日式'){
+    rr.innerHTML = `
+      <div class="card" style="margin-top:12px">
+        <h3 style="margin:0 0 10px;color:var(--gold)">${escapeHtml(t('res_title'))} · 九星</h3>
+        <div class="muted" style="line-height:1.7">
+          <div style="font-size:1.6rem;font-weight:900;color:var(--gold2)">${escapeHtml(data.number)}</div>
+          <div><strong>Element:</strong> ${escapeHtml(data.element)} · <strong>Direction:</strong> ${escapeHtml(data.direction)} · <strong>Luck:</strong> ${escapeHtml(data.luck)}</div>
+          <div style="margin-top:10px"><strong>Focus:</strong> ${escapeHtml(focus || '综合')}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (culture === '吠陀'){
+    rr.innerHTML = `
+      <div class="card" style="margin-top:12px">
+        <h3 style="margin:0 0 10px;color:var(--gold)">${escapeHtml(t('res_title'))} · Vedic</h3>
+        <div class="muted" style="line-height:1.7">
+          <div><strong>Rashi:</strong> ${escapeHtml(data.rashi)}</div>
+          <div><strong>Nakshatra:</strong> ${escapeHtml(data.nakshatra)}</div>
+          <div><strong>Element:</strong> ${escapeHtml(data.element)}</div>
+          <div style="margin-top:10px"><strong>Focus:</strong> ${escapeHtml(focus || 'overall')}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  result.style.display = 'block';
+}
+
+/* ==============================
+   Compatibility renderers (Dual person)
+============================== */
+function compatScoreLabel(score){
+  // 0..100
+  if (score >= 80) return { label:'Excellent', note:'互补强、合作空间大' };
+  if (score >= 65) return { label:'Good', note:'整体稳定，注意沟通节奏' };
+  if (score >= 50) return { label:'Medium', note:'可发展，但需要规则与边界' };
+  return { label:'Challenging', note:'建议先对齐期待与相处方式' };
+}
+
+function scoreFromElements5(a, b){
+  // simple similarity + complement: smaller distance is better
+  const keys = ['wood','fire','earth','metal','water'];
+  let dist = 0;
+  keys.forEach(k=>{
+    dist += Math.abs((a[k]||0) - (b[k]||0));
   });
+  // dist range roughly 0..200
+  let score = Math.max(0, 100 - Math.round(dist / 2));
+  return score;
 }
 
-/* ==============================
-   Renderers
-============================== */
-function renderBaziReport(result, info){
-  $('result').style.display='block';
-  ensureResultHost();
-
-  const { pillars, percents, timeUnknown } = result;
-  const timeText = timeUnknown ? t('time_unknown') : `${info.hour}时`;
-  setText('bazi-date', `出生日期: ${info.year}年${info.month}月${info.day}日 ${timeText}`);
-  renderPillars($('bazi-pillars'), pillars, timeUnknown);
-
-  setBar($('bar-木'), percents.wood); setText('pct-木', percents.wood + '%');
-  setBar($('bar-火'), percents.fire); setText('pct-火', percents.fire + '%');
-  setBar($('bar-土'), percents.earth); setText('pct-土', percents.earth + '%');
-  setBar($('bar-金'), percents.metal); setText('pct-金', percents.metal + '%');
-  setBar($('bar-水'), percents.water); setText('pct-水', percents.water + '%');
-
-  const elements = [
-    {name:'木',value:percents.wood},{name:'火',value:percents.fire},{name:'土',value:percents.earth},{name:'金',value:percents.metal},{name:'水',value:percents.water}
-  ].sort((a,b)=>b.value-a.value);
-  setText('bazi-elements-balance', `元素平衡：${elements[0].name}偏强 (${elements[0].value}%) · ${elements[4].name}偏弱 (${elements[4].value}%)`);
+function scoreFromWestern(a, b){
+  // super simplified: same sun -> +, same moon -> +, rising -> small
+  let score = 55;
+  if (a.sun === b.sun) score += 15;
+  if (a.moon === b.moon) score += 15;
+  if (a.rising === b.rising) score += 10;
+  return Math.min(95, score);
 }
 
-function renderWesternReport(result){
-  $('result').style.display='block';
-  ensureResultHost();
-  const host = $('butler-host');
+function scoreFromJP(a,b){
+  // same element + same direction is positive
+  let score = 55;
+  if (a.element === b.element) score += 20;
+  if (a.direction === b.direction) score += 10;
+  if (a.luck === '吉' && b.luck === '吉') score += 10;
+  return Math.min(95, score);
+}
 
-  host.innerHTML = `
-    <div class="card">
-      <h3 style="margin:0 0 10px;color:var(--gold)">西洋占星报告</h3>
-      <p><strong>太阳星座：</strong>${result.zodiac}</p>
-      <p><strong>上升星座：</strong>${result.rising}</p>
-      <p><strong>月亮星座：</strong>${result.moon}</p>
-      <div style="margin-top:12px;display:grid;grid-template-columns:repeat(4,1fr);gap:10px">
-        <div><div>火</div><div class="bar"><i style="width:${result.elements.fire}%"></i></div><div class="muted">${result.elements.fire}%</div></div>
-        <div><div>土</div><div class="bar"><i style="width:${result.elements.earth}%"></i></div><div class="muted">${result.elements.earth}%</div></div>
-        <div><div>风</div><div class="bar"><i style="width:${result.elements.air}%"></i></div><div class="muted">${result.elements.air}%</div></div>
-        <div><div>水</div><div class="bar"><i style="width:${result.elements.water}%"></i></div><div class="muted">${result.elements.water}%</div></div>
-      </div>
+function scoreFromVedic(a,b){
+  let score = 55;
+  if (a.element === b.element) score += 15;
+  if (a.rashi === b.rashi) score += 20;
+  // nakshatra match is rare; small bump
+  if (a.nakshatra === b.nakshatra) score += 10;
+  return Math.min(95, score);
+}
+
+function renderCompatibility(culture, aData, aInfo, bData, bInfo, focus){
+  const result = ensureResultSection();
+  const bh = $('butler-host');
+  const rr = $('rich-report');
+
+  const aName = aInfo.name || 'A';
+  const bName = bInfo.name || 'B';
+
+  // Two-person summary block
+  bh.innerHTML = `
+    <div class="card" style="margin-top:10px">
+      <div class="group-title" style="margin:0 0 8px">Compatibility · ${escapeHtml(aName)} × ${escapeHtml(bName)}</div>
+      <div class="muted">Focus: ${escapeHtml(focus || '综合')}</div>
+    </div>
+
+    <div class="columns" style="margin-top:12px">
+      ${pillHtml(aName, `${aInfo.year}-${String(aInfo.month).padStart(2,'0')}-${String(aInfo.day).padStart(2,'0')}`, aInfo.timeUnknown ? t('time_unknown') : `${String(aInfo.hour).padStart(2,'0')}:00`)}
+      ${pillHtml(bName, `${bInfo.year}-${String(bInfo.month).padStart(2,'0')}-${String(bInfo.day).padStart(2,'0')}`, bInfo.timeUnknown ? t('time_unknown') : `${String(bInfo.hour).padStart(2,'0')}:00`)}
     </div>
   `;
-}
 
-function renderJapaneseReport(result){
-  $('result').style.display='block';
-  ensureResultHost();
-  const host = $('butler-host');
+  // Culture-specific dual render
+  let score = 55;
+  let highlights = '';
 
-  host.innerHTML = `
-    <div class="card">
-      <h3 style="margin:0 0 10px;color:var(--gold)">日式九星报告</h3>
-      <div style="text-align:center;padding:14px 10px">
-        <div style="font-size:2.2rem;color:var(--gold2);font-weight:800">${result.number}</div>
-        <div class="chips" style="justify-content:center">
-          <span class="chip">${result.element}元素</span>
-          <span class="chip">${result.direction}方位</span>
-          <span class="chip">${result.luck}運</span>
+  if (culture === '东方'){
+    bh.innerHTML += `
+      <div class="columns" style="margin-top:12px">
+        <div>
+          <div class="group-title" style="margin:0 0 8px">${escapeHtml(aName)} · 八字</div>
+          ${renderPillars(aData.pillars, aData.timeUnknown)}
+          ${renderBars5(aData.percents)}
         </div>
-        <div class="sub" style="margin-top:10px">本命星影响您的性格特质和运势走向</div>
+        <div>
+          <div class="group-title" style="margin:0 0 8px">${escapeHtml(bName)} · 八字</div>
+          ${renderPillars(bData.pillars, bData.timeUnknown)}
+          ${renderBars5(bData.percents)}
+        </div>
       </div>
+    `;
+
+    score = scoreFromElements5(aData.percents, bData.percents);
+    const aDay = aData.pillars.day.stem + aData.pillars.day.branch;
+    const bDay = bData.pillars.day.stem + bData.pillars.day.branch;
+
+    highlights = `
+      <div class="muted" style="line-height:1.7">
+        <div><strong>双方日柱：</strong>${escapeHtml(aDay)} × ${escapeHtml(bDay)}</div>
+        <div style="margin-top:8px"><strong>五行匹配：</strong>元素差距越小越容易互懂；差距大则互补强但更需要沟通规则。</div>
+        <div style="margin-top:8px"><strong>建议：</strong>以「${escapeHtml(focus||'综合')}」为主轴，先对齐期待（频率/边界/金钱与承诺），再谈深度推进。</div>
+      </div>
+    `;
+  }
+
+  if (culture === '西方'){
+    bh.innerHTML += `
+      <div class="columns" style="margin-top:12px">
+        ${pillHtml(`${aName} · Western`, `Sun: ${aData.sun}`, `Moon: ${aData.moon} · Rising: ${aData.rising}`)}
+        ${pillHtml(`${bName} · Western`, `Sun: ${bData.sun}`, `Moon: ${bData.moon} · Rising: ${bData.rising}`)}
+      </div>
+    `;
+    score = scoreFromWestern(aData, bData);
+    highlights = `
+      <div class="muted" style="line-height:1.7">
+        <div><strong>节奏提示：</strong>太阳看目标与价值观，月亮看情绪需求，上升看相处方式。</div>
+        <div style="margin-top:8px"><strong>建议：</strong>把对方当作“不同系统”的人来理解，减少推测，多用确认式沟通。</div>
+      </div>
+    `;
+  }
+
+  if (culture === '日式'){
+    bh.innerHTML += `
+      <div class="columns" style="margin-top:12px">
+        ${pillHtml(`${aName} · 九星`, aData.number, `${aData.element} · ${aData.direction} · ${aData.luck}`)}
+        ${pillHtml(`${bName} · 九星`, bData.number, `${bData.element} · ${bData.direction} · ${bData.luck}`)}
+      </div>
+    `;
+    score = scoreFromJP(aData, bData);
+    highlights = `
+      <div class="muted" style="line-height:1.7">
+        <div><strong>相处重点：</strong>同元素更容易共鸣，不同元素更容易互补；关键在于“分工与规则”。</div>
+      </div>
+    `;
+  }
+
+  if (culture === '吠陀'){
+    bh.innerHTML += `
+      <div class="columns" style="margin-top:12px">
+        ${pillHtml(`${aName} · Vedic`, `Rashi: ${aData.rashi}`, `Nakshatra: ${aData.nakshatra} · ${aData.element}`)}
+        ${pillHtml(`${bName} · Vedic`, `Rashi: ${bData.rashi}`, `Nakshatra: ${bData.nakshatra} · ${bData.element}`)}
+      </div>
+    `;
+    score = scoreFromVedic(aData, bData);
+    highlights = `
+      <div class="muted" style="line-height:1.7">
+        <div><strong>相处重点：</strong>元素与Rashi更偏向气质与直觉互动，建议把“承诺/节奏/界线”说清楚。</div>
+      </div>
+    `;
+  }
+
+  const { label, note } = compatScoreLabel(score);
+
+  rr.innerHTML = `
+    <div class="card" style="margin-top:12px">
+      <h3 style="margin:0 0 10px;color:var(--gold)">${escapeHtml(t('res_title'))} · 合盘结论</h3>
+      <div class="list-block" style="padding:14px 16px;margin-top:10px">
+        <div class="group-title" style="margin:0 0 8px">Score</div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:2rem;font-weight:900;color:var(--gold2)">${score}</div>
+          <div class="muted" style="line-height:1.6">
+            <div><strong>${escapeHtml(label)}</strong></div>
+            <div>${escapeHtml(note)}</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top:12px">${highlights}</div>
     </div>
   `;
-}
 
-function renderVedicReport(result){
-  $('result').style.display='block';
-  ensureResultHost();
-  const host = $('butler-host');
-
-  host.innerHTML = `
-    <div class="card">
-      <h3 style="margin:0 0 10px;color:var(--gold)">印度吠陀报告</h3>
-      <p><strong>本命星座 (Rashi)：</strong>${result.rashi}</p>
-      <p><strong>月宿 (Nakshatra)：</strong>${result.nakshatra}</p>
-      <p><strong>主导元素：</strong>${result.element}</p>
-      <div style="margin-top:12px;padding:12px;background:rgba(212,175,55,.08);border-radius:10px;border:1px solid var(--line)">
-        <div class="muted">根据吠陀占星学，您的命盘显示出独特的能量特质。</div>
-      </div>
-    </div>
-  `;
+  result.style.display = 'block';
 }
 
 /* ==============================
-   Analysis generators (keep yours; here minimal safe wrappers)
-   (Uses your existing generateBaziReport() etc. If you already defined them below, keep them.)
+   Generate report (single + dual)
 ============================== */
-function generateBaziReport({ pillars, percents, focus = "" } = {}){
-  // If you already have your long version, you can paste it here instead.
-  const dayStem = pillars?.day?.stem || "甲";
-  const dayBranch = pillars?.day?.branch || "子";
-  return `
-    <div class="card">
-      <h3 style="margin:0 0 10px;color:var(--gold)">心怜管家 · 八字建议</h3>
-      <p><strong>日主：</strong>${dayStem}${dayBranch}</p>
-      <p class="muted">（此处为示例输出。你可以继续用你原本那套长文 generateBaziReport。）</p>
-      <p><strong>聚焦主题：</strong>${focus || '综合'}</p>
-    </div>
-  `;
-}
-function generateWesternReport(result, focus){
-  return `
-    <div class="card">
-      <h3 style="margin:0 0 10px;color:var(--gold)">心怜管家 · 占星建议</h3>
-      <p><strong>太阳：</strong>${result.zodiac} ｜ <strong>月亮：</strong>${result.moon}</p>
-      <p><strong>聚焦主题：</strong>${focus || '综合'}</p>
-    </div>
-  `;
-}
-function generateJapaneseReport(result, focus){
-  return `
-    <div class="card">
-      <h3 style="margin:0 0 10px;color:var(--gold)">心怜管家 · 九星建议</h3>
-      <p><strong>本命星：</strong>${result.number}（${result.element}）</p>
-      <p><strong>聚焦主题：</strong>${focus || '综合'}</p>
-    </div>
-  `;
-}
-function generateVedicReport(result, focus){
-  return `
-    <div class="card">
-      <h3 style="margin:0 0 10px;color:var(--gold)">心怜管家 · 吠陀建议</h3>
-      <p><strong>Rashi：</strong>${result.rashi} ｜ <strong>Nakshatra：</strong>${result.nakshatra}</p>
-      <p><strong>聚焦主题：</strong>${focus || '综合'}</p>
-    </div>
-  `;
-}
-
-function generateCompatibilityReport(culture, focus){
-  return `
-    <div class="card">
-      <h3 style="margin:0 0 10px;color:var(--gold)">合盘分析（${culture}）</h3>
-      <p class="muted">你现在的合盘逻辑还没接后端，所以这里先给一个占位输出。后续你把合盘 API 接上，我帮你把这里改成真实报告。</p>
-      <p><strong>聚焦主题：</strong>${focus || '综合'}</p>
-    </div>
-  `;
-}
-
-/* ==============================
-   Generate report (button)
-============================== */
-function parseDateInput(v){
-  if(!v) return null;
-  const [yy,mm,dd] = v.split('-').map(n=>parseInt(n,10));
-  if(!yy||!mm||!dd) return null;
-  return {yy,mm,dd};
-}
-function parseTimeHour(v){
-  if(!v) return null;
-  const [hh] = v.split(':').map(n=>parseInt(n,10));
-  return Number.isFinite(hh) ? hh : null;
-}
-
-function getFocus(){
-  const isCompat = ($('type')?.value === 'compatibility');
-  const sel = isCompat ? $('purpose_compatibility') : $('purpose_personal');
-  return sel?.value || '';
-}
-
-function clearResultArea(){
-  const result = $('result');
-  if (!result) return;
-  const bh = $('butler-host'); if (bh) bh.innerHTML = '';
-  const rr = $('rich-report'); if (rr) rr.innerHTML = '';
-  // Keep 东方的简报 block (xl-free-report) because we update it
-}
-
 function generateReport(){
   const type = $('type')?.value || 'personal';
   const cultureRaw = $('culture')?.value || 'auto';
   const culture = normalizeCulture(cultureRaw);
+  const focus = getFocus();
 
-  const d1 = parseDateInput($('birthdate1')?.value);
-  if(!d1) return showErr('请填写出生日期（本人）');
+  // person 1
   const name1 = ($('name1')?.value || '').trim();
   const country1 = ($('country1')?.value || '').trim();
-  if(!name1) return showErr('请填写姓名（本人）');
-  if(!country1) return showErr('请填写出生国家/地区（本人）');
+  const d1 = parseDateInput($('birthdate1')?.value);
 
-  const timeUnknown1 = !!$('timeUnknown')?.checked;
-  const hour1 = timeUnknown1 ? 12 : (parseTimeHour($('birthtime1')?.value) ?? 12);
+  if (!name1) return showErr(t('err_need_name1'));
+  if (!d1) return showErr(t('err_need_birthdate1'));
+  if (!country1) return showErr(t('err_need_country1'));
 
-  // If compatibility: validate second person (basic)
+  const timeUnknown1 = getTimeUnknown('timeUnknown');
+  const h1 = timeUnknown1 ? 12 : (parseTimeHour($('birthtime1')?.value) ?? 12);
+
+  const p1 = {
+    name: name1,
+    country: country1,
+    year: d1.yy, month: d1.mm, day: d1.dd,
+    hour: h1,
+    timeUnknown: timeUnknown1
+  };
+
+  // calculator
+  const calc = calculators[culture] || calculators['东方'];
+
+  // compatibility needs person 2
   if (type === 'compatibility'){
     const name2 = ($('name2')?.value || '').trim();
     const country2 = ($('country2')?.value || '').trim();
     const d2 = parseDateInput($('birthdate2')?.value);
 
-    if(!name2) return showErr('请填写第二人姓名（合盘）');
-    if(!d2) return showErr('请填写第二人出生日期（合盘）');
-    if(!country2) return showErr('请填写第二人出生国家/地区（合盘）');
+    if (!name2) return showErr(t('err_need_name2'));
+    if (!d2) return showErr(t('err_need_birthdate2'));
+    if (!country2) return showErr(t('err_need_country2'));
+
+    const timeUnknown2 = getTimeUnknown('timeUnknown2');
+    const h2 = timeUnknown2 ? 12 : (parseTimeHour($('birthtime2')?.value) ?? 12);
+
+    const p2 = {
+      name: name2,
+      country: country2,
+      year: d2.yy, month: d2.mm, day: d2.dd,
+      hour: h2,
+      timeUnknown: timeUnknown2
+    };
+
+    clearResultArea();
+    ensureResultSection();
+
+    // compute for both
+    const aData = (culture === '东方')
+      ? calc.calculate(p1.year, p1.month, p1.day, p1.hour, p1.timeUnknown)
+      : calc.calculate(p1.year, p1.month, p1.day, p1.hour, p1.timeUnknown);
+
+    const bData = (culture === '东方')
+      ? calc.calculate(p2.year, p2.month, p2.day, p2.hour, p2.timeUnknown)
+      : calc.calculate(p2.year, p2.month, p2.day, p2.hour, p2.timeUnknown);
+
+    renderCompatibility(culture, aData, p1, bData, p2, focus);
+
+    // scroll
+    $('result')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    return;
   }
 
-  const calc = calculators[culture] || calculators['东方'];
-  const focus = getFocus();
-
+  // personal flow
   clearResultArea();
-  $('result').style.display = 'block';
-  ensureResultHost();
+  ensureResultSection();
 
-  // Personal calculation
-  const info = { year:d1.yy, month:d1.mm, day:d1.dd, hour:hour1, timeUnknown:timeUnknown1 };
+  const data = (culture === '东方')
+    ? calc.calculate(p1.year, p1.month, p1.day, p1.hour, p1.timeUnknown)
+    : calc.calculate(p1.year, p1.month, p1.day, p1.hour, p1.timeUnknown);
 
-  if (type === 'personal'){
-    const data = calc.calculate(info.year, info.month, info.day, info.hour, info.timeUnknown);
-    // render + analysis
-    calc.render(data, info);
-    const analysisHTML = (culture === '东方')
-      ? calc.analysis({ pillars:data.pillars, percents:data.percents, focus })
-      : calc.analysis(data, focus);
-
-    $('rich-report').innerHTML = analysisHTML;
-  } else {
-    // For now: placeholder compatibility output (until you wire API)
-    // Still show a small “header” render from calc if you want; but we keep it clean.
-    $('butler-host').innerHTML = generateCompatibilityReport(culture, focus);
-  }
-
-  // scroll into view
-  $('result').scrollIntoView({ behavior:'smooth', block:'start' });
+  renderPersonal(culture, data, p1, focus);
+  $('result')?.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 /* ==============================
-   Time unknown checkbox UX
-============================== */
-function wireTimeUnknown(timeId, chkId){
-  const t = $(timeId);
-  const c = $(chkId);
-  if(!t || !c) return;
-  function sync(){
-    if (c.checked){
-      t.value = '';
-      t.setAttribute('disabled','disabled');
-      t.style.opacity = '0.6';
-    }else{
-      t.removeAttribute('disabled');
-      t.style.opacity = '1';
-    }
-  }
-  c.addEventListener('change', sync);
-  sync();
-}
-
-/* ==============================
-   VIP auth fields: hidden by default + toggle
+   VIP auth fields hidden by default + toggle
+   (Your preference: hide email/password by default)
 ============================== */
 function setupAuthReveal(){
   const authFields = $('authFields');
   if (!authFields) return;
 
-  // Hide by default (your preference)
   authFields.style.display = 'none';
 
-  // Inject toggle button into the empty row
-  const hostRow = document.querySelector('.astro-auth .panel .body .row.one');
-  if (hostRow){
-    hostRow.innerHTML = `
-      <button class="btn ghost block" id="toggleAuthFields" type="button">
-        ${t('btn_show_login_fields')}
-      </button>
-      <div class="muted" style="margin-top:6px">（登录栏默认隐藏，点击后才显示）</div>
+  // Put toggle button above login form (best effort)
+  const loginForm = $('loginForm');
+  const panelBody = loginForm?.closest('.body') || qs('.astro-auth .panel .body');
+  if (panelBody && !$('toggleAuthFields')){
+    const div = document.createElement('div');
+    div.className = 'row one';
+    div.innerHTML = `
+      <button class="btn ghost block" id="toggleAuthFields" type="button">${escapeHtml(t('btn_show_login_fields'))}</button>
     `;
+    panelBody.insertBefore(div, loginForm || panelBody.firstChild);
   }
 
   function updateBtn(){
@@ -1521,8 +2445,7 @@ function setupAuthReveal(){
 
   updateBtn();
 
-  // Prevent default submits (until your real API wiring is in place)
-  const loginForm = $('loginForm');
+  // Prevent actual submit until you wire real backend
   const registerForm = $('registerForm');
   const resetBtn = $('resetBtn');
   const errBox = $('authError');
@@ -1533,70 +2456,74 @@ function setupAuthReveal(){
     errBox.textContent = msg || '';
   }
 
-  if (loginForm){
-    loginForm.addEventListener('submit', (ev)=>{
-      ev.preventDefault();
-      setAuthError('登录功能尚未连接后端（你接上 Airtable/Worker API 后，我帮你补全）。');
-    });
-  }
-  if (registerForm){
-    registerForm.addEventListener('submit', (ev)=>{
-      ev.preventDefault();
-      setAuthError('注册功能尚未连接后端（你接上 Airtable/Worker API 后，我帮你补全）。');
-    });
-  }
-  if (resetBtn){
-    resetBtn.addEventListener('click', ()=>{
-      setAuthError('重设密码功能尚未连接后端（你接上 Airtable/Worker API 后，我帮你补全）。');
-    });
-  }
+  loginForm?.addEventListener('submit', (ev)=>{
+    ev.preventDefault();
+    setAuthError('登录功能尚未连接后端（接上 Airtable/Worker API 后我帮你补全）。');
+  });
+
+  registerForm?.addEventListener('submit', (ev)=>{
+    ev.preventDefault();
+    setAuthError('注册功能尚未连接后端（接上 Airtable/Worker API 后我帮你补全）。');
+  });
+
+  resetBtn?.addEventListener('click', ()=>{
+    setAuthError('重设密码功能尚未连接后端（接上 Airtable/Worker API 后我帮你补全）。');
+  });
 }
 
 /* ==============================
-   Floating chat
+   Floating Chat (single implementation only)
 ============================== */
 let chatHistory = [];
 
 function appendChat(role, text){
-  const body = $("chatBody");
+  const body = $('chatBody');
   if (!body) return;
-  const msg = document.createElement("div");
-  msg.className = "ss-msg" + (role === "user" ? " me" : "");
-  msg.textContent = text;
+  const msg = document.createElement('div');
+  msg.className = 'ss-msg' + (role === 'user' ? ' me' : '');
+  msg.textContent = String(text ?? '');
   body.appendChild(msg);
   body.scrollTop = body.scrollHeight;
 }
 
-function toggleChat(open){
-  const panel = $("chatPanel");
+function openChat(open){
+  const panel = $('chatPanel');
   if (!panel) return;
-  panel.setAttribute("aria-hidden", open ? "false" : "true");
+  panel.setAttribute('aria-hidden', open ? 'false' : 'true');
+  if (open){
+    const body = $('chatBody');
+    if (body && !body.dataset.inited){
+      body.dataset.inited = '1';
+      appendChat('assistant', t('chat_welcome'));
+    }
+  }
 }
 
 async function sendChat(){
-  const input = $("chatInput");
-  const text = (input?.value || "").trim();
+  const input = $('chatInput');
+  const text = (input?.value || '').trim();
   if (!text) return;
 
-  appendChat("user", text);
-  input.value = "";
+  appendChat('user', text);
+  input.value = '';
 
-  chatHistory.push({ role:"user", content:text });
+  chatHistory.push({ role:'user', content:text });
   chatHistory = chatHistory.slice(-12);
 
   try{
     const res = await fetch(API_BASE + CHAT_ENDPOINT, {
-      method:"POST",
-      headers:{ "Content-Type":"application/json" },
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
       body: JSON.stringify({ lang: getLang(), messages: chatHistory })
     });
-    if (!res.ok) throw new Error("chat api error");
+
+    if (!res.ok) throw new Error('chat api error');
     const data = await res.json();
-    const reply = data?.reply || data?.text || data?.message || "（系统繁忙，请稍后再试）";
-    chatHistory.push({ role:"assistant", content: reply });
-    appendChat("assistant", reply);
-  }catch(err){
-    appendChat("assistant", "（网络或系统错误，请稍后再试）");
+    const reply = (data?.reply || data?.text || data?.message || '（系统繁忙，请稍后再试）').trim();
+    chatHistory.push({ role:'assistant', content: reply });
+    appendChat('assistant', reply);
+  }catch(_e){
+    appendChat('assistant', '（网络或系统错误，请稍后再试）');
   }
 }
 
@@ -1604,8 +2531,8 @@ async function sendChat(){
    Header scroll effect
 ============================== */
 function setupHeaderScroll(){
-  const header = document.querySelector('.site-header');
-  if(!header) return;
+  const header = qs('.site-header');
+  if (!header) return;
   const onScroll = ()=>{
     if (window.scrollY > 10) header.classList.add('scrolled');
     else header.classList.remove('scrolled');
@@ -1618,43 +2545,61 @@ function setupHeaderScroll(){
    Boot
 ============================== */
 document.addEventListener('DOMContentLoaded', ()=>{
-  // lang
+  // language init
   const langSelect = $('langSelect');
-  const lang = getLang();
+  const saved = getLang();
+
   if (langSelect){
-    langSelect.value = langSelect.querySelector(`option[value="${lang}"]`) ? lang : DEFAULT_LANG;
+    const ok = !!langSelect.querySelector(`option[value="${CSS.escape(saved)}"]`);
+    langSelect.value = ok ? saved : DEFAULT_LANG;
     setLang(langSelect.value);
+    applyI18n();
+
     langSelect.addEventListener('change', ()=>{
       setLang(langSelect.value);
       applyI18n();
-      // update dynamic button text for auth reveal
+      // also refresh auth toggle button text
       const btn = $('toggleAuthFields');
-      if (btn) btn.textContent = ( ($('authFields')?.style.display !== 'none') ? t('btn_hide_login_fields') : t('btn_show_login_fields') );
+      if (btn){
+        const authFields = $('authFields');
+        const shown = authFields && authFields.style.display !== 'none';
+        btn.textContent = shown ? t('btn_hide_login_fields') : t('btn_show_login_fields');
+      }
     });
+  } else {
+    setLang(saved);
+    applyI18n();
   }
-  applyI18n();
+
+  // ensure result area exists (so render never crashes)
+  ensureResultSection();
+  clearResultArea();
 
   // type/culture changes
   $('type')?.addEventListener('change', (e)=>togglePartner(e.target.value));
   $('culture')?.addEventListener('change', (e)=>updatePurposeOptions(e.target.value));
 
-  // initial
+  // initial toggle
   togglePartner($('type')?.value || 'personal');
   updatePurposeOptions($('culture')?.value || 'auto');
 
-  // generate
-  $('btnNext')?.addEventListener('click', generateReport);
-
-  // time unknown wiring
-  wireTimeUnknown('birthtime1','timeUnknown');
-  wireTimeUnknown('birthtime2','timeUnknown2');
+  // generate button
+  const btn = $('btnNext') || qs('button[data-i18n="btn_next"]');
+  if (btn){
+    btn.addEventListener('click', (ev)=>{
+      ev.preventDefault();
+      generateReport();
+    });
+    // also ensure it doesn't submit a form
+    btn.type = 'button';
+  }
 
   // auth hide/reveal
   setupAuthReveal();
 
-  // chat
-  $('ssChatFab')?.addEventListener('click', ()=>toggleChat(true));
-  $('chatClose')?.addEventListener('click', ()=>toggleChat(false));
+  // chat wiring
+  $('ssChatFab')?.addEventListener('click', ()=>openChat(true));
+  $('chatClose')?.addEventListener('click', ()=>openChat(false));
   $('chatSend')?.addEventListener('click', sendChat);
   $('chatInput')?.addEventListener('keydown', (e)=>{
     if (e.key === 'Enter') sendChat();
@@ -1663,98 +2608,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // header scroll
   setupHeaderScroll();
 });
-
-      /* ========== XINLIAN BUTLER FLOAT CHAT (Worker) ========== */
-  const chatFab = $id("ssChatFab");
-  const chatPanel = $id("chatPanel");
-  const chatClose = $id("chatClose");
-  const chatBody = $id("chatBody");
-  const chatInput = $id("chatInput");
-  const chatSend = $id("chatSend");
-
-  let butlerHistory = [];
-
-  function resetButlerSystemPrompt() {
-    butlerHistory = [
-      { role: "system", content: `You are Xinlian Butler. Reply in ${CUR}. Keep it helpful and concise.` }
-    ];
-  }
-
-  function toggleChat(open) {
-    if (!chatPanel) return;
-    const isOpen = chatPanel.getAttribute("aria-hidden") === "false";
-    const next = (typeof open === "boolean") ? open : !isOpen;
-    chatPanel.setAttribute("aria-hidden", next ? "false" : "true");
-
-    // first open -> greet once
-    if (next && chatBody && !chatBody.dataset.inited) {
-      chatBody.dataset.inited = "1";
-      appendButler(t("chat_welcome", "Hello!"), false);
-    }
-  }
-
-  function appendButler(text, me = false) {
-    if (!chatBody) return;
-    const div = document.createElement("div");
-    div.className = "ss-msg" + (me ? " me" : "");
-    div.textContent = String(text ?? "");
-    chatBody.appendChild(div);
-    chatBody.scrollTop = chatBody.scrollHeight;
-  }
-
-  async function butlerCallWorker(messages) {
-    const url = API_BASE + CHAT_ENDPOINT;
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ messages, meta: { module: "butler", lang: CUR } })
-    });
-
-    if (!res.ok) {
-      const txt = await res.text().catch(() => res.statusText);
-      throw new Error(txt || res.statusText);
-    }
-    const data = await res.json();
-    return (data.reply || data.text || (data.choices?.[0]?.message?.content) || "").trim();
-  }
-
-  function initButlerChat() {
-    if (!chatPanel || !chatBody || !chatInput || !chatSend) return;
-
-    resetButlerSystemPrompt();
-
-    chatFab?.addEventListener("click", () => toggleChat());
-    chatClose?.addEventListener("click", () => toggleChat(false));
-
-    chatSend.addEventListener("click", async () => {
-      const text = (chatInput.value || "").trim();
-      if (!text) return;
-
-      appendButler(text, true);
-      chatInput.value = "";
-
-      // Optionally include latest tarot context (only derived from current draw)
-      const tarotCtx = window.__TAROT_AI_SESSION ? buildTarotContext(window.__TAROT_AI_SESSION) : "";
-      const userMsg = tarotCtx ? `${tarotCtx}\n\nUser: ${text}` : text;
-
-      butlerHistory.push({ role: "user", content: userMsg });
-      appendButler("…", false);
-      const last = chatBody.lastElementChild;
-
-      try {
-        const reply = await butlerCallWorker(butlerHistory);
-        if (last) last.textContent = reply;
-        butlerHistory.push({ role: "assistant", content: reply });
-      } catch (err) {
-        if (last) last.textContent = `Error: ${String(err.message || err)}`;
-      }
-    });
-
-    chatInput.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") chatSend.click();
-    });
-  }
-})();
 </script>
 </body>
 </html>
