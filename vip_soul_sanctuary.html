@@ -1106,6 +1106,96 @@ const baziCalculator = {
   }
 };
 
+// ✅ Ensure it's global + matches how you call it: (result, focus)
+window.generateBaziReport = function generateBaziReport(result, focus) {
+  const { pillars = {}, percents = {} } = result || {};
+  const focusText = String(focus || '综合命理分析');
+
+  // guard: if core data missing, don't crash
+  if (!pillars.day || !pillars.day.stem || !pillars.day.branch) {
+    return `<p class="muted">数据不足，无法生成八字报告（缺少日柱信息）。</p>`;
+  }
+
+  const dayStem = pillars.day.stem;
+  const dayBranch = pillars.day.branch;
+
+  // 五行排序
+  const elements = [
+    { name: '木', value: Number(percents.wood || 0) },
+    { name: '火', value: Number(percents.fire || 0) },
+    { name: '土', value: Number(percents.earth || 0) },
+    { name: '金', value: Number(percents.metal || 0) },
+    { name: '水', value: Number(percents.water || 0) }
+  ].sort((a, b) => b.value - a.value);
+
+  const strongest = elements[0] || { name: '木', value: 0 };
+  const weakest = elements[elements.length - 1] || { name: '水', value: 0 };
+
+  const dayMasterAnalysis = {
+    '甲': '如参天大树，正直仁德，领导力强，在团队中常扮演支柱角色。',
+    '乙': '如藤蔓花草，柔韧适应，善于合作，人际关系和谐顺畅。',
+    '丙': '如太阳之火，热情开朗，感染力强，天生具有吸引力。',
+    '丁': '如灯烛之火，细腻聪慧，观察入微，心思缜密有谋略。',
+    '戊': '如城墙之土，稳重诚信，责任心强，值得信赖的伙伴。',
+    '己': '如田园之土，包容滋养，善于协调，具有调解才能。',
+    '庚': '如刀剑之金，刚毅果断，原则性强，执行力卓越。',
+    '辛': '如珠宝之金，精致敏锐，追求完美，注重细节品质。',
+    '壬': '如江河之水，智慧流动，适应力强，思维灵活多变。',
+    '癸': '如雨露之水，细腻敏感，直觉力强，情感丰富深刻。'
+  };
+
+  const dayMasterDesc = dayMasterAnalysis[dayStem] || '具有独特的命理特质和潜能。';
+
+  // ✅ focus routing uses focusText (string), not undefined focus
+  let focusAnalysis = '';
+  if (focusText.includes('恋爱') || focusText.includes('姻缘') || focusText.includes('爱情')) {
+    focusAnalysis = (typeof generateLoveAnalysis === 'function')
+      ? generateLoveAnalysis(dayStem, strongest, dayBranch)
+      : `<h4>姻缘爱情</h4><p>（love 分析函数未加载）</p>`;
+  } else if (focusText.includes('事业') || focusText.includes('职场') || focusText.includes('创业') || focusText.includes('职业')) {
+    focusAnalysis = (typeof generateCareerAnalysis === 'function')
+      ? generateCareerAnalysis(dayStem, strongest, pillars.month?.branch)
+      : `<h4>事业方向</h4><p>（career 分析函数未加载）</p>`;
+  } else if (focusText.includes('财运') || focusText.includes('财富') || focusText.includes('理财')) {
+    focusAnalysis = (typeof generateWealthAnalysis === 'function')
+      ? generateWealthAnalysis(dayStem, strongest, pillars.year?.stem)
+      : `<h4>财富格局</h4><p>（wealth 分析函数未加载）</p>`;
+  } else if (focusText.includes('风水') || focusText.includes('住家') || focusText.includes('办公室')) {
+    focusAnalysis = (typeof generateFengShuiAnalysis === 'function')
+      ? generateFengShuiAnalysis(dayStem, pillars)
+      : `<h4>风水布局</h4><p>（fengshui 分析函数未加载）</p>`;
+  } else {
+    focusAnalysis = (typeof generateGeneralAnalysis === 'function')
+      ? generateGeneralAnalysis(dayStem, strongest, weakest)
+      : `<h4>综合建议</h4><p>发挥${strongest.name}优势，补强${weakest.name}不足。</p>`;
+  }
+
+  // recent fortune + quote (guarded)
+  const recent = (typeof getRecentFortune === 'function') ? getRecentFortune(dayStem, pillars.month?.branch) : '近期运势平稳，适合规划未来发展方向。';
+  const quote  = (typeof getInspirationalQuote === 'function') ? getInspirationalQuote(dayStem) : '命运掌握在自己手中，每一天都是新的开始。';
+  const balanceAdvice = (typeof getElementBalanceAdvice === 'function')
+    ? getElementBalanceAdvice(strongest.name, weakest.name)
+    : '五行需要平衡调和，扬长避短发挥优势。';
+
+  return `
+    <h4>命理核心分析</h4>
+    <p><strong>日主特质：</strong>您的日柱为 <span style="color: var(--gold2); font-weight: 600">${dayStem}${dayBranch}</span>，代表您自身的核心能量。${dayMasterDesc}</p>
+
+    <p><strong>五行平衡：</strong>命盘中，<span style="color: #7bc47f">${strongest.name}元素（${strongest.value}%）</span>最为旺盛，
+    <span style="color: #ff8b8b">${weakest.name}元素（${weakest.value}%）</span>相对较弱。${balanceAdvice}</p>
+
+    ${focusAnalysis}
+
+    <h4>近期运势提醒</h4>
+    <p>${recent}</p>
+
+    <div style="margin-top: 20px; padding: 15px; background: rgba(212, 175, 55, 0.08); border-radius: 10px; border-left: 3px solid var(--gold);">
+      <strong style="color: var(--gold2);">心灵寄语：</strong>
+      <p style="margin-top: 5px; font-style: italic;">"${quote}"</p>
+    </div>
+  `;
+};
+  
 // ============================================
 // 其他文化计算器（简化版）
 // ============================================
