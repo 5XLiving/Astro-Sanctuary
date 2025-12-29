@@ -798,26 +798,29 @@ const LANG_KEY = '5x_lang';
   /* ==============================
      HELPERS (do NOT touch auth)
   ============================== */
-  const $ = (id) => document.getElementById(id);
-  const safe = (v) => (v == null ? '' : String(v));
-  const pad2 = (n) => String(n).padStart(2, '0');
+  const $ = window.$ || ((id) => document.getElementById(id));
+  const pad2 = window.pad2 || ((n) => String(n ?? '').padStart(2, '0'));
+  const safe = window.safe || ((s) => String(s ?? ''));
+  const escapeHTML = window.escapeHTML || ((s) => String(s ?? '')
+    .replaceAll('&','&amp;')
+    .replaceAll('<','&lt;')
+    .replaceAll('>','&gt;')
+    .replaceAll('"','&quot;')
+    .replaceAll("'","&#39;")
+  );
 
-  function escapeHTML(s){
-    return String(s ?? '')
-      .replaceAll('&','&amp;')
-      .replaceAll('<','&lt;')
-      .replaceAll('>','&gt;')
-      .replaceAll('"','&quot;')
-      .replaceAll("'","&#39;");
-  }
+  // simple i18n fallback (uses your existing t/applyI18n if present)
+  const t = window.t || ((k) => {
+    try{
+      const lang = (window.getLang ? window.getLang() : (document.documentElement.lang || 'zh-CN'));
+      const dict = (window.i18n && window.i18n[lang]) || (window.i18n && window.i18n['zh-CN']) || {};
+      return dict[k] || k;
+    }catch(_){ return k; }
+  });
 
-  function getLang(){
-    return localStorage.getItem(LANG_KEY) || document.documentElement.lang || DEFAULT_LANG;
-  }
-  function setLang(v){
-    localStorage.setItem(LANG_KEY, v);
-    document.documentElement.lang = v;
-  }
+  const applyI18n = window.applyI18n || (() => {
+    // do nothing if your full i18n already exists elsewhere
+  });
 
 /* ==============================
    i18n (use YOUR dictionary)
@@ -1890,9 +1893,14 @@ function t(key){
   }
 
   /* ==============================
-     Calculator (your simplified baziCalculator kept)
+     ✅ NEW: Accurate BaZi Engine (replaces the simplified one)
+     - Year: LiChun boundary (approx Feb 4)
+     - Month: solar-term boundaries (approx fixed dates)
+     - Day: JDN + JiaZi reference
+     - Hour: optional true-solar-time correction (SG default)
   ============================== */
-  const baziCalculator = window.baziCalculator || {
+  const baziCalculator = window.baziCalculator || {};
+  Object.assign(baziCalculator, {
     heavenlyStems: ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'],
     earthlyBranches: ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'],
 
@@ -1905,50 +1913,219 @@ function t(key){
       return m[branch] || '木';
     },
 
-    calculateYearPillar(year){
-      const stemIndex = (year - 4) % 10;
-      const branchIndex = (year - 4) % 12;
-      const stem = this.heavenlyStems[(stemIndex + 10) % 10];
-      const branch = this.earthlyBranches[(branchIndex + 12) % 12];
-      return { stem, branch, element: this.getStemElement(stem) };
+    // Gregorian -> JDN (noon) integer
+    jdnNoon(y, m, d){
+      const a = Math.floor((14 - m) / 12);
+      const y2 = y + 4800 - a;
+      const m2 = m + 12 * a - 3;
+      return d
+        + Math.floor((153 * m2 + 2) / 5)
+        + 365 * y2
+        + Math.floor(y2 / 4)
+        - Math.floor(y2 / 100)
+        + Math.floor(y2 / 400)
+        - 32045;
     },
 
-    calculateMonthPillar(year, month){
-      const monthMap = {
-        1:{stem:'丙',branch:'寅'},2:{stem:'丁',branch:'卯'},3:{stem:'戊',branch:'辰'},4:{stem:'己',branch:'巳'},
-        5:{stem:'庚',branch:'午'},6:{stem:'辛',branch:'未'},7:{stem:'壬',branch:'申'},8:{stem:'癸',branch:'酉'},
-        9:{stem:'甲',branch:'戌'},10:{stem:'乙',branch:'亥'},11:{stem:'丙',branch:'子'},12:{stem:'丁',branch:'丑'}
+    // 参考：JDN noon = 2458511 视为甲子日（index 0）
+    sexagenaryIndexFromJDN(JDN){
+      let idx = (JDN - 2458511) % 60;
+      if (idx < 0) idx += 60;
+      return idx;
+    },
+
+    pillarFromIndex60(idx){
+      const stemIndex = idx % 10;
+      const branchIndex = idx % 12;
+      return {
+        stemIndex,
+        branchIndex,
+        stem: this.heavenlyStems[stemIndex],
+        branch: this.earthlyBranches[branchIndex],
+        element: this.getStemElement(this.heavenlyStems[stemIndex])
       };
-      const p = monthMap[month] || monthMap[1];
-      return { stem:p.stem, branch:p.branch, element:this.getStemElement(p.stem) };
     },
 
-    calculateDayPillar(year, month, day){
-      const date = new Date(year, month - 1, day);
-      const start = new Date(1900, 0, 1);
-      const dayNum = Math.floor((date - start) / 86400000);
-      const stem = this.heavenlyStems[(dayNum % 10 + 10) % 10];
-      const branch = this.earthlyBranches[(dayNum % 12 + 12) % 12];
-      return { stem, branch, element:this.getStemElement(stem) };
+    // LiChun boundary approx: Feb 4
+    isBeforeLiChun(y, m, d){
+      if (m < 2) return true;
+      if (m > 2) return false;
+      return d < 4;
     },
 
-    calculateHourPillar(dayStem, hour){
-      const hourIndex = Math.floor((hour + 1) / 2) % 12;
-      const startStems = { '甲':'甲','乙':'丙','丙':'戊','丁':'庚','戊':'壬','己':'甲','庚':'丙','辛':'戊','壬':'庚','癸':'壬' };
-      const stem = startStems[dayStem] || '甲';
-      const branch = this.earthlyBranches[(hourIndex + 12) % 12];
-      return { stem, branch, element:this.getStemElement(stem) };
+    calculateYearPillarSolar(y, m, d){
+      const solarYear = this.isBeforeLiChun(y, m, d) ? (y - 1) : y;
+      const stemIndex = (solarYear - 4) % 10;
+      const branchIndex = (solarYear - 4) % 12;
+      const s = this.heavenlyStems[(stemIndex + 10) % 10];
+      const b = this.earthlyBranches[(branchIndex + 12) % 12];
+      return {
+        stemIndex: (stemIndex + 10) % 10,
+        branchIndex: (branchIndex + 12) % 12,
+        stem: s,
+        branch: b,
+        element: this.getStemElement(s),
+        solarYear
+      };
     },
 
-    calculateBazi(year, month, day, hour, timeUnknown){
-      const dayP = this.calculateDayPillar(year, month, day);
+    // solar month number (1..12) by approximate "节" boundaries
+    solarMonthNo(y, m, d){
+      const key = y * 10000 + m * 100 + d;
+      const b = [
+        { mm: 1, dd: 6,  no: 12 }, // Jan 6 -> 丑月
+        { mm: 2, dd: 4,  no: 1  }, // Feb 4 -> 寅月
+        { mm: 3, dd: 6,  no: 2  },
+        { mm: 4, dd: 5,  no: 3  },
+        { mm: 5, dd: 6,  no: 4  },
+        { mm: 6, dd: 6,  no: 5  },
+        { mm: 7, dd: 7,  no: 6  },
+        { mm: 8, dd: 8,  no: 7  },
+        { mm: 9, dd: 8,  no: 8  },
+        { mm:10, dd: 8,  no: 9  },
+        { mm:11, dd: 7,  no: 10 },
+        { mm:12, dd: 7,  no: 11 },
+      ];
+      let found = null;
+      for (const it of b){
+        const k = y * 10000 + it.mm * 100 + it.dd;
+        if (key >= k) found = it.no;
+      }
+      return found ?? 11; // before Jan6 => 子月
+    },
+
+    tigerMonthStemIndexFromYearStem(yearStemIndex){
+      // 甲己丙寅, 乙庚戊寅, 丙辛庚寅, 丁壬壬寅, 戊癸甲寅
+      if (yearStemIndex === 0 || yearStemIndex === 5) return 2; // 丙
+      if (yearStemIndex === 1 || yearStemIndex === 6) return 4; // 戊
+      if (yearStemIndex === 2 || yearStemIndex === 7) return 6; // 庚
+      if (yearStemIndex === 3 || yearStemIndex === 8) return 8; // 壬
+      return 0; // 甲
+    },
+
+    calculateMonthPillarSolar(y, m, d, yearP){
+      const mNo = this.solarMonthNo(y, m, d); // 1..12
+      const branchIndex = (mNo + 1) % 12; // 1->寅(2)
+      const tigerStem = this.tigerMonthStemIndexFromYearStem(yearP.stemIndex);
+      const stemIndex = (tigerStem + (mNo - 1)) % 10;
+
+      const s = this.heavenlyStems[stemIndex];
+      const b = this.earthlyBranches[branchIndex];
+      return {
+        stemIndex,
+        branchIndex,
+        stem: s,
+        branch: b,
+        element: this.getStemElement(s),
+        monthNo: mNo
+      };
+    },
+
+    calculateDayPillarJDN(y, m, d){
+      const JDN = this.jdnNoon(y, m, d);
+      const idx60 = this.sexagenaryIndexFromJDN(JDN);
+      const p = this.pillarFromIndex60(idx60);
+      p.JDN = JDN;
+      p.idx60 = idx60;
+      return p;
+    },
+
+    // True solar time correction
+    applyTrueSolarTime(y, m, d, hh, mm, opts){
+      const tzHours = Number(opts?.tzHours ?? 8);
+      const longitude = Number(opts?.longitude ?? 103.8198);
+      const stdMeridian = tzHours * 15;
+      const corrMin = (longitude - stdMeridian) * 4;
+
+      let total = hh * 60 + mm + corrMin;
+      let dayDelta = 0;
+      while (total < 0){ total += 1440; dayDelta -= 1; }
+      while (total >= 1440){ total -= 1440; dayDelta += 1; }
+
+      const newH = Math.floor(total / 60);
+      const newM = Math.round(total % 60);
+
+      const dt = new Date(y, m - 1, d, 12, 0, 0, 0);
+      dt.setDate(dt.getDate() + dayDelta);
+
+      return {
+        y: dt.getFullYear(),
+        m: dt.getMonth() + 1,
+        d: dt.getDate(),
+        hh: newH,
+        mm: newM,
+        corrMin
+      };
+    },
+
+    calculateHourPillar(dayStemIndex, hh, mm){
+      // 子=23:00-00:59; 丑=01:00-02:59...
+      const hourBranchIndex = (Math.floor((hh + 1) / 2)) % 12;
+      const hourStemIndex = (dayStemIndex * 2 + hourBranchIndex) % 10;
+      const s = this.heavenlyStems[hourStemIndex];
+      const b = this.earthlyBranches[hourBranchIndex];
+      return {
+        stemIndex: hourStemIndex,
+        branchIndex: hourBranchIndex,
+        stem: s,
+        branch: b,
+        element: this.getStemElement(s)
+      };
+    },
+
+    // country-based solar correction defaults (you can expand later)
+    resolveGeo(country){
+      const c = String(country || '').toLowerCase();
+      // default: no correction
+      const base = { useTrueSolarTime:false, tzHours:8, longitude:103.8198 };
+
+      // Singapore
+      if (c.includes('singapore') || c === 'sg' || c.includes('新加坡')) {
+        return { useTrueSolarTime:true, tzHours:8, longitude:103.8198 };
+      }
+      // Malaysia (Kuala Lumpur ~101.7)
+      if (c.includes('malaysia') || c.includes('马来') || c === 'my') {
+        return { useTrueSolarTime:true, tzHours:8, longitude:101.6869 };
+      }
+      // China (Beijing ~116.4) timezone+8
+      if (c.includes('china') || c.includes('中国') || c === 'cn') {
+        return { useTrueSolarTime:true, tzHours:8, longitude:116.4074 };
+      }
+      // Japan (Tokyo ~139.7) timezone+9
+      if (c.includes('japan') || c.includes('日本') || c === 'jp') {
+        return { useTrueSolarTime:true, tzHours:9, longitude:139.6917 };
+      }
+      return base;
+    },
+
+    // MAIN: accurate bazi (drop-in result format)
+    calculateBaziAccurate(year, month, day, hour, minute, timeUnknown, country){
+      const geo = this.resolveGeo(country);
+      let Y=year, M=month, D=day, H=hour, Min=minute;
+
+      let usedTST = false;
+      let corrMin = 0;
+
+      if (!timeUnknown && geo.useTrueSolarTime){
+        const adj = this.applyTrueSolarTime(year, month, day, hour, minute, geo);
+        Y = adj.y; M = adj.m; D = adj.d; H = adj.hh; Min = adj.mm;
+        corrMin = adj.corrMin;
+        usedTST = true;
+      }
+
+      const yearP = this.calculateYearPillarSolar(Y, M, D);
+      const monthP = this.calculateMonthPillarSolar(Y, M, D, yearP);
+      const dayP = this.calculateDayPillarJDN(Y, M, D);
+      const hourP = (timeUnknown ? { stem:'?', branch:'?', element:'未知' } : this.calculateHourPillar(dayP.stemIndex, H, Min));
+
       const pillars = {
-        year: this.calculateYearPillar(year),
-        month: this.calculateMonthPillar(year, month),
-        day: dayP,
-        hour: timeUnknown ? { stem:'?', branch:'?', element:'未知' } : this.calculateHourPillar(dayP.stem, hour)
+        year: { stem: yearP.stem, branch: yearP.branch, element: yearP.element },
+        month:{ stem: monthP.stem, branch: monthP.branch, element: monthP.element },
+        day:  { stem: dayP.stem, branch: dayP.branch, element: dayP.element },
+        hour: hourP
       };
 
+      // element scoring (same logic you had)
       const elements = { '木':0,'火':0,'土':0,'金':0,'水':0 };
       Object.values(pillars).forEach(p => {
         if (p.element && p.element !== '未知') elements[p.element] += 3;
@@ -1963,9 +2140,26 @@ function t(key){
         metal: Math.round((elements['金']/total)*100),
         water: Math.round((elements['水']/total)*100)
       };
-      return { pillars, percents, timeUnknown };
+
+      const note = (usedTST && corrMin)
+        ? `（真太阳时修正 ${corrMin>0?'+':''}${Math.round(corrMin)} 分钟）`
+        : '';
+
+      return {
+        pillars,
+        percents,
+        timeUnknown,
+        adjusted: { year:Y, month:M, day:D, hour:H, minute:Min, usedTrueSolarTime:usedTST, corrMin },
+        note
+      };
+    },
+
+    // keep the old API name for compatibility
+    calculateBazi(year, month, day, hour, timeUnknown){
+      // old signature fallback: minute=0, country empty
+      return this.calculateBaziAccurate(year, month, day, hour, 0, timeUnknown, '');
     }
-  };
+  });
 
   function generateBaziReportFallback(result, focus){
     const p = result?.pillars;
@@ -2054,11 +2248,11 @@ function t(key){
     injectMiniStylesOnce();
     ensureBaziFreeReportBlock();
 
-    const { pillars, percents, timeUnknown } = result;
-    const { year, month, day, hour } = info;
+    const { pillars, percents, timeUnknown, note } = result;
+    const { year, month, day, hour, minute } = info;
 
-    const timeText = timeUnknown ? t('time_unknown') : `${pad2(hour)}:00`;
-    setText('bazi-date', `${year}-${pad2(month)}-${pad2(day)}  ${timeText}`);
+    const timeText = timeUnknown ? t('time_unknown') : `${pad2(hour)}:${pad2(minute)}`;
+    setText('bazi-date', `${year}-${pad2(month)}-${pad2(day)}  ${timeText}${note ? ' ' + note : ''}`);
     renderPillars($('bazi-pillars'), pillars, timeUnknown);
 
     setBar($('bar-木'), percents.wood); setText('pct-木', Math.round(percents.wood) + '%');
@@ -2099,7 +2293,9 @@ function t(key){
   ============================== */
   const calculators = {
     '东方': {
-      calculate: ({year,month,day,hour,timeUnknown}) => baziCalculator.calculateBazi(year,month,day,hour,timeUnknown),
+      // ✅ changed to accurate calculator
+      calculate: ({year,month,day,hour,minute,timeUnknown,country}) =>
+        baziCalculator.calculateBaziAccurate(year,month,day,hour,minute,timeUnknown,country),
       render: (data, info) => renderBaziReport(data, info),
       analysis: (data, focus) => (window.generateBaziReport ? window.generateBaziReport(data, focus) : generateBaziReportFallback(data, focus))
     },
@@ -2180,7 +2376,7 @@ function t(key){
     const country = ($(`country${prefix}`)?.value || '').trim();
     const timeUnknown = !birthtime;
 
-    let year=0, month=0, day=0, hour=0;
+    let year=0, month=0, day=0, hour=0, minute=0;
     if (birthdate) {
       const parts = birthdate.split('-').map(Number);
       year = parts[0] || 0;
@@ -2190,8 +2386,9 @@ function t(key){
     if (birthtime) {
       const tp = birthtime.split(':').map(Number);
       hour = tp[0] || 0;
+      minute = tp[1] || 0;
     }
-    return { name, birthdate, birthtime, country, timeUnknown, year, month, day, hour };
+    return { name, birthdate, birthtime, country, timeUnknown, year, month, day, hour, minute };
   }
 
   function getFocus() {
@@ -2229,7 +2426,9 @@ function t(key){
     const calc = resolveCalc();
 
     const payload = {
-      year: me.year, month: me.month, day: me.day, hour: me.hour, timeUnknown: me.timeUnknown,
+      year: me.year, month: me.month, day: me.day,
+      hour: me.hour, minute: me.minute,
+      timeUnknown: me.timeUnknown,
       name: me.name, country: me.country,
       type,
       focus,
@@ -2253,7 +2452,7 @@ function t(key){
     if (!btn || !fields) return;
 
     const shown = fields.style.display !== 'none';
-    const isEN = getLang().startsWith('en');
+    const isEN = (window.getLang ? window.getLang() : (document.documentElement.lang || 'zh-CN')).startsWith('en');
     btn.textContent = shown
       ? (isEN ? 'Hide login fields' : '隐藏登录输入框')
       : (isEN ? 'Show login fields' : '显示登录输入框');
@@ -2292,6 +2491,8 @@ function t(key){
   /* ==============================
      Chat (UI wiring only)
   ============================== */
+  const API_BASE = window.API_BASE || 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+  const CHAT_ENDPOINT = window.CHAT_ENDPOINT || '/api/chat';
   let chatHistory = [];
 
   function appendChat(role, text) {
@@ -2321,7 +2522,7 @@ function t(key){
 
     const me = readBirthInputs('1');
     const context = {
-      lang: getLang(),
+      lang: (window.getLang ? window.getLang() : (document.documentElement.lang || 'zh-CN')),
       culture: getCultureResolved(),
       type: normalizeType($('type')?.value || 'personal'),
       focus: getFocus(),
@@ -2343,7 +2544,7 @@ function t(key){
       const resp = await fetch(API_BASE + CHAT_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: chatHistory, lang: getLang(), context })
+        body: JSON.stringify({ messages: chatHistory, lang: context.lang, context })
       });
 
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -2389,10 +2590,16 @@ function t(key){
 
     // language selector
     const sel = $('langSelect');
-    if (sel) {
-      sel.value = getLang();
+    if (sel && window.getLang && window.setLang) {
+      sel.value = window.getLang();
       sel.addEventListener('change', () => {
-        setLang(sel.value);
+        window.setLang(sel.value);
+        applyI18n();
+      });
+    } else if (sel) {
+      // fallback
+      sel.addEventListener('change', () => {
+        document.documentElement.lang = sel.value;
         applyI18n();
       });
     }
