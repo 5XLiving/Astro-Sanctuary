@@ -783,7 +783,7 @@ footer{
   </div>
 </div>
 
-<script>
+  <script>
 /* ==============================
    CONFIG (keep exactly)
 ============================== */
@@ -792,27 +792,32 @@ const CHAT_ENDPOINT = '/api/chat';
 const DEFAULT_LANG = 'zh-CN';
 const LANG_KEY = '5x_lang';
 
-/* ==============================
-   HELPERS (do NOT touch auth)
-============================== */
-const $ = (id) => document.getElementById(id);
+(() => {
+  'use strict';  
 
-function escapeHTML(s){
-  return String(s ?? '')
-    .replaceAll('&','&amp;')
-    .replaceAll('<','&lt;')
-    .replaceAll('>','&gt;')
-    .replaceAll('"','&quot;')
-    .replaceAll("'","&#39;");
-}
+  /* ==============================
+     HELPERS (do NOT touch auth)
+  ============================== */
+  const $ = (id) => document.getElementById(id);
+  const safe = (v) => (v == null ? '' : String(v));
+  const pad2 = (n) => String(n).padStart(2, '0');
 
-function getLang(){
-  return localStorage.getItem(LANG_KEY) || document.documentElement.lang || DEFAULT_LANG;
-}
-function setLang(v){
-  localStorage.setItem(LANG_KEY, v);
-  document.documentElement.lang = v;
-}
+  function escapeHTML(s){
+    return String(s ?? '')
+      .replaceAll('&','&amp;')
+      .replaceAll('<','&lt;')
+      .replaceAll('>','&gt;')
+      .replaceAll('"','&quot;')
+      .replaceAll("'","&#39;");
+  }
+
+  function getLang(){
+    return localStorage.getItem(LANG_KEY) || document.documentElement.lang || DEFAULT_LANG;
+  }
+  function setLang(v){
+    localStorage.setItem(LANG_KEY, v);
+    document.documentElement.lang = v;
+  }
 
 /* ==============================
    i18n (use YOUR dictionary)
@@ -1603,37 +1608,66 @@ const i18n = window.i18n || {
   err_fill_name2:"Sila masukkan nama pasangan",
   err_fill_date2:"Sila masukkan tarikh lahir pasangan",
   err_fill_country2:"Sila masukkan negara/region kelahiran pasangan"
-};
+  };
 
-/* ==============================
-   Helpers (optional)
-============================== */
-const getLang = () => localStorage.getItem(LANG_KEY) || document.documentElement.lang || DEFAULT_LANG;
-const setLang = (v) => { localStorage.setItem(LANG_KEY, v); document.documentElement.lang = v; };
+  function t(key){
+    const lang = getLang();
+    return (i18n?.[lang]?.[key] ?? i18n?.[DEFAULT_LANG]?.[key] ?? key);
+  }
 
-const t = (key, lang = getLang()) => {
-  const pack = i18n[lang] || i18n[DEFAULT_LANG] || {};
-  return (pack[key] != null ? pack[key] : (i18n[DEFAULT_LANG]?.[key] ?? key));
-};
+  function applyI18n(){
+    const lang = getLang();
+    document.documentElement.lang = lang;
 
-// If you want to guarantee TTS never reads emojis/symbols:
-const sanitizeForTTS = (s="") => String(s)
-  .replace(/[\u2600-\u27BF]/g, "")   // misc symbols
-  .replace(/[\uD83C-\uDBFF\uDC00-\uDFFF]/g, "") // emojis (surrogate pairs)
-  .replace(/[•●→①②③④⑤⑥⑦⑧⑨⑩]/g, "")
-  .replace(/\s+/g, " ")
-  .trim();
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const key = el.getAttribute('data-i18n');
+      const val = t(key);
+      if (val != null) el.textContent = val;
+    });
 
-  const $ = (id) => document.getElementById(id);
-  const pad2 = (n) => String(n).padStart(2, '0');
-  const safe = (v) => (v == null ? '' : String(v));
+    document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+      const key = el.getAttribute('data-i18n-ph');
+      const val = t(key);
+      if (val != null) el.setAttribute('placeholder', val);
+    });
 
+    const titleEl = document.querySelector('title[data-i18n]');
+    if (titleEl){
+      const key = titleEl.getAttribute('data-i18n');
+      document.title = t(key);
+    }
+
+    refreshAuthRevealBtnText();
+  }
+
+  /* ==============================
+     REQUIRED: auto-fill current date & time
+     - DOES NOT touch auth fields
+  ============================== */
+  function setDefaultBirthDateTimeNow(){
+    const now = new Date(); // browser local time
+    const yyyy = now.getFullYear();
+    const mm   = pad2(now.getMonth()+1);
+    const dd   = pad2(now.getDate());
+    const hh   = pad2(now.getHours());
+    const mi   = pad2(now.getMinutes());
+
+    const d1 = $('birthdate1');
+    const t1 = $('birthtime1');
+
+    // only fill if empty (so it won't overwrite user's input)
+    if (d1 && !String(d1.value || '').trim()) d1.value = `${yyyy}-${mm}-${dd}`;
+    if (t1 && !String(t1.value || '').trim()) t1.value = `${hh}:${mi}`;
+  }
+
+  /* ==============================
+     Mini styles (generated report blocks)
+  ============================== */
   function injectMiniStylesOnce() {
     if (document.getElementById('vip-mini-styles')) return;
     const style = document.createElement('style');
     style.id = 'vip-mini-styles';
     style.textContent = `
-      /* mini styles for generated report blocks */
       #xl-free-report .h2{font-weight:800;color:#ffe084;font-size:1.05rem;margin:0 0 8px}
       #xl-free-report .sub{color:#98a7b7;font-size:.9rem}
       #xl-free-report .pillars{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:10px}
@@ -1650,6 +1684,9 @@ const sanitizeForTTS = (s="") => String(s)
     document.head.appendChild(style);
   }
 
+  /* ==============================
+     Error box
+  ============================== */
   function ensureErrorBox() {
     let box = $('error');
     if (!box) {
@@ -1674,55 +1711,7 @@ const sanitizeForTTS = (s="") => String(s)
   }
   function hideErr() {
     const e = $('error');
-    if (e) {
-      e.style.display = 'none';
-      e.textContent = '';
-    }
-  }
-
-  function setText(id, txt) {
-    const el = $(id);
-    if (el) el.textContent = safe(txt);
-  }
-  function setBar(el, pct) {
-    if (!el) return;
-    const v = Math.max(0, Math.min(100, Number(pct) || 0));
-    el.style.width = v + '%';
-    el.setAttribute('aria-valuenow', String(Math.round(v)));
-  }
-
-  /* ==============================
-     i18n (single source of truth)
-  ============================== */
-  const translations = window.translations || window.TRANSLATIONS || {
-    /* keep your existing translations here if you want;
-       if window.translations already exists, it will use that. */
-  };
-
-  function getLang() {
-    return localStorage.getItem(LANG_KEY) || document.documentElement.lang || DEFAULT_LANG;
-  }
-  function setLang(code) {
-    localStorage.setItem(LANG_KEY, code);
-    document.documentElement.lang = code;
-  }
-  function t(key) {
-    const lang = getLang();
-    return (translations[lang] && translations[lang][key])
-      || (translations['zh-CN'] && translations['zh-CN'][key])
-      || key;
-  }
-  function applyI18n() {
-    document.querySelectorAll('[data-i18n]').forEach(el => {
-      const key = el.getAttribute('data-i18n');
-      el.textContent = t(key);
-    });
-    document.querySelectorAll('[data-i18n-ph]').forEach(el => {
-      const key = el.getAttribute('data-i18n-ph');
-      el.setAttribute('placeholder', t(key));
-    });
-    const titleEl = document.querySelector('title[data-i18n]');
-    if (titleEl) titleEl.textContent = t(titleEl.getAttribute('data-i18n'));
+    if (e) { e.style.display = 'none'; e.textContent = ''; }
   }
 
   /* ==============================
@@ -1738,7 +1727,7 @@ const sanitizeForTTS = (s="") => String(s)
     root.className = 'card section';
     root.style.display = 'none';
     root.innerHTML = `
-      <h2 data-i18n="res_title">心怜管家解读与建议</h2>
+      <h2 data-i18n="res_title">${escapeHTML(t('res_title'))}</h2>
       <div id="butler-host"></div>
       <div id="rich-report" style="margin-top:12px"></div>
     `;
@@ -1753,7 +1742,6 @@ const sanitizeForTTS = (s="") => String(s)
   function clearResultArea() {
     const root = ensureResultSection();
     root.style.display = 'none';
-
     const butler = $('butler-host');
     const rich = $('rich-report');
     if (butler) butler.innerHTML = '';
@@ -1763,7 +1751,29 @@ const sanitizeForTTS = (s="") => String(s)
   function showResultArea() {
     const root = ensureResultSection();
     root.style.display = 'block';
-    applyI18n(); // in case new nodes added with data-i18n
+    applyI18n();
+  }
+
+  /* ==============================
+     Culture + Type normalize
+  ============================== */
+  function normalizeCulture(raw){
+    const v = String(raw || '').trim();
+    if (!v || v === 'auto') return '东方';
+    if (v === 'cn' || v === 'east' || v === 'bazi') return '东方';
+    if (v === 'west' || v === 'western') return '西方';
+    if (v === 'jp' || v === 'japan' || v === 'nine') return '日式';
+    if (v === 'vedic' || v === 'jyotish') return '吠陀';
+    if (['东方','西方','日式','吠陀'].includes(v)) return v;
+    return '东方';
+  }
+  function getCultureResolved() {
+    return normalizeCulture($('culture')?.value || '东方');
+  }
+  function normalizeType(raw){
+    const v = String(raw || '').trim();
+    if (v === 'compatibility' || v === 'compat' || v === 'hepan') return 'compatibility';
+    return 'personal';
   }
 
   /* ==============================
@@ -1771,30 +1781,25 @@ const sanitizeForTTS = (s="") => String(s)
   ============================== */
   const culturePurposeMap = {
     '东方': {
-      personal: ['恋爱缘分', '婚姻走势', '职场发展', '创业潜力', '财位分析', '理财时机', '婚期择日', '新生宝宝择日', '新家入住择日', '新公司入住择日', '宝宝名', '宠物名', '公司名', '命名改运', '住家', '办公室'],
-      compatibility: ['情侣合盘（缘分起落 / 暧昧进展）', '夫妻流年（婚姻发展）', '个性合盘（冲突 / 互补）', '事业合盘（合伙人 / 员工）', '断联修复（朋友 / 情人 / 家人）', '宠物合盘（主人与宠物）']
+      personal: ['恋爱缘分','婚姻走势','职场发展','创业潜力','财位分析','理财时机','婚期择日','新生宝宝择日','新家入住择日','新公司入住择日','宝宝名','宠物名','公司名','命名改运','住家','办公室'],
+      compatibility: ['情侣合盘（缘分起落 / 暧昧进展）','夫妻流年（婚姻发展）','个性合盘（冲突 / 互补）','事业合盘（合伙人 / 员工）','断联修复（朋友 / 情人 / 家人）','宠物合盘（主人与宠物）']
     },
     '西方': {
-      personal: ['爱情运势', '职业发展', '财富增长', '心灵成长', '塔罗占卜', '星盘解读', '人际关系', '健康运势'],
-      compatibility: ['关系合盘', '灵魂伴侣', '合作运势', '家庭关系', '友谊分析']
+      personal: ['爱情运势','职业发展','财富增长','心灵成长','塔罗占卜','星盘解读','人际关系','健康运势'],
+      compatibility: ['关系合盘','灵魂伴侣','合作运势','家庭关系','友谊分析']
     },
     '日式': {
-      personal: ['九星运势', '方位吉凶', '姓名鉴定', '恋爱占卜', '职业指南', '健康建议', '家相诊断'],
-      compatibility: ['缘分匹配', '相性诊断', '合作缘分', '家庭和谐']
+      personal: ['九星运势','方位吉凶','姓名鉴定','恋爱占卜','职业指南','健康建议','家相诊断'],
+      compatibility: ['缘分匹配','相性诊断','合作缘分','家庭和谐']
     },
     '吠陀': {
-      personal: ['本命盘', '事业方向', '婚姻运势', '健康建议', '择吉日', '宝石推荐', '仪式建议'],
-      compatibility: ['夫妻合盘', '合作匹配', '家庭合盘', '商业伙伴']
+      personal: ['本命盘','事业方向','婚姻运势','健康建议','择吉日','宝石推荐','仪式建议'],
+      compatibility: ['夫妻合盘','合作匹配','家庭合盘','商业伙伴']
     }
   };
 
-  function getCultureResolved() {
-    const raw = $('culture')?.value || '东方';
-    if (raw === 'auto') return '东方'; // safe default
-    return raw;
-  }
-
-  function togglePartner(typeValue) {
+  function togglePartner(typeValueRaw) {
+    const typeValue = normalizeType(typeValueRaw);
     const section = $('partner-section');
     const personal = $('purpose_personal');
     const compat = $('purpose_compatibility');
@@ -1814,7 +1819,7 @@ const sanitizeForTTS = (s="") => String(s)
   }
 
   function updatePurposeOptions(cultureResolved) {
-    const type = $('type')?.value || 'personal';
+    const type = normalizeType($('type')?.value || 'personal');
     const config = culturePurposeMap[cultureResolved] || culturePurposeMap['东方'];
 
     if (type === 'personal') updatePersonalPurposeOptions(config.personal);
@@ -1851,9 +1856,11 @@ const sanitizeForTTS = (s="") => String(s)
       select.appendChild(og);
     });
 
-    if (currentValue && select.querySelector(`option[value="${CSS.escape(currentValue)}"]`)) {
-      select.value = currentValue;
-    }
+    try{
+      if (currentValue && select.querySelector(`option[value="${CSS.escape(currentValue)}"]`)) {
+        select.value = currentValue;
+      }
+    }catch(_){}
   }
 
   function updateCompatibilityPurposeOptions(options) {
@@ -1872,14 +1879,15 @@ const sanitizeForTTS = (s="") => String(s)
     });
     select.appendChild(og);
 
-    if (currentValue && select.querySelector(`option[value="${CSS.escape(currentValue)}"]`)) {
-      select.value = currentValue;
-    }
+    try{
+      if (currentValue && select.querySelector(`option[value="${CSS.escape(currentValue)}"]`)) {
+        select.value = currentValue;
+      }
+    }catch(_){}
   }
 
   /* ==============================
-     Calculators (keep yours, but stable)
-     NOTE: your existing baziCalculator is simplified; left as-is style.
+     Calculator (your simplified baziCalculator kept)
   ============================== */
   const baziCalculator = window.baziCalculator || {
     heavenlyStems: ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'],
@@ -1902,7 +1910,6 @@ const sanitizeForTTS = (s="") => String(s)
       return { stem, branch, element: this.getStemElement(stem) };
     },
 
-    // simplified placeholder
     calculateMonthPillar(year, month){
       const monthMap = {
         1:{stem:'丙',branch:'寅'},2:{stem:'丁',branch:'卯'},3:{stem:'戊',branch:'辰'},4:{stem:'己',branch:'巳'},
@@ -1913,7 +1920,6 @@ const sanitizeForTTS = (s="") => String(s)
       return { stem:p.stem, branch:p.branch, element:this.getStemElement(p.stem) };
     },
 
-    // simplified placeholder
     calculateDayPillar(year, month, day){
       const date = new Date(year, month - 1, day);
       const start = new Date(1900, 0, 1);
@@ -1958,7 +1964,6 @@ const sanitizeForTTS = (s="") => String(s)
     }
   };
 
-  /* Rich analysis generator (use yours if exists, else fallback) */
   function generateBaziReportFallback(result, focus){
     const p = result?.pillars;
     const pc = result?.percents || {};
@@ -1973,10 +1978,10 @@ const sanitizeForTTS = (s="") => String(s)
     const strong = list[0], weak = list[list.length-1];
     return `
       <h4>命理核心分析</h4>
-      <p><strong>日柱：</strong><span style="color:#f2d27a;font-weight:800">${p.day.stem}${p.day.branch}</span></p>
-      <p><strong>五行倾向：</strong>偏强：${strong.name}（${strong.v}%）｜偏弱：${weak.name}（${weak.v}%）</p>
-      <h4>聚焦：${safe(focus || '综合')}</h4>
-      <p>建议：发挥${strong.name}的优势，同时用日常习惯与环境布置补足${weak.name}。</p>
+      <p><strong>日柱：</strong><span style="color:#f2d27a;font-weight:800">${escapeHTML(p.day.stem + p.day.branch)}</span></p>
+      <p><strong>五行倾向：</strong>偏强：${escapeHTML(strong.name)}（${escapeHTML(strong.v)}%）｜偏弱：${escapeHTML(weak.name)}（${escapeHTML(weak.v)}%）</p>
+      <h4>聚焦：${escapeHTML(focus || '综合')}</h4>
+      <p>建议：发挥${escapeHTML(strong.name)}的优势，同时用日常习惯与环境布置补足${escapeHTML(weak.name)}。</p>
     `;
   }
 
@@ -1984,10 +1989,9 @@ const sanitizeForTTS = (s="") => String(s)
      Renderers
   ============================== */
   function ensureBaziFreeReportBlock() {
-    const root = ensureResultSection();
+    ensureResultSection();
     const butler = $('butler-host');
     if (!butler) return;
-
     if ($('xl-free-report')) return;
 
     const free = document.createElement('div');
@@ -2012,6 +2016,17 @@ const sanitizeForTTS = (s="") => String(s)
     butler.appendChild(free);
   }
 
+  function setText(id, txt) {
+    const el = $(id);
+    if (el) el.textContent = safe(txt);
+  }
+  function setBar(el, pct) {
+    if (!el) return;
+    const v = Math.max(0, Math.min(100, Number(pct) || 0));
+    el.style.width = v + '%';
+    el.setAttribute('aria-valuenow', String(Math.round(v)));
+  }
+
   function renderPillars(root, p, timeUnknown=false){
     if(!root) return;
     root.innerHTML = '';
@@ -2024,9 +2039,9 @@ const sanitizeForTTS = (s="") => String(s)
       const div = document.createElement('div');
       div.className = 'pillar';
       div.innerHTML = `
-        <div class="tit">${tit}</div>
-        <div class="gz">${stem}${branch}</div>
-        ${v.element && v.element !== '未知' ? `<div style="color:#98a7b7;font-size:.75rem;margin-top:4px">${v.element}</div>` : ``}
+        <div class="tit">${escapeHTML(tit)}</div>
+        <div class="gz">${escapeHTML(stem + branch)}</div>
+        ${v.element && v.element !== '未知' ? `<div style="color:#98a7b7;font-size:.75rem;margin-top:4px">${escapeHTML(v.element)}</div>` : ``}
       `;
       root.appendChild(div);
     });
@@ -2068,8 +2083,10 @@ const sanitizeForTTS = (s="") => String(s)
     card.className = 'card';
     card.style.marginTop = '8px';
     card.innerHTML = `
-      <div style="font-weight:800;color:#ffe084">${title}</div>
-      <div style="margin-top:8px;line-height:1.8;color:#e8edf3">${lines.map(x=>`<div>${x}</div>`).join('')}</div>
+      <div style="font-weight:800;color:#ffe084">${escapeHTML(title)}</div>
+      <div style="margin-top:8px;line-height:1.8;color:#e8edf3">
+        ${lines.map(x=>`<div>${escapeHTML(x)}</div>`).join('')}
+      </div>
     `;
     butler.appendChild(card);
   }
@@ -2101,7 +2118,7 @@ const sanitizeForTTS = (s="") => String(s)
       ]),
       analysis: (data, focus) => (window.generateWesternReport
         ? window.generateWesternReport(data, focus)
-        : `<h4>聚焦：${safe(focus||'综合')}</h4><p>（西洋占星深度解读函数未加载，当前为简化展示。）</p>`)
+        : `<h4>聚焦：${escapeHTML(focus||'综合')}</h4><p>（西洋占星深度解读函数未加载，当前为简化展示。）</p>`)
     },
 
     '日式': {
@@ -2123,7 +2140,7 @@ const sanitizeForTTS = (s="") => String(s)
       ]),
       analysis: (data, focus) => (window.generateJapaneseReport
         ? window.generateJapaneseReport(data, focus)
-        : `<h4>聚焦：${safe(focus||'综合')}</h4><p>（九星深度解读函数未加载，当前为简化展示。）</p>`)
+        : `<h4>聚焦：${escapeHTML(focus||'综合')}</h4><p>（九星深度解读函数未加载，当前为简化展示。）</p>`)
     },
 
     '吠陀': {
@@ -2141,7 +2158,7 @@ const sanitizeForTTS = (s="") => String(s)
       ]),
       analysis: (data, focus) => (window.generateVedicReport
         ? window.generateVedicReport(data, focus)
-        : `<h4>聚焦：${safe(focus||'综合')}</h4><p>（吠陀深度解读函数未加载，当前为简化展示。）</p>`)
+        : `<h4>聚焦：${escapeHTML(focus||'综合')}</h4><p>（吠陀深度解读函数未加载，当前为简化展示。）</p>`)
     }
   };
 
@@ -2151,7 +2168,7 @@ const sanitizeForTTS = (s="") => String(s)
   }
 
   /* ==============================
-     Generate (btnNext)
+     Generate
   ============================== */
   function readBirthInputs(prefix='1') {
     const name = ($(`name${prefix}`)?.value || '').trim();
@@ -2175,12 +2192,13 @@ const sanitizeForTTS = (s="") => String(s)
   }
 
   function getFocus() {
-    const type = $('type')?.value || 'personal';
+    const type = normalizeType($('type')?.value || 'personal');
     if (type === 'compatibility') return $('purpose_compatibility')?.value || '';
     return $('purpose_personal')?.value || '';
   }
 
-  function validate(type) {
+  function validate(typeRaw) {
+    const type = normalizeType(typeRaw);
     const me = readBirthInputs('1');
     if (!me.name) return t('err_fill_name1');
     if (!me.birthdate) return t('err_fill_date1');
@@ -2199,7 +2217,7 @@ const sanitizeForTTS = (s="") => String(s)
     hideErr();
     clearResultArea();
 
-    const type = $('type')?.value || 'personal';
+    const type = normalizeType($('type')?.value || 'personal');
     const err = validate(type);
     if (err) return showErr(err);
 
@@ -2207,7 +2225,6 @@ const sanitizeForTTS = (s="") => String(s)
     const focus = getFocus();
     const calc = resolveCalc();
 
-    // build input package
     const payload = {
       year: me.year, month: me.month, day: me.day, hour: me.hour, timeUnknown: me.timeUnknown,
       name: me.name, country: me.country,
@@ -2216,55 +2233,61 @@ const sanitizeForTTS = (s="") => String(s)
       culture: getCultureResolved()
     };
 
-    // calculate + render
     const result = calc.calculate(payload);
     showResultArea();
-
-    // render summary card(s)
     calc.render(result, payload);
 
-    // rich analysis
     const richHost = $('rich-report');
-    if (richHost) {
-      richHost.innerHTML = calc.analysis(result, focus);
-    }
+    if (richHost) richHost.innerHTML = calc.analysis(result, focus);
   }
 
   /* ==============================
      VIP Auth: hide fields by default (no echo/log)
   ============================== */
+  function refreshAuthRevealBtnText(){
+    const btn = $('authRevealBtn');
+    const fields = $('authFields');
+    if (!btn || !fields) return;
+
+    const shown = fields.style.display !== 'none';
+    const isEN = getLang().startsWith('en');
+    btn.textContent = shown
+      ? (isEN ? 'Hide login fields' : '隐藏登录输入框')
+      : (isEN ? 'Show login fields' : '显示登录输入框');
+  }
+
   function setupAuthReveal() {
     const fields = $('authFields');
     if (!fields) return;
 
-    // hide by default
     fields.style.display = 'none';
 
-    // insert a toggle button above it (no HTML change needed)
-    const panelBody = fields.closest('.body');
+    const panelBody = fields.closest('.body') || fields.parentElement;
     if (!panelBody) return;
 
-    if ($('authRevealBtn')) return;
+    if ($('authRevealBtn')) {
+      refreshAuthRevealBtnText();
+      return;
+    }
 
     const btn = document.createElement('button');
     btn.id = 'authRevealBtn';
     btn.type = 'button';
     btn.className = 'btn ghost block';
     btn.style.marginBottom = '8px';
-    btn.textContent = (getLang().startsWith('en') ? 'Show login fields' : '显示登录输入框');
+
     btn.addEventListener('click', () => {
       const shown = fields.style.display !== 'none';
       fields.style.display = shown ? 'none' : 'flex';
-      btn.textContent = shown
-        ? (getLang().startsWith('en') ? 'Show login fields' : '显示登录输入框')
-        : (getLang().startsWith('en') ? 'Hide login fields' : '隐藏登录输入框');
+      refreshAuthRevealBtnText();
     });
 
     panelBody.insertBefore(btn, fields);
+    refreshAuthRevealBtnText();
   }
 
   /* ==============================
-     Chat (UI wiring only; API payload kept generic)
+     Chat (UI wiring only)
   ============================== */
   let chatHistory = [];
 
@@ -2297,7 +2320,7 @@ const sanitizeForTTS = (s="") => String(s)
     const context = {
       lang: getLang(),
       culture: getCultureResolved(),
-      type: $('type')?.value || 'personal',
+      type: normalizeType($('type')?.value || 'personal'),
       focus: getFocus(),
       name: me.name,
       birthdate: me.birthdate,
@@ -2317,11 +2340,7 @@ const sanitizeForTTS = (s="") => String(s)
       const resp = await fetch(API_BASE + CHAT_ENDPOINT, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: chatHistory,
-          lang: getLang(),
-          context
-        })
+        body: JSON.stringify({ messages: chatHistory, lang: getLang(), context })
       });
 
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
@@ -2336,7 +2355,6 @@ const sanitizeForTTS = (s="") => String(s)
 
       chatHistory.push({ role: 'assistant', content: answer });
       appendChat('assistant', answer);
-
     } catch (e) {
       appendChat('assistant', '（网络或服务错误，请稍后再试。）');
     }
@@ -2363,6 +2381,9 @@ const sanitizeForTTS = (s="") => String(s)
     injectMiniStylesOnce();
     ensureResultSection();
 
+    // auto-fill current date/time (only if empty)
+    setDefaultBirthDateTimeNow();
+
     // language selector
     const sel = $('langSelect');
     if (sel) {
@@ -2370,13 +2391,13 @@ const sanitizeForTTS = (s="") => String(s)
       sel.addEventListener('change', () => {
         setLang(sel.value);
         applyI18n();
-        setupAuthReveal(); // refresh button text
       });
     }
 
-    // hook controls
+    // generate button
     $('btnNext')?.addEventListener('click', onGenerate);
 
+    // type/culture changes
     $('type')?.addEventListener('change', (e) => togglePartner(e.target.value));
     $('culture')?.addEventListener('change', () => updatePurposeOptions(getCultureResolved()));
 
