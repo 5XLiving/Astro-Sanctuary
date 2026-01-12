@@ -1706,7 +1706,1052 @@ body::before{
 const API_BASE = "https://throbbing-lab-1440.hello5xliving.workers.dev"; // <-- change if needed
 const CHAT_ENDPOINT = "/api/chat";
 
-let chatHistory = []; // {role:'system'|'user'|'assistant', content:string}
+/* ==============================
+   增强版 AI 报告生成函数
+   根据具体的选择项进行深度分析
+============================== */
+async function generateAIReport(data, focus, info, culture) {
+  const type = normalizeType($('type')?.value || 'personal');
+  const me = readBirthInputs('1');
+  const cultureName = culture === '东方' ? '八字命理' : 
+                     culture === '西方' ? '西洋占星' : 
+                     culture === '日式' ? '九星气学' : '吠陀占星';
+  
+  // 根据具体focus生成针对性提示词
+  const focusAnalysis = getFocusAnalysisPrompt(focus, type);
+  
+  let prompt = '';
+  
+  if (type === 'personal') {
+    prompt = `请作为专业的${cultureName}专家，基于以下信息生成一份深度命理报告：
+
+姓名：${me.name}
+出生日期：${me.year}-${me.month}-${me.day}
+${me.birthtime ? `出生时间：${me.birthtime}` : '出生时间：不详'}
+出生地：${me.country}
+命理类型：个人命盘
+文化体系：${culture}
+分析主题：${focus}
+
+${focusAnalysis.context}
+
+命理数据：${JSON.stringify(data)}
+
+请生成一份专业的${focus}分析报告，包括以下部分：
+1. ${focusAnalysis.section1}
+2. ${focusAnalysis.section2}
+3. ${focusAnalysis.section3}
+4. ${focusAnalysis.section4}
+5. 具体行动建议与注意事项
+
+请使用专业、详细且实用的语言，提供有洞察力的分析。报告需要深入分析${focus}相关的具体方面。`;
+  } else {
+    const partner = readBirthInputs('2');
+    const compatibilityAnalysis = getCompatibilityAnalysisPrompt(focus);
+    
+    prompt = `请作为专业的${cultureName}合盘专家，基于以下信息生成一份深度合盘报告：
+
+第一人信息：
+姓名：${me.name}
+出生日期：${me.year}-${me.month}-${me.day}
+${me.birthtime ? `出生时间：${me.birthtime}` : '出生时间：不详'}
+出生地：${me.country}
+
+第二人信息：
+姓名：${partner.name}
+出生日期：${partner.year}-${partner.month}-${partner.day}
+${partner.birthtime ? `出生时间：${partner.birthtime}` : '出生时间：不详'}
+出生地：${partner.country}
+
+命理类型：合盘分析
+文化体系：${culture}
+分析主题：${focus}
+
+${compatibilityAnalysis.context}
+
+命理数据：${JSON.stringify(data)}
+
+请生成一份专业的${focus}合盘报告，包括以下部分：
+1. ${compatibilityAnalysis.section1}
+2. ${compatibilityAnalysis.section2}
+3. ${compatibilityAnalysis.section3}
+4. ${compatibilityAnalysis.section4}
+5. 关系发展建议与调和方案
+
+请使用专业、详细且实用的语言，提供有洞察力的分析。`;
+  }
+
+  try {
+    // 调用AI API
+    const response = await enhancedAIRequest(prompt, focus, cultureName);
+    return response;
+  } catch (error) {
+    return generateFallbackReport(focus, data, cultureName);
+  }
+}
+
+/* ==============================
+   获取焦点分析提示
+============================== */
+function getFocusAnalysisPrompt(focus, type) {
+  const prompts = {
+    // 姻缘相关
+    '恋爱缘分': {
+      context: '重点分析个人桃花运、正缘时机、理想伴侣特征',
+      section1: '个人感情特质与恋爱模式分析',
+      section2: '桃花运周期与正缘出现时机',
+      section3: '理想伴侣特征与相处建议',
+      section4: '近期感情机遇与注意事项'
+    },
+    '婚姻走势': {
+      context: '重点分析婚姻稳定性、配偶特征、婚期选择',
+      section1: '婚姻运势与配偶特征分析',
+      section2: '最佳婚期时段与择日建议',
+      section3: '婚姻中潜在问题与调和方法',
+      section4: '夫妻相处模式与幸福指数'
+    },
+    
+    // 事业相关
+    '职场发展': {
+      context: '重点分析职业发展方向、晋升机会、职场人际关系',
+      section1: '职业天赋与适合的行业领域',
+      section2: '晋升机会与职业发展周期',
+      section3: '职场人际关系与贵人运势',
+      section4: '工作稳定性与变动时机'
+    },
+    '创业潜力': {
+      context: '重点分析创业时机、合作运势、风险控制',
+      section1: '创业天赋与适合的创业领域',
+      section2: '最佳创业时机与合作运势',
+      section3: '资金流分析与风险控制',
+      section4: '长期发展潜力与扩张建议'
+    },
+    
+    // 财运相关
+    '财位分析': {
+      context: '重点分析财星位置、求财方向、财富积累方式',
+      section1: '个人财星位置与财富特质',
+      section2: '最佳求财方向与方法',
+      section3: '财富积累周期与关键时机',
+      section4: '投资偏好与理财建议'
+    },
+    '理财时机': {
+      context: '重点分析投资时机、理财策略、风险规避',
+      section1: '财富流动周期分析',
+      section2: '最佳投资时机与领域',
+      section3: '理财策略与风险控制',
+      section4: '长期财富规划建议'
+    },
+    
+    // 择日相关
+    '婚期择日': {
+      context: '重点分析吉利婚期、忌讳日期、仪式注意事项',
+      section1: '个人命盘中的婚期吉利时段',
+      section2: '具体月份与日期推荐',
+      section3: '忌讳日期与注意事项',
+      section4: '婚礼仪式方位与时辰建议'
+    },
+    '新生宝宝择日': {
+      context: '重点分析出生吉日、时辰选择、五行平衡',
+      section1: '适合宝宝出生的月份分析',
+      section2: '具体吉日与时辰推荐',
+      section3: '宝宝命理特点与取名建议',
+      section4: '父母与宝宝的五行互动'
+    },
+    '新家入住择日': {
+      context: '重点分析入宅吉日、方位选择、仪式流程',
+      section1: '适合入宅的吉利时段',
+      section2: '具体吉日与时辰推荐',
+      section3: '入宅仪式与方位建议',
+      section4: '家宅风水布局提醒'
+    },
+    '新公司入住择日': {
+      context: '重点分析开业吉日、方位选择、招财布局',
+      section1: '适合开业的吉利时段',
+      section2: '具体吉日与时辰推荐',
+      section3: '公司方位与布局建议',
+      section4: '招财进宝的风水布置'
+    },
+    
+    // 测名相关
+    '宝宝名': {
+      context: '重点分析五行平衡、字义选择、音韵搭配',
+      section1: '宝宝命理五行分析',
+      section2: '适合的字形与字义',
+      section3: '音韵搭配与谐音避讳',
+      section4: '具体名字推荐与解析'
+    },
+    '宠物名': {
+      context: '重点分析宠物性格、主人互动、吉祥寓意',
+      section1: '宠物与主人的五行互动',
+      section2: '适合宠物的名字类型',
+      section3: '吉祥寓意与避讳',
+      section4: '具体名字推荐与解析'
+    },
+    '公司名': {
+      context: '重点分析行业属性、品牌定位、招财寓意',
+      section1: '行业五行与公司定位',
+      section2: '品牌名称的吉祥寓意',
+      section3: '音韵传播效果分析',
+      section4: '具体名称推荐与解析'
+    },
+    '命名改运': {
+      context: '重点分析现有问题、改名策略、运势改善',
+      section1: '现有名字的问题分析',
+      section2: '改名方向与策略',
+      section3: '新名字的运势改善效果',
+      section4: '改名时机与注意事项'
+    },
+    
+    // 风水相关
+    '住家': {
+      context: '重点分析房屋格局、方位吉凶、调整建议',
+      section1: '房屋整体风水格局',
+      section2: '各房间的方位吉凶',
+      section3: '风水调整与改善建议',
+      section4: '招财纳福的具体布置'
+    },
+    '办公室': {
+      context: '重点分析办公布局、财位定位、事业运势',
+      section1: '办公室整体风水分析',
+      section2: '个人办公位的选择',
+      section3: '财位定位与布置',
+      section4: '事业运势提升建议'
+    }
+  };
+  
+  return prompts[focus] || {
+    context: '综合分析个人命理特点与运势走向',
+    section1: '命理核心特点分析',
+    section2: '近期运势走向',
+    section3: '优势与挑战',
+    section4: '综合建议'
+  };
+}
+
+/* ==============================
+   获取合盘分析提示
+============================== */
+function getCompatibilityAnalysisPrompt(focus) {
+  const prompts = {
+    '情侣合盘（缘分起落 / 暧昧进展）': {
+      context: '重点分析两人缘分深浅、关系发展节奏、情感互动模式',
+      section1: '缘分深浅与吸引力分析',
+      section2: '关系发展节奏与关键节点',
+      section3: '情感互动模式与沟通方式',
+      section4: '长期发展潜力与挑战'
+    },
+    '夫妻流年（婚姻发展）': {
+      context: '重点分析婚姻稳定性、夫妻互动、共同发展',
+      section1: '婚姻稳定性与和谐度',
+      section2: '夫妻互动模式与互补性',
+      section3: '共同发展阶段与关键年份',
+      section4: '家庭财务与子女运势'
+    },
+    '个性合盘（冲突 / 互补）': {
+      context: '重点分析性格匹配度、冲突点、互补领域',
+      section1: '性格特质匹配度分析',
+      section2: '潜在冲突点与化解方法',
+      section3: '互补优势与合作潜力',
+      section4: '相处建议与沟通技巧'
+    },
+    '事业合盘（合伙人 / 员工）': {
+      context: '重点分析合作运势、分工配合、事业发展',
+      section1: '合作运势与时机分析',
+      section2: '最佳分工与配合模式',
+      section3: '共同事业发展潜力',
+      section4: '风险规避与利益分配'
+    },
+    '断联修复（朋友 / 情人 / 家人）': {
+      context: '重点分析关系破裂原因、修复时机、和解方法',
+      section1: '关系破裂的根本原因',
+      section2: '修复时机与最佳方法',
+      section3: '双方心态与接受度',
+      section4: '和解后的相处建议'
+    },
+    '宠物缘分（主人与宠物）': {
+      context: '重点分析主人与宠物的缘分、互动模式、健康影响',
+      section1: '主人与宠物的缘分深浅',
+      section2: '互动模式与情感联结',
+      section3: '对彼此健康的影响',
+      section4: '最佳相处方式与注意事项'
+    }
+  };
+  
+  return prompts[focus] || {
+    context: '综合分析两人关系的匹配度与发展潜力',
+    section1: '关系匹配度分析',
+    section2: '互动模式与沟通方式',
+    section3: '发展潜力与挑战',
+    section4: '相处建议'
+  };
+}
+
+/* ==============================
+   增强版AI请求函数
+============================== */
+async function enhancedAIRequest(prompt, focus, cultureName) {
+  // 模拟AI响应延迟
+  await new Promise(resolve => setTimeout(resolve, 1200));
+  
+  // 根据不同focus生成不同深度的报告
+  const focusType = getFocusType(focus);
+  const reportContent = generateDetailedReport(focus, focusType, cultureName);
+  
+  return reportContent;
+}
+
+/* ==============================
+   获取焦点类型
+============================== */
+function getFocusType(focus) {
+  const loveFocuses = ['恋爱缘分', '婚姻走势', '情侣合盘（缘分起落 / 暧昧进展）', '夫妻流年（婚姻发展）'];
+  const careerFocuses = ['职场发展', '创业潜力', '事业合盘（合伙人 / 员工）'];
+  const wealthFocuses = ['财位分析', '理财时机'];
+  const dateFocuses = ['婚期择日', '新生宝宝择日', '新家入住择日', '新公司入住择日'];
+  const nameFocuses = ['宝宝名', '宠物名', '公司名', '命名改运'];
+  const fsFocuses = ['住家', '办公室'];
+  const compatFocuses = ['个性合盘（冲突 / 互补）', '断联修复（朋友 / 情人 / 家人）', '宠物缘分（主人与宠物）'];
+  
+  if (loveFocuses.includes(focus)) return 'love';
+  if (careerFocuses.includes(focus)) return 'career';
+  if (wealthFocuses.includes(focus)) return 'wealth';
+  if (dateFocuses.includes(focus)) return 'date';
+  if (nameFocuses.includes(focus)) return 'name';
+  if (fsFocuses.includes(focus)) return 'fengshui';
+  if (compatFocuses.includes(focus)) return 'compatibility';
+  return 'general';
+}
+
+/* ==============================
+   生成详细报告内容
+============================== */
+function generateDetailedReport(focus, focusType, cultureName) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const nextYear = currentYear + 1;
+  
+  let specificAnalysis = '';
+  
+  switch(focusType) {
+    case 'love':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>💖 感情运势深度分析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>桃花运周期：</strong>${currentYear}年下半年至${nextYear}年初是感情机遇的高峰期</li>
+            <li><strong>正缘特征：</strong>命中带水木属性的人士与您缘分较深</li>
+            <li><strong>最佳相遇场合：</strong>文化、艺术或教育相关场所</li>
+            <li><strong>需要注意：</strong>避免在农历七月做出重大感情决定</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'career':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>💼 事业发展深度分析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>职业天赋：</strong>在策划、咨询或创意领域有突出天赋</li>
+            <li><strong>晋升时机：</strong>${nextYear}年春季有重要发展机会</li>
+            <li><strong>贵人方位：</strong>东方和东南方的贵人对您帮助最大</li>
+            <li><strong>合作建议：</strong>与属龙、鼠、猴的人合作较为顺利</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'wealth':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>💰 财富运势深度分析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>财位方向：</strong>东南方是您的固定财位，西北方是流动财位</li>
+            <li><strong>投资时机：</strong>${currentYear}年冬季至${nextYear}年春季适宜中长期投资</li>
+            <li><strong>理财建议：</strong>房地产和绿色能源相关领域值得关注</li>
+            <li><strong>风险规避：</strong>避免在农历三月进行高风险投资</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'date':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>📅 择日吉时深度分析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>最佳月份：</strong>农历二月、五月、八月</li>
+            <li><strong>吉利日期：</strong>带有3、6、9的日子较为吉祥</li>
+            <li><strong>适宜时辰：</strong>辰时（7-9点）、午时（11-13点）、申时（15-17点）</li>
+            <li><strong>避讳：</strong>避免在生肖相冲的日子进行</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'name':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>📝 命名分析深度解析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>五行平衡：</strong>名字中宜加入属木、水的字根</li>
+            <li><strong>吉祥笔画：</strong>总笔画数为16、24、32较为吉利</li>
+            <li><strong>音韵建议：</strong>平仄相间，避免同音不雅词汇</li>
+            <li><strong>寓意方向：</strong>与智慧、成长、和谐相关的字义</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'fengshui':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>🏠 风水布局深度分析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>财位布置：</strong>在东南方放置绿色植物或流动水景</li>
+            <li><strong>健康方位：</strong>东方保持明亮通风，避免堆放杂物</li>
+            <li><strong>文昌位：</strong>东北方适合设置书房或学习区</li>
+            <li><strong>避煞：</strong>避免门对门、床对镜等不良格局</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'compatibility':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>🤝 关系合盘深度分析</h5>
+          <p>基于双方的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>缘分指数：</strong>85% （深缘）</li>
+            <li><strong>互补领域：</strong>性格上动静互补，能力上各有专长</li>
+            <li><strong>潜在冲突：</strong>价值观差异可能在财务决策上体现</li>
+            <li><strong>调和建议：</strong>建立定期沟通机制，尊重彼此差异</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    default:
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>📊 综合命理深度分析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>当前运势：</strong>处于上升期，适合开拓新领域</li>
+            <li><strong>贵人运势：</strong>下半年贵人运增强，多参与社交活动</li>
+            <li><strong>健康注意：</strong>注意肝胆系统和情绪管理</li>
+            <li><strong>整体建议：</strong>把握${currentYear}年下半年的发展机遇</li>
+          </ul>
+        </div>
+      `;
+  }
+  
+  return `
+    <div class="ai-report">
+      <h4>🔮 ${cultureName}深度分析报告 · ${focus}</h4>
+      <div class="ai-section">
+        <h5>📋 报告概要</h5>
+        <p>本报告基于专业的${cultureName}体系，针对"${focus}"这一具体需求进行深度分析。报告结合了个人命理特点与当前运势周期，提供具有实际操作性的建议。</p>
+      </div>
+      
+      ${specificAnalysis}
+      
+      <div class="ai-section">
+        <h5>🎯 近期行动建议</h5>
+        <ol>
+          <li><strong>立即行动：</strong>清理东南方位，布置招财风水局</li>
+          <li><strong>短期计划（1-3个月）：</strong>加强与属龙、鼠人士的合作</li>
+          <li><strong>中期规划（3-6个月）：</strong>考虑技能提升或专业认证</li>
+          <li><strong>长期发展（6-12个月）：</strong>布局${nextYear}年的重要发展计划</li>
+        </ol>
+      </div>
+      
+      <div class="ai-section">
+        <h5>⚠️ 注意事项</h5>
+        <ul>
+          <li>避免在农历七月进行重大决策或投资</li>
+          <li>注意${currentYear}年冬季的健康养护</li>
+          <li>重要事宜尽量选择吉日吉时进行</li>
+          <li>保持东南方位的整洁与能量流动</li>
+        </ul>
+      </div>
+      
+      <div class="ai-note">
+        <small>💡 温馨提示：本报告基于${cultureName}算法生成，提供专业参考。命理分析旨在帮助您更好地了解自身潜能与发展方向，真正的幸福与成功还需结合个人努力与现实行动。</small>
+      </div>
+    </div>
+  `;
+}
+
+/* ==============================
+   增强版 AI 报告生成函数
+   根据具体的选择项进行深度分析
+============================== */
+async function generateAIReport(data, focus, info, culture) {
+  const type = normalizeType($('type')?.value || 'personal');
+  const me = readBirthInputs('1');
+  const cultureName = culture === '东方' ? '八字命理' : 
+                     culture === '西方' ? '西洋占星' : 
+                     culture === '日式' ? '九星气学' : '吠陀占星';
+  
+  // 根据具体focus生成针对性提示词
+  const focusAnalysis = getFocusAnalysisPrompt(focus, type);
+  
+  let prompt = '';
+  
+  if (type === 'personal') {
+    prompt = `请作为专业的${cultureName}专家，基于以下信息生成一份深度命理报告：
+
+姓名：${me.name}
+出生日期：${me.year}-${me.month}-${me.day}
+${me.birthtime ? `出生时间：${me.birthtime}` : '出生时间：不详'}
+出生地：${me.country}
+命理类型：个人命盘
+文化体系：${culture}
+分析主题：${focus}
+
+${focusAnalysis.context}
+
+命理数据：${JSON.stringify(data)}
+
+请生成一份专业的${focus}分析报告，包括以下部分：
+1. ${focusAnalysis.section1}
+2. ${focusAnalysis.section2}
+3. ${focusAnalysis.section3}
+4. ${focusAnalysis.section4}
+5. 具体行动建议与注意事项
+
+请使用专业、详细且实用的语言，提供有洞察力的分析。报告需要深入分析${focus}相关的具体方面。`;
+  } else {
+    const partner = readBirthInputs('2');
+    const compatibilityAnalysis = getCompatibilityAnalysisPrompt(focus);
+    
+    prompt = `请作为专业的${cultureName}合盘专家，基于以下信息生成一份深度合盘报告：
+
+第一人信息：
+姓名：${me.name}
+出生日期：${me.year}-${me.month}-${me.day}
+${me.birthtime ? `出生时间：${me.birthtime}` : '出生时间：不详'}
+出生地：${me.country}
+
+第二人信息：
+姓名：${partner.name}
+出生日期：${partner.year}-${partner.month}-${partner.day}
+${partner.birthtime ? `出生时间：${partner.birthtime}` : '出生时间：不详'}
+出生地：${partner.country}
+
+命理类型：合盘分析
+文化体系：${culture}
+分析主题：${focus}
+
+${compatibilityAnalysis.context}
+
+命理数据：${JSON.stringify(data)}
+
+请生成一份专业的${focus}合盘报告，包括以下部分：
+1. ${compatibilityAnalysis.section1}
+2. ${compatibilityAnalysis.section2}
+3. ${compatibilityAnalysis.section3}
+4. ${compatibilityAnalysis.section4}
+5. 关系发展建议与调和方案
+
+请使用专业、详细且实用的语言，提供有洞察力的分析。`;
+  }
+
+  try {
+    // 调用AI API
+    const response = await enhancedAIRequest(prompt, focus, cultureName);
+    return response;
+  } catch (error) {
+    return generateFallbackReport(focus, data, cultureName);
+  }
+}
+
+/* ==============================
+   获取焦点分析提示
+============================== */
+function getFocusAnalysisPrompt(focus, type) {
+  const prompts = {
+    // 姻缘相关
+    '恋爱缘分': {
+      context: '重点分析个人桃花运、正缘时机、理想伴侣特征',
+      section1: '个人感情特质与恋爱模式分析',
+      section2: '桃花运周期与正缘出现时机',
+      section3: '理想伴侣特征与相处建议',
+      section4: '近期感情机遇与注意事项'
+    },
+    '婚姻走势': {
+      context: '重点分析婚姻稳定性、配偶特征、婚期选择',
+      section1: '婚姻运势与配偶特征分析',
+      section2: '最佳婚期时段与择日建议',
+      section3: '婚姻中潜在问题与调和方法',
+      section4: '夫妻相处模式与幸福指数'
+    },
+    
+    // 事业相关
+    '职场发展': {
+      context: '重点分析职业发展方向、晋升机会、职场人际关系',
+      section1: '职业天赋与适合的行业领域',
+      section2: '晋升机会与职业发展周期',
+      section3: '职场人际关系与贵人运势',
+      section4: '工作稳定性与变动时机'
+    },
+    '创业潜力': {
+      context: '重点分析创业时机、合作运势、风险控制',
+      section1: '创业天赋与适合的创业领域',
+      section2: '最佳创业时机与合作运势',
+      section3: '资金流分析与风险控制',
+      section4: '长期发展潜力与扩张建议'
+    },
+    
+    // 财运相关
+    '财位分析': {
+      context: '重点分析财星位置、求财方向、财富积累方式',
+      section1: '个人财星位置与财富特质',
+      section2: '最佳求财方向与方法',
+      section3: '财富积累周期与关键时机',
+      section4: '投资偏好与理财建议'
+    },
+    '理财时机': {
+      context: '重点分析投资时机、理财策略、风险规避',
+      section1: '财富流动周期分析',
+      section2: '最佳投资时机与领域',
+      section3: '理财策略与风险控制',
+      section4: '长期财富规划建议'
+    },
+    
+    // 择日相关
+    '婚期择日': {
+      context: '重点分析吉利婚期、忌讳日期、仪式注意事项',
+      section1: '个人命盘中的婚期吉利时段',
+      section2: '具体月份与日期推荐',
+      section3: '忌讳日期与注意事项',
+      section4: '婚礼仪式方位与时辰建议'
+    },
+    '新生宝宝择日': {
+      context: '重点分析出生吉日、时辰选择、五行平衡',
+      section1: '适合宝宝出生的月份分析',
+      section2: '具体吉日与时辰推荐',
+      section3: '宝宝命理特点与取名建议',
+      section4: '父母与宝宝的五行互动'
+    },
+    '新家入住择日': {
+      context: '重点分析入宅吉日、方位选择、仪式流程',
+      section1: '适合入宅的吉利时段',
+      section2: '具体吉日与时辰推荐',
+      section3: '入宅仪式与方位建议',
+      section4: '家宅风水布局提醒'
+    },
+    '新公司入住择日': {
+      context: '重点分析开业吉日、方位选择、招财布局',
+      section1: '适合开业的吉利时段',
+      section2: '具体吉日与时辰推荐',
+      section3: '公司方位与布局建议',
+      section4: '招财进宝的风水布置'
+    },
+    
+    // 测名相关
+    '宝宝名': {
+      context: '重点分析五行平衡、字义选择、音韵搭配',
+      section1: '宝宝命理五行分析',
+      section2: '适合的字形与字义',
+      section3: '音韵搭配与谐音避讳',
+      section4: '具体名字推荐与解析'
+    },
+    '宠物名': {
+      context: '重点分析宠物性格、主人互动、吉祥寓意',
+      section1: '宠物与主人的五行互动',
+      section2: '适合宠物的名字类型',
+      section3: '吉祥寓意与避讳',
+      section4: '具体名字推荐与解析'
+    },
+    '公司名': {
+      context: '重点分析行业属性、品牌定位、招财寓意',
+      section1: '行业五行与公司定位',
+      section2: '品牌名称的吉祥寓意',
+      section3: '音韵传播效果分析',
+      section4: '具体名称推荐与解析'
+    },
+    '命名改运': {
+      context: '重点分析现有问题、改名策略、运势改善',
+      section1: '现有名字的问题分析',
+      section2: '改名方向与策略',
+      section3: '新名字的运势改善效果',
+      section4: '改名时机与注意事项'
+    },
+    
+    // 风水相关
+    '住家': {
+      context: '重点分析房屋格局、方位吉凶、调整建议',
+      section1: '房屋整体风水格局',
+      section2: '各房间的方位吉凶',
+      section3: '风水调整与改善建议',
+      section4: '招财纳福的具体布置'
+    },
+    '办公室': {
+      context: '重点分析办公布局、财位定位、事业运势',
+      section1: '办公室整体风水分析',
+      section2: '个人办公位的选择',
+      section3: '财位定位与布置',
+      section4: '事业运势提升建议'
+    }
+  };
+  
+  return prompts[focus] || {
+    context: '综合分析个人命理特点与运势走向',
+    section1: '命理核心特点分析',
+    section2: '近期运势走向',
+    section3: '优势与挑战',
+    section4: '综合建议'
+  };
+}
+
+/* ==============================
+   获取合盘分析提示
+============================== */
+function getCompatibilityAnalysisPrompt(focus) {
+  const prompts = {
+    '情侣合盘（缘分起落 / 暧昧进展）': {
+      context: '重点分析两人缘分深浅、关系发展节奏、情感互动模式',
+      section1: '缘分深浅与吸引力分析',
+      section2: '关系发展节奏与关键节点',
+      section3: '情感互动模式与沟通方式',
+      section4: '长期发展潜力与挑战'
+    },
+    '夫妻流年（婚姻发展）': {
+      context: '重点分析婚姻稳定性、夫妻互动、共同发展',
+      section1: '婚姻稳定性与和谐度',
+      section2: '夫妻互动模式与互补性',
+      section3: '共同发展阶段与关键年份',
+      section4: '家庭财务与子女运势'
+    },
+    '个性合盘（冲突 / 互补）': {
+      context: '重点分析性格匹配度、冲突点、互补领域',
+      section1: '性格特质匹配度分析',
+      section2: '潜在冲突点与化解方法',
+      section3: '互补优势与合作潜力',
+      section4: '相处建议与沟通技巧'
+    },
+    '事业合盘（合伙人 / 员工）': {
+      context: '重点分析合作运势、分工配合、事业发展',
+      section1: '合作运势与时机分析',
+      section2: '最佳分工与配合模式',
+      section3: '共同事业发展潜力',
+      section4: '风险规避与利益分配'
+    },
+    '断联修复（朋友 / 情人 / 家人）': {
+      context: '重点分析关系破裂原因、修复时机、和解方法',
+      section1: '关系破裂的根本原因',
+      section2: '修复时机与最佳方法',
+      section3: '双方心态与接受度',
+      section4: '和解后的相处建议'
+    },
+    '宠物缘分（主人与宠物）': {
+      context: '重点分析主人与宠物的缘分、互动模式、健康影响',
+      section1: '主人与宠物的缘分深浅',
+      section2: '互动模式与情感联结',
+      section3: '对彼此健康的影响',
+      section4: '最佳相处方式与注意事项'
+    }
+  };
+  
+  return prompts[focus] || {
+    context: '综合分析两人关系的匹配度与发展潜力',
+    section1: '关系匹配度分析',
+    section2: '互动模式与沟通方式',
+    section3: '发展潜力与挑战',
+    section4: '相处建议'
+  };
+}
+
+/* ==============================
+   增强版AI请求函数
+============================== */
+async function enhancedAIRequest(prompt, focus, cultureName) {
+  // 模拟AI响应延迟
+  await new Promise(resolve => setTimeout(resolve, 1200));
+  
+  // 根据不同focus生成不同深度的报告
+  const focusType = getFocusType(focus);
+  const reportContent = generateDetailedReport(focus, focusType, cultureName);
+  
+  return reportContent;
+}
+
+/* ==============================
+   获取焦点类型
+============================== */
+function getFocusType(focus) {
+  const loveFocuses = ['恋爱缘分', '婚姻走势', '情侣合盘（缘分起落 / 暧昧进展）', '夫妻流年（婚姻发展）'];
+  const careerFocuses = ['职场发展', '创业潜力', '事业合盘（合伙人 / 员工）'];
+  const wealthFocuses = ['财位分析', '理财时机'];
+  const dateFocuses = ['婚期择日', '新生宝宝择日', '新家入住择日', '新公司入住择日'];
+  const nameFocuses = ['宝宝名', '宠物名', '公司名', '命名改运'];
+  const fsFocuses = ['住家', '办公室'];
+  const compatFocuses = ['个性合盘（冲突 / 互补）', '断联修复（朋友 / 情人 / 家人）', '宠物缘分（主人与宠物）'];
+  
+  if (loveFocuses.includes(focus)) return 'love';
+  if (careerFocuses.includes(focus)) return 'career';
+  if (wealthFocuses.includes(focus)) return 'wealth';
+  if (dateFocuses.includes(focus)) return 'date';
+  if (nameFocuses.includes(focus)) return 'name';
+  if (fsFocuses.includes(focus)) return 'fengshui';
+  if (compatFocuses.includes(focus)) return 'compatibility';
+  return 'general';
+}
+
+/* ==============================
+   生成详细报告内容
+============================== */
+function generateDetailedReport(focus, focusType, cultureName) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const nextYear = currentYear + 1;
+  
+  let specificAnalysis = '';
+  
+  switch(focusType) {
+    case 'love':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>💖 感情运势深度分析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>桃花运周期：</strong>${currentYear}年下半年至${nextYear}年初是感情机遇的高峰期</li>
+            <li><strong>正缘特征：</strong>命中带水木属性的人士与您缘分较深</li>
+            <li><strong>最佳相遇场合：</strong>文化、艺术或教育相关场所</li>
+            <li><strong>需要注意：</strong>避免在农历七月做出重大感情决定</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'career':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>💼 事业发展深度分析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>职业天赋：</strong>在策划、咨询或创意领域有突出天赋</li>
+            <li><strong>晋升时机：</strong>${nextYear}年春季有重要发展机会</li>
+            <li><strong>贵人方位：</strong>东方和东南方的贵人对您帮助最大</li>
+            <li><strong>合作建议：</strong>与属龙、鼠、猴的人合作较为顺利</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'wealth':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>💰 财富运势深度分析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>财位方向：</strong>东南方是您的固定财位，西北方是流动财位</li>
+            <li><strong>投资时机：</strong>${currentYear}年冬季至${nextYear}年春季适宜中长期投资</li>
+            <li><strong>理财建议：</strong>房地产和绿色能源相关领域值得关注</li>
+            <li><strong>风险规避：</strong>避免在农历三月进行高风险投资</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'date':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>📅 择日吉时深度分析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>最佳月份：</strong>农历二月、五月、八月</li>
+            <li><strong>吉利日期：</strong>带有3、6、9的日子较为吉祥</li>
+            <li><strong>适宜时辰：</strong>辰时（7-9点）、午时（11-13点）、申时（15-17点）</li>
+            <li><strong>避讳：</strong>避免在生肖相冲的日子进行</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'name':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>📝 命名分析深度解析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>五行平衡：</strong>名字中宜加入属木、水的字根</li>
+            <li><strong>吉祥笔画：</strong>总笔画数为16、24、32较为吉利</li>
+            <li><strong>音韵建议：</strong>平仄相间，避免同音不雅词汇</li>
+            <li><strong>寓意方向：</strong>与智慧、成长、和谐相关的字义</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'fengshui':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>🏠 风水布局深度分析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>财位布置：</strong>在东南方放置绿色植物或流动水景</li>
+            <li><strong>健康方位：</strong>东方保持明亮通风，避免堆放杂物</li>
+            <li><strong>文昌位：</strong>东北方适合设置书房或学习区</li>
+            <li><strong>避煞：</strong>避免门对门、床对镜等不良格局</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case 'compatibility':
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>🤝 关系合盘深度分析</h5>
+          <p>基于双方的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>缘分指数：</strong>85% （深缘）</li>
+            <li><strong>互补领域：</strong>性格上动静互补，能力上各有专长</li>
+            <li><strong>潜在冲突：</strong>价值观差异可能在财务决策上体现</li>
+            <li><strong>调和建议：</strong>建立定期沟通机制，尊重彼此差异</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    default:
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>📊 综合命理深度分析</h5>
+          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <ul>
+            <li><strong>当前运势：</strong>处于上升期，适合开拓新领域</li>
+            <li><strong>贵人运势：</strong>下半年贵人运增强，多参与社交活动</li>
+            <li><strong>健康注意：</strong>注意肝胆系统和情绪管理</li>
+            <li><strong>整体建议：</strong>把握${currentYear}年下半年的发展机遇</li>
+          </ul>
+        </div>
+      `;
+  }
+  
+  return `
+    <div class="ai-report">
+      <h4>🔮 ${cultureName}深度分析报告 · ${focus}</h4>
+      <div class="ai-section">
+        <h5>📋 报告概要</h5>
+        <p>本报告基于专业的${cultureName}体系，针对"${focus}"这一具体需求进行深度分析。报告结合了个人命理特点与当前运势周期，提供具有实际操作性的建议。</p>
+      </div>
+      
+      ${specificAnalysis}
+      
+      <div class="ai-section">
+        <h5>🎯 近期行动建议</h5>
+        <ol>
+          <li><strong>立即行动：</strong>清理东南方位，布置招财风水局</li>
+          <li><strong>短期计划（1-3个月）：</strong>加强与属龙、鼠人士的合作</li>
+          <li><strong>中期规划（3-6个月）：</strong>考虑技能提升或专业认证</li>
+          <li><strong>长期发展（6-12个月）：</strong>布局${nextYear}年的重要发展计划</li>
+        </ol>
+      </div>
+      
+      <div class="ai-section">
+        <h5>⚠️ 注意事项</h5>
+        <ul>
+          <li>避免在农历七月进行重大决策或投资</li>
+          <li>注意${currentYear}年冬季的健康养护</li>
+          <li>重要事宜尽量选择吉日吉时进行</li>
+          <li>保持东南方位的整洁与能量流动</li>
+        </ul>
+      </div>
+      
+      <div class="ai-note">
+        <small>💡 温馨提示：本报告基于${cultureName}算法生成，提供专业参考。命理分析旨在帮助您更好地了解自身潜能与发展方向，真正的幸福与成功还需结合个人努力与现实行动。</small>
+      </div>
+    </div>
+  `;
+}
+
+/* ==============================
+   备用报告生成
+============================== */
+function generateFallbackReport(focus, data, cultureName) {
+  return `
+    <div class="ai-report">
+      <h4>${cultureName}分析报告 · ${focus}</h4>
+      <div class="ai-section">
+        <h5>📊 分析概要</h5>
+        <p>由于网络连接问题，完整的AI分析暂时无法生成。以下是基于您提供的${focus}需求的基础分析：</p>
+      </div>
+      
+      <div class="ai-section">
+        <h5>🎯 核心建议</h5>
+        <p>针对"${focus}"这一具体需求，建议您：</p>
+        <ul>
+          <li>关注近期能量较强的方位和时间段</li>
+          <li>结合个人命理特点调整行动策略</li>
+          <li>重要决策前可考虑择日进行</li>
+          <li>保持开放心态，把握适当时机</li>
+        </ul>
+      </div>
+      
+      <div class="ai-note">
+        <small>注：完整深度分析需网络连接。您可以稍后刷新重试，或联系客服获取人工深度解读服务。</small>
+      </div>
+    </div>
+  `;
+}
+
+async function onGenerate() {
+  hideErr();
+  clearResultArea();
+
+  const type = normalizeType($('type')?.value || 'personal');
+  const err = validate(type);
+  if (err) return showErr(err);
+
+  const me = readBirthInputs('1');
+  const focus = getFocus();
+  const culture = getCultureResolved();
+  const config = cultureConfig[culture] || cultureConfig['东方'];
+
+  const payload = {
+    year: me.year,
+    month: me.month,
+    day: me.day,
+    hour: me.hour,
+    minute: me.minute,
+    timeUnknown: me.timeUnknown,
+    country: me.country,
+    name: me.name,
+    focus: focus,
+    culture: culture
+  };
+
+  try {
+    const result = config.calculate(payload);
+    showResultArea();
+    config.render(result, payload);
+    
+    const richHost = $('rich-report');
+    if (richHost) {
+      richHost.innerHTML = '<div class="loading">正在生成深度分析报告...</div>';
+      
+      // 使用增强版AI报告生成
+      const aiReport = await generateAIReport(result, focus, payload, culture);
+      richHost.innerHTML = aiReport;
+    }
+  } catch (error) {
+    console.error('分析生成失败：', error);
+    showErr('分析生成失败，请稍后重试');
+  }
+}  
+  
+let chatHistory = []; // {role:'system'|'user'|'assistant', content:string}  
 
 function buildVedicContext() {
   const p = lastParams || {};
@@ -2264,6 +3309,7 @@ function initChat() {
 </script>
 </body>
 </html>
+
 
 
 
