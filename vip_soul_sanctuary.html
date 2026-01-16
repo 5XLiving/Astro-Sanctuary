@@ -1215,7 +1215,7 @@ const i18n = {
     btn_backshop:"← Back to shop",
     note_price1:"$9.9 / month VIP (Destiny + Soul Sanctuary + Courses)",
 
-    res_title:"Butler’s interpretation & suggestions",
+    res_title:"Butler's interpretation & suggestions",
 
     chat_fab:"💬",
     chat_title:"Soul Butler · GPT",
@@ -1782,7 +1782,7 @@ function normalizeType(v){
 }
 
 /* ==============================
-   Purpose mapping & Calculators (合并为一个对象)
+   修复：文化系统选择项映射
 ============================== */
 const culturePurposeMap = {
   '东方': {
@@ -1810,29 +1810,116 @@ const culturePurposeMap = {
       '个性合盘（冲突 / 互补）',
       '事业合盘（合伙人 / 员工）',
       '断联修复（朋友 / 情人 / 家人）',
-      '宠物缘分'
+      '宠物缘分（主人与宠物）'
     ]
   },
   '西方': {
-    personal: ['爱情运势','职业发展','财富增长','心灵成长','塔罗占卜','星盘解读','人际关系','健康运势'],
-    compatibility: ['关系合盘','灵魂伴侣','合作运势','家庭关系','友谊分析']
+    personal: [
+      '恋爱缘分',
+      '婚姻走势',
+      '职场发展',
+      '创业潜力',
+      '财位分析',
+      '理财时机',
+      '婚期择日',
+      '新生宝宝择日',
+      '新家入住择日',
+      '新公司入住择日',
+      '宝宝名',
+      '宠物名',
+      '公司名',
+      '命名改运',
+      '住家',
+      '办公室'
+    ],
+    compatibility: [
+      '情侣合盘（缘分起落 / 暧昧进展）',
+      '夫妻流年（婚姻发展）',
+      '个性合盘（冲突 / 互补）',
+      '事业合盘（合伙人 / 员工）',
+      '断联修复（朋友 / 情人 / 家人）',
+      '宠物缘分（主人与宠物）'
+    ]
   },
   '日式': {
-    personal: ['九星运势','方位吉凶','姓名鉴定','恋爱占卜','职业指南','健康建议','家相诊断'],
-    compatibility: ['缘分匹配','相性诊断','合作缘分','家庭和谐']
+    personal: [
+      '恋爱缘分',
+      '婚姻走势',
+      '职场发展',
+      '创业潜力',
+      '财位分析',
+      '理财时机',
+      '婚期择日',
+      '新生宝宝择日',
+      '新家入住择日',
+      '新公司入住择日',
+      '宝宝名',
+      '宠物名',
+      '公司名',
+      '命名改运',
+      '住家',
+      '办公室'
+    ],
+    compatibility: [
+      '情侣合盘（缘分起落 / 暧昧进展）',
+      '夫妻流年（婚姻发展）',
+      '个性合盘（冲突 / 互补）',
+      '事业合盘（合伙人 / 员工）',
+      '断联修复（朋友 / 情人 / 家人）',
+      '宠物缘分（主人与宠物）'
+    ]
   },
   '吠陀': {
-    personal: ['本命盘','事业方向','婚姻运势','健康建议','择吉日','宝石推荐','仪式建议'],
-    compatibility: ['夫妻合盘','合作匹配','家庭合盘','商业伙伴']
+    personal: [
+      '恋爱缘分',
+      '婚姻走势',
+      '职场发展',
+      '创业潜力',
+      '财位分析',
+      '理财时机',
+      '婚期择日',
+      '新生宝宝择日',
+      '新家入住择日',
+      '新公司入住择日',
+      '宝宝名',
+      '宠物名',
+      '公司名',
+      '命名改运',
+      '住家',
+      '办公室'
+    ],
+    compatibility: [
+      '情侣合盘（缘分起落 / 暧昧进展）',
+      '夫妻流年（婚姻发展）',
+      '个性合盘（冲突 / 互补）',
+      '事业合盘（合伙人 / 员工）',
+      '断联修复（朋友 / 情人 / 家人）',
+      '宠物缘分（主人与宠物）'
+    ]
   }
 };
 
+/* ==============================
+   修复：添加缺失的函数
+============================== */
+function updatePurposeOptionsBasedOnCulture(cultureResolved) {
+  const type = normalizeType($('type')?.value || 'personal');
+  const config = culturePurposeMap[cultureResolved] || culturePurposeMap['东方'];
+  
+  if (type === 'personal') {
+    updatePersonalPurposeOptions(config.personal);
+  } else {
+    updateCompatibilityPurposeOptions(config.compatibility);
+  }
+}
+
+/* ==============================
+   CULTURE CONFIGURATION
+============================== */
 const cultureConfig = {
   '东方': {
     calculate: ({year,month,day,hour,minute,timeUnknown,country}) =>
-      baziCalculator.calculateBaziAccurate(
-        year,month,day,hour,minute,timeUnknown,country
-      ),
+      baziCalculator.calculateBaziAccurate(year,month,day,hour,minute,timeUnknown,country),
     render: (data, info) => renderBaziReport(data, info),
     analysis: (data, focus, info) => generateAIReport(data, focus, info, '东方')
   },
@@ -1890,11 +1977,7 @@ const cultureConfig = {
 };
 
 /* ==============================
-   AI 报告生成函数
-============================== */
-/* ==============================
    增强版 AI 报告生成函数
-   根据具体的选择项进行深度分析
 ============================== */
 async function generateAIReport(data, focus, info, culture) {
   const type = normalizeType($('type')?.value || 'personal');
@@ -1903,438 +1986,439 @@ async function generateAIReport(data, focus, info, culture) {
                      culture === '西方' ? '西洋占星' : 
                      culture === '日式' ? '九星气学' : '吠陀占星';
   
-  // 根据具体focus生成针对性提示词
-  const focusAnalysis = getFocusAnalysisPrompt(focus, type);
-  
-  let prompt = '';
-  
-  if (type === 'personal') {
-    prompt = `请作为专业的${cultureName}专家，基于以下信息生成一份深度命理报告：
-
-姓名：${me.name}
-出生日期：${me.year}-${me.month}-${me.day}
-${me.birthtime ? `出生时间：${me.birthtime}` : '出生时间：不详'}
-出生地：${me.country}
-命理类型：个人命盘
-文化体系：${culture}
-分析主题：${focus}
-
-${focusAnalysis.context}
-
-命理数据：${JSON.stringify(data)}
-
-请生成一份专业的${focus}分析报告，包括以下部分：
-1. ${focusAnalysis.section1}
-2. ${focusAnalysis.section2}
-3. ${focusAnalysis.section3}
-4. ${focusAnalysis.section4}
-5. 具体行动建议与注意事项
-
-请使用专业、详细且实用的语言，提供有洞察力的分析。报告需要深入分析${focus}相关的具体方面。`;
-  } else {
-    const partner = readBirthInputs('2');
-    const compatibilityAnalysis = getCompatibilityAnalysisPrompt(focus);
-    
-    prompt = `请作为专业的${cultureName}合盘专家，基于以下信息生成一份深度合盘报告：
-
-第一人信息：
-姓名：${me.name}
-出生日期：${me.year}-${me.month}-${me.day}
-${me.birthtime ? `出生时间：${me.birthtime}` : '出生时间：不详'}
-出生地：${me.country}
-
-第二人信息：
-姓名：${partner.name}
-出生日期：${partner.year}-${partner.month}-${partner.day}
-${partner.birthtime ? `出生时间：${partner.birthtime}` : '出生时间：不详'}
-出生地：${partner.country}
-
-命理类型：合盘分析
-文化体系：${culture}
-分析主题：${focus}
-
-${compatibilityAnalysis.context}
-
-命理数据：${JSON.stringify(data)}
-
-请生成一份专业的${focus}合盘报告，包括以下部分：
-1. ${compatibilityAnalysis.section1}
-2. ${compatibilityAnalysis.section2}
-3. ${compatibilityAnalysis.section3}
-4. ${compatibilityAnalysis.section4}
-5. 关系发展建议与调和方案
-
-请使用专业、详细且实用的语言，提供有洞察力的分析。`;
-  }
-
   try {
-    // 调用AI API
-    const response = await enhancedAIRequest(prompt, focus, cultureName);
-    return response;
+    // 生成针对性报告
+    const reportContent = generateDetailedReport(focus, cultureName, data, me, type);
+    return reportContent;
   } catch (error) {
     return generateFallbackReport(focus, data, cultureName);
   }
 }
 
 /* ==============================
-   获取焦点分析提示
-============================== */
-function getFocusAnalysisPrompt(focus, type) {
-  const prompts = {
-    // 姻缘相关
-    '恋爱缘分': {
-      context: '重点分析个人桃花运、正缘时机、理想伴侣特征',
-      section1: '个人感情特质与恋爱模式分析',
-      section2: '桃花运周期与正缘出现时机',
-      section3: '理想伴侣特征与相处建议',
-      section4: '近期感情机遇与注意事项'
-    },
-    '婚姻走势': {
-      context: '重点分析婚姻稳定性、配偶特征、婚期选择',
-      section1: '婚姻运势与配偶特征分析',
-      section2: '最佳婚期时段与择日建议',
-      section3: '婚姻中潜在问题与调和方法',
-      section4: '夫妻相处模式与幸福指数'
-    },
-    
-    // 事业相关
-    '职场发展': {
-      context: '重点分析职业发展方向、晋升机会、职场人际关系',
-      section1: '职业天赋与适合的行业领域',
-      section2: '晋升机会与职业发展周期',
-      section3: '职场人际关系与贵人运势',
-      section4: '工作稳定性与变动时机'
-    },
-    '创业潜力': {
-      context: '重点分析创业时机、合作运势、风险控制',
-      section1: '创业天赋与适合的创业领域',
-      section2: '最佳创业时机与合作运势',
-      section3: '资金流分析与风险控制',
-      section4: '长期发展潜力与扩张建议'
-    },
-    
-    // 财运相关
-    '财位分析': {
-      context: '重点分析财星位置、求财方向、财富积累方式',
-      section1: '个人财星位置与财富特质',
-      section2: '最佳求财方向与方法',
-      section3: '财富积累周期与关键时机',
-      section4: '投资偏好与理财建议'
-    },
-    '理财时机': {
-      context: '重点分析投资时机、理财策略、风险规避',
-      section1: '财富流动周期分析',
-      section2: '最佳投资时机与领域',
-      section3: '理财策略与风险控制',
-      section4: '长期财富规划建议'
-    },
-    
-    // 择日相关
-    '婚期择日': {
-      context: '重点分析吉利婚期、忌讳日期、仪式注意事项',
-      section1: '个人命盘中的婚期吉利时段',
-      section2: '具体月份与日期推荐',
-      section3: '忌讳日期与注意事项',
-      section4: '婚礼仪式方位与时辰建议'
-    },
-    '新生宝宝择日': {
-      context: '重点分析出生吉日、时辰选择、五行平衡',
-      section1: '适合宝宝出生的月份分析',
-      section2: '具体吉日与时辰推荐',
-      section3: '宝宝命理特点与取名建议',
-      section4: '父母与宝宝的五行互动'
-    },
-    '新家入住择日': {
-      context: '重点分析入宅吉日、方位选择、仪式流程',
-      section1: '适合入宅的吉利时段',
-      section2: '具体吉日与时辰推荐',
-      section3: '入宅仪式与方位建议',
-      section4: '家宅风水布局提醒'
-    },
-    '新公司入住择日': {
-      context: '重点分析开业吉日、方位选择、招财布局',
-      section1: '适合开业的吉利时段',
-      section2: '具体吉日与时辰推荐',
-      section3: '公司方位与布局建议',
-      section4: '招财进宝的风水布置'
-    },
-    
-    // 测名相关
-    '宝宝名': {
-      context: '重点分析五行平衡、字义选择、音韵搭配',
-      section1: '宝宝命理五行分析',
-      section2: '适合的字形与字义',
-      section3: '音韵搭配与谐音避讳',
-      section4: '具体名字推荐与解析'
-    },
-    '宠物名': {
-      context: '重点分析宠物性格、主人互动、吉祥寓意',
-      section1: '宠物与主人的五行互动',
-      section2: '适合宠物的名字类型',
-      section3: '吉祥寓意与避讳',
-      section4: '具体名字推荐与解析'
-    },
-    '公司名': {
-      context: '重点分析行业属性、品牌定位、招财寓意',
-      section1: '行业五行与公司定位',
-      section2: '品牌名称的吉祥寓意',
-      section3: '音韵传播效果分析',
-      section4: '具体名称推荐与解析'
-    },
-    '命名改运': {
-      context: '重点分析现有问题、改名策略、运势改善',
-      section1: '现有名字的问题分析',
-      section2: '改名方向与策略',
-      section3: '新名字的运势改善效果',
-      section4: '改名时机与注意事项'
-    },
-    
-    // 风水相关
-    '住家': {
-      context: '重点分析房屋格局、方位吉凶、调整建议',
-      section1: '房屋整体风水格局',
-      section2: '各房间的方位吉凶',
-      section3: '风水调整与改善建议',
-      section4: '招财纳福的具体布置'
-    },
-    '办公室': {
-      context: '重点分析办公布局、财位定位、事业运势',
-      section1: '办公室整体风水分析',
-      section2: '个人办公位的选择',
-      section3: '财位定位与布置',
-      section4: '事业运势提升建议'
-    }
-  };
-  
-  return prompts[focus] || {
-    context: '综合分析个人命理特点与运势走向',
-    section1: '命理核心特点分析',
-    section2: '近期运势走向',
-    section3: '优势与挑战',
-    section4: '综合建议'
-  };
-}
-
-/* ==============================
-   获取合盘分析提示
-============================== */
-function getCompatibilityAnalysisPrompt(focus) {
-  const prompts = {
-    '情侣合盘（缘分起落 / 暧昧进展）': {
-      context: '重点分析两人缘分深浅、关系发展节奏、情感互动模式',
-      section1: '缘分深浅与吸引力分析',
-      section2: '关系发展节奏与关键节点',
-      section3: '情感互动模式与沟通方式',
-      section4: '长期发展潜力与挑战'
-    },
-    '夫妻流年（婚姻发展）': {
-      context: '重点分析婚姻稳定性、夫妻互动、共同发展',
-      section1: '婚姻稳定性与和谐度',
-      section2: '夫妻互动模式与互补性',
-      section3: '共同发展阶段与关键年份',
-      section4: '家庭财务与子女运势'
-    },
-    '个性合盘（冲突 / 互补）': {
-      context: '重点分析性格匹配度、冲突点、互补领域',
-      section1: '性格特质匹配度分析',
-      section2: '潜在冲突点与化解方法',
-      section3: '互补优势与合作潜力',
-      section4: '相处建议与沟通技巧'
-    },
-    '事业合盘（合伙人 / 员工）': {
-      context: '重点分析合作运势、分工配合、事业发展',
-      section1: '合作运势与时机分析',
-      section2: '最佳分工与配合模式',
-      section3: '共同事业发展潜力',
-      section4: '风险规避与利益分配'
-    },
-    '断联修复（朋友 / 情人 / 家人）': {
-      context: '重点分析关系破裂原因、修复时机、和解方法',
-      section1: '关系破裂的根本原因',
-      section2: '修复时机与最佳方法',
-      section3: '双方心态与接受度',
-      section4: '和解后的相处建议'
-    },
-    '宠物缘分（主人与宠物）': {
-      context: '重点分析主人与宠物的缘分、互动模式、健康影响',
-      section1: '主人与宠物的缘分深浅',
-      section2: '互动模式与情感联结',
-      section3: '对彼此健康的影响',
-      section4: '最佳相处方式与注意事项'
-    }
-  };
-  
-  return prompts[focus] || {
-    context: '综合分析两人关系的匹配度与发展潜力',
-    section1: '关系匹配度分析',
-    section2: '互动模式与沟通方式',
-    section3: '发展潜力与挑战',
-    section4: '相处建议'
-  };
-}
-
-/* ==============================
-   增强版AI请求函数
-============================== */
-async function enhancedAIRequest(prompt, focus, cultureName) {
-  // 模拟AI响应延迟
-  await new Promise(resolve => setTimeout(resolve, 1200));
-  
-  // 根据不同focus生成不同深度的报告
-  const focusType = getFocusType(focus);
-  const reportContent = generateDetailedReport(focus, focusType, cultureName);
-  
-  return reportContent;
-}
-
-/* ==============================
-   获取焦点类型
-============================== */
-function getFocusType(focus) {
-  const loveFocuses = ['恋爱缘分', '婚姻走势', '情侣合盘（缘分起落 / 暧昧进展）', '夫妻流年（婚姻发展）'];
-  const careerFocuses = ['职场发展', '创业潜力', '事业合盘（合伙人 / 员工）'];
-  const wealthFocuses = ['财位分析', '理财时机'];
-  const dateFocuses = ['婚期择日', '新生宝宝择日', '新家入住择日', '新公司入住择日'];
-  const nameFocuses = ['宝宝名', '宠物名', '公司名', '命名改运'];
-  const fsFocuses = ['住家', '办公室'];
-  const compatFocuses = ['个性合盘（冲突 / 互补）', '断联修复（朋友 / 情人 / 家人）', '宠物缘分（主人与宠物）'];
-  
-  if (loveFocuses.includes(focus)) return 'love';
-  if (careerFocuses.includes(focus)) return 'career';
-  if (wealthFocuses.includes(focus)) return 'wealth';
-  if (dateFocuses.includes(focus)) return 'date';
-  if (nameFocuses.includes(focus)) return 'name';
-  if (fsFocuses.includes(focus)) return 'fengshui';
-  if (compatFocuses.includes(focus)) return 'compatibility';
-  return 'general';
-}
-
-/* ==============================
    生成详细报告内容
 ============================== */
-function generateDetailedReport(focus, focusType, cultureName) {
+function generateDetailedReport(focus, cultureName, data, me, type) {
   const now = new Date();
   const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
   const nextYear = currentYear + 1;
   
   let specificAnalysis = '';
+  let titleEmoji = '🔮';
+  let specificTitle = '';
+  let isCompatibility = type === 'compatibility';
   
-  switch(focusType) {
-    case 'love':
+  // 如果选择合盘且没输入第二人，显示提示
+  if (isCompatibility && !readBirthInputs('2').name) {
+    return `
+      <div class="ai-report">
+        <h4>🔍 合盘分析提示</h4>
+        <div class="ai-section">
+          <h5>📝 需要第二人信息</h5>
+          <p>要进行"${focus}"的合盘分析，请填写第二人的出生信息。</p>
+          <p>请在"第二人资料"部分填写完整信息，然后重新生成报告。</p>
+        </div>
+      </div>
+    `;
+  }
+  
+  // 根据具体focus生成针对性内容
+  switch(focus) {
+    // 姻缘相关
+    case '恋爱缘分':
+      titleEmoji = '💖';
+      specificTitle = '恋爱缘分深度分析';
       specificAnalysis = `
         <div class="ai-section">
-          <h5>💖 感情运势深度分析</h5>
-          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <h5>💘 桃花运势分析</h5>
+          <p>基于您的${cultureName}，您在感情方面具有以下特点：</p>
           <ul>
-            <li><strong>桃花运周期：</strong>${currentYear}年下半年至${nextYear}年初是感情机遇的高峰期</li>
-            <li><strong>正缘特征：</strong>命中带水木属性的人士与您缘分较深</li>
-            <li><strong>最佳相遇场合：</strong>文化、艺术或教育相关场所</li>
-            <li><strong>需要注意：</strong>避免在农历七月做出重大感情决定</li>
+            <li><strong>桃花类型：</strong>正桃花为主，适合长期稳定关系</li>
+            <li><strong>最佳相遇时间：</strong>${currentYear}年秋冬季是感情机遇期</li>
+            <li><strong>理想伴侣特征：</strong>性格温和、有责任感、五行互补的人士</li>
+            <li><strong>注意事项：</strong>避免急于求成，让感情自然发展</li>
           </ul>
         </div>
       `;
       break;
       
-    case 'career':
+    case '婚姻走势':
+      titleEmoji = '💍';
+      specificTitle = '婚姻走势深度分析';
       specificAnalysis = `
         <div class="ai-section">
-          <h5>💼 事业发展深度分析</h5>
-          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <h5>🏡 婚姻稳定性分析</h5>
+          <p>从${cultureName}看您的婚姻发展趋势：</p>
           <ul>
-            <li><strong>职业天赋：</strong>在策划、咨询或创意领域有突出天赋</li>
-            <li><strong>晋升时机：</strong>${nextYear}年春季有重要发展机会</li>
-            <li><strong>贵人方位：</strong>东方和东南方的贵人对您帮助最大</li>
-            <li><strong>合作建议：</strong>与属龙、鼠、猴的人合作较为顺利</li>
+            <li><strong>婚姻特点：</strong>晚婚较吉，婚姻稳定性较高</li>
+            <li><strong>配偶特征：</strong>性格互补，能在事业上相互支持</li>
+            <li><strong>婚期建议：</strong>${nextYear}年有较好的婚缘时机</li>
+            <li><strong>相处建议：</strong>多沟通，避免因工作繁忙忽略感情维护</li>
           </ul>
         </div>
       `;
       break;
       
-    case 'wealth':
+    // 事业相关
+    case '职场发展':
+      titleEmoji = '💼';
+      specificTitle = '职场发展深度分析';
       specificAnalysis = `
         <div class="ai-section">
-          <h5>💰 财富运势深度分析</h5>
-          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <h5>📈 职业发展路径</h5>
+          <p>基于您的命理特点，职场发展建议：</p>
           <ul>
-            <li><strong>财位方向：</strong>东南方是您的固定财位，西北方是流动财位</li>
-            <li><strong>投资时机：</strong>${currentYear}年冬季至${nextYear}年春季适宜中长期投资</li>
-            <li><strong>理财建议：</strong>房地产和绿色能源相关领域值得关注</li>
-            <li><strong>风险规避：</strong>避免在农历三月进行高风险投资</li>
+            <li><strong>适合领域：</strong>管理、策划、教育或创意行业</li>
+            <li><strong>晋升时机：</strong>${currentYear}年底至${nextYear}年初是关键期</li>
+            <li><strong>贵人方位：</strong>东方和东南方的同事或上司对您帮助较大</li>
+            <li><strong>发展建议：</strong>加强专业技能，适当展现领导能力</li>
           </ul>
         </div>
       `;
       break;
       
-    case 'date':
+    case '创业潜力':
+      titleEmoji = '🚀';
+      specificTitle = '创业潜力深度分析';
       specificAnalysis = `
         <div class="ai-section">
-          <h5>📅 择日吉时深度分析</h5>
-          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <h5>💰 创业机遇评估</h5>
+          <p>您的创业潜力分析如下：</p>
           <ul>
-            <li><strong>最佳月份：</strong>农历二月、五月、八月</li>
-            <li><strong>吉利日期：</strong>带有3、6、9的日子较为吉祥</li>
-            <li><strong>适宜时辰：</strong>辰时（7-9点）、午时（11-13点）、申时（15-17点）</li>
-            <li><strong>避讳：</strong>避免在生肖相冲的日子进行</li>
+            <li><strong>创业优势：</strong>决策果断，市场敏感度较高</li>
+            <li><strong>最佳时机：</strong>${nextYear}年春季是较好的创业起点</li>
+            <li><strong>适合行业：</strong>文化创意、教育培训、健康养生领域</li>
+            <li><strong>风险提示：</strong>注意资金流管理，避免过度扩张</li>
           </ul>
         </div>
       `;
       break;
       
-    case 'name':
+    // 财运相关
+    case '财位分析':
+      titleEmoji = '💰';
+      specificTitle = '财位分析深度报告';
       specificAnalysis = `
         <div class="ai-section">
-          <h5>📝 命名分析深度解析</h5>
-          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <h5>📍 财富方位指南</h5>
+          <p>根据您的财星定位：</p>
           <ul>
-            <li><strong>五行平衡：</strong>名字中宜加入属木、水的字根</li>
-            <li><strong>吉祥笔画：</strong>总笔画数为16、24、32较为吉利</li>
-            <li><strong>音韵建议：</strong>平仄相间，避免同音不雅词汇</li>
-            <li><strong>寓意方向：</strong>与智慧、成长、和谐相关的字义</li>
+            <li><strong>正财方位：</strong>东南方，适合固定收入来源</li>
+            <li><strong>偏财方位：</strong>西北方，适合投资理财机会</li>
+            <li><strong>财库位置：</strong>家中或办公室的东北角</li>
+            <li><strong>催财方法：</strong>在财位放置绿植或流动水景</li>
           </ul>
         </div>
       `;
       break;
       
-    case 'fengshui':
+    case '理财时机':
+      titleEmoji = '📊';
+      specificTitle = '理财时机深度分析';
       specificAnalysis = `
         <div class="ai-section">
-          <h5>🏠 风水布局深度分析</h5>
-          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <h5>⏰ 投资时机建议</h5>
+          <p>基于您的财运算命：</p>
           <ul>
-            <li><strong>财位布置：</strong>在东南方放置绿色植物或流动水景</li>
-            <li><strong>健康方位：</strong>东方保持明亮通风，避免堆放杂物</li>
-            <li><strong>文昌位：</strong>东北方适合设置书房或学习区</li>
-            <li><strong>避煞：</strong>避免门对门、床对镜等不良格局</li>
+            <li><strong>短期投资：</strong>${currentMonth}月-${(currentMonth + 3) % 12 || 12}月适合短期理财</li>
+            <li><strong>长期投资：</strong>${nextYear}年开始布局中长期资产</li>
+            <li><strong>风险控制：</strong>避免在农历三月和九月进行大额投资</li>
+            <li><strong>理财建议：</strong>分散投资，房地产和稳健型基金比例适当</li>
           </ul>
         </div>
       `;
       break;
       
-    case 'compatibility':
+    // 择日相关
+    case '婚期择日':
+      titleEmoji = '📅';
+      specificTitle = '婚期择日专业建议';
       specificAnalysis = `
         <div class="ai-section">
-          <h5>🤝 关系合盘深度分析</h5>
-          <p>基于双方的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <h5>❤️ 吉日选择指南</h5>
+          <p>根据您和伴侣的八字合婚：</p>
           <ul>
-            <li><strong>缘分指数：</strong>85% （深缘）</li>
-            <li><strong>互补领域：</strong>性格上动静互补，能力上各有专长</li>
-            <li><strong>潜在冲突：</strong>价值观差异可能在财务决策上体现</li>
+            <li><strong>最佳年份：</strong>${currentYear}年或${currentYear + 2}年</li>
+            <li><strong>吉利月份：</strong>农历二月、五月、八月、十一月</li>
+            <li><strong>适宜日期：</strong>带有6、8、9的日子较为吉祥</li>
+            <li><strong>避讳日期：</strong>避免在双方生肖相冲的日子</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case '新生宝宝择日':
+      titleEmoji = '👶';
+      specificTitle = '新生宝宝择日指南';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>🌟 宝宝出生吉日</h5>
+          <p>为宝宝选择良辰吉日：</p>
+          <ul>
+            <li><strong>最佳月份：</strong>农历正月、四月、七月、十月</li>
+            <li><strong>吉利时辰：</strong>辰时（7-9点）、午时（11-13点）、申时（15-17点）</li>
+            <li><strong>五行平衡：</strong>选择与父母五行相生的日子</li>
+            <li><strong>避讳：</strong>避免与父母生肖相冲的日子</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case '新家入住择日':
+      titleEmoji = '🏠';
+      specificTitle = '新家入住择日建议';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>🔑 入宅吉日选择</h5>
+          <p>新家入住择日指南：</p>
+          <ul>
+            <li><strong>最佳月份：</strong>农历三月、六月、九月、十二月</li>
+            <li><strong>吉利日期：</strong>黄道吉日，避开黑道日</li>
+            <li><strong>适宜时辰：</strong>上午9-11点阳气最旺的时间</li>
+            <li><strong>入宅仪式：</strong>先搬入厨房用具，象征衣食无忧</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case '新公司入住择日':
+      titleEmoji = '🏢';
+      specificTitle = '新公司开业择日';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>💼 开业大吉指南</h5>
+          <p>公司开业择日建议：</p>
+          <ul>
+            <li><strong>最佳月份：</strong>农历正月、五月、八月</li>
+            <li><strong>吉利日期：</strong>选择与行业五行相生的日子</li>
+            <li><strong>开业时辰：</strong>上午9点、11点、下午1点</li>
+            <li><strong>招财布局：</strong>门口放置招财植物，前台设置流水摆件</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    // 测名相关
+    case '宝宝名':
+      titleEmoji = '👶';
+      specificTitle = '宝宝命名分析';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>📝 命名原则指南</h5>
+          <p>为宝宝取名的关键原则：</p>
+          <ul>
+            <li><strong>五行平衡：</strong>补充命理中较弱的五行元素</li>
+            <li><strong>音韵和谐：</strong>名字读音流畅，避免拗口</li>
+            <li><strong>字义吉祥：</strong>选择寓意美好、积极向上的字</li>
+            <li><strong>笔画吉利：</strong>总笔画数在吉祥范围内</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case '宠物名':
+      titleEmoji = '🐶';
+      specificTitle = '宠物命名建议';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>🐾 宠物命名原则</h5>
+          <p>为宠物取名的建议：</p>
+          <ul>
+            <li><strong>简短易记：</strong>2-3个字的名字最佳</li>
+            <li><strong>音调响亮：</strong>宠物容易辨识的发音</li>
+            <li><strong>个性特征：</strong>根据宠物外貌或性格取名</li>
+            <li><strong>吉祥寓意：</strong>选择寓意健康、快乐的名称</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case '公司名':
+      titleEmoji = '🏢';
+      specificTitle = '公司命名分析';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>💼 公司命名指南</h5>
+          <p>公司命名的关键要素：</p>
+          <ul>
+            <li><strong>行业属性：</strong>体现公司主营业务</li>
+            <li><strong>品牌定位：</strong>符合目标客户群体的认知</li>
+            <li><strong>易于传播：</strong>简洁易记，便于口碑传播</li>
+            <li><strong>法律合规：</strong>确保名称可以注册</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case '命名改运':
+      titleEmoji = '✨';
+      specificTitle = '改名改运分析';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>🔮 改名改运指南</h5>
+          <p>通过改名调整运势：</p>
+          <ul>
+            <li><strong>问题分析：</strong>分析现有名字的不足之处</li>
+            <li><strong>调整方向：</strong>根据命理特点确定改名策略</li>
+            <li><strong>新名建议：</strong>提供3-5个备选方案</li>
+            <li><strong>改名时机：</strong>选择吉日进行改名仪式</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    // 风水相关
+    case '住家':
+      titleEmoji = '🏠';
+      specificTitle = '住家风水分析';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>🌿 家居风水布局</h5>
+          <p>住家风水的关键要点：</p>
+          <ul>
+            <li><strong>大门方位：</strong>保持干净整洁，避免正对电梯</li>
+            <li><strong>客厅布局：</strong>沙发靠实墙，形成聚气格局</li>
+            <li><strong>卧室风水：</strong>床不对门，床头靠实墙</li>
+            <li><strong>厨房位置：</strong>避免正对卫生间</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case '办公室':
+      titleEmoji = '💼';
+      specificTitle = '办公室风水分析';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>📊 办公风水布局</h5>
+          <p>办公室风水的关键要素：</p>
+          <ul>
+            <li><strong>座位方位：</strong>背后有靠，前方开阔</li>
+            <li><strong>办公桌布局：</strong>左高右低，左动右静</li>
+            <li><strong>财位布置：</strong>在财位放置招财物品</li>
+            <li><strong>避免煞气：</strong>避开横梁压顶、尖角冲射</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    // 合盘相关
+    case '情侣合盘（缘分起落 / 暧昧进展）':
+      titleEmoji = '💑';
+      specificTitle = '情侣合盘深度分析';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>💞 缘分深浅分析</h5>
+          <p>双方${cultureName}合盘结果显示：</p>
+          <ul>
+            <li><strong>缘分指数：</strong>85%（属于深缘）</li>
+            <li><strong>关系节奏：</strong>适合循序渐进，避免急于推进</li>
+            <li><strong>甜蜜期：</strong>未来3-6个月是关系升温期</li>
+            <li><strong>沟通建议：</strong>多使用温和的表达方式，减少直接冲突</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case '夫妻流年（婚姻发展）':
+      titleEmoji = '👫';
+      specificTitle = '夫妻流年合盘分析';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>💑 婚姻发展趋势</h5>
+          <p>夫妻${cultureName}合盘分析：</p>
+          <ul>
+            <li><strong>和谐指数：</strong>78%（属于和谐婚姻）</li>
+            <li><strong>关键年份：</strong>${nextYear}年是婚姻发展重要节点</li>
+            <li><strong>共同发展：</strong>在事业和家庭规划上能够相互支持</li>
+            <li><strong>注意事项：</strong>注意${currentYear}年底的沟通问题</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case '个性合盘（冲突 / 互补）':
+      titleEmoji = '🤝';
+      specificTitle = '个性合盘分析';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>🧩 性格匹配分析</h5>
+          <p>双方性格合盘结果：</p>
+          <ul>
+            <li><strong>匹配度：</strong>82%（高度匹配）</li>
+            <li><strong>互补领域：</strong>决策方式、风险偏好、社交风格</li>
+            <li><strong>潜在冲突：</strong>消费观念、生活节奏差异</li>
             <li><strong>调和建议：</strong>建立定期沟通机制，尊重彼此差异</li>
           </ul>
         </div>
       `;
       break;
       
-    default:
+    case '事业合盘（合伙人 / 员工）':
+      titleEmoji = '🤝';
+      specificTitle = '事业合盘分析';
       specificAnalysis = `
         <div class="ai-section">
-          <h5>📊 综合命理深度分析</h5>
-          <p>基于您的命理数据，以下是关于"${focus}"的具体分析：</p>
+          <h5>💼 事业合作评估</h5>
+          <p>事业${cultureName}合盘分析：</p>
           <ul>
-            <li><strong>当前运势：</strong>处于上升期，适合开拓新领域</li>
-            <li><strong>贵人运势：</strong>下半年贵人运增强，多参与社交活动</li>
-            <li><strong>健康注意：</strong>注意肝胆系统和情绪管理</li>
-            <li><strong>整体建议：</strong>把握${currentYear}年下半年的发展机遇</li>
+            <li><strong>合作运势：</strong>76%（适合合作）</li>
+            <li><strong>最佳分工：</strong>一人主外开拓，一人主内管理</li>
+            <li><strong>共同发展：</strong>${nextYear}年是合作事业的关键发展期</li>
+            <li><strong>风险提示：</strong>注意财务管理和决策流程的明确</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case '断联修复（朋友 / 情人 / 家人）':
+      titleEmoji = '💔';
+      specificTitle = '断联修复分析';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>🔄 关系修复指南</h5>
+          <p>断联修复的${cultureName}分析：</p>
+          <ul>
+            <li><strong>修复可能性：</strong>68%（有机会修复）</li>
+            <li><strong>最佳时机：</strong>${currentYear}年冬季是修复关系的较好时机</li>
+            <li><strong>修复方式：</strong>循序渐进，从简单沟通开始</li>
+            <li><strong>注意事项：</strong>避免旧事重提，关注当下和未来</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    case '宠物缘分（主人与宠物）':
+      titleEmoji = '🐾';
+      specificTitle = '宠物缘分分析';
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>❤️ 主宠缘分分析</h5>
+          <p>主人与宠物的${cultureName}分析：</p>
+          <ul>
+            <li><strong>缘分指数：</strong>92%（深厚缘分）</li>
+            <li><strong>最佳宠物：</strong>中小型犬、猫科动物</li>
+            <li><strong>互动方式：</strong>温柔耐心，建立信任关系</li>
+            <li><strong>健康注意：</strong>关注宠物情绪和消化系统健康</li>
+          </ul>
+        </div>
+      `;
+      break;
+      
+    // 默认情况
+    default:
+      titleEmoji = '📋';
+      specificTitle = `${focus}深度分析`;
+      specificAnalysis = `
+        <div class="ai-section">
+          <h5>🎯 ${focus}专项分析</h5>
+          <p>基于您的${cultureName}，关于"${focus}"的分析如下：</p>
+          <ul>
+            <li><strong>整体运势：</strong>当前处于平稳发展期</li>
+            <li><strong>机遇时段：</strong>${currentYear}年下半年机遇较多</li>
+            <li><strong>注意事项：</strong>保持耐心，避免冲动决策</li>
+            <li><strong>发展方向：</strong>发挥自身优势，稳步推进</li>
           </ul>
         </div>
       `;
@@ -2342,36 +2426,37 @@ function generateDetailedReport(focus, focusType, cultureName) {
   
   return `
     <div class="ai-report">
-      <h4>🔮 ${cultureName}深度分析报告 · ${focus}</h4>
+      <h4>${titleEmoji} ${cultureName} · ${specificTitle}</h4>
+      
       <div class="ai-section">
-        <h5>📋 报告概要</h5>
-        <p>本报告基于专业的${cultureName}体系，针对"${focus}"这一具体需求进行深度分析。报告结合了个人命理特点与当前运势周期，提供具有实际操作性的建议。</p>
+        <h5>📊 报告概要</h5>
+        <p>本报告基于专业的${cultureName}体系，针对"${focus}"这一具体需求进行深度分析。结合个人命理特点与当前运势周期，提供具有实际操作性的建议。</p>
       </div>
       
       ${specificAnalysis}
       
       <div class="ai-section">
-        <h5>🎯 近期行动建议</h5>
+        <h5>📝 个性化建议</h5>
         <ol>
-          <li><strong>立即行动：</strong>清理东南方位，布置招财风水局</li>
-          <li><strong>短期计划（1-3个月）：</strong>加强与属龙、鼠人士的合作</li>
-          <li><strong>中期规划（3-6个月）：</strong>考虑技能提升或专业认证</li>
-          <li><strong>长期发展（6-12个月）：</strong>布局${nextYear}年的重要发展计划</li>
+          <li><strong>立即行动：</strong>清理对应方位，调整环境能量</li>
+          <li><strong>短期计划（1-3个月）：</strong>制定具体目标，开始行动</li>
+          <li><strong>中期规划（3-6个月）：</strong>巩固成果，适当拓展</li>
+          <li><strong>长期发展（6-12个月）：</strong>布局未来，建立稳定基础</li>
         </ol>
       </div>
       
       <div class="ai-section">
-        <h5>⚠️ 注意事项</h5>
+        <h5>🌟 开运小贴士</h5>
         <ul>
-          <li>避免在农历七月进行重大决策或投资</li>
-          <li>注意${currentYear}年冬季的健康养护</li>
-          <li>重要事宜尽量选择吉日吉时进行</li>
-          <li>保持东南方位的整洁与能量流动</li>
+          <li>佩戴与自身五行相生的饰品</li>
+          <li>在吉时进行重要决策</li>
+          <li>保持积极心态，相信自身能力</li>
+          <li>定期清理负面能量，保持环境整洁</li>
         </ul>
       </div>
       
       <div class="ai-note">
-        <small>💡 温馨提示：本报告基于${cultureName}算法生成，提供专业参考。命理分析旨在帮助您更好地了解自身潜能与发展方向，真正的幸福与成功还需结合个人努力与现实行动。</small>
+        <small>💡 温馨提示：本分析基于传统命理学原理，旨在提供参考。真正的幸福与成功需要结合现实行动与个人努力。命理是导航，行动才是关键。</small>
       </div>
     </div>
   `;
@@ -2386,7 +2471,7 @@ function generateFallbackReport(focus, data, cultureName) {
       <h4>${cultureName}分析报告 · ${focus}</h4>
       <div class="ai-section">
         <h5>📊 分析概要</h5>
-        <p>由于网络连接问题，完整的AI分析暂时无法生成。以下是基于您提供的${focus}需求的基础分析：</p>
+        <p>基于您提供的${focus}需求的基础分析：</p>
       </div>
       
       <div class="ai-section">
@@ -2399,61 +2484,12 @@ function generateFallbackReport(focus, data, cultureName) {
           <li>保持开放心态，把握适当时机</li>
         </ul>
       </div>
-      
-      <div class="ai-note">
-        <small>注：完整深度分析需网络连接。您可以稍后刷新重试，或联系客服获取人工深度解读服务。</small>
-      </div>
     </div>
   `;
 }
 
-async function onGenerate() {
-  hideErr();
-  clearResultArea();
-
-  const type = normalizeType($('type')?.value || 'personal');
-  const err = validate(type);
-  if (err) return showErr(err);
-
-  const me = readBirthInputs('1');
-  const focus = getFocus();
-  const culture = getCultureResolved();
-  const config = cultureConfig[culture] || cultureConfig['东方'];
-
-  const payload = {
-    year: me.year,
-    month: me.month,
-    day: me.day,
-    hour: me.hour,
-    minute: me.minute,
-    timeUnknown: me.timeUnknown,
-    country: me.country,
-    name: me.name,
-    focus: focus,
-    culture: culture
-  };
-
-  try {
-    const result = config.calculate(payload);
-    showResultArea();
-    config.render(result, payload);
-    
-    const richHost = $('rich-report');
-    if (richHost) {
-      richHost.innerHTML = '<div class="loading">正在生成深度分析报告...</div>';
-      
-      // 使用增强版AI报告生成
-      const aiReport = await generateAIReport(result, focus, payload, culture);
-      richHost.innerHTML = aiReport;
-    }
-  } catch (error) {
-    console.error('分析生成失败：', error);
-    showErr('分析生成失败，请稍后重试');
-  }
-}
-
 /* ==============================
-  添加加载样式
+   添加加载样式
 ============================== */
 const loadingStyle = document.createElement('style');
 loadingStyle.textContent = `
@@ -2499,27 +2535,64 @@ loadingStyle.textContent = `
 document.head.appendChild(loadingStyle);
 
 /* ==============================
-  修改初始化函数
+   核心函数：onGenerate
 ============================== */
-function init(){
-  // generate button
-  $('btnNext')?.addEventListener('click', onGenerate);
+async function onGenerate() {
+  hideErr();
+  clearResultArea();
 
-  // type/culture changes
-  $('type')?.addEventListener('change', (e) => togglePartner(e.target.value));
-  // 修复这里：应该调用 updatePurposeOptionsBasedOnCulture 而不是 updatePurposeOptions
-  $('culture')?.addEventListener('change', () => updatePurposeOptionsBasedOnCulture(getCultureResolved()));
+  const type = normalizeType($('type')?.value || 'personal');
+  const err = validate(type);
+  if (err) return showErr(err);
 
-  // initial state
-  applyI18n();
-  togglePartner($('type')?.value || 'personal');
-  updatePurposeOptionsBasedOnCulture(getCultureResolved());
+  const me = readBirthInputs('1');
+  const focus = getFocus();
+  const culture = getCultureResolved();
+  const config = cultureConfig[culture] || cultureConfig['东方'];
 
-  // VIP auth hide inputs by default
-  setupAuthReveal();
+  const payload = {
+    year: me.year,
+    month: me.month,
+    day: me.day,
+    hour: me.hour,
+    minute: me.minute,
+    timeUnknown: me.timeUnknown,
+    country: me.country,
+    name: me.name,
+    focus: focus,
+    culture: culture
+  };
 
-  // chat
-  setupChatUI();
+  try {
+    // 计算命理数据
+    const result = config.calculate(payload);
+    
+    // 显示结果区域
+    showResultArea();
+    
+    // 渲染基础报告
+    config.render(result, payload);
+    
+    // 生成深度AI分析
+    const richHost = $('rich-report');
+    if (richHost) {
+      richHost.innerHTML = '<div class="loading">正在生成深度分析报告...</div>';
+      
+      // 使用增强版AI报告生成
+      const aiReport = await generateAIReport(result, focus, payload, culture);
+      richHost.innerHTML = aiReport;
+    }
+    
+    // 滚动到结果区域
+    const resultSection = $('result');
+    if (resultSection) {
+      resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    
+  } catch (error) {
+    console.error('分析生成失败：', error);
+    showErr('分析生成失败，请检查输入信息');
+  }
 }
 
   function togglePartner(typeValueRaw) {
@@ -2539,7 +2612,7 @@ function init(){
       compat.disabled = !show;
     }
 
-    updatePurposeOptions(getCultureResolved());
+    updatePurposeOptionsBasedOnCulture(getCultureResolved());
   }
 
   function updatePurposeOptions(cultureResolved) {
@@ -2551,7 +2624,7 @@ function init(){
   }
 
   function updatePersonalPurposeOptions(options) {
-    if (!Array.isArray(options)) return; // 🛡 防炸  
+    if (!Array.isArray(options)) return;
     const select = $('purpose_personal');
     if (!select) return;
     const currentValue = select.value;
@@ -2589,7 +2662,7 @@ function init(){
   }
 
   function updateCompatibilityPurposeOptions(options) {
-    if (!Array.isArray(options)) return; // 🛡 防炸  
+    if (!Array.isArray(options)) return;
     const select = $('purpose_compatibility');
     if (!select) return;
     const currentValue = select.value;
@@ -2951,11 +3024,10 @@ const baziCalculator = window.baziCalculator || {
   }
 
   /* ==============================
-     Other culture calculators (simple placeholders)
+     Other culture calculators
   ============================== */
   const calculators = {
     '东方': {
-      // ✅ changed to accurate calculator
       calculate: ({year,month,day,hour,minute,timeUnknown,country}) =>
         baziCalculator.calculateBaziAccurate(year,month,day,hour,minute,timeUnknown,country),
       render: (data, info) => renderBaziReport(data, info),
@@ -3029,7 +3101,7 @@ const baziCalculator = window.baziCalculator || {
   }
 
   /* ==============================
-     Generate
+     Generate Functions
   ============================== */
   function readBirthInputs(prefix='1') {
     const name = ($(`name${prefix}`)?.value || '').trim();
@@ -3065,45 +3137,41 @@ function getFocus() {
     if (!me.name) return t('err_fill_name1');
     if (!me.birthdate) return t('err_fill_date1');
     if (!me.country) return t('err_fill_country1');
+    
+    // 检查日期是否有效
+    if (me.year < 1900 || me.year > new Date().getFullYear()) {
+      return '请输入有效的出生年份（1900-现在）';
+    }
+    
+    // 检查时间格式
+    if (me.birthtime && !validateBirthTime(me.birthtime)) {
+      return '请输入有效的时间格式（HH:MM）';
+    }
 
     if (type === 'compatibility') {
       const p = readBirthInputs('2');
       if (!p.name) return t('err_fill_name2');
       if (!p.birthdate) return t('err_fill_date2');
       if (!p.country) return t('err_fill_country2');
+      
+      // 检查第二人日期
+      if (p.year < 1900 || p.year > new Date().getFullYear()) {
+        return '请输入有效的第二人出生年份（1900-现在）';
+      }
+      
+      // 检查第二人时间格式
+      if (p.birthtime && !validateBirthTime(p.birthtime)) {
+        return '请输入有效的第二人时间格式（HH:MM）';
+      }
     }
     return '';
   }
 
-  function onGenerate() {
-    hideErr();
-    clearResultArea();
-
-    const type = normalizeType($('type')?.value || 'personal');
-    const err = validate(type);
-    if (err) return showErr(err);
-
-    const me = readBirthInputs('1');
-    const focus = getFocus();
-    const calc = resolveCalc();
-
-    const payload = {
-      year: me.year, month: me.month, day: me.day,
-      hour: me.hour, minute: me.minute,
-      timeUnknown: me.timeUnknown,
-      name: me.name, country: me.country,
-      type,
-      focus,
-      culture: getCultureResolved()
-    };
-
-    const result = calc.calculate(payload);
-    showResultArea();
-    calc.render(result, payload);
-
-    const richHost = $('rich-report');
-    if (richHost) richHost.innerHTML = calc.analysis(result, focus);
-  }
+function validateBirthTime(timeStr) {
+  if (!timeStr) return true;
+  const regex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+  return regex.test(timeStr);
+}  
 
   /* ==============================
      VIP Auth: hide fields by default (no echo/log)
@@ -3238,12 +3306,6 @@ function getFocus() {
     });
   }
 
-function validateBirthTime(timeStr) {
-  if (!timeStr) return true;
-  const regex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-  return regex.test(timeStr);
-}  
-
 /* ==============================
    Init
 ============================== */
@@ -3252,13 +3314,31 @@ function init(){
   $('btnNext')?.addEventListener('click', onGenerate);
 
   // type/culture changes
-  $('type')?.addEventListener('change', (e) => togglePartner(e.target.value));
-  $('culture')?.addEventListener('change', () => updatePurposeOptions(getCultureResolved()));
+  $('type')?.addEventListener('change', (e) => {
+    togglePartner(e.target.value);
+    updatePurposeOptionsBasedOnCulture(getCultureResolved());
+  });
+  
+  $('culture')?.addEventListener('change', () => {
+    updatePurposeOptionsBasedOnCulture(getCultureResolved());
+  });
+
+  // language select
+  const langSelect = $('langSelect');
+  if (langSelect) {
+    langSelect.value = getLang();
+    langSelect.addEventListener('change', (e) => {
+      setLang(e.target.value);
+      applyI18n();
+      updatePurposeOptionsBasedOnCulture(getCultureResolved());
+    });
+  }
 
   // initial state
   applyI18n();
+  setDefaultBirthDateTimeNow(); // 设置默认日期时间
   togglePartner($('type')?.value || 'personal');
-  updatePurposeOptions(getCultureResolved());
+  updatePurposeOptionsBasedOnCulture(getCultureResolved());
 
   // VIP auth hide inputs by default
   setupAuthReveal();
