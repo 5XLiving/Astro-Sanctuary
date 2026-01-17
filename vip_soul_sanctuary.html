@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -905,8 +904,8 @@ select:focus + .select-icon {
           <option value="auto" data-i18n="culture_auto">自动识别 Auto Detect</option>
           <option value="东方" data-i18n="culture_cn">东方 Chinese / Bazi</option>
           <option value="西方" data-i18n="culture_west">西方 Astrology / Tarot</option>
-          <option value="日式" data-i18n="culture_jp">日式九星 Japanese</option>
-          <option value="吠陀" data-i18n="culture_vedic">印度吠陀 Vedic</option>
+          <option value="日式九星" data-i18n="culture_jp">日式九星 Japanese</option>
+          <option value="印度吠陀" data-i18n="culture_vedic">印度吠陀 Vedic</option>
         </select>
       </div>
 
@@ -1499,7 +1498,297 @@ function setupTypeSelector() {
 }
 
 /* ==============================
-   文化系统配置
+   修复的八字计算器
+============================== */
+const baziCalculator = {
+  // 天干地支
+  heavenlyStems: ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'],
+  earthlyBranches: ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'],
+  
+  // 地支藏干
+  branchHiddenStems: {
+    '子': ['癸'],
+    '丑': ['己','癸','辛'],
+    '寅': ['甲','丙','戊'],
+    '卯': ['乙'],
+    '辰': ['戊','乙','癸'],
+    '巳': ['丙','戊','庚'],
+    '午': ['丁','己'],
+    '未': ['己','丁','乙'],
+    '申': ['庚','壬','戊'],
+    '酉': ['辛'],
+    '戌': ['戊','辛','丁'],
+    '亥': ['壬','甲']
+  },
+  
+  // 天干五行
+  getStemElement(stem) {
+    const stemElements = {
+      '甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土',
+      '庚':'金','辛':'金','壬':'水','癸':'水'
+    };
+    return stemElements[stem] || '木';
+  },
+  
+  // 地支五行
+  getBranchElement(branch) {
+    const branchElements = {
+      '子':'水','丑':'土','寅':'木','卯':'木','辰':'土','巳':'火',
+      '午':'火','未':'土','申':'金','酉':'金','戌':'土','亥':'水'
+    };
+    return branchElements[branch] || '木';
+  },
+  
+  // 获取天干阴阳
+  getStemYinYang(stem) {
+    // 甲丙戊庚壬为阳，乙丁己辛癸为阴
+    const yangStems = ['甲','丙','戊','庚','壬'];
+    return yangStems.includes(stem) ? '阳' : '阴';
+  },
+  
+  // 获取地支阴阳
+  getBranchYinYang(branch) {
+    // 子寅辰午申戌为阳，丑卯巳未酉亥为阴
+    const yangBranches = ['子','寅','辰','午','申','戌'];
+    return yangBranches.includes(branch) ? '阳' : '阴';
+  },
+  
+  // 计算儒略日（简化版）
+  julianDay(y, m, d) {
+    if (m <= 2) {
+      y -= 1;
+      m += 12;
+    }
+    const A = Math.floor(y / 100);
+    const B = 2 - A + Math.floor(A / 4);
+    return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
+  },
+  
+  // 获取日干支（简化版 - 实际需要精确节气计算）
+  getDayGanZhi(y, m, d) {
+    // 简化计算：1900年1月31日为甲子日
+    const baseDate = new Date(1900, 0, 31); // 1900-01-31 甲子日
+    const targetDate = new Date(y, m - 1, d);
+    const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
+    const ganZhiIndex = (diffDays % 60 + 60) % 60;
+    
+    const stemIndex = ganZhiIndex % 10;
+    const branchIndex = ganZhiIndex % 12;
+    
+    return {
+      stem: this.heavenlyStems[stemIndex],
+      branch: this.earthlyBranches[branchIndex],
+      stemIndex,
+      branchIndex
+    };
+  },
+  
+  // 获取年干支
+  getYearGanZhi(y, m, d) {
+    // 立春为分界，简化处理：2月4日左右
+    const isBeforeLiChun = (m < 2) || (m === 2 && d < 4);
+    const lunarYear = isBeforeLiChun ? y - 1 : y;
+    
+    const stemIndex = (lunarYear - 4) % 10;
+    const branchIndex = (lunarYear - 4) % 12;
+    
+    return {
+      stem: this.heavenlyStems[(stemIndex + 10) % 10],
+      branch: this.earthlyBranches[(branchIndex + 12) % 12],
+      stemIndex: (stemIndex + 10) % 10,
+      branchIndex: (branchIndex + 12) % 12,
+      solarYear: lunarYear
+    };
+  },
+  
+  // 获取月干支
+  getMonthGanZhi(y, m, d, yearStem) {
+    // 月柱以节气为分界，这里简化处理
+    const monthNumber = m;
+    const monthBranches = ['寅','卯','辰','巳','午','未','申','酉','戌','亥','子','丑'];
+    const branch = monthBranches[(monthNumber - 1 + 2) % 12]; // 正月为寅
+    
+    // 根据年干求月干（五虎遁诀）
+    const yearStemToMonthStem = {
+      '甲': ['丙','丁','戊','己','庚','辛','壬','癸','甲','乙','丙','丁'],
+      '乙': ['戊','己','庚','辛','壬','癸','甲','乙','丙','丁','戊','己'],
+      '丙': ['庚','辛','壬','癸','甲','乙','丙','丁','戊','己','庚','辛'],
+      '丁': ['壬','癸','甲','乙','丙','丁','戊','己','庚','辛','壬','癸'],
+      '戊': ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸','甲','乙'],
+      '己': ['丙','丁','戊','己','庚','辛','壬','癸','甲','乙','丙','丁'],
+      '庚': ['戊','己','庚','辛','壬','癸','甲','乙','丙','丁','戊','己'],
+      '辛': ['庚','辛','壬','癸','甲','乙','丙','丁','戊','己','庚','辛'],
+      '壬': ['壬','癸','甲','乙','丙','丁','戊','己','庚','辛','壬','癸'],
+      '癸': ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸','甲','乙']
+    };
+    
+    const monthIndex = (monthNumber - 1 + 2) % 12; // 正月为寅月
+    const stem = yearStemToMonthStem[yearStem]?.[monthIndex] || '甲';
+    
+    return {
+      stem,
+      branch,
+      element: this.getStemElement(stem)
+    };
+  },
+  
+  // 获取时干支
+  getHourGanZhi(hour, minute, dayStem) {
+    // 子时为23:00-1:00
+    let hourBranchIndex;
+    if (hour === 23 || hour === 0) hourBranchIndex = 0; // 子
+    else hourBranchIndex = Math.floor((hour + 1) / 2) % 12;
+    
+    const branch = this.earthlyBranches[hourBranchIndex];
+    
+    // 根据日干求时干（五鼠遁诀）
+    const dayStemToHourStem = {
+      '甲': ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸','甲','乙'],
+      '乙': ['丙','丁','戊','己','庚','辛','壬','癸','甲','乙','丙','丁'],
+      '丙': ['戊','己','庚','辛','壬','癸','甲','乙','丙','丁','戊','己'],
+      '丁': ['庚','辛','壬','癸','甲','乙','丙','丁','戊','己','庚','辛'],
+      '戊': ['壬','癸','甲','乙','丙','丁','戊','己','庚','辛','壬','癸'],
+      '己': ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸','甲','乙'],
+      '庚': ['丙','丁','戊','己','庚','辛','壬','癸','甲','乙','丙','丁'],
+      '辛': ['戊','己','庚','辛','壬','癸','甲','乙','丙','丁','戊','己'],
+      '壬': ['庚','辛','壬','癸','甲','乙','丙','丁','戊','己','庚','辛'],
+      '癸': ['壬','癸','甲','乙','丙','丁','戊','己','庚','辛','壬','癸']
+    };
+    
+    const stem = dayStemToHourStem[dayStem]?.[hourBranchIndex] || '甲';
+    
+    return {
+      stem,
+      branch,
+      element: this.getStemElement(stem)
+    };
+  },
+  
+  // 计算八字
+  calculateBaziAccurate(year, month, day, hour, minute, timeUnknown, country) {
+    const Y = parseInt(year), M = parseInt(month), D = parseInt(day);
+    const H = parseInt(hour), Min = parseInt(minute);
+    
+    // 计算年柱
+    const yearPillar = this.getYearGanZhi(Y, M, D);
+    
+    // 计算日柱
+    const dayPillar = this.getDayGanZhi(Y, M, D);
+    
+    // 计算月柱
+    const monthPillar = this.getMonthGanZhi(Y, M, D, yearPillar.stem);
+    
+    // 计算时柱
+    const hourPillar = timeUnknown ? 
+      { stem: '?', branch: '?', element: '未知' } : 
+      this.getHourGanZhi(H, Min, dayPillar.stem);
+    
+    const pillars = {
+      year: {
+        stem: yearPillar.stem,
+        branch: yearPillar.branch,
+        element: this.getStemElement(yearPillar.stem),
+        yinYang: this.getStemYinYang(yearPillar.stem)
+      },
+      month: {
+        stem: monthPillar.stem,
+        branch: monthPillar.branch,
+        element: monthPillar.element,
+        yinYang: this.getStemYinYang(monthPillar.stem)
+      },
+      day: {
+        stem: dayPillar.stem,
+        branch: dayPillar.branch,
+        element: this.getStemElement(dayPillar.stem),
+        yinYang: this.getStemYinYang(dayPillar.stem)
+      },
+      hour: {
+        stem: hourPillar.stem,
+        branch: hourPillar.branch,
+        element: hourPillar.element,
+        yinYang: hourPillar.element === '未知' ? '未知' : this.getStemYinYang(hourPillar.stem)
+      }
+    };
+    
+    // 计算五行强度（包括地支藏干）
+    const elements = { '木': 0, '火': 0, '土': 0, '金': 0, '水': 0 };
+    
+    // 天干五行（权重：3）
+    Object.values(pillars).forEach(p => {
+      if (p.element && p.element !== '未知') {
+        elements[p.element] += 3;
+      }
+    });
+    
+    // 地支本气五行（权重：2）
+    [pillars.year.branch, pillars.month.branch, pillars.day.branch, pillars.hour.branch].forEach(branch => {
+      if (branch && branch !== '?') {
+        const element = this.getBranchElement(branch);
+        elements[element] += 2;
+      }
+    });
+    
+    // 地支藏干五行（权重：1）
+    [pillars.year.branch, pillars.month.branch, pillars.day.branch, pillars.hour.branch].forEach(branch => {
+      if (branch && branch !== '?' && this.branchHiddenStems[branch]) {
+        this.branchHiddenStems[branch].forEach(stem => {
+          const element = this.getStemElement(stem);
+          elements[element] += 1;
+        });
+      }
+    });
+    
+    const total = Object.values(elements).reduce((a, b) => a + b, 0) || 1;
+    
+    const percents = {
+      wood: Math.round((elements['木'] / total) * 100),
+      fire: Math.round((elements['火'] / total) * 100),
+      earth: Math.round((elements['土'] / total) * 100),
+      metal: Math.round((elements['金'] / total) * 100),
+      water: Math.round((elements['水'] / total) * 100)
+    };
+    
+    // 计算十神关系（日干对其他天干）
+    const dayStemIndex = this.heavenlyStems.indexOf(pillars.day.stem);
+    const relationships = {
+      year: this.getTenGodRelation(dayStemIndex, this.heavenlyStems.indexOf(pillars.year.stem)),
+      month: this.getTenGodRelation(dayStemIndex, this.heavenlyStems.indexOf(pillars.month.stem)),
+      hour: pillars.hour.stem === '?' ? '未知' : 
+            this.getTenGodRelation(dayStemIndex, this.heavenlyStems.indexOf(pillars.hour.stem))
+    };
+    
+    return {
+      pillars,
+      percents,
+      elements,
+      relationships,
+      timeUnknown
+    };
+  },
+  
+  // 获取十神关系
+  getTenGodRelation(dayStemIndex, otherStemIndex) {
+    const difference = (otherStemIndex - dayStemIndex + 10) % 10;
+    const isSameYinYang = (dayStemIndex % 2) === (otherStemIndex % 2);
+    
+    // 根据天干差值和阴阳关系判断十神
+    if (difference === 0) return '比肩';
+    if (difference === 1) return isSameYinYang ? '劫财' : '伤官';
+    if (difference === 2) return isSameYinYang ? '食神' : '偏财';
+    if (difference === 3) return isSameYinYang ? '正财' : '七杀';
+    if (difference === 4) return isSameYinYang ? '偏官' : '正官';
+    if (difference === 5) return isSameYinYang ? '正印' : '偏印';
+    if (difference === 6) return isSameYinYang ? '偏印' : '正印';
+    if (difference === 7) return isSameYinYang ? '正官' : '偏官';
+    if (difference === 8) return isSameYinYang ? '七杀' : '正财';
+    if (difference === 9) return isSameYinYang ? '偏财' : '食神';
+    
+    return '未知';
+  }
+};
+
+/* ==============================
+   文化系统配置（增强版）
 ============================== */
 const culturePurposeMap = {
   '东方': {
@@ -1531,7 +1820,10 @@ const culturePurposeMap = {
       '宠物名',
       '公司名',
       '情侣合名'
-    ]
+    ],
+    analysisType: '八字命理',
+    icon: '🌳',
+    description: '基于中国传统八字命理学，结合五行、干支、十神进行深度分析'
   },
   '西方': {
     personal: [
@@ -1549,9 +1841,155 @@ const culturePurposeMap = {
       '合盘分析',
       '事业共事',
       '断联修复'
-    ]
+    ],
+    analysisType: '占星塔罗',
+    icon: '⭐',
+    description: '基于西方占星学和塔罗牌，结合星座、行星位置进行运势分析'
+  },
+  '日式': {
+    personal: [
+      '恋爱缘分',
+      '婚姻走势',
+      '职场发展',
+      '创业潜力',
+      '个人改名'
+    ],
+    compatibility: [
+      '婚期择日',
+      '缘分起落',
+      '夫妻流年',
+      '合盘分析',
+      '事业共事'
+    ],
+    analysisType: '九星气学',
+    icon: '🌸',
+    description: '基于日本九星气学，结合九星、方位、气运进行运势分析'
+  },
+  '吠陀': {
+    personal: [
+      '恋爱缘分',
+      '婚姻走势',
+      '职场发展',
+      '创业潜力',
+      '财位分析'
+    ],
+    compatibility: [
+      '婚期择日',
+      '缘分起落',
+      '夫妻流年',
+      '合盘分析'
+    ],
+    analysisType: '印度占星',
+    icon: '🕉️',
+    description: '基于印度吠陀占星学，结合纳克沙特拉、达沙进行运势分析'
   }
 };
+
+/* ==============================
+   自动文化识别
+============================== */
+function autoDetectCulture(country, birthTime, name) {
+  // 根据国家/地区、出生时间和姓名自动识别文化背景
+  const countryLower = (country || '').toLowerCase();
+  const nameStr = (name || '').toLowerCase();
+  
+  // 中国地区识别
+  if (countryLower.includes('中国') || 
+      countryLower.includes('china') ||
+      countryLower.includes('taiwan') ||
+      countryLower.includes('hong kong') ||
+      countryLower.includes('macau')) {
+    return '东方';
+  }
+  
+  // 日本地区识别
+  if (countryLower.includes('日本') || 
+      countryLower.includes('japan') ||
+      nameStr.includes('佐藤') || nameStr.includes('鈴木') ||
+      nameStr.includes('高橋')) {
+    return '日式';
+  }
+  
+  // 印度地区识别
+  if (countryLower.includes('印度') || 
+      countryLower.includes('india') ||
+      nameStr.includes('singh') || nameStr.includes('kumar') ||
+      nameStr.includes('patel')) {
+    return '吠陀';
+  }
+  
+  // 其他情况默认为西方
+  return '西方';
+}
+
+/* ==============================
+   获取解析后的文化（增强版）
+============================== */
+function getCultureResolved() {
+  const cultureSelect = $('culture');
+  const selectedValue = cultureSelect?.value || 'auto';
+  
+  if (selectedValue === 'auto') {
+    // 自动识别
+    const country = $('country1')?.value || '';
+    const name = $('name1')?.value || '';
+    return autoDetectCulture(country, '', name);
+  }
+  
+  // 映射文化名称到内部标识
+  const cultureMap = {
+    '东方': '东方',
+    '西方': '西方',
+    '日式': '日式',
+    '日式九星': '日式',
+    '吠陀': '吠陀',
+    '印度吠陀': '吠陀'
+  };
+  
+  return cultureMap[selectedValue] || '东方';
+}
+
+/* ==============================
+   文化切换时更新界面
+============================== */
+function updateUIForCulture(culture) {
+  const config = culturePurposeMap[culture] || culturePurposeMap['东方'];
+  const type = getCurrentType();
+  
+  // 更新分析类型显示
+  const analysisTypeElement = document.getElementById('analysisTypeDisplay');
+  if (!analysisTypeElement) {
+    // 创建显示元素
+    const titleElement = document.querySelector('.section h2');
+    if (titleElement) {
+      const analysisSpan = document.createElement('span');
+      analysisSpan.id = 'analysisTypeDisplay';
+      analysisSpan.style.cssText = 'font-size: 0.9rem; color: var(--gold); margin-left: 10px;';
+      analysisSpan.textContent = ` · ${config.analysisType}`;
+      titleElement.appendChild(analysisSpan);
+    }
+  } else {
+    analysisTypeElement.textContent = ` · ${config.analysisType}`;
+  }
+  
+  // 更新文化图标
+  const cultureIconElement = document.getElementById('cultureIcon');
+  if (!cultureIconElement) {
+    const titleElement = document.querySelector('.section h2');
+    if (titleElement) {
+      const iconSpan = document.createElement('span');
+      iconSpan.id = 'cultureIcon';
+      iconSpan.style.cssText = 'margin-right: 8px;';
+      iconSpan.textContent = config.icon;
+      titleElement.insertBefore(iconSpan, titleElement.firstChild);
+    }
+  } else {
+    cultureIconElement.textContent = config.icon;
+  }
+  
+  // 更新目的选项
+  updatePurposeOptionsBasedOnCulture(culture);
+}
 
 /* ==============================
    改进的目的选项更新
@@ -1659,137 +2097,6 @@ function updateCompatibilityPurposeOptions(options) {
     select.value = currentValue;
   }
 }
-
-/* ==============================
-   八字计算器
-============================== */
-const baziCalculator = {
-  heavenlyStems: ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'],
-  earthlyBranches: ['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'],
-
-  getStemElement(stem){
-    const m = { '甲':'木','乙':'木','丙':'火','丁':'火','戊':'土','己':'土','庚':'金','辛':'金','壬':'水','癸':'水' };
-    return m[stem] || '木';
-  },
-  
-  getBranchElement(branch){
-    const m = { '子':'水','丑':'土','寅':'木','卯':'木','辰':'土','巳':'火','午':'火','未':'土','申':'金','酉':'金','戌':'土','亥':'水' };
-    return m[branch] || '木';
-  },
-
-  jdnNoon(y, m, d){
-    const a = Math.floor((14 - m) / 12);
-    const y2 = y + 4800 - a;
-    const m2 = m + 12 * a - 3;
-    return d
-      + Math.floor((153 * m2 + 2) / 5)
-      + 365 * y2
-      + Math.floor(y2 / 4)
-      - Math.floor(y2 / 100)
-      + Math.floor(y2 / 400)
-      - 32045;
-  },
-
-  sexagenaryIndexFromJDN(JDN){
-    let idx = (JDN - 2458511) % 60;
-    if (idx < 0) idx += 60;
-    return idx;
-  },
-
-  pillarFromIndex60(idx){
-    const stemIndex = idx % 10;
-    const branchIndex = idx % 12;
-    const stem = this.heavenlyStems[stemIndex];
-    const branch = this.earthlyBranches[branchIndex];
-    return { stemIndex, branchIndex, stem, branch, element: this.getStemElement(stem) };
-  },
-
-  isBeforeLiChun(y, m, d){
-    if (m < 2) return true;
-    if (m > 2) return false;
-    return d < 4;
-  },
-
-  calculateYearPillarSolar(y, m, d){
-    const solarYear = this.isBeforeLiChun(y, m, d) ? (y - 1) : y;
-    const stemIndex = (solarYear - 4) % 10;
-    const branchIndex = (solarYear - 4) % 12;
-    const stem = this.heavenlyStems[(stemIndex + 10) % 10];
-    const branch = this.earthlyBranches[(branchIndex + 12) % 12];
-    return {
-      stemIndex: (stemIndex + 10) % 10,
-      branchIndex: (branchIndex + 12) % 12,
-      stem, branch,
-      element: this.getStemElement(stem),
-      solarYear
-    };
-  },
-
-  calculateMonthPillarSolar(y, m, d, yearP){
-    // 简化版，实际需要节气计算
-    const mNo = ((m + 11) % 12) + 1; // 简化计算
-    const branchIndex = (mNo + 1) % 12;
-    const stemIndex = ((yearP.stemIndex * 2 + branchIndex) % 10);
-    const stem = this.heavenlyStems[stemIndex];
-    const branch = this.earthlyBranches[branchIndex];
-    return { stemIndex, branchIndex, stem, branch, element: this.getStemElement(stem), monthNo: mNo };
-  },
-
-  calculateDayPillarJDN(y, m, d){
-    const JDN = this.jdnNoon(y, m, d);
-    const idx60 = this.sexagenaryIndexFromJDN(JDN);
-    const p = this.pillarFromIndex60(idx60);
-    p.JDN = JDN;
-    p.idx60 = idx60;
-    return p;
-  },
-
-  calculateHourPillar(dayStemIndex, hh, mm){
-    const hourBranchIndex = (Math.floor((hh + 1) / 2)) % 12;
-    const hourStemIndex = (dayStemIndex * 2 + hourBranchIndex) % 10;
-    const stem = this.heavenlyStems[hourStemIndex];
-    const branch = this.earthlyBranches[hourBranchIndex];
-    return { stemIndex: hourStemIndex, branchIndex: hourBranchIndex, stem, branch, element: this.getStemElement(stem) };
-  },
-
-  calculateBaziAccurate(year, month, day, hour, minute, timeUnknown, country){
-    const Y = year, M = month, D = day, H = hour, Min = minute;
-
-    const yearP = this.calculateYearPillarSolar(Y, M, D);
-    const monthP = this.calculateMonthPillarSolar(Y, M, D, yearP);
-    const dayP = this.calculateDayPillarJDN(Y, M, D);
-    const hourP = timeUnknown ? { stem:'?', branch:'?', element:'未知' } : this.calculateHourPillar(dayP.stemIndex, H, Min);
-
-    const pillars = {
-      year: { stem: yearP.stem, branch: yearP.branch, element: yearP.element },
-      month:{ stem: monthP.stem, branch: monthP.branch, element: monthP.element },
-      day:  { stem: dayP.stem, branch: dayP.branch, element: dayP.element },
-      hour: hourP
-    };
-
-    const elements = { '木':0,'火':0,'土':0,'金':0,'水':0 };
-    Object.values(pillars).forEach(p => {
-      if (p.element && p.element !== '未知') elements[p.element] += 3;
-      if (p.branch && p.branch !== '?') elements[this.getBranchElement(p.branch)] += 2;
-    });
-    const total = Object.values(elements).reduce((a,b)=>a+b,0) || 1;
-
-    const percents = {
-      wood: Math.round((elements['木']/total)*100),
-      fire: Math.round((elements['火']/total)*100),
-      earth: Math.round((elements['土']/total)*100),
-      metal: Math.round((elements['金']/total)*100),
-      water: Math.round((elements['水']/total)*100)
-    };
-
-    return { 
-      pillars, 
-      percents, 
-      timeUnknown,
-      elements
-    };
-  }
-};
 
 /* ==============================
    改进的命名系统
@@ -1955,98 +2262,255 @@ const namingSystem = {
 };
 
 /* ==============================
-   改进的报告生成系统
+   改进的报告生成系统（文化适配版）
 ============================== */
 async function generateDeepReport(data, focus, type, culture, baziResult = null, namingSuggestions = null) {
   const now = new Date();
   const currentYear = now.getFullYear();
+  const config = culturePurposeMap[culture] || culturePurposeMap['东方'];
   
   let reportHTML = '';
   
   // 1. 报告标题和概要
   reportHTML += `
     <div class="ai-report">
-      <h4>${getEmojiForFocus(focus)} ${culture} · ${focus}深度分析报告</h4>
+      <h4>${config.icon} ${config.analysisType} · ${focus}深度分析报告</h4>
       
       <div class="ai-section">
         <h5>📋 报告概要</h5>
-        <p>本报告基于专业的${culture}体系，结合您的出生信息进行深度分析。报告内容包括命理核心分析、运势趋势、专业建议及实用指导。</p>
+        <p>本报告基于${config.description}，结合您的出生信息进行深度分析。</p>
+        <p style="color: var(--muted); font-size: 0.9rem; margin-top: 8px;">
+          <strong>分析体系：</strong>${config.analysisType}<br>
+          <strong>报告焦点：</strong>${focus}<br>
+          <strong>生成时间：</strong>${now.toLocaleString('zh-CN')}
+        </p>
       </div>
   `;
   
-  // 2. 八字分析（如果是东方文化）
+  // 2. 根据不同文化显示不同分析内容
   if (culture === '东方' && baziResult) {
-    const { pillars, percents } = baziResult;
-    reportHTML += `
-      <div class="ai-section">
-        <h5>🗝 八字命盘</h5>
-        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 12px 0;">
-          <div style="text-align: center; padding: 12px; background: rgba(14, 21, 32, 0.6); border-radius: 8px;">
-            <div style="color: #98a7b7; font-size: 0.85rem;">年柱</div>
-            <div style="font-size: 1.2rem; font-weight: 700; color: #f2d27a; margin: 4px 0;">${pillars.year.stem}${pillars.year.branch}</div>
-            <div style="color: #58b9ff; font-size: 0.8rem;">${pillars.year.element}</div>
-          </div>
-          <div style="text-align: center; padding: 12px; background: rgba(14, 21, 32, 0.6); border-radius: 8px;">
-            <div style="color: #98a7b7; font-size: 0.85rem;">月柱</div>
-            <div style="font-size: 1.2rem; font-weight: 700; color: #f2d27a; margin: 4px 0;">${pillars.month.stem}${pillars.month.branch}</div>
-            <div style="color: #58b9ff; font-size: 0.8rem;">${pillars.month.element}</div>
-          </div>
-          <div style="text-align: center; padding: 12px; background: rgba(14, 21, 32, 0.6); border-radius: 8px;">
-            <div style="color: #98a7b7; font-size: 0.85rem;">日柱</div>
-            <div style="font-size: 1.2rem; font-weight: 700; color: #f2d27a; margin: 4px 0;">${pillars.day.stem}${pillars.day.branch}</div>
-            <div style="color: #58b9ff; font-size: 0.8rem;">${pillars.day.element}</div>
-          </div>
-          <div style="text-align: center; padding: 12px; background: rgba(14, 21, 32, 0.6); border-radius: 8px;">
-            <div style="color: #98a7b7; font-size: 0.85rem;">时柱</div>
-            <div style="font-size: 1.2rem; font-weight: 700; color: #f2d27a; margin: 4px 0;">${pillars.hour.stem}${pillars.hour.branch}</div>
-            <div style="color: #58b9ff; font-size: 0.8rem;">${pillars.hour.element}</div>
-          </div>
-        </div>
-        
-        <div style="margin-top: 16px;">
-          <h6 style="color: #f2d27a; margin-bottom: 8px;">五行平衡分析</h6>
-          <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;">
-            ${['木','火','土','金','水'].map(el => `
-              <div>
-                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
-                  <span>${el}</span>
-                  <span style="color: #58b9ff;">${percents[getElementKey(el)]}%</span>
-                </div>
-                <div style="height: 6px; background: #243244; border-radius: 3px; overflow: hidden;">
-                  <div style="height: 100%; width: ${percents[getElementKey(el)]}%; background: ${getElementColor(el)}; border-radius: 3px;"></div>
-                </div>
-              </div>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-    `;
+    // 八字分析
+    reportHTML += generateBaziAnalysis(baziResult);
+  } else if (culture === '西方') {
+    // 占星分析
+    reportHTML += generateWesternAstrologyAnalysis(data);
+  } else if (culture === '日式') {
+    // 九星分析
+    reportHTML += generateJapaneseNineStarAnalysis(data);
+  } else if (culture === '吠陀') {
+    // 印度占星分析
+    reportHTML += generateVedicAstrologyAnalysis(data);
   }
   
   // 3. 深度分析内容
   reportHTML += await generateDeepAnalysisContent(focus, type, culture, currentYear, data);
   
-  // 4. 命名推荐（如果是测名相关）
-  if (namingSuggestions && namingSuggestions.length > 0) {
-    reportHTML += generateNamingSection(focus, namingSuggestions);
+  // 4. 命名推荐（如果是测名相关且文化支持）
+  if (namingSuggestions && namingSuggestions.length > 0 && 
+      (culture === '东方' || culture === '日式')) {
+    reportHTML += generateNamingSection(focus, namingSuggestions, culture);
   }
   
   // 5. 行动计划
-  reportHTML += generateActionPlan(focus, type);
+  reportHTML += generateActionPlan(focus, type, culture);
   
   // 6. 注意事项
-  reportHTML += `
-      <div class="ai-note">
-        <strong>💡 温馨提示：</strong><br>
-        1. 本分析基于传统命理学原理，旨在提供参考和指导<br>
-        2. 真正的幸福与成功需要结合现实行动与个人努力<br>
-        3. 建议将本报告作为决策参考，而非绝对依据<br>
-        4. 保持积极心态，相信自身能力是成功的关键
+  reportHTML += generateCulturalNotes(culture);
+  
+  reportHTML += `</div>`;
+  
+  return reportHTML;
+}
+
+/* ==============================
+   八字分析部分
+============================== */
+function generateBaziAnalysis(baziResult) {
+  const { pillars, percents, relationships } = baziResult;
+  
+  return `
+    <div class="ai-section">
+      <h5>🗝 八字命盘</h5>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 12px 0;">
+        <div style="text-align: center; padding: 12px; background: rgba(14, 21, 32, 0.6); border-radius: 8px;">
+          <div style="color: #98a7b7; font-size: 0.85rem;">年柱</div>
+          <div style="font-size: 1.2rem; font-weight: 700; color: #f2d27a; margin: 4px 0;">${pillars.year.stem}${pillars.year.branch}</div>
+          <div style="color: #58b9ff; font-size: 0.8rem;">${pillars.year.element}·${pillars.year.yinYang}</div>
+          <div style="color: #98a7b7; font-size: 0.75rem; margin-top: 4px;">${relationships.year}</div>
+        </div>
+        <div style="text-align: center; padding: 12px; background: rgba(14, 21, 32, 0.6); border-radius: 8px;">
+          <div style="color: #98a7b7; font-size: 0.85rem;">月柱</div>
+          <div style="font-size: 1.2rem; font-weight: 700; color: #f2d27a; margin: 4px 0;">${pillars.month.stem}${pillars.month.branch}</div>
+          <div style="color: #58b9ff; font-size: 0.8rem;">${pillars.month.element}·${pillars.month.yinYang}</div>
+          <div style="color: #98a7b7; font-size: 0.75rem; margin-top: 4px;">${relationships.month}</div>
+        </div>
+        <div style="text-align: center; padding: 12px; background: rgba(14, 21, 32, 0.6); border-radius: 8px;">
+          <div style="color: #98a7b7; font-size: 0.85rem;">日柱（日主）</div>
+          <div style="font-size: 1.2rem; font-weight: 700; color: #f2d27a; margin: 4px 0;">${pillars.day.stem}${pillars.day.branch}</div>
+          <div style="color: #58b9ff; font-size: 0.8rem;">${pillars.day.element}·${pillars.day.yinYang}</div>
+          <div style="color: #98a7b7; font-size: 0.75rem; margin-top: 4px;">日主</div>
+        </div>
+        <div style="text-align: center; padding: 12px; background: rgba(14, 21, 32, 0.6); border-radius: 8px;">
+          <div style="color: #98a7b7; font-size: 0.85rem;">时柱</div>
+          <div style="font-size: 1.2rem; font-weight: 700; color: #f2d27a; margin: 4px 0;">${pillars.hour.stem}${pillars.hour.branch}</div>
+          <div style="color: #58b9ff; font-size: 0.8rem;">${pillars.hour.element}·${pillars.hour.yinYang}</div>
+          <div style="color: #98a7b7; font-size: 0.75rem; margin-top: 4px;">${relationships.hour}</div>
+        </div>
+      </div>
+      
+      <div style="margin-top: 16px;">
+        <h6 style="color: #f2d27a; margin-bottom: 8px;">五行平衡分析</h6>
+        <div style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px;">
+          ${['木','火','土','金','水'].map(el => {
+            const percent = percents[getElementKey(el)];
+            const color = getElementColor(el);
+            return `
+              <div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+                  <span style="font-weight: 600; color: ${color}">${el}行</span>
+                  <span style="color: #58b9ff; font-weight: 600;">${percent}%</span>
+                </div>
+                <div style="height: 8px; background: #243244; border-radius: 4px; overflow: hidden;">
+                  <div style="height: 100%; width: ${percent}%; background: ${color}; border-radius: 4px; transition: width 1s ease;"></div>
+                </div>
+                <div style="font-size: 0.75rem; color: #98a7b7; margin-top: 2px;">
+                  ${getElementDescription(el, percent)}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
       </div>
     </div>
   `;
+}
+
+/* ==============================
+   西方占星分析
+============================== */
+function generateWesternAstrologyAnalysis(data) {
+  // 简化版占星分析
+  const zodiacSigns = [
+    '白羊座', '金牛座', '双子座', '巨蟹座', '狮子座', '处女座',
+    '天秤座', '天蝎座', '射手座', '摩羯座', '水瓶座', '双鱼座'
+  ];
   
-  return reportHTML;
+  // 根据月份粗略计算星座
+  const month = data.month;
+  let sign = '';
+  if (month >= 3 && month <= 4) sign = zodiacSigns[0]; // 白羊
+  else if (month >= 4 && month <= 5) sign = zodiacSigns[1]; // 金牛
+  else if (month >= 5 && month <= 6) sign = zodiacSigns[2]; // 双子
+  else if (month >= 6 && month <= 7) sign = zodiacSigns[3]; // 巨蟹
+  else if (month >= 7 && month <= 8) sign = zodiacSigns[4]; // 狮子
+  else if (month >= 8 && month <= 9) sign = zodiacSigns[5]; // 处女
+  else if (month >= 9 && month <= 10) sign = zodiacSigns[6]; // 天秤
+  else if (month >= 10 && month <= 11) sign = zodiacSigns[7]; // 天蝎
+  else if (month >= 11 && month <= 12) sign = zodiacSigns[8]; // 射手
+  else if (month === 12 || month <= 1) sign = zodiacSigns[9]; // 摩羯
+  else if (month >= 1 && month <= 2) sign = zodiacSigns[10]; // 水瓶
+  else if (month >= 2 && month <= 3) sign = zodiacSigns[11]; // 双鱼
+  
+  return `
+    <div class="ai-section">
+      <h5>⭐ 占星分析</h5>
+      <div style="display: flex; align-items: center; gap: 20px; margin: 12px 0;">
+        <div style="text-align: center;">
+          <div style="font-size: 2rem; color: #f2d27a;">${getZodiacEmoji(sign)}</div>
+          <div style="color: #58b9ff; font-weight: 600; margin-top: 4px;">${sign}</div>
+        </div>
+        <div>
+          <p>太阳星座：<strong>${sign}</strong></p>
+          <p style="color: var(--muted); font-size: 0.9rem;">
+            基于西方占星学，太阳星座代表您的核心人格和自我表达方式。
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ==============================
+   日式九星分析
+============================== */
+function generateJapaneseNineStarAnalysis(data) {
+  // 简化版九星分析
+  const nineStars = [
+    { number: 1, name: '一白水星', element: '水', direction: '北', color: '白' },
+    { number: 2, name: '二黒土星', element: '土', direction: '西南', color: '黑' },
+    { number: 3, name: '三碧木星', element: '木', direction: '东', color: '碧' },
+    { number: 4, name: '四緑木星', element: '木', direction: '东南', color: '绿' },
+    { number: 5, name: '五黄土星', element: '土', direction: '中央', color: '黄' },
+    { number: 6, name: '六白金星', element: '金', direction: '西北', color: '白' },
+    { number: 7, name: '七赤金星', element: '金', direction: '西', color: '赤' },
+    { number: 8, name: '八白土星', element: '土', direction: '东北', color: '白' },
+    { number: 9, name: '九紫火星', element: '火', direction: '南', color: '紫' }
+  ];
+  
+  // 简单计算本命星（实际需要复杂计算）
+  const year = data.year;
+  const sum = year.toString().split('').reduce((a, b) => parseInt(a) + parseInt(b), 0);
+  const starIndex = (11 - (sum % 9)) % 9 || 9;
+  const star = nineStars[starIndex - 1] || nineStars[0];
+  
+  return `
+    <div class="ai-section">
+      <h5>🌸 九星气学</h5>
+      <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 16px; margin: 12px 0;">
+        <div style="text-align: center; padding: 16px; background: rgba(14, 21, 32, 0.6); border-radius: 8px;">
+          <div style="font-size: 2rem; color: #f2d27a; margin-bottom: 8px;">${star.number}</div>
+          <div style="color: #58b9ff; font-weight: 600;">${star.name}</div>
+        </div>
+        <div>
+          <p><strong>本命星：</strong>${star.name}</p>
+          <p><strong>五行属性：</strong>${star.element}</p>
+          <p><strong>有利方位：</strong>${star.direction}</p>
+          <p><strong>幸运颜色：</strong>${star.color}</p>
+          <p style="color: var(--muted); font-size: 0.9rem; margin-top: 8px;">
+            九星气学是日本传统命理学，通过本命星分析个人运势和性格特点。
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ==============================
+   吠陀占星分析
+============================== */
+function generateVedicAstrologyAnalysis(data) {
+  // 简化版吠陀占星
+  const nakshatras = [
+    'Ashwini', 'Bharani', 'Krittika', 'Rohini', 'Mrigashira', 'Ardra',
+    'Punarvasu', 'Pushya', 'Ashlesha', 'Magha', 'Purva Phalguni', 'Uttara Phalguni',
+    'Hasta', 'Chitra', 'Swati', 'Vishakha', 'Anuradha', 'Jyeshtha',
+    'Mula', 'Purva Ashadha', 'Uttara Ashadha', 'Shravana', 'Dhanishta', 'Shatabhisha',
+    'Purva Bhadrapada', 'Uttara Bhadrapada', 'Revati'
+  ];
+  
+  // 简单计算纳克沙特拉（实际需要复杂计算）
+  const day = data.day;
+  const nakshatraIndex = (day - 1) % 27;
+  const nakshatra = nakshatras[nakshatraIndex];
+  
+  return `
+    <div class="ai-section">
+      <h5>🕉️ 吠陀占星</h5>
+      <div style="display: flex; align-items: center; gap: 20px; margin: 12px 0;">
+        <div style="text-align: center; padding: 12px; background: rgba(212, 175, 55, 0.1); border-radius: 8px;">
+          <div style="font-size: 1.2rem; color: #f2d27a;">✨</div>
+          <div style="color: #58b9ff; font-weight: 600; margin-top: 4px;">月宿</div>
+        </div>
+        <div>
+          <p><strong>纳克沙特拉：</strong>${nakshatra}</p>
+          <p style="color: var(--muted); font-size: 0.9rem;">
+            在印度吠陀占星学中，纳克沙特拉（月宿）代表月亮运行的位置，
+            对个人的性格和命运有重要影响。
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 /* ==============================
@@ -2246,7 +2710,7 @@ async function generateDeepAnalysisContent(focus, type, culture, currentYear, da
 /* ==============================
    命名推荐部分
 ============================== */
-function generateNamingSection(focus, namingSuggestions) {
+function generateNamingSection(focus, namingSuggestions, culture) {
   let sectionHTML = '';
   
   // 确定性别标签
@@ -2325,7 +2789,7 @@ function generateNamingSection(focus, namingSuggestions) {
 /* ==============================
    行动计划生成
 ============================== */
-function generateActionPlan(focus, type) {
+function generateActionPlan(focus, type, culture) {
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
   const nextMonth = currentMonth % 12 + 1;
@@ -2391,64 +2855,42 @@ function generateActionPlan(focus, type) {
 }
 
 /* ==============================
-   辅助函数
-============================== */
-function getEmojiForFocus(focus) {
-  const emojiMap = {
-    '恋爱缘分': '💖',
-    '婚姻走势': '💍',
-    '职场发展': '💼',
-    '创业潜力': '🚀',
-    '财位分析': '💰',
-    '理财时机': '📊',
-    '宝宝名': '👶',
-    '宠物名': '🐾',
-    '公司名': '🏢',
-    '个人改名': '✨',
-    '情侣合名': '💑',
-    '婚期择日': '📅',
-    '新家入住择日': '🏠',
-    '缘分起落': '💞',
-    '夫妻流年': '👫',
-    '合盘分析': '🤝'
-  };
-  return emojiMap[focus] || '🔮';
-}
-
-function getElementKey(element) {
-  const map = { '木': 'wood', '火': 'fire', '土': 'earth', '金': 'metal', '水': 'water' };
-  return map[element] || 'wood';
-}
-
-function getElementColor(element) {
-  const map = { '木': '#2d5c2a', '火': '#5c2a2a', '土': '#5c542a', '金': '#2a3a5c', '水': '#2a5c5c' };
-  return map[element] || '#2d5c2a';
-}
-
-/* ==============================
    合盘分析生成
 ============================== */
 async function generateCompatibilityReport(person1, person2, focus, culture) {
-  // 计算两人八字
-  const bazi1 = baziCalculator.calculateBaziAccurate(
-    person1.year, person1.month, person1.day, person1.hour, person1.minute, person1.timeUnknown, person1.country
-  );
-  const bazi2 = baziCalculator.calculateBaziAccurate(
-    person2.year, person2.month, person2.day, person2.hour, person2.minute, person2.timeUnknown, person2.country
-  );
+  // 计算两人八字（如果是东方文化）
+  let bazi1 = null, bazi2 = null;
+  
+  if (culture === '东方') {
+    bazi1 = baziCalculator.calculateBaziAccurate(
+      person1.year, person1.month, person1.day, person1.hour, person1.minute, person1.timeUnknown, person1.country
+    );
+    bazi2 = baziCalculator.calculateBaziAccurate(
+      person2.year, person2.month, person2.day, person2.hour, person2.minute, person2.timeUnknown, person2.country
+    );
+  }
   
   // 计算合盘评分
-  const score = calculateCompatibilityScore(bazi1, bazi2);
+  const score = calculateCompatibilityScore(bazi1, bazi2, culture);
+  
+  const config = culturePurposeMap[culture] || culturePurposeMap['东方'];
   
   let reportHTML = `
     <div class="ai-report">
-      <h4>${getEmojiForFocus(focus)} ${culture} · ${focus}合盘分析报告</h4>
+      <h4>${config.icon} ${config.analysisType} · ${focus}合盘分析报告</h4>
       
       <div class="compatibility-grid">
         <div class="person-card">
           <div class="person-name">${person1.name || '本人'}</div>
           <div style="margin-top: 8px;">
-            <div style="color: #98a7b7; font-size: 0.9rem;">八字：${bazi1.pillars.year.stem}${bazi1.pillars.year.branch} ${bazi1.pillars.month.stem}${bazi1.pillars.month.branch} ${bazi1.pillars.day.stem}${bazi1.pillars.day.branch} ${bazi1.pillars.hour.stem}${bazi1.pillars.hour.branch}</div>
+            ${culture === '东方' && bazi1 ? `
+              <div style="color: #98a7b7; font-size: 0.9rem;">
+                八字：${bazi1.pillars.year.stem}${bazi1.pillars.year.branch} 
+                ${bazi1.pillars.month.stem}${bazi1.pillars.month.branch} 
+                ${bazi1.pillars.day.stem}${bazi1.pillars.day.branch} 
+                ${bazi1.pillars.hour.stem}${bazi1.pillars.hour.branch}
+              </div>
+            ` : ''}
           </div>
         </div>
         
@@ -2465,14 +2907,23 @@ async function generateCompatibilityReport(person1, person2, focus, culture) {
         <div class="person-card">
           <div class="person-name">${person2.name || '第二人'}</div>
           <div style="margin-top: 8px;">
-            <div style="color: #98a7b7; font-size: 0.9rem;">八字：${bazi2.pillars.year.stem}${bazi2.pillars.year.branch} ${bazi2.pillars.month.stem}${bazi2.pillars.month.branch} ${bazi2.pillars.day.stem}${bazi2.pillars.day.branch} ${bazi2.pillars.hour.stem}${bazi2.pillars.hour.branch}</div>
+            ${culture === '东方' && bazi2 ? `
+              <div style="color: #98a7b7; font-size: 0.9rem;">
+                八字：${bazi2.pillars.year.stem}${bazi2.pillars.year.branch} 
+                ${bazi2.pillars.month.stem}${bazi2.pillars.month.branch} 
+                ${bazi2.pillars.day.stem}${bazi2.pillars.day.branch} 
+                ${bazi2.pillars.hour.stem}${bazi2.pillars.hour.branch}
+              </div>
+            ` : ''}
           </div>
         </div>
       </div>
   `;
   
   // 添加合盘分析详情
-  reportHTML += await generateCompatibilityDetails(bazi1, bazi2, focus, score);
+  reportHTML += await generateCompatibilityDetails(bazi1, bazi2, focus, score, culture);
+  
+  reportHTML += generateCulturalNotes(culture);
   
   reportHTML += `
     </div>
@@ -2481,7 +2932,7 @@ async function generateCompatibilityReport(person1, person2, focus, culture) {
   return reportHTML;
 }
 
-function calculateCompatibilityScore(bazi1, bazi2) {
+function calculateCompatibilityScore(bazi1, bazi2, culture) {
   // 简化版的合盘评分算法
   let score = {
     total: 75 + Math.floor(Math.random() * 20), // 75-94分
@@ -2490,28 +2941,30 @@ function calculateCompatibilityScore(bazi1, bazi2) {
     overall: 0
   };
   
-  // 五行相生相克分析
-  const elements1 = bazi1.elements;
-  const elements2 = bazi2.elements;
-  
-  // 计算五行互补度
-  let elementScore = 0;
-  const elementPairs = [
-    { e1: '木', e2: '火', relation: '生' },
-    { e1: '火', e2: '土', relation: '生' },
-    { e1: '土', e2: '金', relation: '生' },
-    { e1: '金', e2: '水', relation: '生' },
-    { e1: '水', e2: '木', relation: '生' }
-  ];
-  
-  elementPairs.forEach(pair => {
-    if (elements1[pair.e1] > 0 && elements2[pair.e2] > 0) {
-      elementScore += 20;
-    }
-  });
-  
-  score.elements = elementScore;
-  score.total = Math.min(99, score.total + Math.floor(elementScore / 10));
+  if (culture === '东方' && bazi1 && bazi2) {
+    // 五行相生相克分析
+    const elements1 = bazi1.elements;
+    const elements2 = bazi2.elements;
+    
+    // 计算五行互补度
+    let elementScore = 0;
+    const elementPairs = [
+      { e1: '木', e2: '火', relation: '生' },
+      { e1: '火', e2: '土', relation: '生' },
+      { e1: '土', e2: '金', relation: '生' },
+      { e1: '金', e2: '水', relation: '生' },
+      { e1: '水', e2: '木', relation: '生' }
+    ];
+    
+    elementPairs.forEach(pair => {
+      if (elements1[pair.e1] > 0 && elements2[pair.e2] > 0) {
+        elementScore += 20;
+      }
+    });
+    
+    score.elements = elementScore;
+    score.total = Math.min(99, score.total + Math.floor(elementScore / 10));
+  }
   
   return score;
 }
@@ -2524,7 +2977,7 @@ function getCompatibilityLevel(score) {
   return '挑战较多 ★☆☆☆☆';
 }
 
-async function generateCompatibilityDetails(bazi1, bazi2, focus, score) {
+async function generateCompatibilityDetails(bazi1, bazi2, focus, score, culture) {
   let detailsHTML = '';
   
   detailsHTML += `
@@ -2689,7 +3142,7 @@ async function onGenerate() {
     }
     
     // 如果是测名相关，生成名字推荐
-    if (['宝宝名', '个人改名', '情侣合名'].includes(focus)) {
+    if (['宝宝名', '个人改名', '情侣合名'].includes(focus) && culture === '东方') {
       namingSuggestions = namingSystem.generateNameSuggestions(
         baziResult || { elements: {} },
         focus,
@@ -2762,12 +3215,6 @@ function getFocus() {
   return $('purpose_personal')?.value || '';
 }
 
-function getCultureResolved() {
-  const culture = $('culture')?.value;
-  if (!culture || culture === 'auto') return '东方';
-  return culture;
-}
-
 function validate(type) {
   const me = readBirthInputs('1');
   if (!me.name) return t('err_fill_name1');
@@ -2814,6 +3261,78 @@ function showError(message) {
     errorEl.style.display = 'block';
     errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
+}
+
+/* ==============================
+   辅助函数
+============================== */
+function getZodiacEmoji(sign) {
+  const emojiMap = {
+    '白羊座': '♈', '金牛座': '♉', '双子座': '♊', '巨蟹座': '♋',
+    '狮子座': '♌', '处女座': '♍', '天秤座': '♎', '天蝎座': '♏',
+    '射手座': '♐', '摩羯座': '♑', '水瓶座': '♒', '双鱼座': '♓'
+  };
+  return emojiMap[sign] || '⭐';
+}
+
+function getElementDescription(element, percent) {
+  if (percent >= 30) return '强旺';
+  if (percent >= 20) return '适中';
+  if (percent >= 10) return '偏弱';
+  return '过弱';
+}
+
+function getElementKey(element) {
+  const map = { '木': 'wood', '火': 'fire', '土': 'earth', '金': 'metal', '水': 'water' };
+  return map[element] || 'wood';
+}
+
+function getElementColor(element) {
+  const map = { '木': '#2d5c2a', '火': '#5c2a2a', '土': '#5c542a', '金': '#2a3a5c', '水': '#2a5c5c' };
+  return map[element] || '#2d5c2a';
+}
+
+function generateCulturalNotes(culture) {
+  const notes = {
+    '东方': `
+      <div class="ai-note">
+        <strong>💡 八字命理温馨提示：</strong><br>
+        1. 八字分析基于传统命理学原理，需结合实际情况解读<br>
+        2. 五行平衡可适当通过颜色、方位、职业等进行调整<br>
+        3. 命理分析旨在提供参考，真正的改变在于自身努力<br>
+        4. 建议保持良好心态，积极面对生活挑战
+      </div>
+    `,
+    '西方': `
+      <div class="ai-note">
+        <strong>💡 占星塔罗温馨提示：</strong><br>
+        1. 占星学是探索自我和潜能的工具，非绝对预言<br>
+        2. 星座特质提供参考，每个人都是独特的个体<br>
+        3. 塔罗牌反映当下能量，未来由选择创造<br>
+        4. 保持开放心态，结合理性思考做出决策
+      </div>
+    `,
+    '日式': `
+      <div class="ai-note">
+        <strong>💡 九星气学温馨提示：</strong><br>
+        1. 九星气学强调方位和环境对人的影响<br>
+        2. 本命星代表先天特质，后天努力同样重要<br>
+        3. 通过调整居住和工作环境改善运势<br>
+        4. 保持内心平静，与自然和谐共处
+      </div>
+    `,
+    '吠陀': `
+      <div class="ai-note">
+        <strong>💡 吠陀占星温馨提示：</strong><br>
+        1. 吠陀占星强调业力与灵性成长<br>
+        2. 纳克沙特拉反映灵魂特质和生命课题<br>
+        3. 通过冥想和瑜伽提升内在能量<br>
+        4. 尊重因果法则，积极创造善业
+      </div>
+    `
+  };
+  
+  return notes[culture] || notes['东方'];
 }
 
 /* ==============================
@@ -2879,14 +3398,25 @@ function init(){
   setupTypeSelector();
   
   // 初始状态
+  const initialCulture = getCultureResolved();
   togglePartner('personal');
-  updatePurposeOptionsBasedOnCulture(getCultureResolved());
+  updateUIForCulture(initialCulture);
   
   // 事件监听
   $('btnNext')?.addEventListener('click', onGenerate);
   
+  // 文化选择变化
   $('culture')?.addEventListener('change', () => {
-    updatePurposeOptionsBasedOnCulture(getCultureResolved());
+    const newCulture = getCultureResolved();
+    updateUIForCulture(newCulture);
+  });
+  
+  // 当国家/地区输入变化时，如果文化选择是auto，更新文化
+  $('country1')?.addEventListener('change', () => {
+    if ($('culture')?.value === 'auto') {
+      const newCulture = getCultureResolved();
+      updateUIForCulture(newCulture);
+    }
   });
   
   // 语言选择
@@ -2896,7 +3426,8 @@ function init(){
     langSelect.addEventListener('change', (e) => {
       setLang(e.target.value);
       applyI18n();
-      updatePurposeOptionsBasedOnCulture(getCultureResolved());
+      const currentCulture = getCultureResolved();
+      updateUIForCulture(currentCulture);
     });
   }
   
