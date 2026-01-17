@@ -1521,6 +1521,34 @@ const baziCalculator = {
     '亥': ['壬','甲']
   },
   
+  // 节气表（简化版，每月约6日或21日左右）
+  solarTerms: {
+    1: { month: 1, day: 6, term: '小寒' },
+    2: { month: 1, day: 21, term: '大寒' },
+    3: { month: 2, day: 4, term: '立春' }, // 立春，年柱分界
+    4: { month: 2, day: 19, term: '雨水' },
+    5: { month: 3, day: 6, term: '惊蛰' }, // 惊蛰，月柱分界
+    6: { month: 3, day: 21, term: '春分' },
+    7: { month: 4, day: 5, term: '清明' },
+    8: { month: 4, day: 20, term: '谷雨' },
+    9: { month: 5, day: 6, term: '立夏' },
+    10: { month: 5, day: 21, term: '小满' },
+    11: { month: 6, day: 6, term: '芒种' },
+    12: { month: 6, day: 21, term: '夏至' },
+    13: { month: 7, day: 7, term: '小暑' },
+    14: { month: 7, day: 23, term: '大暑' },
+    15: { month: 8, day: 8, term: '立秋' },
+    16: { month: 8, day: 23, term: '处暑' },
+    17: { month: 9, day: 8, term: '白露' },
+    18: { month: 9, day: 23, term: '秋分' },
+    19: { month: 10, day: 8, term: '寒露' },
+    20: { month: 10, day: 23, term: '霜降' },
+    21: { month: 11, day: 7, term: '立冬' },
+    22: { month: 11, day: 22, term: '小雪' },
+    23: { month: 12, day: 7, term: '大雪' },
+    24: { month: 12, day: 22, term: '冬至' }
+  },
+  
   // 天干五行
   getStemElement(stem) {
     const stemElements = {
@@ -1546,31 +1574,147 @@ const baziCalculator = {
     return yangStems.includes(stem) ? '阳' : '阴';
   },
   
-  // 获取地支阴阳
-  getBranchYinYang(branch) {
-    // 子寅辰午申戌为阳，丑卯巳未酉亥为阴
-    const yangBranches = ['子','寅','辰','午','申','戌'];
-    return yangBranches.includes(branch) ? '阳' : '阴';
+  // 儒略日计算（精确版）
+  julianDay(year, month, day, hour = 12) {
+    const a = Math.floor((14 - month) / 12);
+    const y = year + 4800 - a;
+    const m = month + 12 * a - 3;
+    
+    let jd = day + Math.floor((153 * m + 2) / 5) + 365 * y + Math.floor(y / 4) - Math.floor(y / 100) + Math.floor(y / 400) - 32045;
+    
+    // 添加小时部分（从中午12点开始）
+    jd += (hour - 12) / 24;
+    
+    return jd;
   },
   
-  // 计算儒略日（简化版）
-  julianDay(y, m, d) {
-    if (m <= 2) {
-      y -= 1;
-      m += 12;
+  // 检查是否在节气前
+  isBeforeSolarTerm(year, month, day, termIndex) {
+    const term = this.solarTerms[termIndex];
+    if (!term) return true;
+    
+    if (month < term.month) return true;
+    if (month > term.month) return false;
+    return day < term.day;
+  },
+  
+  // 获取年干支（精确版）
+  getYearGanZhi(year, month, day) {
+    // 以立春（2月4日左右）为年柱分界
+    const isBeforeLiChun = this.isBeforeSolarTerm(year, month, day, 3); // 3对应立春
+    
+    let lunarYear = year;
+    if (isBeforeLiChun) {
+      lunarYear = year - 1;
     }
-    const A = Math.floor(y / 100);
-    const B = 2 - A + Math.floor(A / 4);
-    return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
+    
+    // 以1900年为基准（1900年为庚子年）
+    const baseYear = 1900; // 庚子年
+    const offset = (lunarYear - baseYear + 60) % 60;
+    
+    const stemIndex = offset % 10;
+    const branchIndex = offset % 12;
+    
+    return {
+      stem: this.heavenlyStems[stemIndex],
+      branch: this.earthlyBranches[branchIndex],
+      stemIndex: stemIndex,
+      branchIndex: branchIndex,
+      solarYear: lunarYear
+    };
   },
   
-  // 获取日干支（简化版 - 实际需要精确节气计算）
-  getDayGanZhi(y, m, d) {
-    // 简化计算：1900年1月31日为甲子日
-    const baseDate = new Date(1900, 0, 31); // 1900-01-31 甲子日
-    const targetDate = new Date(y, m - 1, d);
-    const diffDays = Math.floor((targetDate - baseDate) / (1000 * 60 * 60 * 24));
-    const ganZhiIndex = (diffDays % 60 + 60) % 60;
+  // 获取月干支（精确版）
+  getMonthGanZhi(year, month, day) {
+    // 月柱以节气为分界
+    // 正月：寅月（立春-惊蛰）
+    // 二月：卯月（惊蛰-清明）
+    // 三月：辰月（清明-立夏）
+    // 四月：巳月（立夏-芒种）
+    // 五月：午月（芒种-小暑）
+    // 六月：未月（小暑-立秋）
+    // 七月：申月（立秋-白露）
+    // 八月：酉月（白露-寒露）
+    // 九月：戌月（寒露-立冬）
+    // 十月：亥月（立冬-大雪）
+    // 十一月：子月（大雪-小寒）
+    // 十二月：丑月（小寒-立春）
+    
+    const monthBranches = ['寅','卯','辰','巳','午','未','申','酉','戌','亥','子','丑'];
+    
+    // 确定月支
+    let monthBranchIndex = -1;
+    
+    // 判断在哪个节气之间
+    if (this.isBeforeSolarTerm(year, month, day, 3)) { // 立春前
+      monthBranchIndex = 11; // 丑月
+    } else if (this.isBeforeSolarTerm(year, month, day, 5)) { // 惊蛰前
+      monthBranchIndex = 0; // 寅月
+    } else if (this.isBeforeSolarTerm(year, month, day, 7)) { // 清明前
+      monthBranchIndex = 1; // 卯月
+    } else if (this.isBeforeSolarTerm(year, month, day, 9)) { // 立夏前
+      monthBranchIndex = 2; // 辰月
+    } else if (this.isBeforeSolarTerm(year, month, day, 11)) { // 芒种前
+      monthBranchIndex = 3; // 巳月
+    } else if (this.isBeforeSolarTerm(year, month, day, 13)) { // 小暑前
+      monthBranchIndex = 4; // 午月
+    } else if (this.isBeforeSolarTerm(year, month, day, 15)) { // 立秋前
+      monthBranchIndex = 5; // 未月
+    } else if (this.isBeforeSolarTerm(year, month, day, 17)) { // 白露前
+      monthBranchIndex = 6; // 申月
+    } else if (this.isBeforeSolarTerm(year, month, day, 19)) { // 寒露前
+      monthBranchIndex = 7; // 酉月
+    } else if (this.isBeforeSolarTerm(year, month, day, 21)) { // 立冬前
+      monthBranchIndex = 8; // 戌月
+    } else if (this.isBeforeSolarTerm(year, month, day, 23)) { // 大雪前
+      monthBranchIndex = 9; // 亥月
+    } else if (this.isBeforeSolarTerm(year, month, day, 1)) { // 小寒前
+      monthBranchIndex = 10; // 子月
+    } else {
+      monthBranchIndex = 11; // 丑月
+    }
+    
+    const branch = monthBranches[monthBranchIndex];
+    
+    // 先获取年干
+    const yearGanZhi = this.getYearGanZhi(year, month, day);
+    
+    // 根据年干求月干（五虎遁诀修正版）
+    const yearStemToMonthStem = {
+      '甲': { start: '丙', branches: ['丙','丁','戊','己','庚','辛','壬','癸','甲','乙','丙','丁'] },
+      '乙': { start: '戊', branches: ['戊','己','庚','辛','壬','癸','甲','乙','丙','丁','戊','己'] },
+      '丙': { start: '庚', branches: ['庚','辛','壬','癸','甲','乙','丙','丁','戊','己','庚','辛'] },
+      '丁': { start: '壬', branches: ['壬','癸','甲','乙','丙','丁','戊','己','庚','辛','壬','癸'] },
+      '戊': { start: '甲', branches: ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸','甲','乙'] },
+      '己': { start: '丙', branches: ['丙','丁','戊','己','庚','辛','壬','癸','甲','乙','丙','丁'] },
+      '庚': { start: '戊', branches: ['戊','己','庚','辛','壬','癸','甲','乙','丙','丁','戊','己'] },
+      '辛': { start: '庚', branches: ['庚','辛','壬','癸','甲','乙','丙','丁','戊','己','庚','辛'] },
+      '壬': { start: '壬', branches: ['壬','癸','甲','乙','丙','丁','戊','己','庚','辛','壬','癸'] },
+      '癸': { start: '甲', branches: ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸','甲','乙'] }
+    };
+    
+    const monthStemConfig = yearStemToMonthStem[yearGanZhi.stem];
+    const stem = monthStemConfig ? monthStemConfig.branches[monthBranchIndex] : '甲';
+    
+    return {
+      stem,
+      branch,
+      element: this.getStemElement(stem),
+      monthIndex: monthBranchIndex
+    };
+  },
+  
+  // 获取日干支（精确版 - 使用儒略日计算）
+  getDayGanZhi(year, month, day) {
+    // 计算儒略日
+    const jd = this.julianDay(year, month, day);
+    
+    // 1900年1月31日为甲子日，儒略日2415020.5
+    const baseJD = 2415020.5; // 1900-01-31 00:00 UTC (甲子日)
+    const diffDays = Math.floor(jd - baseJD);
+    
+    // 60甲子循环
+    const ganZhiIndex = ((diffDays % 60) + 60) % 60;
     
     const stemIndex = ganZhiIndex % 10;
     const branchIndex = ganZhiIndex % 12;
@@ -1578,70 +1722,26 @@ const baziCalculator = {
     return {
       stem: this.heavenlyStems[stemIndex],
       branch: this.earthlyBranches[branchIndex],
-      stemIndex,
-      branchIndex
+      stemIndex: stemIndex,
+      branchIndex: branchIndex,
+      jd: jd
     };
   },
   
-  // 获取年干支
-  getYearGanZhi(y, m, d) {
-    // 立春为分界，简化处理：2月4日左右
-    const isBeforeLiChun = (m < 2) || (m === 2 && d < 4);
-    const lunarYear = isBeforeLiChun ? y - 1 : y;
-    
-    const stemIndex = (lunarYear - 4) % 10;
-    const branchIndex = (lunarYear - 4) % 12;
-    
-    return {
-      stem: this.heavenlyStems[(stemIndex + 10) % 10],
-      branch: this.earthlyBranches[(branchIndex + 12) % 12],
-      stemIndex: (stemIndex + 10) % 10,
-      branchIndex: (branchIndex + 12) % 12,
-      solarYear: lunarYear
-    };
-  },
-  
-  // 获取月干支
-  getMonthGanZhi(y, m, d, yearStem) {
-    // 月柱以节气为分界，这里简化处理
-    const monthNumber = m;
-    const monthBranches = ['寅','卯','辰','巳','午','未','申','酉','戌','亥','子','丑'];
-    const branch = monthBranches[(monthNumber - 1 + 2) % 12]; // 正月为寅
-    
-    // 根据年干求月干（五虎遁诀）
-    const yearStemToMonthStem = {
-      '甲': ['丙','丁','戊','己','庚','辛','壬','癸','甲','乙','丙','丁'],
-      '乙': ['戊','己','庚','辛','壬','癸','甲','乙','丙','丁','戊','己'],
-      '丙': ['庚','辛','壬','癸','甲','乙','丙','丁','戊','己','庚','辛'],
-      '丁': ['壬','癸','甲','乙','丙','丁','戊','己','庚','辛','壬','癸'],
-      '戊': ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸','甲','乙'],
-      '己': ['丙','丁','戊','己','庚','辛','壬','癸','甲','乙','丙','丁'],
-      '庚': ['戊','己','庚','辛','壬','癸','甲','乙','丙','丁','戊','己'],
-      '辛': ['庚','辛','壬','癸','甲','乙','丙','丁','戊','己','庚','辛'],
-      '壬': ['壬','癸','甲','乙','丙','丁','戊','己','庚','辛','壬','癸'],
-      '癸': ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸','甲','乙']
-    };
-    
-    const monthIndex = (monthNumber - 1 + 2) % 12; // 正月为寅月
-    const stem = yearStemToMonthStem[yearStem]?.[monthIndex] || '甲';
-    
-    return {
-      stem,
-      branch,
-      element: this.getStemElement(stem)
-    };
-  },
-  
-  // 获取时干支
+  // 获取时干支（精确版）
   getHourGanZhi(hour, minute, dayStem) {
-    // 子时为23:00-1:00
+    // 子时：23:00-1:00
     let hourBranchIndex;
-    if (hour === 23 || hour === 0) hourBranchIndex = 0; // 子
-    else hourBranchIndex = Math.floor((hour + 1) / 2) % 12;
+    
+    if (hour === 23 || hour === 0) {
+      hourBranchIndex = 0; // 子
+    } else {
+      hourBranchIndex = Math.floor((hour + 1) / 2) % 12;
+    }
     
     const branch = this.earthlyBranches[hourBranchIndex];
     
-    // 根据日干求时干（五鼠遁诀）
+    // 根据日干求时干（五鼠遁诀修正版）
     const dayStemToHourStem = {
       '甲': ['甲','乙','丙','丁','戊','己','庚','辛','壬','癸','甲','乙'],
       '乙': ['丙','丁','戊','己','庚','辛','壬','癸','甲','乙','丙','丁'],
@@ -1664,24 +1764,30 @@ const baziCalculator = {
     };
   },
   
-  // 计算八字
+  // 计算八字（主函数）
   calculateBaziAccurate(year, month, day, hour, minute, timeUnknown, country) {
     const Y = parseInt(year), M = parseInt(month), D = parseInt(day);
     const H = parseInt(hour), Min = parseInt(minute);
     
+    console.log('输入数据:', { Y, M, D, H, Min, timeUnknown });
+    
     // 计算年柱
     const yearPillar = this.getYearGanZhi(Y, M, D);
+    console.log('年柱计算:', yearPillar);
     
     // 计算日柱
     const dayPillar = this.getDayGanZhi(Y, M, D);
+    console.log('日柱计算:', dayPillar);
     
     // 计算月柱
-    const monthPillar = this.getMonthGanZhi(Y, M, D, yearPillar.stem);
+    const monthPillar = this.getMonthGanZhi(Y, M, D);
+    console.log('月柱计算:', monthPillar);
     
     // 计算时柱
     const hourPillar = timeUnknown ? 
       { stem: '?', branch: '?', element: '未知' } : 
       this.getHourGanZhi(H, Min, dayPillar.stem);
+    console.log('时柱计算:', hourPillar);
     
     const pillars = {
       year: {
@@ -1709,6 +1815,8 @@ const baziCalculator = {
         yinYang: hourPillar.element === '未知' ? '未知' : this.getStemYinYang(hourPillar.stem)
       }
     };
+    
+    console.log('四柱:', pillars);
     
     // 计算五行强度（包括地支藏干）
     const elements = { '木': 0, '火': 0, '土': 0, '金': 0, '水': 0 };
@@ -1738,6 +1846,8 @@ const baziCalculator = {
       }
     });
     
+    console.log('五行计算:', elements);
+    
     const total = Object.values(elements).reduce((a, b) => a + b, 0) || 1;
     
     const percents = {
@@ -1747,6 +1857,8 @@ const baziCalculator = {
       metal: Math.round((elements['金'] / total) * 100),
       water: Math.round((elements['水'] / total) * 100)
     };
+    
+    console.log('五行百分比:', percents);
     
     // 计算十神关系（日干对其他天干）
     const dayStemIndex = this.heavenlyStems.indexOf(pillars.day.stem);
@@ -1768,22 +1880,37 @@ const baziCalculator = {
   
   // 获取十神关系
   getTenGodRelation(dayStemIndex, otherStemIndex) {
+    if (otherStemIndex === -1) return '未知';
+    
     const difference = (otherStemIndex - dayStemIndex + 10) % 10;
     const isSameYinYang = (dayStemIndex % 2) === (otherStemIndex % 2);
     
     // 根据天干差值和阴阳关系判断十神
-    if (difference === 0) return '比肩';
-    if (difference === 1) return isSameYinYang ? '劫财' : '伤官';
-    if (difference === 2) return isSameYinYang ? '食神' : '偏财';
-    if (difference === 3) return isSameYinYang ? '正财' : '七杀';
-    if (difference === 4) return isSameYinYang ? '偏官' : '正官';
-    if (difference === 5) return isSameYinYang ? '正印' : '偏印';
-    if (difference === 6) return isSameYinYang ? '偏印' : '正印';
-    if (difference === 7) return isSameYinYang ? '正官' : '偏官';
-    if (difference === 8) return isSameYinYang ? '七杀' : '正财';
-    if (difference === 9) return isSameYinYang ? '偏财' : '食神';
+    const tenGods = [
+      { diff: 0, same: true, name: '比肩' },
+      { diff: 0, same: false, name: '劫财' },
+      { diff: 1, same: true, name: '伤官' },
+      { diff: 1, same: false, name: '食神' },
+      { diff: 2, same: true, name: '偏财' },
+      { diff: 2, same: false, name: '正财' },
+      { diff: 3, same: true, name: '七杀' },
+      { diff: 3, same: false, name: '正官' },
+      { diff: 4, same: true, name: '偏印' },
+      { diff: 4, same: false, name: '正印' },
+      { diff: 5, same: true, name: '正印' },
+      { diff: 5, same: false, name: '偏印' },
+      { diff: 6, same: true, name: '正官' },
+      { diff: 6, same: false, name: '七杀' },
+      { diff: 7, same: true, name: '正财' },
+      { diff: 7, same: false, name: '偏财' },
+      { diff: 8, same: true, name: '食神' },
+      { diff: 8, same: false, name: '伤官' },
+      { diff: 9, same: true, name: '劫财' },
+      { diff: 9, same: false, name: '比肩' }
+    ];
     
-    return '未知';
+    const found = tenGods.find(item => item.diff === difference && item.same === isSameYinYang);
+    return found ? found.name : '未知';
   }
 };
 
