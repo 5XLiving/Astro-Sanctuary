@@ -1343,6 +1343,35 @@ select:focus + .select-icon {
     height: 16px;
   }
 }  
+
+/* 文化特定的样式 */
+.chinese-analysis {
+  border-left: 4px solid #4CAF50;
+}
+
+.western-analysis {
+  border-left: 4px solid #2196F3;
+}
+
+.japanese-analysis {
+  border-left: 4px solid #9C27B0;
+}
+
+.vedic-analysis {
+  border-left: 4px solid #FF9800;
+}
+
+/* 标题颜色区分 */
+.chinese-title { color: #4CAF50; }
+.western-title { color: #2196F3; }
+.japanese-title { color: #9C27B0; }
+.vedic-title { color: #FF9800; }
+
+/* 不同文化的图标 */
+.culture-icon {
+  font-size: 1.2rem;
+  margin-right: 8px;
+}
   
 </style>
 </head>
@@ -2292,6 +2321,56 @@ const culturePurposeMap = {
   }
 };
 
+// 改进文化选择器
+function setupCultureSelector() {
+  const cultureSelect = $('culture');
+  if (!cultureSelect) return;
+  
+  cultureSelect.addEventListener('change', function() {
+    const culture = this.value;
+    updateCultureUI(culture);
+    updatePurposeOptionsBasedOnCulture(getCultureResolved());
+    
+    // 显示文化切换提示
+    showCultureNotification(culture);
+  });
+}
+
+function showCultureNotification(culture) {
+  const cultureNames = {
+    '东方': '东方命理（八字风水）',
+    '西方': '西方占星塔罗',
+    '日式九星': '日本九星气学',
+    '印度吠陀': '印度吠陀占星'
+  };
+  
+  const notification = document.createElement('div');
+  notification.style.cssText = `
+    position: fixed;
+    top: 100px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(14, 21, 32, 0.95);
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    padding: 12px 20px;
+    color: var(--accent);
+    font-weight: 600;
+    z-index: 1000;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+    animation: slideIn 0.5s ease;
+  `;
+  notification.innerHTML = `已切换到：${cultureNames[culture] || culture}`;
+  
+  document.body.appendChild(notification);
+  
+  setTimeout(() => {
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateX(-50%) translateY(-20px)';
+    setTimeout(() => document.body.removeChild(notification), 300);
+  }, 2000);
+}  
+
 /* ==============================
    自动文化识别
 ============================== */
@@ -3180,6 +3259,70 @@ function calculateWesternAstrology(person) {
   };
 }
 
+// 获取焦点描述
+function getFocusDescription(focus) {
+  const descriptions = {
+    '恋爱缘分': '情感匹配、性格相合、缘分深浅',
+    '婚姻走势': '婚姻稳定、家庭和谐、伴侣关系',
+    '职场发展': '职业方向、晋升机会、工作环境',
+    '财位分析': '财富方位、投资时机、理财策略',
+    '个人改名': '五行补益、音义吉凶、命理配合'
+  };
+  return descriptions[focus] || '命理深度分析';
+}
+
+// 获取文化CSS类
+function getCultureClass(culture) {
+  const classMap = {
+    '东方': 'chinese',
+    '西方': 'western', 
+    '日式': 'japanese',
+    '吠陀': 'vedic'
+  };
+  return classMap[culture] || 'chinese';
+}
+
+// 计算太阳星座（西方占星）
+function calculateSunSign(month, day) {
+  const signs = [
+    { name: '白羊座', dates: '3.21-4.19', emoji: '♈', element: '火', quality: '基本' },
+    { name: '金牛座', dates: '4.20-5.20', emoji: '♉', element: '土', quality: '固定' },
+    { name: '双子座', dates: '5.21-6.21', emoji: '♊', element: '风', quality: '变动' },
+    { name: '巨蟹座', dates: '6.22-7.22', emoji: '♋', element: '水', quality: '基本' },
+    { name: '狮子座', dates: '7.23-8.22', emoji: '♌', element: '火', quality: '固定' },
+    { name: '处女座', dates: '8.23-9.22', emoji: '♍', element: '土', quality: '变动' },
+    { name: '天秤座', dates: '9.23-10.23', emoji: '♎', element: '风', quality: '基本' },
+    { name: '天蝎座', dates: '10.24-11.22', emoji: '♏', element: '水', quality: '固定' },
+    { name: '射手座', dates: '11.23-12.21', emoji: '♐', element: '火', quality: '变动' },
+    { name: '摩羯座', dates: '12.22-1.19', emoji: '♑', element: '土', quality: '基本' },
+    { name: '水瓶座', dates: '1.20-2.18', emoji: '♒', element: '风', quality: '固定' },
+    { name: '双鱼座', dates: '2.19-3.20', emoji: '♓', element: '水', quality: '变动' }
+  ];
+  
+  // 简化计算
+  const index = (month - 1) % 12;
+  return signs[index] || signs[0];
+}
+
+// 星座爱情特质
+function getAstroLoveTrait(sign) {
+  const traits = {
+    '白羊座': '主动热情，喜欢追求新鲜感，在爱情中较为直接',
+    '金牛座': '稳重务实，重视稳定和安全感，情感表达较为含蓄',
+    '双子座': '风趣幽默，喜欢精神交流，需要自由空间',
+    '巨蟹座': '温柔体贴，家庭观念强，情感丰富细腻',
+    '狮子座': '大方自信，喜欢被关注，在关系中需要被尊重',
+    '处女座': '细心周到，追求完美，在情感中较为理性',
+    '天秤座': '优雅和谐，重视平衡，善于处理关系',
+    '天蝎座': '深情专一，直觉敏锐，在情感中较为深刻',
+    '射手座': '乐观开朗，热爱自由，喜欢冒险和探索',
+    '摩羯座': '认真负责，目标明确，在情感中较为实际',
+    '水瓶座': '独立思考，重视精神共鸣，不喜欢束缚',
+    '双鱼座': '浪漫多情，富有想象力，情感丰富敏感'
+  };
+  return traits[sign] || '需要根据具体情况分析';
+}  
+
 /* ==============================
    深度兼容性计算
 ============================== */
@@ -3743,15 +3886,33 @@ function getQualityEmoji(quality) {
 }
 
 function init(){
-  // ... 现有的初始化代码 ...
+  // 应用翻译
+  applyI18n();
+  
+  // 设置默认时间
+  setDefaultBirthDateTimeNow();
+  
+  // 设置类型选择器
+  setupTypeSelector();
+  
+  // 设置文化选择器
+  setupCultureSelector();
+  
+  // 初始状态
+  const initialCulture = getCultureResolved();
+  togglePartner('personal');
+  updateUIForCulture(initialCulture);
+  
+  // 事件监听
+  $('btnNext')?.addEventListener('click', onGenerate);
+  
+  // 其他初始化代码...
+}
   
   // 添加：交互式命盘点击事件
   setTimeout(() => {
     setupInteractiveBaziChart();
   }, 1000);
-  
-  // ... 其他初始化代码 ...
-}
 
 // 交互式命盘设置
 function setupInteractiveBaziChart() {
