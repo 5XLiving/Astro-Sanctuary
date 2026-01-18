@@ -3846,12 +3846,95 @@ window.resetBaziChart = function() {
 /* ==============================
    改进的报告生成系统（文化适配版）
 ============================== */
+// 在 generateDeepReport 函数开头，根据文化显示不同的标题
 async function generateDeepReport(data, focus, type, culture, baziResult = null, namingSuggestions = null) {
   const now = new Date();
   const currentYear = now.getFullYear();
   const config = culturePurposeMap[culture] || culturePurposeMap['东方'];
   
-  let reportHTML = '';
+  // 获取正确的分析标题
+  const analysisTitle = getAnalysisTitleByCulture(culture, focus);
+  const cultureClass = getCultureClass(culture);
+  const cultureIcon = config.icon || '🌳';
+  
+  let reportHTML = `
+    <div class="ai-report">
+      <h4 class="${cultureClass}-title">
+        <span class="culture-icon">${cultureIcon}</span>
+        ${analysisTitle} · ${focus}深度分析报告
+      </h4>
+      
+      <div class="${cultureClass}-analysis" style="margin: 20px 0;">
+        <div class="ai-section">
+          <h5>📋 报告概要</h5>
+          <p>本报告基于<strong>${config.analysisType}</strong>，专门针对您的<strong>${focus}</strong>需求进行分析。</p>
+          <p style="color: var(--muted); font-size: 0.9rem; margin-top: 8px;">
+            <strong>分析体系：</strong>${config.analysisType}<br>
+            <strong>分析重点：</strong>${getFocusDescription(focus)}<br>
+            <strong>报告焦点：</strong>${focus}<br>
+            <strong>生成时间：</strong>${now.toLocaleString('zh-CN')}
+          </p>
+        </div>
+  `;
+  
+  // 根据文化生成不同的分析内容
+  const culturalAnalysis = await generateCulturalAnalysis(culture, focus, data, baziResult);
+  reportHTML += culturalAnalysis;
+  
+  // 如果需要，添加命名推荐
+  if (namingSuggestions && namingSuggestions.length > 0) {
+    reportHTML += generateNamingSection(focus, namingSuggestions, culture);
+  }
+  
+  // 添加行动计划
+  reportHTML += generateActionPlan(focus, culture);
+  
+  // 添加文化特定的注意事项
+  reportHTML += generateCulturalNotes(culture);
+  
+  reportHTML += `</div></div>`;
+  
+  return reportHTML;
+}
+
+// 新增函数：根据文化获取正确的分析标题
+function getAnalysisTitleByCulture(culture, focus) {
+  const titleMap = {
+    '东方': {
+      '恋爱缘分': '八字姻缘',
+      '婚姻走势': '八字婚姻',
+      '职场发展': '八字事业',
+      '创业潜力': '八字创业',
+      '财位分析': '八字财运',
+      '理财时机': '八字理财',
+      '新家入住择日': '择日风水',
+      '新公司入住择日': '开业择日',
+      '个人改名': '姓名学',
+      '住家': '居家风水',
+      '办公室': '办公室风水'
+    },
+    '西方': {
+      '恋爱缘分': '占星爱情',
+      '婚姻走势': '占星婚姻',
+      '职场发展': '占星事业',
+      '创业潜力': '占星创业',
+      '财位分析': '占星财运'
+    },
+    '日式': {
+      '恋爱缘分': '九星姻缘',
+      '婚姻走势': '九星婚姻',
+      '职场发展': '九星事业',
+      '个人改名': '姓名占卜'
+    },
+    '吠陀': {
+      '恋爱缘分': '吠陀姻缘',
+      '婚姻走势': '吠陀婚姻',
+      '职场发展': '吠陀事业'
+    }
+  };
+  
+  return titleMap[culture]?.[focus] || culturePurposeMap[culture]?.analysisType || '命理分析';
+}
   
   // 1. 报告标题和概要
   reportHTML += `
