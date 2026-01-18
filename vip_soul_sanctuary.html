@@ -4245,6 +4245,7 @@ async function generateCompatibilityReport(person1, person2, focus, culture) {
 /* ==============================
    主生成函数（使用正确的八字计算器）
 ============================== */
+// 修正1：在 onGenerate 函数中正确使用 await
 async function onGenerate() {
   const errorEl = $('error');
   if (errorEl) errorEl.style.display = 'none';
@@ -4318,182 +4319,181 @@ async function onGenerate() {
   }
 }
 
-/* ==============================
-   表单处理函数
-============================== */
-function togglePartner(typeValue) {
-  const section = $('partner-section');
-  const personal = $('purpose_personal');
-  const compat = $('purpose_compatibility');
-  const show = (typeValue === 'compatibility');
-
-  if (section) section.style.display = show ? 'block' : 'none';
-  if (personal) {
-    personal.style.display = show ? 'none' : 'block';
-    personal.disabled = show;
-  }
-  if (compat) {
-    compat.style.display = show ? 'block' : 'none';
-    compat.disabled = !show;
-  }
-}
-
-function readBirthInputs(prefix='1') {
-  const name = ($(`name${prefix}`)?.value || '').trim();
-  const birthdate = ($(`birthdate${prefix}`)?.value || '').trim();
-  const birthtime = ($(`birthtime${prefix}`)?.value || '').trim();
-  const country = ($(`country${prefix}`)?.value || '').trim();
-  const timeUnknown = !birthtime;
-
-  let year=0, month=0, day=0, hour=0, minute=0;
-  if (birthdate) {
-    const parts = birthdate.split('-').map(Number);
-    year = parts[0] || 0;
-    month = parts[1] || 0;
-    day = parts[2] || 0;
-  }
-  if (birthtime) {
-    const tp = birthtime.split(':').map(Number);
-    hour = tp[0] || 0;
-    minute = tp[1] || 0;
-  }
-  return { name, birthdate, birthtime, country, timeUnknown, year, month, day, hour, minute };
-}
-
-function getFocus() {
-  const type = getCurrentType();
-  if (type === 'compatibility') return $('purpose_compatibility')?.value || '';
-  return $('purpose_personal')?.value || '';
-}
-
-function validate(type) {
-  const me = readBirthInputs('1');
-  if (!me.name) return t('err_fill_name1');
-  if (!me.birthdate) return t('err_fill_date1');
-  if (!me.country) return t('err_fill_country1');
+// 修正2：确保 generateDeepReport 函数正确处理异步调用
+async function generateDeepReport(data, focus, type, culture, baziResult = null, namingSuggestions = null) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const config = culturePurposeMap[culture] || culturePurposeMap['东方'];
   
-  // 检查日期是否有效
-  if (me.year < 1900 || me.year > new Date().getFullYear()) {
-    return '请输入有效的出生年份（1900-现在）';
+  // 获取正确的分析标题
+  const analysisTitle = getAnalysisTitleByCulture(culture, focus);
+  const cultureClass = getCultureClass(culture);
+  const cultureIcon = config.icon || '🌳';
+  
+  let reportHTML = `
+    <div class="ai-report">
+      <h4 class="${cultureClass}-title">
+        <span class="culture-icon">${cultureIcon}</span>
+        ${analysisTitle} · ${focus}深度分析报告
+      </h4>
+      
+      <div class="${cultureClass}-analysis" style="margin: 20px 0;">
+        <div class="ai-section">
+          <h5>📋 报告概要</h5>
+          <p>本报告基于<strong>${config.analysisType}</strong>，专门针对您的<strong>${focus}</strong>需求进行分析。</p>
+          <p style="color: var(--muted); font-size: 0.9rem; margin-top: 8px;">
+            <strong>分析体系：</strong>${config.analysisType}<br>
+            <strong>分析重点：</strong>${getFocusDescription(focus)}<br>
+            <strong>报告焦点：</strong>${focus}<br>
+            <strong>生成时间：</strong>${now.toLocaleString('zh-CN')}
+          </p>
+        </div>
+  `;
+  
+  // 根据文化生成不同的分析内容
+  const culturalAnalysis = await generateCulturalAnalysis(culture, focus, data, baziResult);
+  reportHTML += culturalAnalysis;
+  
+  // 如果需要，添加命名推荐
+  if (namingSuggestions && namingSuggestions.length > 0) {
+    reportHTML += generateNamingSection(focus, namingSuggestions, culture);
   }
   
-  // 检查时间格式
-  if (me.birthtime && !validateBirthTime(me.birthtime)) {
-    return '请输入有效的时间格式（HH:MM）';
-  }
+  // 添加行动计划
+  reportHTML += generateActionPlan(focus, culture);
+  
+  // 添加文化特定的注意事项
+  reportHTML += generateCulturalNotes(culture);
+  
+  reportHTML += `</div></div>`;
+  
+  return reportHTML;
+}
 
-  if (type === 'compatibility') {
-    const p = readBirthInputs('2');
-    if (!p.name) return t('err_fill_name2');
-    if (!p.birthdate) return t('err_fill_date2');
-    if (!p.country) return t('err_fill_country2');
+// 修正3：添加缺失的 generateCulturalAnalysis 函数
+async function generateCulturalAnalysis(culture, focus, data, baziResult) {
+  let analysisHTML = '';
+  
+  if (culture === '东方' && baziResult) {
+    // 八字分析（使用正确的八字计算器）
+    analysisHTML += generateBaziAnalysis(baziResult);
     
-    if (p.year < 1900 || p.year > new Date().getFullYear()) {
-      return '请输入有效的第二人出生年份（1900-现在）';
-    }
+    // 添加：日主深度剖析（只有东方文化且有八字结果时）
+    analysisHTML += generatePersonalDestinyAnalysis(baziResult, focus);
     
-    if (p.birthtime && !validateBirthTime(p.birthtime)) {
-      return '请输入有效的第二人时间格式（HH:MM）';
-    }
-  }
-  return '';
-}
-
-function validateBirthTime(timeStr) {
-  if (!timeStr) return true;
-  const regex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-  return regex.test(timeStr);
-}
-
-function showError(message) {
-  const errorEl = $('error');
-  if (errorEl) {
-    errorEl.textContent = message;
-    errorEl.style.display = 'block';
-    errorEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }
-}
-
-/* ==============================
-   辅助函数
-============================== */
-function getZodiacEmoji(sign) {
-  const emojiMap = {
-    '白羊座': '♈', '金牛座': '♉', '双子座': '♊', '巨蟹座': '♋',
-    '狮子座': '♌', '处女座': '♍', '天秤座': '♎', '天蝎座': '♏',
-    '射手座': '♐', '摩羯座': '♑', '水瓶座': '♒', '双鱼座': '♓'
-  };
-  return emojiMap[sign] || '⭐';
-}
-
-function getElementKey(element) {
-  const map = { '木': 'wood', '火': 'fire', '土': 'earth', '金': 'metal', '水': 'water' };
-  return map[element] || 'wood';
-}
-
-function getElementColor(el) {
-  const map = {
-    '木': '#2d5c2a',
-    '火': '#5c2a2a',
-    '土': '#5c542a',
-    '金': '#2a3a5c',
-    '水': '#2a5c5c'
-  };
-  return map[el] || '#58b9ff';
-}
-
-function getElementDescription(element, percent) {
-  if (percent >= 30) return '强旺';
-  if (percent >= 20) return '适中';
-  if (percent >= 10) return '偏弱';
-  return '过弱';
-}
-
-function calculateCompatibilityScore(bazi1, bazi2, culture) {
-  if (culture !== '东方' || !bazi1 || !bazi2) {
-    return {
-      total: 75 + Math.floor(Math.random() * 20),
-      elements: 0,
-      pillars: 0,
-      overall: 0
-    };
+  } else if (culture === '西方') {
+    // 占星分析 - 这里假设是个人命盘
+    analysisHTML += `
+      <div class="ai-section">
+        <h5>⭐ 占星分析</h5>
+        <p>基于西方占星学分析，您的命理显示...</p>
+        <p>星座：${calculateSunSign(data.month, data.day).name}</p>
+      </div>
+    `;
+  } else if (culture === '日式') {
+    // 九星分析
+    analysisHTML += `
+      <div class="ai-section">
+        <h5>🌸 九星气学</h5>
+        <p>基于日本九星气学分析，您的命理显示...</p>
+      </div>
+    `;
+  } else if (culture === '吠陀') {
+    // 印度占星分析
+    analysisHTML += `
+      <div class="ai-section">
+        <h5>🕉️ 吠陀占星</h5>
+        <p>基于印度吠陀占星学分析，您的命理显示...</p>
+      </div>
+    `;
   }
   
-  // 简化版的合盘评分算法
-  let totalScore = 70;
+  // 添加深度分析内容
+  const deepAnalysisContent = await generateDeepAnalysisContent(focus, 'personal', culture, new Date().getFullYear(), data);
+  analysisHTML += deepAnalysisContent;
   
-  // 五行相生相克评分
-  const elementRelations = {
-    '木': { '木': 0, '火': 10, '土': -5, '金': -10, '水': 10 },
-    '火': { '木': 10, '火': 0, '土': 10, '金': -5, '水': -10 },
-    '土': { '木': -5, '火': 10, '土': 0, '金': 10, '水': -5 },
-    '金': { '木': -10, '火': -5, '土': 10, '金': 0, '水': 10 },
-    '水': { '木': 10, '火': -10, '土': -5, '金': 10, '水': 0 }
-  };
-  
-  const elem1 = bazi1.pillars.day.element;
-  const elem2 = bazi2.pillars.day.element;
-  const elemScore = elementRelations[elem1]?.[elem2] || 0;
-  totalScore += elemScore;
-  
-  totalScore = Math.max(40, Math.min(99, totalScore));
-  
-  return {
-    total: totalScore,
-    elements: elemScore,
-    pillars: 0,
-    overall: 0
-  };
+  return analysisHTML;
 }
 
-function getCompatibilityLevel(score) {
-  if (score >= 90) return '天作之合 ★★★★★';
-  if (score >= 80) return '非常相配 ★★★★☆';
-  if (score >= 70) return '比较合适 ★★★☆☆';
-  if (score >= 60) return '需要磨合 ★★☆☆☆';
-  return '挑战较多 ★☆☆☆☆';
+// 修正4：生成合盘报告的函数
+async function generateCompatibilityReport(person1, person2, focus, culture) {
+  // 计算两人八字（如果是东方文化）
+  let bazi1 = null, bazi2 = null;
+  
+  if (culture === '东方') {
+    const calculator = new BaziCalculator();
+    bazi1 = calculator.calculateBazi(
+      person1.year, person1.month, person1.day, person1.hour, person1.minute, person1.timeUnknown
+    );
+    bazi2 = calculator.calculateBazi(
+      person2.year, person2.month, person2.day, person2.hour, person2.minute, person2.timeUnknown
+    );
+  }
+  
+  // 计算合盘评分
+  const score = calculateCompatibilityScore(bazi1, bazi2, culture);
+  
+  const config = culturePurposeMap[culture] || culturePurposeMap['东方'];
+  
+  let reportHTML = `
+    <div class="ai-report">
+      <h4>${config.icon} ${config.analysisType} · ${focus}合盘分析报告</h4>
+      
+      <div class="compatibility-grid">
+        <div class="person-card">
+          <div class="person-name">${person1.name || '本人'}</div>
+          <div style="margin-top: 8px;">
+            ${culture === '东方' && bazi1 ? `
+              <div style="color: #98a7b7; font-size: 0.9rem;">
+                八字：${bazi1.pillars.year.stem}${bazi1.pillars.year.branch} 
+                ${bazi1.pillars.month.stem}${bazi1.pillars.month.branch} 
+                ${bazi1.pillars.day.stem}${bazi1.pillars.day.branch} 
+                ${bazi1.pillars.hour.stem}${bazi1.pillars.hour.branch}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+        
+        <div class="compatibility-score">
+          <div class="score-circle">
+            <div class="score-value">${score.total}</div>
+          </div>
+          <div class="score-label">${t('compatibility_score')}</div>
+          <div style="margin-top: 12px; font-size: 0.9rem; color: #98a7b7;">
+            ${getCompatibilityLevel(score.total)}
+          </div>
+        </div>
+        
+        <div class="person-card">
+          <div class="person-name">${person2.name || '第二人'}</div>
+          <div style="margin-top: 8px;">
+            ${culture === '东方' && bazi2 ? `
+              <div style="color: #98a7b7; font-size: 0.9rem;">
+                八字：${bazi2.pillars.year.stem}${bazi2.pillars.year.branch} 
+                ${bazi2.pillars.month.stem}${bazi2.pillars.month.branch} 
+                ${bazi2.pillars.day.stem}${bazi2.pillars.day.branch} 
+                ${bazi2.pillars.hour.stem}${bazi2.pillars.hour.branch}
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      </div>
+  `;
+  
+  // 添加合盘分析详情
+  const compatibilityDetails = await generateCompatibilityDetails(bazi1, bazi2, focus, score, culture);
+  reportHTML += compatibilityDetails;
+  
+  reportHTML += generateCulturalNotes(culture);
+  
+  reportHTML += `
+    </div>
+  `;
+  
+  return reportHTML;
 }
 
+// 修正5：generateCompatibilityDetails 需要是异步函数
 async function generateCompatibilityDetails(bazi1, bazi2, focus, score, culture) {
   let detailsHTML = '';
   
@@ -4565,6 +4565,7 @@ async function generateCompatibilityDetails(bazi1, bazi2, focus, score, culture)
   return detailsHTML;
 }
 
+// 修正6：generateDeepAnalysisContent 需要是异步函数
 async function generateDeepAnalysisContent(focus, type, culture, currentYear, data) {
   let contentHTML = '';
   
