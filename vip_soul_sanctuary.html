@@ -3570,7 +3570,239 @@ if (document.readyState === 'loading') {
   init();
 }
 
+/* ======================================================
+   ✅ PATCH PACK: 必要缺口补齐（可直接上线）
+   - togglePartner()
+   - btnNext 生成报告 + 展示 result
+   - 文化/命盘类型切换同步
+   - 五行颜色 & key helper
+   - 登录框默认隐藏，点击才展开
+====================================================== */
+
+function getElementKey(el){
+  const map = { '木':'wood','火':'fire','土':'earth','金':'metal','水':'water' };
+  return map[el] || 'wood';
+}
+function getElementColor(el){
+  const map = {
+    '木':'#7ee787',
+    '火':'#ff7b7b',
+    '土':'#ffe084',
+    '金':'#8fb4ff',
+    '水':'#58b9ff'
+  };
+  return map[el] || '#58b9ff';
+}
+
+/* ===== 合盘开关 ===== */
+function togglePartner(typeValue){
+  const partner = document.getElementById('partner-section');
+  const personalPurpose = document.getElementById('purpose_personal');
+  const compatPurpose = document.getElementById('purpose_compatibility');
+
+  const isCompat = (typeValue === 'compatibility');
+
+  if (partner) partner.style.display = isCompat ? 'block' : 'none';
+  if (personalPurpose) personalPurpose.style.display = isCompat ? 'none' : 'block';
+  if (compatPurpose) compatPurpose.style.display = isCompat ? 'block' : 'none';
+}
+
+/* ===== 文化切换监听 ===== */
+function bindCultureChange(){
+  const cultureSelect = document.getElementById('culture');
+  if(!cultureSelect) return;
+  cultureSelect.addEventListener('change', ()=>{
+    const culture = getCultureResolved();
+    updateUIForCulture(culture);
+  });
+}
+
+/* ===== 展开登录框（符合你偏好：默认隐藏） ===== */
+function bindRevealAuth(){
+  const revealBtn = document.getElementById('revealAuthBtn');
+  const authFields = document.getElementById('authFields');
+  if(!revealBtn || !authFields) return;
+
+  revealBtn.addEventListener('click', ()=>{
+    const isHidden = (authFields.style.display === 'none' || !authFields.style.display);
+    authFields.style.display = isHidden ? 'flex' : 'none';
+    revealBtn.textContent = isHidden ? '🙈 隐藏登录输入' : '🔐 显示登录 / 注册';
+  });
+}
+
+/* ===== 基础表单校验 ===== */
+function validateFormInputs(type){
+  const errBox = document.getElementById('error');
+  const showErr = (msg)=>{
+    if(!errBox) return false;
+    errBox.textContent = msg;
+    errBox.style.display = 'block';
+    return false;
+  };
+  if(errBox) errBox.style.display='none';
+
+  const name1 = (document.getElementById('name1')?.value || '').trim();
+  const birthdate1 = (document.getElementById('birthdate1')?.value || '').trim();
+  const country1 = (document.getElementById('country1')?.value || '').trim();
+
+  if(!name1) return showErr(t('err_fill_name1'));
+  if(!birthdate1) return showErr(t('err_fill_date1'));
+  if(!country1) return showErr(t('err_fill_country1'));
+
+  if(type === 'compatibility'){
+    const name2 = (document.getElementById('name2')?.value || '').trim();
+    const birthdate2 = (document.getElementById('birthdate2')?.value || '').trim();
+    const country2 = (document.getElementById('country2')?.value || '').trim();
+
+    if(!name2) return showErr(t('err_fill_name2'));
+    if(!birthdate2) return showErr(t('err_fill_date2'));
+    if(!country2) return showErr(t('err_fill_country2'));
+  }
+  return true;
+}
+
+/* ===== 生成报告按钮逻辑 ===== */
+async function handleGenerateReport(){
+  const type = getCurrentType();
+  if(!validateFormInputs(type)) return;
+
+  const cultureResolved = getCultureResolved();
+  updateUIForCulture(cultureResolved);
+
+  const focus = (type === 'personal'
+    ? (document.getElementById('purpose_personal')?.value || '恋爱缘分')
+    : (document.getElementById('purpose_compatibility')?.value || '合盘分析')
+  );
+
+  // 收集基础资料
+  const data = {
+    culture: cultureResolved,
+    type,
+    focus,
+    p1: {
+      name: (document.getElementById('name1')?.value || '').trim(),
+      birthdate: document.getElementById('birthdate1')?.value || '',
+      birthtime: document.getElementById('birthtime1')?.value || '',
+      calendar: document.getElementById('calendar1')?.value || '阳历',
+      country: (document.getElementById('country1')?.value || '').trim(),
+      gender: document.getElementById('gender1')?.value || ''
+    }
+  };
+
+  if(type === 'compatibility'){
+    data.p2 = {
+      name: (document.getElementById('name2')?.value || '').trim(),
+      birthdate: document.getElementById('birthdate2')?.value || '',
+      birthtime: document.getElementById('birthtime2')?.value || '',
+      calendar: document.getElementById('calendar2')?.value || '阳历',
+      country: (document.getElementById('country2')?.value || '').trim(),
+      gender: document.getElementById('gender2')?.value || ''
+    };
+  }
+
+  // ===== 八字计算（仅东方/日式可用）=====
+  let baziResult = null;
+  if(cultureResolved === '东方' || cultureResolved === '日式'){
+    try{
+      const [Y,M,D] = data.p1.birthdate.split('-').map(x=>parseInt(x,10));
+      let timeUnknown = false;
+      let hour = 12, minute = 0;
+
+      if(!data.p1.birthtime){
+        timeUnknown = true;
+      }else{
+        const [hh,mm] = data.p1.birthtime.split(':').map(x=>parseInt(x,10));
+        hour = hh; minute = mm;
+      }
+
+      baziResult = baziCalculator.calculateBaziAccurate(Y,M,D,hour,minute,timeUnknown,data.p1.country);
+    }catch(e){
+      console.warn('八字计算失败:', e);
+    }
+  }
+
+  // ===== 测名推荐：当 focus 是命名类时 =====
+  let namingSuggestions = null;
+  const isNamingFocus = ['个人改名','宝宝名','宠物名','公司名','情侣合名'].includes(focus);
+  if(isNamingFocus && baziResult){
+    namingSuggestions = namingSystem.generateNameSuggestions(
+      baziResult,
+      focus,
+      data.p1.gender || ''
+    );
+  }
+
+  // ===== 输出 Loading =====
+  const result = document.getElementById('result');
+  const resultContent = document.getElementById('result-content');
+  if(result && resultContent){
+    result.style.display='block';
+    resultContent.innerHTML = `
+      <div class="loading">
+        <div class="loading-spinner"></div>
+        <div style="font-weight:700;margin-bottom:6px">心怜管家正在分析中…</div>
+        <div class="muted">正在为你整合命盘结构、重点主题与行动建议</div>
+      </div>
+    `;
+    result.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+
+  // ===== 生成报告 HTML =====
+  try{
+    const html = await generateDeepReport(data, focus, type, cultureResolved, baziResult, namingSuggestions);
+    if(resultContent) resultContent.innerHTML = html;
+  }catch(e){
+    console.error('报告生成失败:', e);
+    if(resultContent){
+      resultContent.innerHTML = `
+        <div class="ai-report">
+          <h4>⚠️ 报告生成失败</h4>
+          <div class="ai-note">请检查控制台 Console 是否有报错（通常是缺少某个函数）。</div>
+        </div>
+      `;
+    }
+  }
+}
+
+/* ===== 初始化绑定 ===== */
+function initPage(){
+  try{ applyI18n(); }catch(e){}
+  try{ setDefaultBirthDateTimeNow(); }catch(e){}
+  try{ setupTypeSelector(); }catch(e){}
+  try{ bindCultureChange(); }catch(e){}
+  try{ bindRevealAuth(); }catch(e){}
+
+  // 初始：同步一次
+  togglePartner(getCurrentType());
+  updateUIForCulture(getCultureResolved());
+
+  // 按钮：生成报告
+  const btnNext = document.getElementById('btnNext');
+  if(btnNext){
+    btnNext.addEventListener('click', handleGenerateReport);
+  }
+
+  // 语言切换：重新 applyI18n
+  const langSelect = document.getElementById('langSelect');
+  if(langSelect){
+    langSelect.value = getLang();
+    langSelect.addEventListener('change', ()=>{
+      setLang(langSelect.value);
+      applyI18n();
+    });
+  }
+
+  // 顶部 header scroll
+  window.addEventListener('scroll', ()=>{
+    const header = document.querySelector('.site-header');
+    if(!header) return;
+    if(window.scrollY > 8) header.classList.add('scrolled');
+    else header.classList.remove('scrolled');
+  });
+}
+
+document.addEventListener('DOMContentLoaded', initPage);
 })(); // 结束立即执行函数
-</script>
+</script>  
 </body>  
 </html>
