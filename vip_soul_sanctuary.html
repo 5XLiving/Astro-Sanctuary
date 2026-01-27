@@ -4871,66 +4871,50 @@ function appendChat(role, text) {
    初始化
 ============================== */
 function init(){
-  // 应用翻译
   applyI18n();
-  
-  // 设置默认时间
   setDefaultBirthDateTimeNow();
-  
-  // 设置类型选择器
+
   setupTypeSelector();
-  
-  // 初始状态
+  setupCultureSelector();
+  setupAuthFieldReveal(); // ✅ 放进 init 里
+
   const initialCulture = getCultureResolved();
   togglePartner('personal');
   updateUIForCulture(initialCulture);
-  
-  // 事件监听
-  $('btnNext')?.addEventListener('click', onGenerate);
-  
-  // 文化选择变化
+
+  $('btnNext')?.addEventListener('click', () => {
+    Promise.resolve(onGenerate()).catch(console.error); // ✅ 防止 async 报错沉默
+  });
+
   $('culture')?.addEventListener('change', () => {
     const newCulture = getCultureResolved();
     updateUIForCulture(newCulture);
   });
-  
-  // 当国家/地区输入变化时，如果文化选择是auto，更新文化
+
   $('country1')?.addEventListener('change', () => {
     if ($('culture')?.value === 'auto') {
       const newCulture = getCultureResolved();
       updateUIForCulture(newCulture);
     }
   });
-  
-  // 语言选择
+
   const langSelect = $('langSelect');
   if (langSelect) {
     langSelect.value = getLang();
     langSelect.addEventListener('change', (e) => {
       setLang(e.target.value);
       applyI18n();
-      const currentCulture = getCultureResolved();
-      updateUIForCulture(currentCulture);
+      updateUIForCulture(getCultureResolved());
     });
   }
-  
-  // Chat
+
   setupChatUI();
 }
 
 function boot() {
-  // 统一入口：只在这里安排初始化顺序
-  applyI18n();
-  setDefaultBirthDateTimeNow();
-  setupTypeSelector();
-  setupCultureSelector();
-  setupAuthFieldReveal(); // ✅ 新增
-
-  // 如果你原本有 init()，就放这里
   init();
 }
 
-// DOM加载完成后初始化
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', boot);
 } else {
