@@ -4139,11 +4139,20 @@ function getAnalysisTitleByCulture(culture, focus) {
   return titleMap[culture]?.[focus] || culturePurposeMap[culture]?.analysisType || '命理分析';
 }
   
+// ✅ Make this function async because you use await inside it
+async function generateVipSoulReport({
+  focus, type, culture, currentYear, data,
+  config, now,
+  baziResult,
+  namingSuggestions
+}) {
+  let reportHTML = "";
+
   // 1. 报告标题和概要
   reportHTML += `
     <div class="ai-report">
       <h4>${config.icon} ${config.analysisType} · ${focus}深度分析报告</h4>
-      
+
       <div class="ai-section">
         <h5>📋 报告概要</h5>
         <p>本报告基于${config.description}，结合您的出生信息进行深度分析。</p>
@@ -4154,57 +4163,51 @@ function getAnalysisTitleByCulture(culture, focus) {
         </p>
       </div>
   `;
-  
-// 2. 根据不同文化显示不同分析内容
-if (culture === '东方' && baziResult) {
-  // 八字分析（使用正确的八字计算器）
-  reportHTML += generateBaziAnalysis(baziResult);
-  
-  // 添加：日主深度剖析（只有东方文化且有八字结果时）
-  reportHTML += generatePersonalDestinyAnalysis(baziResult, focus);
-  
-} else if (culture === '西方') {
-  // 占星分析
-  reportHTML += generateWesternAstrologyAnalysis(data);
-  
-} else if (culture === '日式') {
-  // 九星分析
-  reportHTML += `
-    <div class="ai-section">
-      <h5>🌸 九星气学</h5>
-      <p>基于日本九星气学分析，您的命理显示...</p>
-    </div>
-  `;
-} else if (culture === '吠陀') {
-  // 印度占星分析
-  reportHTML += `
-    <div class="ai-section">
-      <h5>🕉️ 吠陀占星</h5>
-      <p>基于印度吠陀占星学分析，您的命理显示...</p>
-    </div>
-  `;
-}
-  
-  // 3. 深度分析内容
+
+  // 2. 根据不同文化显示不同分析内容
+  if (culture === "东方" && baziResult) {
+    reportHTML += generateBaziAnalysis(baziResult);
+    reportHTML += generatePersonalDestinyAnalysis(baziResult, focus);
+  } else if (culture === "西方") {
+    reportHTML += generateWesternAstrologyAnalysis(data);
+  } else if (culture === "日式") {
+    reportHTML += `
+      <div class="ai-section">
+        <h5>🌸 九星气学</h5>
+        <p>基于日本九星气学分析，您的命理显示...</p>
+      </div>
+    `;
+  } else if (culture === "吠陀") {
+    reportHTML += `
+      <div class="ai-section">
+        <h5>🕉️ 吠陀占星</h5>
+        <p>基于印度吠陀占星学分析，您的命理显示...</p>
+      </div>
+    `;
+  }
+
+  // 3. 深度分析内容 ✅ await OK because function is async
   reportHTML += await generateDeepAnalysisContent(focus, type, culture, currentYear, data);
-  
+
   // 4. 命名推荐（如果是测名相关且文化支持）
-  if (namingSuggestions && namingSuggestions.length > 0 && 
-      (culture === '东方' || culture === '日式')) {
+  if (
+    namingSuggestions &&
+    namingSuggestions.length > 0 &&
+    (culture === "东方" || culture === "日式")
+  ) {
     reportHTML += generateNamingSection(focus, namingSuggestions, culture);
   }
-  
+
   // 5. 行动计划
   reportHTML += generateActionPlan(focus, type, culture);
-  
+
   // 6. 注意事项
   reportHTML += generateCulturalNotes(culture);
-  
+
   reportHTML += `</div>`;
-  
   return reportHTML;
 }
-
+  
 /* ==============================
    合盘分析生成（使用正确的八字计算器）
 ============================== */
