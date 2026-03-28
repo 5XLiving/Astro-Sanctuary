@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Bazi · Quick Chart</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+
+  <style>
+/* ---- same visual style as CN version ---- */
+:root{
+  --bg:#0b0f14; --bg-accent:#0e1520; --card:#11161dcc; --surface:#0f1624; --line:#1f2a36;
+  --text:#e8edf3; --muted:#98a7b7; --brand:#d4af37; --gold:#d4af37; --gold2:#f2d27a; --accent:#58b9ff;
+  --radius:14px; --radius-sm:10px; --radius-lg:18px; --shadow:0 8px 30px rgba(0,0,0,.35); --shadow-sm:0 4px 14px rgba(0,0,0,.28);
+  --container:1100px; --gap:12px; --pad:18px; --focus:0 0 0 2px rgba(212,175,55,0.2);
+  --bp-s:520px; --bp-m:760px; --bp-l:900px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; padding:0; color:var(--text);
+  background: radial-gradient(1200px 600px at 70% -10%, #16202b 10%, transparent 60%) no-repeat,
+             linear-gradient(180deg, #0b0f14, #0b0f14);
+  font-family:Inter,system-ui,-apple-system,"Noto Sans SC","Segoe UI",Roboto,Arial,sans-serif;
+  -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+}
+body::before{
+  content:""; position:fixed; inset:0; z-index:-2;
+  background:url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" opacity="0.05"><rect width="100" height="100" fill="%23d4af37"/></svg>') center/cover no-repeat;
+  filter:brightness(0.45) saturate(0.9) blur(2px);
+}
+.container{max-width:var(--container); margin:0 auto; padding:24px 16px 80px}
+/* —— 头部 —— */
+.site-header{
+  position:sticky;
+  top:0;
+  z-index:10;
+  background:#0b0f14cc;
+  border-bottom:1px solid #0f1622;
+  backdrop-filter:saturate(140%) blur(12px);
+  transition:.3s;
+}
+.site-header.scrolled{
+  background:rgba(11,15,20,.95);
+  box-shadow:0 4px 20px rgba(0,0,0,.3);
+}
+.head-inner{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  padding:14px 16px;
+}
+.brand{
+  display:flex; align-items:center; gap:10px;
+  text-decoration:none; color:var(--text);
+}
+.brand-badge{
+  display:inline-grid; place-items:center;
+  width:34px; height:34px; border-radius:8px;
+  background:linear-gradient(180deg,#0e1520,#0b1018);
+  border:1px solid #2a3546;
+  box-shadow:0 4px 14px rgba(0,0,0,.35);
+  font-weight:800; color:#ffe084;
+  transition:.3s;
+}
+.brand:hover .brand-badge{
+  transform:rotate(15deg);
+  box-shadow:0 6px 20px rgba(212,175,55,.3);
+}
+.title{
+  font-family:"Noto Serif SC","Noto Serif",serif!important;
+  font-weight:600!important;
+  letter-spacing:.02em;
+  font-size:1.1rem!important;
+  line-height:1.25;
+}
+.brand:hover .title{color:var(--gold);}
+.lang{
+  display:flex; align-items:center; gap:8px;
+}
+.lang label{
+  white-space:nowrap; color:var(--muted); margin-right:4px;
+}
+.lang select{
+  appearance:none;
+  min-width:170px;
+  border-radius:10px;
+  border:1px solid #243244;
+  background:#0e1520;
+  color:var(--text);
+  padding:10px 34px 10px 12px;
+  font-size:.95rem;
+  background-image:url("data:image/svg+xml,%3Csvg width='12' height='8' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2398a7b7' stroke-width='2' fill='none'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:calc(100% - 12px) 50%;
+  transition:.3s;
+}
+.lang select:focus{
+  outline:none;
+  border-color:var(--gold);
+  box-shadow:0 0 0 2px rgba(212,175,55,.2);
+}
+@media (max-width:520px){
+  .title{font-size:1rem}
+  .lang select{min-width:140px}
+}
+
+.section{margin-top:18px}
+.card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); backdrop-filter:blur(10px); padding:var(--pad); margin:16px 0}
+.h2{font-size:1.2rem; margin:0 0 12px 0; font-weight:800; color:#ffe084; display:flex; gap:8px; align-items:center}
+.h2::before{content:""; width:4px; height:18px; background:var(--brand); border-radius:2px}
+.row{display:grid; gap:var(--gap); grid-template-columns:1fr}
+@media (min-width:760px){ .row.cols-3{grid-template-columns:1fr 1fr 1fr} .row.cols-2{grid-template-columns:1fr 1fr} }
+input,select{width:100%; border-radius:12px; border:1px solid #243244; background:var(--bg-accent); color:var(--text); padding:12px 12px; font-size:15px; outline:0}
+input::placeholder{color:#6f8092}
+input:focus,select:focus{box-shadow:var(--focus); border-color:#3a4c63}
+.btn{display:inline-grid; place-items:center; padding:12px 16px; border-radius:12px; border:1px solid #e6c76e; background:linear-gradient(180deg,#fff9e6,#e6c76e); color:#191919; font-weight:800; cursor:pointer; transition:transform .2s ease, box-shadow .2s ease}
+.btn:hover{transform:translateY(-1px); box-shadow:0 10px 22px rgba(230,199,110,.5)}
+.btn[disabled]{opacity:.6; cursor:not-allowed}
+.btn.ghost{background:transparent; color:var(--gold2); border:1px solid rgba(212,175,55,.45); box-shadow:none}
+.btn.block{display:block; width:100%}
+.pillars{display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:20px}
+.pillar{background:var(--surface); border:1px solid #253245; border-radius:12px; padding:14px 10px; text-align:center}
+.pillar .tit{color:#9aa3b2; font-size:0.85rem; margin-bottom:6px}
+.pillar .gz{font-size:1.5rem; font-weight:800; color:var(--gold2)}
+@media (max-width:520px){ .pillars{grid-template-columns:repeat(2,1fr)} }
+.bazi-table{width:100%; border-collapse:collapse; margin-top:12px; background:var(--surface); border-radius:8px; overflow:hidden}
+.bazi-table th,.bazi-table td{padding:10px 12px; border:1px solid #253245; text-align:center; vertical-align:middle}
+.bazi-table th{background:rgba(212,175,55,.1); color:var(--gold2)}
+.bazi-table-wrap{overflow:auto}
+@media (max-width:420px){ .bazi-table th,.bazi-table td{padding:8px 10px} }
+.bar{height:10px; background:#0d1420; border:1px solid #233146; border-radius:999px; overflow:hidden; margin:6px 0}
+.bar i{display:block; height:100%; background:linear-gradient(90deg,#ffe084,#f2d27a); width:0%; transition:width 0.5s ease}
+.bar-row{display:grid; grid-template-columns:80px 1fr 60px; gap:10px; align-items:center}
+.error-message{background:rgba(255,90,95,.1); border:1px solid #ff5a5f; border-radius:8px; padding:10px; display:none; margin-top:10px}
+.muted{color:var(--muted)}
+.time-row{display:flex; align-items:center; gap:10px}
+.time-row .time-unknown{display:flex; align-items:center; gap:6px; white-space:nowrap}
+.time-row input[type="time"]{width:auto !important; flex:0 0 160px; min-width:140px}
+.gen-wrap{display:flex; align-items:flex-end; justify-content:flex-end}
+#genBtn{width:auto !important}
+.analysis-grid{display:grid; gap:16px; margin-top:20px}
+.analysis-card{background:var(--surface); border:1px solid #253245; border-radius:12px; padding:16px}
+.analysis-card h3{color:var(--gold2); margin:0 0 12px 0; font-size:1.1rem}
+.analysis-content{line-height:1.6}
+.columns{display:grid; gap:12px; grid-template-columns:1fr}
+@media (min-width:900px){ .columns{grid-template-columns:1fr 1fr} }
+.list-block{border:1px solid #263448; background:var(--bg-accent); border-radius:12px; padding:16px}
+.list-block ul{margin:0.2rem 0 0 0; padding-left:1.1rem}
+.group-title{font-size:1.05rem; color:#ffe084; margin:6px 0 14px}
+.astro-auth{max-width:980px; margin:28px auto; padding:20px 18px; background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01)); border:1px solid rgba(212,175,55,.22); border-radius:14px; box-shadow:0 18px 50px rgba(0,0,0,.35)}
+.auth-grid{display:grid; gap:18px; grid-template-columns:1.2fr .8fr}
+@media (max-width:860px){ .auth-grid{grid-template-columns:1fr} }
+.panel{background:linear-gradient(180deg,rgba(255,255,255,.03),rgba(255,255,255,.01)); border:1px solid rgba(212,175,55,.22); border-radius:14px; box-shadow:0 10px 30px rgba(0,0,0,.35)}
+.panel .head{padding:16px 18px; border-bottom:1px solid rgba(212,175,55,.22); color:var(--gold); font-weight:700; letter-spacing:0.3px}
+.panel .body{padding:18px}
+.spacer{height:12px}
+
+/* ===== Chat ===== */
+.ss-chat-fab{
+  position:fixed;
+  right:18px;
+  bottom:18px;
+  z-index:50;
+  width:56px;
+  height:56px;
+  border-radius:50%;
+  background:linear-gradient(180deg,#fff9e6,#e6c76e);
+  color:#191919;
+  display:grid;
+  place-items:center;
+  font-size: 22px;
+  font-weight:800;
+  box-shadow:0 8px 30px rgba(0,0,0,.35);
+  cursor:pointer;
+  border:1px solid #e6c76e;
+}
+.ss-chat-panel{
+  position:fixed;
+  right:18px;
+  bottom:88px;
+  z-index:50;
+  width:min(460px,92vw);
+  display:none;
+  flex-direction:column;
+  background:#0e1520;
+  border:1px solid #243244;
+  border-radius:14px;
+  box-shadow:var(--shadow);
+}
+.ss-chat-panel[aria-hidden="false"]{display:flex;}
+.ss-chat-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding:10px 12px;
+  border-bottom:1px solid #243244;
+}
+.ss-chat-title{font-weight:700}
+.ss-chat-body{
+  max-height:300px;
+  overflow:auto;
+  padding:10px 12px;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.ss-msg{
+  padding:8px 10px;
+  background:#0f1624;
+  border:1px solid #243244;
+  border-radius:10px;
+  margin:6px 0;
+  max-width:80%;
+  font-size:.9rem;
+  line-height:1.6;
+}
+.ss-msg.me{
+  margin-left:auto;
+  background:#132033;
+}
+.ss-chat-input{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  padding:10px 12px;
+  border-top:1px solid #243244;
+}
+.ss-chat-input input{
+  flex:1 1 auto;
+  min-width:0;
+}        
+
+    /* ===== Professional Report styles ===== */
+.butler-section{
+  border:1px solid #253245;
+  background:var(--surface);
+  border-radius:12px;
+  padding:14px 14px;
+  margin:12px 0;
+}
+.butler-section h4{
+  margin:0 0 10px 0;
+  color:var(--gold2);
+  font-size:1.05rem;
+}
+.butler-section p{
+  margin:8px 0;
+  line-height:1.7;
+}
+.action-list{
+  margin:8px 0 0 0;
+  padding-left:1.2rem;
+}
+.action-list li{
+  margin:8px 0;
+  line-height:1.7;
+}
+    
+/* form focus simplification */
+input:focus,select:focus,textarea:focus{outline:none!important; box-shadow:none!important; border-color:#243244!important}
+button:focus,.btn:focus,a:focus{outline:none!important; box-shadow:none!important}
+*{-webkit-tap-highlight-color:transparent}
+
+footer{color:#6c7b8c; font-size:0.85rem; text-align:center; padding:30px 0; margin-top:40px}
+@media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important} }
+  </style>
+</head>
+<body>
+<header class="site-header">
+  <div class="head-inner container">
+    <a class="brand" href="https://astro.5xliving.com/" target="_self">
+      <span class="brand-badge">5X</span>
+      <span class="title">5xLiving · Bazi Brief</span>
+    </a>
+    <div style="display:flex; align-items:center; gap:10px;">
+      <!-- Language selector -->
+      <select id="langSelect" style="border-radius:999px; padding:6px 10px; border:1px solid #243244; background:#0e1520; color:#e8edf3; font-size:0.85rem;">
+        <option value="zh-CN">简体中文</option>
+        <option value="zh-TW">繁體中文</option>
+        <option value="en">English</option>
+        <option value="ja">日本語</option>
+        <option value="th">ไทย</option>
+        <option value="ms">Bahasa Melayu</option>
+      </select>
+
+      <span id="nowBox" class="now"></span>
+    </div>
+  </div>
+</header>
+
+  <main class="container">
+    <!-- Input card -->
+    <section class="card">
+      <div class="h2">Bazi · Quick Chart</div>
+      <div class="row cols-3">
+        <div>
+          <label class="muted">Name (optional)</label>
+          <input id="name" placeholder="Your name (for personalization)" />
+        </div>
+        <div>
+          <label class="muted">Gender</label>
+          <select id="gender">
+            <option value="">Prefer not to say</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted">Calendar</label>
+          <select id="calendar">
+            <option value="gregorian">Gregorian</option>
+            <option value="lunar">Lunar (not yet supported)</option>
+          </select>
+        </div>
+      </div>
+      <div class="row cols-3" style="margin-top:10px">
+        <div>
+          <label class="muted">Birth date</label>
+          <input type="date" id="birthdate" />
+        </div>
+        <div>
+          <label class="muted">Birth time</label>
+          <div class="time-row">
+            <input type="time" id="birthtime" />
+            <label class="muted time-unknown">
+              <input type="checkbox" id="timeUnknown" />
+              <span>Time unknown</span>
+            </label>
+          </div>
+        </div>
+        <div class="gen-wrap">
+          <button class="btn" id="genBtn" type="button">
+            <span id="genBtnText">Generate Bazi</span>
+            <span id="genBtnLoading" style="display:none">Calculating...</span>
+          </button>
+        </div>
+      </div>
+      <div id="error" class="error-message"></div>
+    </section>
+
+    <!-- Result: pillars & elements -->
+    <section id="result" style="display:none;">
+      <div class="card">
+        <div class="h2">Your Bazi Chart</div>
+        <div class="pillars" id="bazi-pillars"></div>
+        <div class="muted" id="bazi-date" style="margin-top:6px"></div>
+        <table class="bazi-table">
+          <thead>
+          <tr>
+            <th></th>
+            <th>Year Pillar</th>
+            <th>Month Pillar</th>
+            <th>Day Pillar</th>
+            <th>Hour Pillar</th>
+          </tr>
+          </thead>
+          <tbody>
+          <tr>
+            <td>Heavenly Stem</td>
+            <td id="year-stem">-</td><td id="month-stem">-</td><td id="day-stem">-</td><td id="hour-stem">-</td>
+          </tr>
+          <tr>
+            <td>Earthly Branch</td>
+            <td id="year-branch">-</td><td id="month-branch">-</td><td id="day-branch">-</td><td id="hour-branch">-</td>
+          </tr>
+          <tr>
+            <td>Five Elements</td>
+            <td id="year-element">-</td><td id="month-element">-</td><td id="day-element">-</td><td id="hour-element">-</td>
+          </tr>
+          <tr>
+            <td>Na Yin</td>
+            <td id="year-nayin">-</td><td id="month-nayin">-</td><td id="day-nayin">-</td><td id="hour-nayin">-</td>
+          </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="card">
+        <div class="h2">Five-Element Energy Analysis</div>
+        <div class="bar-row"><span>Wood</span><div class="bar"><i id="bar-wood"></i></div><span id="pct-wood">0%</span></div>
+        <div class="bar-row"><span>Fire</span><div class="bar"><i id="bar-fire"></i></div><span id="pct-fire">0%</span></div>
+        <div class="bar-row"><span>Earth</span><div class="bar"><i id="bar-earth"></i></div><span id="pct-earth">0%</span></div>
+        <div class="bar-row"><span>Metal</span><div class="bar"><i id="bar-metal"></i></div><span id="pct-metal">0%</span></div>
+        <div class="bar-row"><span>Water</span><div class="bar"><i id="bar-water"></i></div><span id="pct-water">0%</span></div>
+        <div id="bazi-elements-balance" class="muted" style="margin-top:8px"></div>
+      </div>
+    </section>
+
+    <section class="professionalReport">
+              <!-- ✅ Professional Report (add this) -->
+      <div class="card" id="butlerProfessional" style="display:none;">
+        <div class="h2" data-i18n="pro.title">🧙‍♂️ 心怜管家 · 专业命理分析</div>
+        <div id="professionalReport" class="analysis-content"></div>
+      </div>
+    </section>  
+
+    <!-- VIP segment -->
+    <section class="card section">
+      <h2 class="group-title">🌙 VIP Segment</h2>
+      <div class="columns">
+        <div class="list-block">
+          <div class="group-title">🗝 Mingli Space · Exclusive</div>
+          <ul>
+            <li>Relationships: love affinity &amp; marriage trend</li>
+            <li>Career: development &amp; entrepreneurship potential</li>
+            <li>Wealth: wealth spot analysis &amp; timing</li>
+            <li>Pet destiny: temperament &amp; affinity of companion animals</li>
+          </ul>
+        </div>
+        <div class="list-block">
+          <div class="group-title">🌙 Xinlian Space · Exclusive</div>
+          <ul>
+            <li>Spiritual records: photos, dreams, voice notes, prayers</li>
+            <li>Courses: Bazi / Tarot / Astrology / Numerology</li>
+            <li>Family memorial system: remembrance &amp; legacy</li>
+            <li>Weekly energy practice &amp; deity-style ritual tasks</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="group-title" style="margin-top:14px">💎 VIP Login</div>
+      <section class="astro-auth">
+        <div class="auth-grid">
+          <div class="panel">
+            <div class="head">Account Login / Register</div>
+            <div class="body">
+              <div class="row" id="authFields">
+                <input id="email" name="email" type="email" inputmode="email" autocomplete="username" placeholder="Email">
+                <input id="password" name="password" type="password" autocomplete="current-password" placeholder="Password (≥8 chars, mixed case, numbers, symbols)">
+              </div>
+              <div class="spacer"></div>
+              <form id="loginForm" class="row one">
+                <button class="btn block" id="loginBtn" type="submit">Log in</button>
+              </form>
+              <div class="spacer"></div>
+              <div class="row one">
+                <button class="btn ghost block" id="resetBtn" type="button">🔑 Reset password</button>
+              </div>
+              <div class="spacer"></div>
+              <form class="row one" id="registerForm">
+                <button class="btn block" id="registerBtn" type="submit">Create account</button>
+                <div class="muted">Sign up to receive one free reading trial.</div>
+                <div class="spacer"></div>
+                <div class="error-message" id="authError" style="display:none"></div>
+              </form>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="head">Member Services</div>
+            <div class="body">
+              <div class="row one">
+                <a class="btn block" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener noreferrer">
+                  💎 Upgrade to VIP (monthly)
+                </a>
+              </div>
+              <div class="row one">
+                <a class="btn ghost block" href="https://yourshopifyshop.myshopify.com" target="_blank" rel="noopener noreferrer">
+                  ← Back to Astro Store
+                </a>
+              </div>
+              <div class="muted">$9.9 / month · Mingli Space + Xinlian Space + spiritual courses</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </section>
+
+<footer data-i18n="footer.copy">© 5XLiving • Astro Sanctuary</footer>
+</main>
+
+<!-- Xinlian Butler · GPT (Unified Floating Chat) -->
+<button class="ss-chat-fab" id="ssChatFab" type="button">
+  <span data-i18n="chat.toggle">Ask</span>
+</button>
+
+<div class="ss-chat-panel" id="chatPanel" aria-hidden="true">
+  <div class="ss-chat-head">
+    <div class="ss-chat-title" id="chatTitle" data-i18n="chat_title">Xinlian Butler · GPT</div>
+    <div class="ss-close" id="chatClose">✕</div>
+  </div>
+
+  <!-- Chat messages are appended by JS -->
+  <div class="ss-chat-body" id="chatBody"></div>
+
+  <!-- Input -->
+  <div class="ss-chat-input">
+    <input id="chatInput" placeholder="Type your question…" data-i18n-ph="chat.placeholder" />
+    <button class="btn" id="chatSend" data-i18n="chat.send">Send</button>
+  </div>
+</div>
+
+  <script src="/assets/bazi-language-pack/lang-switch.js"></script>
+
+<script>
+(() => {
+  'use strict';
+
+  /* ===================== PAGE LANG (IMPORTANT) ===================== */
+  // Prefer standardized code "en-US", but also support legacy "en"
+  const PAGE_LANG = 'en-US';     // this EN page is always English
+  const PAGE_LANG_ALT = 'en';
+  const LANG_KEY  = '5x_lang';
+  const SG_TZ     = 'Asia/Singapore';
+
+  /* ===================== CONFIG ===================== */
+  const API_BASE = "https://throbbing-lab-1440.hello5xliving.workers.dev";
+  const CHAT_ENDPOINT = "/api/chat";
+
+  /* ===================== DOM ===================== */
+  const $ = (id) => document.getElementById(id);
+
+  /* ===================== SAFE GET ===================== */
+  const deepGet = (obj, path) => {
+    if (!obj || !path) return undefined;
+    const parts = String(path).split(".");
+    let cur = obj;
+    for (const p of parts) { if (!cur) return undefined; cur = cur[p]; }
+    return cur;
+  };
+
+  /* ===================== STATE ===================== */
+  const state = (window.state = window.state || {});
+  state.lang = PAGE_LANG; // lock EN
+  document.documentElement.lang = PAGE_LANG;
+
+  /* ===================== I18N (EN ONLY) ===================== */
+  window.I18N = window.I18N || {};
+  const I18N = window.I18N;
+
+  I18N['en-US'] = Object.assign({}, I18N['en-US'] || {}, {
+    action:{
+      weekly:'Weekly',
+      energy:'Energy Guidance',
+      career:'Career strategy: steady growth & results',
+      career2:'Consistent results + review (Goal → Weekly plan → Check & improve)',
+      relationship:'Relationships: be direct / boundaries / reply at the right timing',
+      wealth:'Money: budget & cashflow / monetize skills / risk control'
+    },
+    brand:{ subtitle:'5xLiving · BaZi (Four Pillars) Quick Reading' },
+
+    app:{ title:'BaZi · Quick Chart' },
+    form:{
+      nameLabel:'Name (optional)',
+      namePlaceholder:'How should I call you? (for a more personalized reading)',
+      genderLabel:'Gender',
+      gender:{ hidden:'Unspecified', male:'Male', female:'Female' },
+      calendarLabel:'Calendar',
+      calendar:{ gregorian:'Gregorian (Solar)', lunar:'Lunar' },
+      birthdateLabel:'Birth date',
+      birthtimeLabel:'Birth time',
+      timeUnknown:'Birth time unknown'
+    },
+
+    btn:{ generate:'Generate BaZi', loading:'Calculating…' },
+    result:{ title:'Your BaZi (Four Pillars)' },
+    pillar:{ year:'Year', month:'Month', day:'Day', hour:'Hour' },
+    table:{ row:{ stem:'Heavenly Stem', branch:'Earthly Branch', fiveElem:'Five Elements', nayin:'NaYin' } },
+    energy:{ title:'Five-Element Balance' },
+    elem:{ wood:'Wood', fire:'Fire', earth:'Earth', metal:'Metal', water:'Water', month:'Month', fiveElements:'Five Elements' },
+
+    ui2:{
+      stemBranchFormat:'{stem}-{branch}',
+      stemBranchWithAnimal:'{stem}-{branch} ({animal})'
+    },
+
+    chat_title:'Xinlian Butler · GPT',
+    pro:{
+      title:'Xinlian Butler · Pro Reading',
+      welcome:'Hi! I’m Xinlian Butler · GPT. First click “Generate BaZi”, then ask about career, relationships, money, or health.'
+    },
+    chat:{ send:'Send', placeholder:'Type your question…', toggle:'Ask' },
+
+    vip:{
+      title:'VIP Zone',
+      group:{ astrology:'BaZi Area', spiritual:'Soul Sanctuary' },
+      login:{ title:'VIP Login' },
+      services:{ header:'Member Services' },
+      upgrade:'Upgrade to VIP (Monthly)',
+      back:'← Back to Shop',
+      priceNote:'$9.9 / month VIP (BaZi + Soul Sanctuary + Courses)'
+    },
+
+    auth:{
+      header:'Login / Register',
+      login:'Login',
+      reset:'Reset Password',
+      register:'Register',
+      freeTrialNote:'Register to get 1 free trial',
+      emailPlaceholder:'Email address',
+      passwordPlaceholder:'Password (8+ chars: upper/lowercase, number, symbol)'
+    },
+
+    footer:{ copy:'© 5XLiving • Astro Sanctuary' },
+
+    err:{
+      fillBirthdate:'Please enter your birth date',
+      invalidDate:'Invalid format (YYYY-MM-DD)',
+      generateFail:'Failed to generate. Please try again.'
+    },
+
+    ui:{
+      timeUnknown:'Birth time unknown',
+      hourSuffix:'{hh}:{mm}',
+      birthSummary:'Born: {y}-{m}-{d} {timeText}',
+      balance:'Strongest element: {strongest} · Weakest element: {weakest}.'
+    },
+
+    badge:{ noHour:'No hour pillar' },
+
+    report:{
+      hourUnknownTip:'Note: Without a birth time, some parts are for reference only.'
+    },
+
+    reportTitles:{
+      overview:'Overview',
+      fiveElements:'Five Elements',
+      tenGods:'Ten Gods',
+      useful:'What to Strengthen',
+      relationship:'Love & Relationships',
+      career:'Career',
+      wealth:'Wealth',
+      health:'Health',
+      nearTerm:'Near-term Flow',
+      actions:'Action List'
+    },
+
+    reportLabels:{
+      dayMaster:'Day Master',
+      symbolise:'Meaning',
+      analysis:'Advice',
+      suitableCareers:'Suitable careers',
+      careerAdvice:'Career strategy',
+      favorableDirections:'Favorable directions (ref.)',
+      healthCharacteristics:'Body focus'
+    },
+
+    cautions:{ default:'Don’t decide emotionally. Control spending, and don’t overpush.' },
+
+    fortune:{
+      upward:'Momentum rising. Great for visibility and showcasing results.',
+      focus:'Focus & systemize. Move forward with a stable pace.',
+      study:'Observe & compare first. Start small, then scale.',
+      foundation:'Build the foundation. Stabilize your rhythm.'
+    },
+
+    // Day Master lines (EN)
+    'report.dayMaster.jia':'Jia (甲 · Wood): Pioneer type—sets direction and builds foundations people rely on.',
+    'report.dayMaster.yi':'Yi (乙 · Wood): Flexible and detail-oriented—wins through steady accumulation.',
+    'report.dayMaster.bing':'Bing (丙 · Fire): Bright and confident—fortune grows when you step forward.',
+    'report.dayMaster.ding':'Ding (丁 · Fire): Careful and deep—watch overthinking under pressure.',
+    'report.dayMaster.wu':'Wu (戊 · Earth): Grounded and stable—strong at building and managing systems.',
+    'report.dayMaster.ji':'Ji (己 · Earth): Considerate and planned—good at coordination and execution.',
+    'report.dayMaster.geng':'Geng (庚 · Metal): Decisive and breakthrough-driven—fits problem-solving work.',
+    'report.dayMaster.xin':'Xin (辛 · Metal): High standards and aesthetics—strong in precision and quality.',
+    'report.dayMaster.ren':'Ren (壬 · Water): Broad-minded and adaptable—shines in dynamic environments.',
+    'report.dayMaster.gui':'Gui (癸 · Water): Intuitive and persistent—avoid getting stuck in mental loops.',
+
+    // Presets (EN)
+    'report.marriage.stable':'Relationships tend to stabilize; easier to build long-term bonds.',
+    'report.marriage.experienced':'More learning through relationships; matching life rhythm is key.',
+    'report.marriage.default':'For long-term success: cooperation + regular honest talks.',
+
+    'report.career.leadership':'Strong for leadership/management/entrepreneurship—grow via systems and credibility.',
+    'report.career.business':'Strong for business/finance—cashflow and discipline are key.',
+    'report.career.creative':'Strong for making/building—keep producing and build a visible portfolio.',
+    'report.career.steady':'Don’t rush. Go deep—win long-term through quality and specialization.'
+  });
+
+  // Legacy key
+  I18N['en'] = Object.assign({}, I18N['en'] || {}, I18N['en-US']);
+
+  function t(path) {
+    const pack = (window.I18N && (window.I18N[PAGE_LANG] || window.I18N[PAGE_LANG_ALT])) || {};
+    let v = pack[path];
+    if (v != null && v !== '') return v;
+    v = deepGet(pack, path);
+    if (v != null && v !== '') return v;
+    return '';
+  }
+  window.t = t;
+
+  function applyI18n(){
+    // EN page only: fill once (no in-page dynamic switching)
+    document.documentElement.lang = PAGE_LANG;
+
+    document.querySelectorAll('[data-i18n]').forEach(el=>{
+      const key = el.getAttribute('data-i18n');
+      const val = t(key);
+      if (typeof val === 'string' && val !== '') el.textContent = val;
+    });
+
+    const setPh = (id, value) => { const el=$(id); if (el && typeof value === 'string' && value) el.placeholder = value; };
+    setPh('name', t('form.namePlaceholder'));
+    setPh('chatInput', t('chat.placeholder'));
+  }
+
+  /* ===================== LANGUAGE SELECT (REDIRECT ONLY) ===================== */
+  function wireLangSelect(){
+    const sel = $('langSelect');
+    if (!sel) return;
+
+    // do NOT read localStorage to set dropdown on load
+    // Keep this page locked, no auto redirect/refresh
+    const hasPrimary = Array.from(sel.options || []).some(o => o.value === PAGE_LANG);
+    const lockValue = hasPrimary ? PAGE_LANG : PAGE_LANG_ALT;
+    sel.value = lockValue;
+
+    const LANG_PAGES = {
+      'zh-CN': '/bazi.html',
+      'zh-TW': '/assets/bazi-language-pack/bazi-zh-TW.html',
+
+      'en':    '/assets/bazi-language-pack/bazi-en.html',
+      'en-US': '/assets/bazi-language-pack/bazi-en.html',
+
+      'ja':    '/assets/bazi-language-pack/bazi-ja.html',
+      'ja-JP': '/assets/bazi-language-pack/bazi-ja.html',
+
+      'th':    '/assets/bazi-language-pack/bazi-th.html',
+      'th-TH': '/assets/bazi-language-pack/bazi-th.html',
+
+      'ms':    '/assets/bazi-language-pack/bazi-ms.html',
+      'ms-MY': '/assets/bazi-language-pack/bazi-ms.html'
+    };
+
+    sel.addEventListener('change', (e)=>{
+      const lang = (e.target && e.target.value) ? e.target.value : lockValue;
+
+      try { localStorage.setItem(LANG_KEY, lang); } catch {}
+
+      const target = LANG_PAGES[lang] || LANG_PAGES['zh-CN'];
+      const targetUrl = new URL(target, window.location.origin);
+
+      const curPath = window.location.pathname.replace(/\/+$/, '');
+      const tgtPath = targetUrl.pathname.replace(/\/+$/, '');
+
+      if (curPath !== tgtPath) window.location.href = targetUrl.href;
+      else sel.value = lockValue;
+    });
+  }
+
+  /* ===================== DISPLAY MAPPING (CN -> EN) ===================== */
+  // Calculation stays CN. Display for English users.
+  const EN_MAP = {
+    stems: {
+      '甲': { roman:'Jia',  elem:'Wood' },
+      '乙': { roman:'Yi',   elem:'Wood' },
+      '丙': { roman:'Bing', elem:'Fire' },
+      '丁': { roman:'Ding', elem:'Fire' },
+      '戊': { roman:'Wu',   elem:'Earth' },
+      '己': { roman:'Ji',   elem:'Earth' },
+      '庚': { roman:'Geng', elem:'Metal' },
+      '辛': { roman:'Xin',  elem:'Metal' },
+      '壬': { roman:'Ren',  elem:'Water' },
+      '癸': { roman:'Gui',  elem:'Water' }
+    },
+    branches: {
+      '子': { roman:'Zi',   animal:'Rat',    elem:'Water' },
+      '丑': { roman:'Chou', animal:'Ox',     elem:'Earth' },
+      '寅': { roman:'Yin',  animal:'Tiger',  elem:'Wood' },
+      '卯': { roman:'Mao',  animal:'Rabbit', elem:'Wood' },
+      '辰': { roman:'Chen', animal:'Dragon', elem:'Earth' },
+      '巳': { roman:'Si',   animal:'Snake',  elem:'Fire' },
+      '午': { roman:'Wu',   animal:'Horse',  elem:'Fire' },
+      '未': { roman:'Wei',  animal:'Goat',   elem:'Earth' },
+      '申': { roman:'Shen', animal:'Monkey', elem:'Metal' },
+      '酉': { roman:'You',  animal:'Rooster',elem:'Metal' },
+      '戌': { roman:'Xu',   animal:'Dog',    elem:'Earth' },
+      '亥': { roman:'Hai',  animal:'Pig',    elem:'Water' }
+    },
+    // Ten Gods (CN -> EN label)
+    tenGods: {
+      '比肩':'Friend (Bi Jian)',
+      '劫財':'Rob Wealth (Jie Cai)',
+      '食神':'Eating God (Shi Shen)',
+      '傷官':'Hurting Officer (Shang Guan)',
+      '偏財':'Indirect Wealth (Pian Cai)',
+      '正財':'Direct Wealth (Zheng Cai)',
+      '七殺':'Seven Killings (Qi Sha)',
+      '正官':'Direct Officer (Zheng Guan)',
+      '偏印':'Indirect Resource (Pian Yin)',
+      '正印':'Direct Resource (Zheng Yin)'
+    }
+  };
+
+  function enStem(stem){
+    if (!stem || stem === '-') return '-';
+    const x = EN_MAP.stems[stem];
+    return x ? x.roman : String(stem);
+  }
+  function enBranch(branch){
+    if (!branch || branch === '-') return '-';
+    const x = EN_MAP.branches[branch];
+    return x ? `${x.roman} (${x.animal})` : String(branch);
+  }
+  function enGZ(stem, branch){
+    if (!stem || stem === '-' || !branch || branch === '-') return '-';
+    const s = EN_MAP.stems[stem];
+    const b = EN_MAP.branches[branch];
+    if (!s || !b) return `${stem}${branch}`;
+    const tpl = t('ui2.stemBranchWithAnimal') || '{stem}-{branch} ({animal})';
+    return tpl
+      .replace('{stem}', s.roman)
+      .replace('{branch}', b.roman)
+      .replace('{animal}', b.animal);
+  }
+  function enTenGod(cn){
+    if (!cn || cn === '-') return '-';
+    return EN_MAP.tenGods[cn] || cn;
+  }
+
+  /* ===================== BAZI CALCULATOR (KEEP CN IDs) ===================== */
+  class BaziCalculator {
+    constructor(){
+      // KEEP THESE IN CHINESE (do not translate)
+      this.HEAVENLY_STEMS=['甲','乙','丙','丁','戊','己','庚','辛','壬','癸'];
+      this.EARTHLY_BRANCHES=['子','丑','寅','卯','辰','巳','午','未','申','酉','戌','亥'];
+
+      // NaYin names can stay English
+      this.NAYIN=[
+        'Metal in the Sea','Fire in the Furnace','Wood of the Great Forest','Earth by the Roadside','Sword-edge Metal',
+        'Fire on the Mountain Top','Water in the Mountain Stream','Earth on the City Wall','White Wax Metal','Willow Wood',
+        'Spring Water','Roof-top Earth','Thunderbolt Fire','Pine & Cypress Wood','Long-flowing Water',
+        'Sand/Gravel Metal','Fire at the Foot of the Mountain','Plain Wood','Earth on the Wall','Gold Leaf Metal',
+        'Buddha Lamp Fire','Heavenly River Water','Great Post Station Earth','Hairpin/Bracelet Metal','Mulberry Wood',
+        'Great Stream Water','Sand Earth','Heavenly Fire','Pomegranate Wood','Great Sea Water'
+      ];
+    }
+    yearPillar(year){
+      const s=(year-4)%10, b=(year-4)%12;
+      return {stem:this.HEAVENLY_STEMS[(s+10)%10], branch:this.EARTHLY_BRANCHES[(b+12)%12]};
+    }
+    solarMonthIndex(y,m,d){
+      const mmdd=m*100+d;
+      const gates=[[106,12],[204,1],[306,2],[405,3],[506,4],[606,5],[707,6],[808,7],[908,8],[1008,9],[1107,10],[1207,11]];
+      let idx=11; for(const [thr,val] of gates){ if(mmdd>=thr) idx=val; }
+      const branchBy={1:'寅',2:'卯',3:'辰',4:'巳',5:'午',6:'未',7:'申',8:'酉',9:'戌',10:'亥',11:'子',12:'丑'};
+      return {index:idx, branch:branchBy[idx]};
+    }
+    monthPillar(year,month,day){
+      const {index,branch}=this.solarMonthIndex(year,month,day);
+      const yStemIdx=this.HEAVENLY_STEMS.indexOf(this.yearPillar(year).stem);
+      const startMap={0:2,1:4,2:6,3:8,4:0,5:2,6:4,7:6,8:8,9:0};
+      const stemIdx=(startMap[yStemIdx]+(index-1))%10;
+      return {stem:this.HEAVENLY_STEMS[stemIdx], branch};
+    }
+    dayPillar(year,month,day){
+      const baseUTC=Date.UTC(1900,0,31), targetUTC=Date.UTC(year,month-1,day);
+      const dayDiff=Math.floor((targetUTC-baseUTC)/86400000);
+      const stemIdx=(0+dayDiff)%10, branchIdx=(4+dayDiff)%12;
+      return {stem:this.HEAVENLY_STEMS[(stemIdx+10)%10],branch:this.EARTHLY_BRANCHES[(branchIdx+12)%12]};
+    }
+    hourPillar(dayStem,hour){
+      const branchMap={23:'子',0:'子',1:'丑',2:'丑',3:'寅',4:'寅',5:'卯',6:'卯',7:'辰',8:'辰',9:'巳',10:'巳',11:'午',12:'午',13:'未',14:'未',15:'申',16:'申',17:'酉',18:'酉',19:'戌',20:'戌',21:'亥',22:'亥'};
+      const startMap={0:0,1:2,2:4,3:6,4:8,5:0,6:2,7:4,8:6,9:8};
+      const dayIdx=this.HEAVENLY_STEMS.indexOf(dayStem);
+      const hourIndex=Math.floor((hour+1)/2)%12;
+      const stemIdx=(startMap[dayIdx]+hourIndex)%10;
+      return {stem:this.HEAVENLY_STEMS[stemIdx], branch:branchMap[hour]};
+    }
+    stemElem(s){ return ({甲:'木',乙:'木',丙:'火',丁:'火',戊:'土',己:'土',庚:'金',辛:'金',壬:'水',癸:'水'})[s]||'-'; }
+    branchElem(b){ return ({子:'水',丑:'土',寅:'木',卯:'木',辰:'土',巳:'火',午:'火',未:'土',申:'金',酉:'金',戌:'土',亥:'水'})[b]||'-'; }
+    nayin(s,b){
+      const si=this.HEAVENLY_STEMS.indexOf(s), bi=this.EARTHLY_BRANCHES.indexOf(b);
+      return this.NAYIN[(si*2+bi)%this.NAYIN.length];
+    }
+    tenGods(dayStem, stems){
+      const map={
+        '甲':{'甲':'比肩','乙':'劫財','丙':'食神','丁':'傷官','戊':'偏財','己':'正財','庚':'七殺','辛':'正官','壬':'偏印','癸':'正印'},
+        '乙':{'甲':'劫財','乙':'比肩','丙':'傷官','丁':'食神','戊':'正財','己':'偏財','庚':'正官','辛':'七殺','壬':'正印','癸':'偏印'},
+        '丙':{'甲':'偏印','乙':'正印','丙':'比肩','丁':'劫財','戊':'食神','己':'傷官','庚':'偏財','辛':'正財','壬':'七殺','癸':'正官'},
+        '丁':{'甲':'正印','乙':'偏印','丙':'劫財','丁':'比肩','戊':'傷官','己':'食神','庚':'正財','辛':'偏財','壬':'正官','癸':'七殺'},
+        '戊':{'甲':'七殺','乙':'正官','丙':'偏印','丁':'正印','戊':'比肩','己':'劫財','庚':'食神','辛':'傷官','壬':'偏財','癸':'正財'},
+        '己':{'甲':'正官','乙':'七殺','丙':'正印','丁':'偏印','戊':'劫財','己':'比肩','庚':'傷官','辛':'食神','壬':'正財','癸':'偏財'},
+        '庚':{'甲':'偏財','乙':'正財','丙':'七殺','丁':'正官','戊':'偏印','己':'正印','庚':'比肩','辛':'劫財','壬':'食神','癸':'傷官'},
+        '辛':{'甲':'正財','乙':'偏財','丙':'正官','丁':'七殺','戊':'正印','己':'偏印','庚':'劫財','辛':'比肩','壬':'傷官','癸':'食神'},
+        '壬':{'甲':'食神','乙':'傷官','丙':'偏財','丁':'正財','戊':'七殺','己':'正官','庚':'偏印','辛':'正印','壬':'比肩','癸':'劫財'},
+        '癸':{'甲':'傷官','乙':'食神','丙':'正財','丁':'偏財','戊':'正官','己':'七殺','庚':'正印','辛':'偏印','壬':'劫財','癸':'比肩'}
+      };
+      const m=map[dayStem]||{};
+      return stems.map(s=>m[s]||'-');
+    }
+  }
+
+  /* ===================== ANALYSIS HELPERS ===================== */
+  function stemToPinyin(stem){
+    const map = {'甲':'jia','乙':'yi','丙':'bing','丁':'ding','戊':'wu','己':'ji','庚':'geng','辛':'xin','壬':'ren','癸':'gui'};
+    return map[stem] || String(stem).toLowerCase();
+  }
+
+  const BaziAnalysis = {
+    dayMasterLine(stem){ return t('report.dayMaster.'+stemToPinyin(stem)) || ''; },
+    relation(dayStem){
+      const dict={
+        '甲':{traits:'In love you may take the lead and prefer clarity and direction.',tips:'Listen first, then conclude. Soften the tone a little.'},
+        '乙':{traits:'Gentle and sensitive; values emotional stability and safety.',tips:'Name what you need, set boundaries, don’t over-carry.'},
+        '丙':{traits:'Energetic and expressive; can be impatient at times.',tips:'Pause before deciding. Use softer wording and timing.'},
+        '丁':{traits:'Sincere and deep; may overthink under stress.',tips:'Build trust. Use clear rules for communication, not guessing.'},
+        '戊':{traits:'Stability-oriented and serious; seeks long-term security but may seem rigid.',tips:'Add warmth and romance; show feelings a bit more.'},
+        '己':{traits:'Thoughtful and detail-aware; may feel anxious sometimes.',tips:'Use promises + healthy routines to create safety.'},
+        '庚':{traits:'Direct and decisive; dislikes ambiguity.',tips:'Keep honesty, but soften delivery and pacing.'},
+        '辛':{traits:'High standards; cares about quality and taste.',tips:'Relax perfectionism; shift to growing together.'},
+        '壬':{traits:'Needs freedom and freshness; mood can move quickly.',tips:'Stable habits + shared activities strengthen bonding.'},
+        '癸':{traits:'Highly intuitive and sensitive; stress can create emotional waves.',tips:'Use calm structure in talks; sort feelings before acting.'}
+      };
+      return dict[dayStem]||{traits:'With steady care, relationships tend to move in a good direction.',tips:'Respect + direct conversations are key.'};
+    },
+    marriageAdvice(ten){
+      if(ten.includes('正官')||ten.includes('正財')) return t('report.marriage.stable');
+      if(ten.includes('七殺')||ten.includes('偏財')) return t('report.marriage.experienced');
+      return t('report.marriage.default');
+    },
+    career(dayStem,ten){
+      const map={
+        甲:'Leadership/management, entrepreneurship, operations, engineering/architecture',
+        乙:'Education, design/creative, consulting, branding/content',
+        丙:'Marketing/sales, media, front-stage roles',
+        丁:'R&D/IT, healthcare, crafts/precision work',
+        戊:'Finance, real estate, asset/resource management',
+        己:'HR, service, admin, food/agri-related',
+        庚:'Law, machinery/engineering, safety/quality',
+        辛:'Financial analysis, precision instruments, luxury/jewelry',
+        壬:'Trade/logistics, travel, roles with mobility & ideas',
+        癸:'Research, psychology/coaching, writing/art'
+      };
+      let adv = t('report.career.steady');
+      if(ten.includes('正官')||ten.includes('七殺')) adv=t('report.career.leadership');
+      else if(ten.includes('正財')||ten.includes('偏財')) adv=t('report.career.business');
+      else if(ten.includes('食神')||ten.includes('傷官')) adv=t('report.career.creative');
+      return { suitable: map[dayStem] || 'Go deep, build credibility, and win long-term.', advice: adv };
+    },
+    wealthDirs(dayStem){
+      const dirs={
+        甲:'East / Southeast',
+        乙:'East / South',
+        丙:'South',
+        丁:'South / Southwest',
+        戊:'Center (your close domain)',
+        己:'Center (your close domain) / Southwest',
+        庚:'West / Northwest',
+        辛:'West / North',
+        壬:'North',
+        癸:'North / East'
+      };
+      return dirs[dayStem] || '-';
+    },
+    health(dayStem){
+      const c={
+        甲:'Liver/Gallbladder, eyes, tendons',
+        乙:'Liver + emotional regulation',
+        丙:'Heart/cardiovascular, eyes; cool emotional “heat”',
+        丁:'Blood flow; prioritize sleep quality',
+        戊:'Digestion; keep meal times consistent',
+        己:'Digestion + skin; keep routines clean and steady',
+        庚:'Respiratory + large intestine; watch dryness',
+        辛:'Lungs/respiratory; prefer clean air environments',
+        壬:'Kidneys/urinary; manage hydration balance',
+        癸:'Kidneys/bladder; avoid overwork'
+      };
+      return c[dayStem] || 'Overall: stabilize sleep and routines.';
+    }
+  };
+
+  /* ===================== RENDER (WITH MAPPING) ===================== */
+  function renderPillarsFromPillars(pillars, unknown){
+    const titles=[t('pillar.year'),t('pillar.month'),t('pillar.day'),t('pillar.hour')];
+    const box = $('bazi-pillars'); if(!box) return;
+
+    const labels = pillars.map((p)=>{
+      if (!p || !p.stem || !p.branch || p.stem === '-' || p.branch === '-') return '-';
+      return enGZ(p.stem, p.branch);
+    });
+
+    if (unknown) labels[3] = (t('badge.noHour') || 'No hour pillar');
+
+    box.innerHTML = labels.map((lab,i)=>`
+      <div class="pillar"><div class="tit">${titles[i]}</div><div class="gz">${lab||'-'}</div></div>
+    `).join('');
+  }
+
+  function renderTable(data){
+    const keys=['year','month','day','hour'];
+
+    const translateElem = (val)=>{
+      const map = { '木': t('elem.wood'), '火': t('elem.fire'),'土': t('elem.earth'),'金': t('elem.metal'),'水': t('elem.water') };
+      return map[val] || val;
+    };
+
+    keys.forEach((k,i)=>{
+      const cell = $(k+'-stem'); if(!cell) return;
+      const v = (data.stem && data.stem[i]) ? data.stem[i] : '-';
+      cell.textContent = (v === '-' ? '-' : enStem(v));
+    });
+
+    keys.forEach((k,i)=>{
+      const cell = $(k+'-branch'); if(!cell) return;
+      const v = (data.branch && data.branch[i]) ? data.branch[i] : '-';
+      cell.textContent = (v === '-' ? '-' : enBranch(v));
+    });
+
+    keys.forEach((k,i)=>{
+      const cell = $(k+'-element'); if(!cell) return;
+      const v = (data.element && data.element[i]) ? data.element[i] : '-';
+      cell.textContent = (v === '-' ? '-' : translateElem(v));
+    });
+
+    keys.forEach((k,i)=>{
+      const cell = $(k+'-nayin'); if(!cell) return;
+      const v = (data.nayin && data.nayin[i]) ? data.nayin[i] : '-';
+      cell.textContent = v || '-';
+    });
+  }
+
+  function renderBars(pcts){
+    const map = { wood:'木', fire:'火', earth:'土', metal:'金', water:'水' };
+
+    ['wood','fire','earth','metal','water'].forEach(k=>{
+      const pct = Math.max(0, Math.min(100, Math.round(pcts[map[k]] || 0)));
+      const bar = $('bar-' + k);
+      const lab = $('pct-' + k);
+      if (bar) bar.style.width = pct + '%';
+      if (lab) lab.textContent = pct + '%';
+    });
+
+    const entries = Object.entries(map).map(([k, cn]) => [k, pcts[cn] || 0]).sort((a,b)=>b[1]-a[1]);
+    if(entries.length){
+      const strongest = entries[0][0], weakest = entries[entries.length-1][0];
+      const nameMap = {
+        wood: t('elem.wood'), fire: t('elem.fire'), earth: t('elem.earth'), metal: t('elem.metal'), water: t('elem.water')
+      };
+      const tpl = (t('ui.balance') || 'Strongest element: {strongest} · Weakest element: {weakest}.');
+      const txt = tpl.replace('{strongest}', nameMap[strongest]).replace('{weakest}', nameMap[weakest]);
+      const el = $('bazi-elements-balance'); if(el) el.textContent = txt;
+    }
+  }
+
+  /* ===================== PRO REPORT ===================== */
+  function supportElems(dm){
+    const map = { 甲:['水','木'], 乙:['水','木'], 丙:['木','火'], 丁:['木','火'], 戊:['火','土'], 己:['火','土'], 庚:['土','金'], 辛:['土','金'], 壬:['金','水'], 癸:['金','水'] };
+    const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
+    return (map[dm]||[]).map(key);
+  }
+  function restrainElems(dm){
+    const map = { 甲:['金'], 乙:['金'], 丙:['水'], 丁:['水'], 戊:['木'], 己:['木'], 庚:['火'], 辛:['火'], 壬:['土'], 癸:['土'] };
+    const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
+    return (map[dm]||[]).map(key);
+  }
+  function computeUseful(p){
+    const arr = Object.entries({木:p.木||0,火:p.火||0,土:p.土||0,金:p.金||0,水:p.水||0})
+      .sort((a,b)=>a[1]-b[1])
+      .slice(0,2)
+      .map(([k])=>k);
+    const key = (x)=>({木:'elem.wood',火:'elem.fire',土:'elem.earth',金:'elem.metal',水:'elem.water'})[x];
+    return arr.map(key);
+  }
+
+  window.buildProReport = function buildProReport(ctx){
+    const box = $('professionalReport');
+    if (!box || !ctx) return;
+
+    const dm = ctx.dayStem || '';
+    const pctsCN = ctx.pcts || {};
+    const tenCN = Array.isArray(ctx.tenGods) ? ctx.tenGods.filter(Boolean) : [];
+    const tenEN = tenCN.map(enTenGod).filter(Boolean);
+
+    const elem = {
+      Wood:  pctsCN['木'] || 0,
+      Fire:  pctsCN['火'] || 0,
+      Earth: pctsCN['土'] || 0,
+      Metal: pctsCN['金'] || 0,
+      Water: pctsCN['水'] || 0
+    };
+
+    function strongestWeakest(obj){
+      const arr = Object.entries(obj || {});
+      if (!arr.length) return { strongest:'', weakest:'' };
+      arr.sort((a,b)=> b[1] - a[1]);
+      return { strongest: arr[0][0], weakest: arr[arr.length - 1][0] };
+    }
+    const { strongest, weakest } = strongestWeakest(elem);
+
+    const dmLine   = BaziAnalysis.dayMasterLine(dm) || 'Your Day Master is adaptive and balanced.';
+    const rel      = BaziAnalysis.relation(dm);
+
+    const marriage = BaziAnalysis.marriageAdvice(tenCN);
+    const career   = BaziAnalysis.career(dm, tenCN);
+
+    const wealthDir= BaziAnalysis.wealthDirs(dm);
+    const healthFo = BaziAnalysis.health(dm);
+
+    const supportText  = supportElems(dm).map(k=>t(k)).filter(Boolean).join(', ') || '-';
+    const restrainText = restrainElems(dm).map(k=>t(k)).filter(Boolean).join(', ') || '-';
+    const usefulText   = computeUseful({ 木:pctsCN['木']||0, 火:pctsCN['火']||0, 土:pctsCN['土']||0, 金:pctsCN['金']||0, 水:pctsCN['水']||0 })
+      .map(k=>t(k)).filter(Boolean).join(', ') || '-';
+
+    const elemLine = `
+      ${t('elem.wood')}: ${Math.round(elem.Wood)}% ·
+      ${t('elem.fire')}: ${Math.round(elem.Fire)}% ·
+      ${t('elem.earth')}: ${Math.round(elem.Earth)}% ·
+      ${t('elem.metal')}: ${Math.round(elem.Metal)}% ·
+      ${t('elem.water')}: ${Math.round(elem.Water)}%
+    `.replace(/\s+/g,' ');
+
+    const toElemEn = (k)=>{
+      const map = { Wood:t('elem.wood'), Fire:t('elem.fire'), Earth:t('elem.earth'), Metal:t('elem.metal'), Water:t('elem.water') };
+      return map[k] || k || '-';
+    };
+    const strongestEN = toElemEn(strongest);
+    const weakestEN   = toElemEn(weakest);
+
+    let nearTermFocus  = t('fortune.foundation') || 'Build the foundation. Stabilize your rhythm.';
+    let nearTermAdvice = t('cautions.default')   || 'Don’t decide emotionally. Control spending, and don’t overpush.';
+
+    switch (strongest) {
+      case 'Wood':
+      case 'Fire':
+        nearTermFocus  = t('fortune.upward') || 'Momentum rising. Great for visibility and showcasing results.';
+        nearTermAdvice = strongest === 'Wood'
+          ? 'Increase learning + expand connections, and stack 1 “mid-sized win” each week.'
+          : 'Great for presenting/pitching/negotiating. Avoid impulsive decisions—do one extra check.';
+        break;
+      case 'Earth':
+      case 'Metal':
+        nearTermFocus  = t('fortune.focus') || 'Focus & systemize. Move forward with a stable pace.';
+        nearTermAdvice = strongest === 'Earth'
+          ? 'Reallocate time & money: focus on the top 1–2 highest-return tracks.'
+          : 'Strengthen rules/process/contracts and stabilize the next phase (keep a backup plan).';
+        break;
+      case 'Water':
+        nearTermFocus  = t('fortune.study') || 'Observe & compare first. Start small, then scale.';
+        nearTermAdvice = 'Prioritize observation and comparison; run small experiments → then scale.';
+        break;
+    }
+
+    const title = {
+      overview:     t('reportTitles.overview')     || 'Overview',
+      fiveElements: t('reportTitles.fiveElements') || 'Five Elements',
+      tenGods:      t('reportTitles.tenGods')      || 'Ten Gods',
+      useful:       t('reportTitles.useful')       || 'What to Strengthen',
+      relation:     t('reportTitles.relationship') || 'Love & Relationships',
+      career:       t('reportTitles.career')       || 'Career',
+      wealth:       t('reportTitles.wealth')       || 'Wealth',
+      health:       t('reportTitles.health')       || 'Health',
+      nearTerm:     t('reportTitles.nearTerm')     || 'Near-term Flow',
+      actions:      t('reportTitles.actions')      || 'Action List'
+    };
+
+    const parts = [];
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>1. ${title.overview}</h4>
+        <p><strong>${t('reportLabels.dayMaster') || 'Day Master'}:</strong> ${dm ? enStem(dm) : '-'}</p>
+        <p>${dmLine}</p>
+        ${ctx.unknown ? `<p>${t('report.hourUnknownTip')}</p>` : ''}
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>2. ${title.fiveElements}</h4>
+        <p>${elemLine}</p>
+        <p><strong>Strongest:</strong> ${strongestEN || '-'} &nbsp;&nbsp; <strong>Weakest:</strong> ${weakestEN || '-'}</p>
+        <p>Strong = your natural style. Weak = growth potential. Strengthen it with small, sustainable habits.</p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>3. ${title.tenGods}</h4>
+        <p>This quick report is optimized for real-life decisions: expression / resources / responsibility.</p>
+        <p><strong>Ten Gods summary (ref.):</strong> ${tenEN.length ? tenEN.join(' · ') : '-'}</p>
+        <p>When tired, ask: “For whom?” “Are boundaries clear?”—fixing this often makes things easier fast.</p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>4. ${title.useful}</h4>
+        <p><strong>Support elements:</strong> ${supportText}</p>
+        <p><strong>Balancing elements:</strong> ${restrainText}</p>
+        <p><strong>Elements to strengthen now:</strong> ${usefulText}</p>
+        <p>Practical tip: pick 1 habit aligned with the element you want to strengthen—consistency wins.</p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>5. ${title.relation}</h4>
+        <p><strong>Love style:</strong> ${rel.traits}</p>
+        <p><strong>How to make it work:</strong> ${rel.tips}</p>
+        <p><strong>Marriage/long-term note:</strong> ${marriage}</p>
+        <p>Boundaries + honest dialogue + stable rhythm—when these are set, relationships flow smoother.</p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>6. ${title.career}</h4>
+        <p><strong>${t('reportLabels.suitableCareers') || 'Suitable careers'}:</strong> ${career.suitable}</p>
+        <p><strong>${t('reportLabels.careerAdvice') || 'Career strategy'}:</strong> ${career.advice}</p>
+        <p>Winning formula: depth (specialization) × consistency × credibility. Be remembered for ONE theme.</p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>7. ${title.wealth}</h4>
+        <p><strong>${t('reportLabels.favorableDirections') || 'Favorable directions (ref.)'}:</strong> ${wealthDir}</p>
+        <p>First stabilize core income. Then build side income aligned with your strengths. Set a max-risk amount upfront.</p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>8. ${title.health}</h4>
+        <p><strong>${t('reportLabels.healthCharacteristics') || 'Body focus'}:</strong> ${healthFo}</p>
+        <p>Easy win: stabilize sleep → light movement → fixed meal times → emotional outlet (walk/journal/meditation).</p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>9. ${title.nearTerm}</h4>
+        <p><strong>Theme:</strong> ${nearTermFocus}</p>
+        <p><strong>${t('reportLabels.analysis') || 'Advice'}:</strong> ${nearTermAdvice}</p>
+        <p>If things get busy: don’t keep adding new tasks—re-prioritize and protect your pace.</p>
+      </div>
+    `);
+
+    parts.push(`
+      <div class="butler-section">
+        <h4>10. ${title.actions}</h4>
+        <ul class="action-list">
+          <li>Within 30 days: pick ONE main goal (career/money/health) and create a daily “visible step”.</li>
+          <li>Weekly: review by results (not emotions), then adjust next week’s plan.</li>
+          <li>Leverage your strongest element (${strongestEN || '-'}): habits, environment, and people choices.</li>
+          <li>Strengthen the weakest element (${weakestEN || '-'}): add 1–2 small habits per week—consistency wins.</li>
+        </ul>
+      </div>
+    `);
+
+    box.innerHTML = parts.join('\n');
+    const sec = $('butlerProfessional');
+    if (sec) sec.style.display = 'block';
+  };
+
+  /* ===================== UI: ERROR + LOADING ===================== */
+  function showErr(msg){
+    const box=$('error'); if(!box) return;
+    box.textContent = msg || t('err.generateFail');
+    box.style.display='block';
+    setTimeout(()=>{ box.style.display='none'; }, 4000);
+  }
+  function setGenLoading(v){
+    const btn=$('genBtn'), txt=$('genBtnText'), ld=$('genBtnLoading');
+    if(btn) btn.disabled=!!v;
+    if(txt) txt.style.display=v?'none':'inline';
+    if(ld) ld.style.display=v?'inline':'none';
+  }
+
+  /* ===================== GENERATE ===================== */
+  function generate(){
+    const birth = ($('birthdate')?.value||'').trim();
+    if(!birth) return showErr(t('err.fillBirthdate'));
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(birth)) return showErr(t('err.invalidDate'));
+
+    const [Y,M,D]=birth.split('-').map(n=>parseInt(n,10));
+    const unknown = !!$('timeUnknown')?.checked;
+    const timeVal = $('birthtime')?.value || '00:00';
+    const hh = parseInt((timeVal.split(':')[0]||'0'),10) || 0;
+
+    setGenLoading(true);
+    try{
+      const calc = new BaziCalculator();
+      const y = calc.yearPillar(Y);
+      const m = calc.monthPillar(Y,M,D);
+      const d = calc.dayPillar(Y,M,D);
+      const h = unknown ? {stem:'-',branch:'-'} : calc.hourPillar(d.stem, hh);
+
+      // Pillar big display: English-friendly (Roman + animal)
+      renderPillarsFromPillars([y,m,d,h], unknown);
+
+      const stems=[y.stem,m.stem,d.stem, unknown? '-' : h.stem];
+      const branch=[y.branch,m.branch,d.branch, unknown? '-' : h.branch];
+      const rawElems=[calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem), unknown? '-' : calc.stemElem(h.stem)];
+      const nayin=[calc.nayin(y.stem,y.branch),calc.nayin(m.stem,m.branch),calc.nayin(d.stem,d.branch), unknown? '-' : calc.nayin(h.stem,h.branch)];
+      renderTable({stem:stems,branch:branch,element:rawElems,nayin});
+
+      const allElems = [calc.stemElem(y.stem),calc.stemElem(m.stem),calc.stemElem(d.stem)]
+        .concat(unknown?[]:[calc.stemElem(h.stem)])
+        .concat([calc.branchElem(y.branch),calc.branchElem(m.branch),calc.branchElem(d.branch)])
+        .concat(unknown?[]:[calc.branchElem(h.branch)]);
+
+      const counts = {木:0,火:0,土:0,金:0,水:0};
+      allElems.forEach(e=>{ if(counts[e]!=null) counts[e]++; });
+      const total = Object.values(counts).reduce((a,b)=>a+b,0)||1;
+      const pcts = Object.fromEntries(Object.entries(counts).map(([k,v])=>[k, 100*v/total]));
+      renderBars(pcts);
+
+      const timeText = unknown ? (t('ui.timeUnknown')||'Birth time unknown') :
+        (t('ui.hourSuffix')||'{hh}:{mm}')
+          .replace('{hh}', String(hh).padStart(2,'0'))
+          .replace('{mm}', String(parseInt((timeVal.split(':')[1]||'0'),10)||0).padStart(2,'0'));
+
+      const btxt = (t('ui.birthSummary')||'Born: {y}-{m}-{d} {timeText}')
+        .replace('{y}',Y).replace('{m}',M).replace('{d}',D).replace('{timeText}', timeText);
+
+      const bd=$('bazi-date'); if (bd) bd.textContent = btxt;
+
+      const tg = calc.tenGods(d.stem, stems);
+      const ctx = { pcts, dayStem: d.stem, tenGods: tg, unknown };
+      window.lastCtx = ctx;
+
+      if (typeof window.buildProReport === 'function') window.buildProReport(ctx);
+
+      const res = $('result'); if (res) res.style.display='block';
+    }catch(e){
+      console.error(e);
+      showErr(t('err.generateFail'));
+    } finally {
+      setGenLoading(false);
+    }
+  }
+
+  /* ===================== CLOCK ===================== */
+  function tickNow(){
+    const box = $('nowBox'); if (!box) return;
+    const fmt = new Intl.DateTimeFormat('en-SG', {
+      weekday:'short', year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', hour12:false, timeZone: SG_TZ
+    });
+    box.textContent = fmt.format(new Date()) + ' (SGT)';
+  }
+  window.tickNow = tickNow;
+
+  /* ===================== DEFAULTS ===================== */
+  function initBirthDefaults() {
+    const bd = $('birthdate'); const bt = $('birthtime'); const unk = $('timeUnknown');
+    const nowSG = new Date(new Date().toLocaleString('en-US', { timeZone: SG_TZ }));
+
+    if (bd && !bd.value){
+      const y=nowSG.getFullYear(), m=String(nowSG.getMonth()+1).padStart(2,'0'), d=String(nowSG.getDate()).padStart(2,'0');
+      bd.value = `${y}-${m}-${d}`;
+    }
+
+    if (bt){
+      const hh=String(nowSG.getHours()).padStart(2,'0'), mm=String(nowSG.getMinutes()).padStart(2,'0');
+      if (!bt.value) bt.value = `${hh}:${mm}`;
+
+      const setUnknownState = ()=>{
+        const isUnknown = !!(unk && unk.checked);
+        bt.disabled = isUnknown;
+        bt.style.opacity = bt.disabled ? 0.5 : 1;
+        if (isUnknown) bt.value = '';
+      };
+      setUnknownState();
+
+      if (unk && !unk._wired){
+        unk._wired = true;
+        unk.addEventListener('change', ()=>{
+          if (unk.checked){
+            bt.disabled = true; bt.style.opacity = 0.5; bt.value = '';
+          } else {
+            bt.disabled = false; bt.style.opacity = 1;
+            if (!bt.value){
+              const n = new Date(new Date().toLocaleString('en-US',{timeZone:SG_TZ}));
+              bt.value = `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+            }
+          }
+        });
+      }
+    }
+  }
+
+  /* ===================== FLOATING CHAT ===================== */
+  function initChat(){
+    const fab   = $('ssChatFab');
+    const panel = $('chatPanel');
+    const close = $('chatClose');
+    const body  = $('chatBody');
+    const input = $('chatInput');
+    const send  = $('chatSend');
+
+    if (!fab || !panel || !close || !body || !input || !send) return;
+
+    let chatHistory = [];
+
+    const open = () => { panel.setAttribute('aria-hidden','false'); setTimeout(()=>input.focus(), 50); };
+    const shut = () => { panel.setAttribute('aria-hidden','true'); };
+    const toggle = () => {
+      const hidden = panel.getAttribute('aria-hidden') !== 'false';
+      hidden ? open() : shut();
+    };
+
+    fab.addEventListener('click', toggle);
+    close.addEventListener('click', shut);
+
+    function pushMsg(text, who='bot'){
+      const div = document.createElement('div');
+      div.className = who === 'me' ? 'ss-msg me' : 'ss-msg';
+      div.textContent = text;
+      body.appendChild(div);
+      body.scrollTop = body.scrollHeight;
+    }
+
+    if (!initChat._welcomed){
+      initChat._welcomed = true;
+      pushMsg(t('pro.welcome') || 'Hi! Please click “Generate BaZi” first, then ask your questions.', 'bot');
+    }
+
+    function buildBaziChatContext(){
+      const ctx = window.lastCtx || null;
+      const name = ($('name')?.value || '').trim();
+      const gender = ($('gender')?.value || '').trim();
+      const birth = ($('birthdate')?.value || '').trim();
+      const timeUnknown = !!$('timeUnknown')?.checked;
+      const birthtime = ($('birthtime')?.value || '').trim();
+
+      return { name, gender, birthdate: birth, birthtime: timeUnknown ? '' : birthtime, timeUnknown, chart: ctx };
+    }
+
+    function extractReply(json){
+      if (!json) return '';
+      return (
+        json.reply ||
+        json.answer ||
+        json.content ||
+        json.message ||
+        json.text ||
+        (json.data && (json.data.reply || json.data.content || json.data.text)) ||
+        ''
+      );
+    }
+
+    async function callChatAPI(userText){
+      const lang = PAGE_LANG; // "en-US"
+      const ctx = buildBaziChatContext();
+
+      if (!chatHistory.length){
+        chatHistory.push({
+          role: 'system',
+          content:
+`You are “Xinlian Butler · GPT”, responsible for BaZi interpretation and actionable advice.
+- Language: en-US
+- If the user has not generated the chart (chart is empty), ask them to click “Generate BaZi” first.
+- Be specific, bullet-pointed, and practical; do NOT output code.`
+        });
+      }
+
+      chatHistory.push({ role:'user', content: userText });
+
+      const url = String(API_BASE).replace(/\/$/,'') + CHAT_ENDPOINT;
+      const payload = { lang, context: ctx, messages: chatHistory };
+
+      const res = await fetch(url, {
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(payload)
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const json = await res.json().catch(()=>null);
+      const reply = extractReply(json);
+
+      if (reply) chatHistory.push({ role:'assistant', content: reply });
+      return reply || '(Empty reply. Check your Worker response fields.)';
+    }
+
+    async function sendMsg(){
+      const text = (input.value || '').trim();
+      if (!text) return;
+
+      input.value = '';
+      pushMsg(text, 'me');
+      pushMsg('…', 'bot');
+      const typingNode = body.lastElementChild;
+
+      try{
+        const reply = await callChatAPI(text);
+        if (typingNode) typingNode.textContent = reply;
+        else pushMsg(reply, 'bot');
+      }catch(err){
+        console.error('[chat] error', err);
+        const msg = '⚠️ Unable to connect to GPT. Please check API_BASE and /api/chat.';
+        if (typingNode) typingNode.textContent = msg;
+        else pushMsg(msg, 'bot');
+      }
+    }
+
+    send.addEventListener('click', sendMsg);
+    input.addEventListener('keydown', (e)=>{ if (e.key === 'Enter') sendMsg(); });
+  }
+
+  /* ===================== BOOT ===================== */
+  function boot(){
+    applyI18n();
+    wireLangSelect();
+
+    $('genBtn')?.addEventListener('click', generate);
+
+    initBirthDefaults();
+    initChat();
+    tickNow();
+
+    if (!window._clock) window._clock = setInterval(()=>{ try{ tickNow(); }catch{} }, 60000);
+  }
+
+  document.addEventListener('DOMContentLoaded', boot);
+})();
+</script>
+</body>
+</html>

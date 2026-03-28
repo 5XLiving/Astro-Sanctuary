@@ -1,0 +1,262 @@
+
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>家族记忆影壁 - Page</title>
+  <style>
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.6);
+      background-image: url('assets/images/gate.jpg');
+      background-size: cover;
+      background-position: center;
+      background-attachment: fixed;
+      z-index: -1;
+      pointer-events: none;
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+      color: #d4af37;
+      font-family: 'Noto Serif', serif;
+      text-align: center;
+    }
+
+    .container {
+      background-color: rgba(0, 0, 0, 0.2);
+      border: 1px solid #d4af37;
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 20px;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .filter-bar, .bulk-manage-bar {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    select, input[type="search"] {
+      padding: 8px 12px;
+      margin: 0 5px;
+      border-radius: 5px;
+      border: none;
+      font-size: 1rem;
+    }
+    .memory-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      justify-content: center;
+    }
+    .memory-card {
+      width: 320px;
+      background: rgba(255, 255, 255, 0.05);
+      padding: 15px;
+      border-radius: 10px;
+      border: 1px solid #d4af37;
+    }
+    .memory-card img, .memory-card video, .memory-card audio {
+      max-width: 100%;
+      margin: 10px 0;
+      border-radius: 6px;
+    }
+    .label {
+      font-weight: bold;
+      margin-top: 5px;
+    }
+    .text-block {
+      background-color: rgba(255,255,255,0.08);
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+    }
+    .delete-btn {
+      background: none;
+      border: none;
+      color: #d4af37;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin-top: 8px;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+    <h1>家族记忆影壁 · 分页浏览</h1>
+  <div class="container">
+    <div class="filter-bar">
+      <label for="typeFilter">筛选类型：</label>
+      <select id="typeFilter">
+        <option value="all">全部</option>
+        <option value="photo">📷 照片</option>
+        <option value="video">📹 视频</option>
+        <option value="audio">🎙️ 语音</option>
+        <option value="note">📝 笔记</option>
+        <option value="journal">📓 记事本</option>
+      </select>
+      <input type="search" id="searchInput" placeholder="搜索人物或内容..." />
+    </div>
+
+    <div class="bulk-manage-bar">
+      <label for="personFilter">人物标签：</label>
+      <select id="personFilter"></select>
+      <label style="margin-left: 10px;">
+        <input type="checkbox" id="selectAllPerson" />
+        显示全部记录
+      </label>
+      <button id="bulkDelete" disabled>🗑 删除所选</button>
+      <button id="bulkMove" disabled>🕯️ 导入往生记怜录</button>
+    </div>
+
+    <div class="memory-list" id="memoryList"></div>
+  </div>
+
+  <script>
+    const PAGE_SIZE = 500;
+    const urlParams = new URLSearchParams(window.location.search);
+    const PAGE_INDEX = parseInt(urlParams.get('page') || '1');
+    const start = (PAGE_INDEX - 1) * PAGE_SIZE;
+    const end = start + PAGE_SIZE;
+
+    const memories = JSON.parse(localStorage.getItem('familyMemories')) || [];
+    const memoryList = document.getElementById('memoryList');
+    const typeFilter = document.getElementById('typeFilter');
+    const searchInput = document.getElementById('searchInput');
+    const personFilter = document.getElementById('personFilter');
+    const selectAllCheckbox = document.getElementById('selectAllPerson');
+    const bulkDeleteBtn = document.getElementById('bulkDelete');
+    const bulkMoveBtn = document.getElementById('bulkMove');
+
+    function getUniquePersons() {
+      const names = memories.map(m => m.person);
+      return [...new Set(names)];
+    }
+
+    function populatePersonFilter() {
+      const options = getUniquePersons().map(name =>
+        `<option value="${name}">${name}</option>`).join('');
+      personFilter.innerHTML = `<option value="">请选择</option>` + options;
+    }
+
+    function deleteMemory(index) {
+      if (confirm('确认删除这条记忆吗？')) {
+        memories.splice(index, 1);
+        localStorage.setItem('familyMemories', JSON.stringify(memories));
+        renderMemories();
+      }
+    }
+
+    function moveToMemorial(index) {
+      const memory = memories[index];
+      const memorials = JSON.parse(localStorage.getItem('memorialMemories')) || [];
+      memorials.push(memory);
+      memories.splice(index, 1);
+      localStorage.setItem('memorialMemories', JSON.stringify(memorials));
+      localStorage.setItem('familyMemories', JSON.stringify(memories));
+      renderMemories();
+    }
+
+    function bulkDelete(person) {
+      if (!confirm(`确认删除 ${person} 的所有回忆吗？`)) return;
+      const newMemories = memories.filter(m => m.person !== person);
+      localStorage.setItem('familyMemories', JSON.stringify(newMemories));
+      location.reload();
+    }
+
+    function bulkMove(person) {
+      const toMove = memories.filter(m => m.person === person);
+      const newMemories = memories.filter(m => m.person !== person);
+      const currentMemorials = JSON.parse(localStorage.getItem('memorialMemories')) || [];
+      localStorage.setItem('memorialMemories', JSON.stringify([...currentMemorials, ...toMove]));
+      localStorage.setItem('familyMemories', JSON.stringify(newMemories));
+      location.reload();
+    }
+
+    function renderMemories() {
+      memoryList.innerHTML = '';
+      const filterType = typeFilter.value;
+      const keyword = searchInput.value.trim().toLowerCase();
+      const selectedPerson = personFilter.value;
+      const showAll = selectAllCheckbox.checked;
+
+      const filtered = memories
+        .map((m, i) => ({ ...m, index: i }))
+        .filter(m => (!selectedPerson || m.person === selectedPerson))
+        .filter(m => (filterType === 'all' || m.type === filterType))
+        .filter(m => m.person.toLowerCase().includes(keyword) || m.text?.toLowerCase().includes(keyword));
+
+      const paginated = filtered.slice(start, end);
+
+      paginated.forEach(memory => {
+        const card = document.createElement('div');
+        card.className = 'memory-card';
+
+        let mediaHTML = '';
+        if (memory.type === 'photo') mediaHTML = `<img src="${memory.fileData}" alt="照片" />`;
+        else if (memory.type === 'video') mediaHTML = `<video controls src="${memory.fileData}"></video>`;
+        else if (memory.type === 'audio') mediaHTML = `<audio controls src="${memory.fileData}"></audio>`;
+
+        let textHTML = '';
+        if (memory.type === 'note' || memory.type === 'journal')
+          textHTML = `<div class="text-block">${memory.text || ''}</div>`;
+        else if (memory.text)
+          textHTML = `<p>🧾 描述：${memory.text}</p>`;
+
+        const actions = showAll ? '' : `
+          <button class="delete-btn" onclick="deleteMemory(${memory.index})">🗑 删除</button>
+          <button class="delete-btn" onclick="moveToMemorial(${memory.index})">🕯️ 转为纪怜</button>
+        `;
+
+        card.innerHTML = `
+          <div class="label">👤 ${memory.person}（${memory.status === 'alive' ? '在世' : '已过世'}）</div>
+          <div class="label">📌 类型：${memory.type}</div>
+          ${mediaHTML}
+          ${textHTML}
+          ${actions}
+        `;
+        memoryList.appendChild(card);
+      });
+    }
+
+    typeFilter.addEventListener('change', renderMemories);
+    searchInput.addEventListener('input', renderMemories);
+    personFilter.addEventListener('change', () => {
+      const selected = personFilter.value;
+      const enableBulk = selectAllCheckbox.checked && selected;
+      bulkDeleteBtn.disabled = !enableBulk;
+      bulkMoveBtn.disabled = !enableBulk;
+      renderMemories();
+    });
+
+    selectAllCheckbox.addEventListener('change', () => {
+      const selected = personFilter.value;
+      const enableBulk = selectAllCheckbox.checked && selected;
+      bulkDeleteBtn.disabled = !enableBulk;
+      bulkMoveBtn.disabled = !enableBulk;
+      renderMemories();
+    });
+
+    bulkDeleteBtn.addEventListener('click', () => {
+      const person = personFilter.value;
+      if (person) bulkDelete(person);
+    });
+
+    bulkMoveBtn.addEventListener('click', () => {
+      const person = personFilter.value;
+      if (person) bulkMove(person);
+    });
+
+    populatePersonFilter();
+    renderMemories();
+  </script>
+</body>
+</html>
