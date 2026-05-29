@@ -1942,7 +1942,14 @@ window.i18n = {
 /* ==============================
    HELPERS
 ============================== */
-const $ = (id)=>document.getElementById(id);
+const $ = (sel) => {
+  if (!sel) return null;
+  if (sel.startsWith('#') || sel.startsWith('.') || sel.includes(' ')) {
+    return document.querySelector(sel);
+  }
+  return document.getElementById(sel);
+};
+const $$ = (sel) => document.querySelectorAll(sel);
 const $$ = (selector)=>document.querySelectorAll(selector);
 const pad2 = (n)=>String(n??'').padStart(2,'0');
 const safe = (s)=>String(s??'');
@@ -2536,8 +2543,8 @@ function updatePurposeOptionsBasedOnCulture(cultureResolved) {
 }
 
 function getCurrentType() {
-  const typeSelect = $('type');
-  return (typeSelect?.value || 'personal') === 'compatibility' ? 'compatibility' : 'personal';
+  const activeBtn = document.querySelector('.type-btn.active');
+  return activeBtn?.dataset?.type || 'personal';
 }
 
 function updatePersonalPurposeOptions(options) {
@@ -4317,9 +4324,16 @@ async function onGenerate() {
     // 更新结果区域
     resultContent.innerHTML = reportHTML;
     
-  } catch (error) {
-    console.error('报告生成失败：', error);
-    showError('分析生成失败：' + error.message);
+} catch (error) {
+  console.error('报告生成失败：', error);
+  showError('分析生成失败：' + error.message);
+
+  if (resultContent) {
+    resultContent.innerHTML = `
+      <div class="error" style="display:block">
+        分析生成失败：${error.message}
+      </div>
+    `;
   }
 }
 
