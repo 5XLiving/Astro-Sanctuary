@@ -4156,9 +4156,6 @@ function resolveTimezone(country) {
   return 'Asia/Singapore';
 }
 
-function pad2(n) {
-  return String(Number(n || 0)).padStart(2, '0');
-}
 
 function parseBirthDate(dateStr) {
   const raw = String(dateStr || '').trim();
@@ -5566,6 +5563,484 @@ function ensureGenerateButtonWorks() {
       }
     }, attempt.delay);
   });
+}
+
+
+/* ==============================
+   VIP REPORT ENGINE OVERRIDE
+   Fixes all report outputs below 心怜管家深度解读
+   Every report reads from Master Birth Profile
+============================== */
+function safeText(value) {
+  return String(value ?? '').replace(/[&<>"']/g, s => ({
+    '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+  }[s]));
+}
+
+function autoDetectCulture(country, birthTime, name) {
+  const c = String(country || '').toLowerCase();
+  const n = String(name || '').toLowerCase();
+
+  if (
+    c.includes('sg') ||
+    c.includes('singapore') ||
+    c.includes('新加坡') ||
+    c.includes('singapura') ||
+    c.includes('malaysia') ||
+    c.includes('my') ||
+    c.includes('中国') ||
+    c.includes('china') ||
+    c.includes('taiwan') ||
+    c.includes('hong kong') ||
+    c.includes('macau')
+  ) return '东方';
+
+  if (c.includes('日本') || c.includes('japan') || n.includes('佐藤') || n.includes('鈴木')) return '日式';
+  if (c.includes('印度') || c.includes('india') || n.includes('singh') || n.includes('kumar') || n.includes('patel')) return '吠陀';
+  return '东方';
+}
+
+function getLifePathNumber(profile) {
+  const digits = `${profile.year}${pad2(profile.month)}${pad2(profile.day)}`.split('').map(Number);
+  let n = digits.reduce((a,b)=>a+b,0);
+  while (n > 9 && ![11,22,33].includes(n)) n = String(n).split('').map(Number).reduce((a,b)=>a+b,0);
+  return n;
+}
+
+function getChineseZodiac(year) {
+  const animals = ['猴','鸡','狗','猪','鼠','牛','虎','兔','龙','蛇','马','羊'];
+  return animals[Number(year) % 12] || '';
+}
+
+function getVipReportTitle(focus, type) {
+  const map = {
+    '恋爱缘分':['💖','命理综合爱情 · 恋爱缘分深度报告'],
+    '婚姻走势':['💍','命理综合婚姻 · 婚姻走势深度报告'],
+    '职场发展':['💼','命理综合事业 · 职场发展深度报告'],
+    '创业潜力':['🚀','命理综合创业 · 创业潜力深度报告'],
+    '财位分析':['💰','命理综合财富 · 财位分析深度报告'],
+    '理财时机':['📈','命理综合财富 · 理财时机深度报告'],
+    '新家入住择日':['🏠','命理择日风水 · 新家入住深度报告'],
+    '新公司入住择日':['🏢','命理择日风水 · 新公司入住深度报告'],
+    '住家':['🏡','阳宅风水 · 住家能量深度报告'],
+    '办公室':['🏢','企业风水 · 办公室能量深度报告'],
+    '个人改名':['✍️','姓名能量 · 个人改名深度报告'],
+    '金字塔能量解读':['🔺','金字塔能量 · 生命层级深度报告'],
+    '手相综合解读':['🖐️','手相综合 · 掌纹能量深度报告'],
+    '婚期择日':['💒','合盘择日 · 婚期择日深度报告'],
+    '新生宝宝择日':['👶','宝宝择时 · 新生宝宝择日深度报告'],
+    '缘分起落':['💞','情侣合盘 · 缘分起落深度报告'],
+    '夫妻流年':['🌙','夫妻合盘 · 婚姻流年深度报告'],
+    '合盘分析':['🧩','个性合盘 · 冲突互补深度报告'],
+    '事业共事':['🤝','事业合盘 · 合伙共事深度报告'],
+    '断联修复':['🕊️','关系修复 · 断联修复深度报告'],
+    '宠物缘分':['🐾','宠物合盘 · 主宠缘分深度报告'],
+    '宝宝名':['👶','命名分析 · 宝宝名深度报告'],
+    '宠物名':['🐾','命名分析 · 宠物名深度报告'],
+    '公司名':['🏢','命名分析 · 公司名深度报告'],
+    '情侣合名':['💑','命名分析 · 情侣合名深度报告'],
+    '关系金字塔解读':['🔺','关系金字塔 · 双人能量层级报告'],
+    '双人手相合盘':['🖐️','双人手相 · 掌纹合盘深度报告']
+  };
+  return map[focus] || ['🌙', `${type === 'compatibility' ? '合盘' : '命理综合'} · ${safeText(focus)}深度报告`];
+}
+
+function getCoreModules(focus, type) {
+  const base = type === 'compatibility'
+    ? ['双方出生资料校准','关系结构分析','时间窗口判断','现实行动建议']
+    : ['出生资料校准','本命结构分析','阶段能量判断','现实行动建议'];
+
+  if (focus.includes('金字塔')) return ['出生日期能量','五层金字塔结构','当前课题定位','行动关键词'];
+  if (focus.includes('手相')) return ['出生资料校准','掌纹上传/观察入口','三大主线结构','事业财富辅助线'];
+  if (focus.includes('名')) return ['出生资料校准','五行与音义方向','名字用途定位','避忌与筛选原则'];
+  if (focus.includes('风水') || focus === '住家' || focus === '办公室' || focus.includes('入住')) return ['出生资料校准','空间用途定位','方位与动线判断','择日/启动建议'];
+  return base;
+}
+
+function renderBirthSummary(profile, label) {
+  const lifePath = getLifePathNumber(profile);
+  const zodiac = getChineseZodiac(profile.year);
+  const sun = profile.westernSunSignData || calculateSunSign(profile.month, profile.day);
+  return `
+    <div class="person-card">
+      <div class="person-name">${safeText(label || profile.name || '本人')}</div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px;margin-top:10px;color:#e8edf3;font-size:.92rem;">
+        <div>出生日期：${safeText(profile.birth_date_display || profile.birth_date_iso)}</div>
+        <div>出生时间：${safeText(profile.birth_time_display || profile.birth_time_24)}</div>
+        <div>地区/时区：${safeText(profile.country || '未提供')} · ${safeText(profile.timezone || 'Asia/Singapore')}</div>
+        <div>性别：${safeText(profile.gender || '未提供')}</div>
+        <div>西洋太阳：${sun.emoji || ''} ${safeText(sun.name || profile.westernSunSign)}</div>
+        <div>生肖 / 灵数：${safeText(zodiac)} / ${safeText(lifePath)}</div>
+      </div>
+    </div>
+  `;
+}
+
+function getPersonalSections(focus, profile, currentYear) {
+  const sun = profile.westernSunSignData || calculateSunSign(profile.month, profile.day);
+  const lifePath = getLifePathNumber(profile);
+  const general = {
+    '恋爱缘分': [
+      ['本命感情结构', `以生日 ${profile.birth_date_display}、${profile.birth_time_24} 与 ${profile.timezone} 作为统一资料源，感情分析不再单靠星座。太阳落在${sun.name}，灵数为${lifePath}，代表感情里需要同时看情绪安全感、现实责任与长期节奏。`],
+      ['关系课题', '当前重点不是盲目追桃花，而是分辨对方是否能进入稳定互动。适合慢热观察、持续沟通、逐步建立信任。'],
+      ['时间窗口', `${currentYear}年下半年至${currentYear+1}年上半年适合整理关系定位，先稳定沟通频率，再判断是否值得深入。`],
+      ['行动建议', '保留真诚，但减少过度追赶。把关注点放在回应质量、相处稳定性与实际行动。']
+    ],
+    '婚姻走势': [
+      ['婚姻结构', '婚姻不是只看有没有对象，而是看承诺能力、生活秩序、情绪处理与长期责任。'],
+      ['伴侣模式', '适合能沟通、能承担现实压力、愿意共同规划生活的人。不适合长期模糊、不回应、不落地的关系。'],
+      ['时间窗口', `${currentYear}年至${currentYear+1}年适合观察关系能否进入稳定结构，避免只靠情绪推进承诺。`],
+      ['行动建议', '先确认金钱观、生活节奏、家庭边界，再谈长期承诺。']
+    ],
+    '职场发展': [
+      ['事业结构', '你的事业判断应以能力资产、执行稳定度、资源整合力为主，不宜只看短期机会。'],
+      ['优势位置', '适合做系统规划、顾问型服务、平台型项目、技术与商业结合的工作。'],
+      ['时间窗口', `${currentYear}年适合整理专业定位，${currentYear+1}年适合扩大对外展示与收费模型。`],
+      ['行动建议', '把能力产品化，建立案例、流程、报价与交付标准。']
+    ],
+    '创业潜力': [
+      ['创业核心', '创业重点在系统化，不是单点技能。需要把服务、工具、内容、会员路径串成可复制流程。'],
+      ['风险点', '避免同时开太多入口导致主线分散。先锁定一个可收费、可展示、可持续迭代的核心服务。'],
+      ['时间窗口', `${currentYear}年适合小规模验证，${currentYear+1}年适合做正式产品线与会员机制。`],
+      ['行动建议', '先做最小可收费版本，再用真实客户反馈优化。']
+    ],
+    '财位分析': [
+      ['财富结构', '财位不是只放物品，而是收入来源、空间动线、客户流量、收款路径的综合。'],
+      ['现实财位', '优先检查工作台、收款页面、产品展示、广告入口是否顺畅，这比单纯摆设更重要。'],
+      ['时间窗口', `${currentYear}年适合整理现金流与高转化入口，减少消耗型支出。`],
+      ['行动建议', '把最赚钱的服务放在最显眼位置，并让付款路径少于三步。']
+    ],
+    '理财时机': [
+      ['理财结构', '当前适合先做现金流管理，再谈投资扩张。重点是降低不必要试错成本。'],
+      ['风险判断', '不要因焦虑追高或跟风。适合固定预算、分层投入、保留安全现金。'],
+      ['时间窗口', `${currentYear}年适合保守布局，${currentYear+1}年再看是否加大投入。`],
+      ['行动建议', '每月固定记录收入、广告费、库存、订阅工具与净利润。']
+    ],
+    '新家入住择日': [
+      ['择日原则', '新家入住需看入住者生日、房屋用途、动线、光线与实际搬迁安排。'],
+      ['优先避忌', '避免在情绪混乱、金钱压力大、工程未完成时强行入住。'],
+      ['时间窗口', '先选稳定、方便、可执行的日期，再做命理微调。'],
+      ['行动建议', '入住前完成清洁、通风、床位与工作区定位。']
+    ],
+    '新公司入住择日': [
+      ['开业结构', '公司入住择日要配合行业属性、收款启动、团队进场与客户曝光时间。'],
+      ['空间重点', '入口、老板位、收款位、会议区与展示区需要先定好。'],
+      ['时间窗口', '适合选在资料、账户、产品、页面都准备好之后启动。'],
+      ['行动建议', '择日前先完成公司资料、服务介绍、报价与付款链接。']
+    ],
+    '住家': [
+      ['住家风水核心', '住家重在睡眠、情绪、安全感与家人关系，不是单纯摆件。'],
+      ['重点区域', '门口、卧室、厨房、工作位与财务收纳区最重要。'],
+      ['调整方向', '先清杂物、稳床位、明财位、顺动线。'],
+      ['行动建议', '上传户型图后可进一步做方位与动线细分。']
+    ],
+    '办公室': [
+      ['办公室风水核心', '办公室重在决策力、客户信任、团队效率与收款稳定。'],
+      ['重点区域', '老板位、入口视线、会议区、财务区、产品展示区。'],
+      ['调整方向', '避免背后空、入口乱、桌面压迫、收款路径不清。'],
+      ['行动建议', '先确认座位、动线、灯光和品牌展示，再做命理强化。']
+    ],
+    '个人改名': [
+      ['改名方向', '改名不是越吉越好，而是要与本人五行、行业定位、发音记忆点配合。'],
+      ['筛选原则', '名字需要好记、好读、含义稳定，避免过度玄、过度复杂或难传播。'],
+      ['能量重点', '以补弱、扶用、强化个人定位为主。'],
+      ['行动建议', '先确定用途：身份证、艺名、品牌名、社交名，不同用途标准不同。']
+    ],
+    '金字塔能量解读': [
+      ['第一层 · 根基能量', '看当前生命基础、现实安全感、身体节奏与情绪稳定度。'],
+      ['第二层 · 当前课题', '找出最近卡住你的问题，是关系、事业、金钱、家庭还是方向感。'],
+      ['第三层 · 隐性支援', '整理可以借力的人、技能、经验与过去累积。'],
+      ['第四层 · 未来方向', '把三到六个月内最适合推进的方向提炼出来。'],
+      ['第五层 · 顶层指引', '给出一个核心关键词，帮助你把能量集中。']
+    ],
+    '手相综合解读': [
+      ['手相资料说明', '手相需要清晰掌纹照片才可精细判断；本页先用出生资料建立基础档案。'],
+      ['三大主线', '后续重点观察感情线、智慧线、生命线，对应情绪表达、思维方式与行动耐力。'],
+      ['事业财富线', '事业线、财运线、太阳线可辅助判断成果累积方式。'],
+      ['行动建议', '下一步应加入左右手上传，左手看先天趋势，右手看后天状态。']
+    ]
+  };
+  return general[focus] || [
+    ['核心结构', `本次以 ${profile.birth_date_display} ${profile.birth_time_24} ${profile.timezone} 为统一资料源，针对「${safeText(focus)}」生成基础判断。`],
+    ['当前重点', '先确认问题范围，再结合八字、占星、灵数与现实情况综合判断。'],
+    ['行动建议', '用命理做方向校准，用现实行动做结果落地。']
+  ];
+}
+
+function getCompatibilitySections(focus, p1, p2, currentYear) {
+  const shared = {
+    '婚期择日': [
+      ['择日核心', '婚期择日不是只选吉日，还要避开双方明显冲突、家庭现实压力与执行不便。'],
+      ['双方资料源', `双方生日已统一读取：${p1.birth_date_display} 与 ${p2.birth_date_display}。后续应接入完整黄历/八字择日引擎。`],
+      ['行动建议', '先定月份范围、场地、双方家庭可出席时间，再从可行日期中筛选吉日。']
+    ],
+    '新生宝宝择日': [
+      ['择时核心', '宝宝择时必须以医学安全为第一原则，命理只能作为辅助筛选。'],
+      ['命理方向', '先看父母资料与预产期范围，再评估五行平衡、日主稳定与家庭配合。'],
+      ['行动建议', '不可为了命理强行改变医疗建议，适合在医生允许范围内微调时间。']
+    ],
+    '新家入住择日': [
+      ['入住合盘', '双人入住要看两人关系节奏、空间用途、搬迁压力与财务安排。'],
+      ['现实重点', '搬家日应避免工程未完、情绪争执、金钱压力爆发。'],
+      ['行动建议', '先确定钥匙、清洁、床位、网络、水电与付款，再做择日。']
+    ],
+    '缘分起落': [
+      ['关系现况', '缘分起落看的是互动频率、回应质量、情绪投入与现实落地程度。'],
+      ['吸引与阻力', '若一方主动、一方回避，需要看是否能形成稳定互相回应，而不是单方面消耗。'],
+      ['时间窗口', `${currentYear}年至${currentYear+1}年适合观察关系是否从情绪连接走向现实安排。`]
+    ],
+    '夫妻流年': [
+      ['婚姻流年', '夫妻流年重点看责任分工、财务压力、家庭沟通与共同目标。'],
+      ['风险点', '最怕冷战、回避、钱的问题不谈清楚。'],
+      ['行动建议', '每月固定一次现实沟通：钱、家、工作、情绪、未来计划。']
+    ],
+    '合盘分析': [
+      ['个性结构', '合盘重点不是谁对谁错，而是两人的表达方式、需求速度与安全感来源是否匹配。'],
+      ['冲突点', '一方想确认，一方想空间时，容易形成追逃循环。'],
+      ['行动建议', '建立固定沟通规则，比临时情绪爆发更有效。']
+    ],
+    '事业共事': [
+      ['合作结构', '事业合盘要看分工、决策权、金钱规则与风险承担。'],
+      ['优势互补', '适合一人主方向/销售，一人主执行/管理，避免权责重叠。'],
+      ['行动建议', '合作前先写清楚分润、退出、责任和审批流程。']
+    ],
+    '断联修复': [
+      ['修复核心', '断联修复不应急着逼回应，重点是降低压力、重建安全感与恢复正常沟通。'],
+      ['节奏判断', '先轻联系、低压力、短内容，再观察对方是否自然回应。'],
+      ['行动建议', '不要连续追问，不要情绪勒索，不要一次性倾倒太多内容。']
+    ],
+    '宠物缘分': [
+      ['主宠关系', '宠物合盘重点看照顾节奏、情绪陪伴、责任承担与生活习惯。'],
+      ['能量互动', '宠物通常会吸收主人的情绪场，主人越稳定，宠物越安心。'],
+      ['行动建议', '固定作息、饮食、清洁和陪伴时间，比玄学补救更重要。']
+    ],
+    '宝宝名': [
+      ['宝宝命名', '宝宝名需结合出生资料、姓氏、音义、五行与未来使用场景。'],
+      ['筛选原则', '避免难读、过重、过冷、谐音不佳的字。'],
+      ['行动建议', '先定姓氏与性别倾向，再生成 10 至 30 个候选。']
+    ],
+    '宠物名': [
+      ['宠物命名', '宠物名重点是好叫、好记、声音柔和，方便日常训练。'],
+      ['能量方向', '名字可偏可爱、守护、活泼或疗愈。'],
+      ['行动建议', '选择两音节以内，避免和指令太像。']
+    ],
+    '公司名': [
+      ['公司命名', '公司名要兼顾行业定位、记忆度、域名可用、品牌扩展与五行方向。'],
+      ['筛选原则', '不要只追求吉祥字，必须容易传播和注册。'],
+      ['行动建议', '先定行业、客群、价格层级，再定名称风格。']
+    ],
+    '情侣合名': [
+      ['情侣合名', '情侣合名适合用于纪念、品牌、项目或共同空间，不建议影响个人身份太深。'],
+      ['能量重点', '要保留双方独立性，同时表达共同愿景。'],
+      ['行动建议', '先确定用途，再判断要温柔、神圣、商业还是生活风格。']
+    ],
+    '关系金字塔解读': [
+      ['第一层 · 双方基础', '看双方现实条件、情绪稳定度与关系安全感。'],
+      ['第二层 · 当前阻碍', '找出关系卡点：距离、钱、承诺、信任、时间或家庭。'],
+      ['第三层 · 支援资源', '整理能帮助关系继续前进的共同资源。'],
+      ['第四层 · 发展方向', '判断关系适合靠近、放慢、修复还是重新定义。'],
+      ['第五层 · 关系指引', '提炼双方当前最重要的一句话。']
+    ],
+    '双人手相合盘': [
+      ['双人手相说明', '需要双方清晰掌纹照片才能做正式合盘；本页先建立双人生日档案。'],
+      ['观察重点', '感情线看情绪表达，智慧线看沟通模式，生命线看生活节奏。'],
+      ['行动建议', '下一步加入双方左右手上传，才能进入正式双人手相报告。']
+    ]
+  };
+  return shared[focus] || [
+    ['合盘核心', `本次以双方统一生日资料为基础，针对「${safeText(focus)}」进行关系判断。`],
+    ['行动建议', '先明确关系目标，再用合盘辅助判断适合靠近、合作、修复或调整。']
+  ];
+}
+
+function renderVipSections(sections, className='deep-analysis') {
+  return `
+    <div class="${className}">
+      ${sections.map((s, i) => `
+        <div class="analysis-point">
+          <h6>${safeText(s[0])}</h6>
+          <div class="analysis-detail">${safeText(s[1])}</div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+function renderModuleChips(modules) {
+  return `
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;">
+      ${modules.map(m => `<span style="background:rgba(212,175,55,.1);border:1px solid rgba(212,175,55,.28);color:#f2d27a;padding:5px 10px;border-radius:999px;font-size:.85rem;">${safeText(m)}</span>`).join('')}
+    </div>
+  `;
+}
+
+function generateDeepReport(data, focus, type, culture, baziResult = null, namingSuggestions = null) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const [icon, title] = getVipReportTitle(focus, 'personal');
+  const modules = getCoreModules(focus, 'personal');
+  const sections = getPersonalSections(focus, data, currentYear);
+  const sun = data.westernSunSignData || calculateSunSign(data.month, data.day);
+
+  let html = `
+    <div class="ai-report">
+      <h4>${icon} ${title}</h4>
+
+      <div class="ai-section">
+        <h5>📋 VIP 报告概要</h5>
+        <p>本报告已统一使用 Master Birth Profile，不再由各模块各自猜生日。以下所有判断都从同一份出生资料读取。</p>
+        ${renderBirthSummary(data, data.name || '本人')}
+        ${renderModuleChips(modules)}
+        <div class="ai-note" style="margin-top:12px;">
+          生日校准：${safeText(data.birth_date_iso)} ${safeText(data.birth_time_24)} · ${safeText(data.timezone)} · 太阳星座 ${safeText(sun.name)} · 灵数 ${safeText(getLifePathNumber(data))}
+        </div>
+      </div>
+  `;
+
+  if (culture === '东方' && baziResult && !['金字塔能量解读','手相综合解读'].includes(focus)) {
+    html += generateBaziAnalysis(baziResult);
+  }
+
+  if (focus === '金字塔能量解读') {
+    html += renderVipSections(sections, 'deep-analysis pyramid-reading');
+  } else if (focus === '手相综合解读') {
+    html += renderVipSections(sections, 'deep-analysis palm-reading');
+  } else {
+    html += renderVipSections(sections);
+  }
+
+  if (namingSuggestions && namingSuggestions.length > 0) {
+    html += generateNamingSection(focus, namingSuggestions, culture);
+  }
+
+  html += generateActionPlan(focus, culture);
+  html += generateCulturalNotes(culture);
+  html += `</div>`;
+  return html;
+}
+
+function generateCompatibilityReport(person1, person2, focus, culture) {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const [icon, title] = getVipReportTitle(focus, 'compatibility');
+  const modules = getCoreModules(focus, 'compatibility');
+  const sections = getCompatibilitySections(focus, person1, person2, currentYear);
+
+  let bazi1 = null, bazi2 = null;
+  if (culture === '东方' && typeof BaziCalculator !== 'undefined') {
+    const calculator = new BaziCalculator();
+    bazi1 = calculator.calculateBazi(person1.year, person1.month, person1.day, person1.hour, person1.minute, person1.timeUnknown);
+    bazi2 = calculator.calculateBazi(person2.year, person2.month, person2.day, person2.hour, person2.minute, person2.timeUnknown);
+  }
+
+  const score = calculateCompatibilityScore(bazi1, bazi2, culture);
+
+  let html = `
+    <div class="ai-report">
+      <h4>${icon} ${title}</h4>
+
+      <div class="ai-section">
+        <h5>📋 VIP 合盘概要</h5>
+        <p>本报告使用双方 Master Birth Profile，所有合盘、择日、关系金字塔、命名分析都从同一出生资料读取。</p>
+        <div class="compatibility-grid">
+          ${renderBirthSummary(person1, person1.name || '本人')}
+          <div class="compatibility-score">
+            <div class="score-circle"><div class="score-value">${score.total}</div></div>
+            <div class="score-label">${getCompatibilityLevel(score.total)}</div>
+            <div style="color:#98a7b7;font-size:.85rem;margin-top:8px;">此分数为初步结构参考，正式版后续可接入完整合盘权重。</div>
+          </div>
+          ${renderBirthSummary(person2, person2.name || '第二人')}
+        </div>
+        ${renderModuleChips(modules)}
+      </div>
+  `;
+
+  if (culture === '东方' && bazi1 && bazi2 && !['关系金字塔解读','双人手相合盘'].includes(focus)) {
+    html += `
+      <div class="ai-section">
+        <h5>🌳 双方八字资料</h5>
+        <div class="compatibility-grid">
+          <div class="person-card">
+            <div class="person-name">${safeText(person1.name || '本人')}</div>
+            <div style="color:#98a7b7;font-size:.9rem;">${bazi1.pillars.year.stem}${bazi1.pillars.year.branch} ${bazi1.pillars.month.stem}${bazi1.pillars.month.branch} ${bazi1.pillars.day.stem}${bazi1.pillars.day.branch} ${bazi1.pillars.hour.stem}${bazi1.pillars.hour.branch}</div>
+          </div>
+          <div class="person-card">
+            <div class="person-name">${safeText(person2.name || '第二人')}</div>
+            <div style="color:#98a7b7;font-size:.9rem;">${bazi2.pillars.year.stem}${bazi2.pillars.year.branch} ${bazi2.pillars.month.stem}${bazi2.pillars.month.branch} ${bazi2.pillars.day.stem}${bazi2.pillars.day.branch} ${bazi2.pillars.hour.stem}${bazi2.pillars.hour.branch}</div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  const className = focus === '关系金字塔解读' ? 'deep-analysis pyramid-reading' : (focus === '双人手相合盘' ? 'deep-analysis palm-reading' : 'deep-analysis');
+  html += renderVipSections(sections, className);
+  html += generateActionPlan(focus, culture);
+  html += generateCulturalNotes(culture);
+  html += `</div>`;
+  return html;
+}
+
+function generateFocusAnalysis(focus, culture, currentYear, data) {
+  return renderVipSections(getPersonalSections(focus, data, currentYear));
+}
+
+function getFocusDescription(focus) {
+  const [icon, title] = getVipReportTitle(focus, 'personal');
+  return `${icon} ${title}`;
+}
+
+function getAnalysisTitleByCulture(culture, focus) {
+  return getVipReportTitle(focus, 'personal')[1].replace('深度报告','').replace('深度分析报告','');
+}
+
+function generateActionPlan(focus, culture) {
+  const planMap = {
+    '恋爱缘分':['整理关系边界与理想对象条件','观察对方回应质量，不只看热度','用稳定沟通替代情绪追赶'],
+    '婚姻走势':['确认金钱观与家庭边界','讨论生活分工与长期计划','观察承诺是否能落地'],
+    '职场发展':['整理核心技能与案例','更新服务/作品展示','主动争取一个可见成果'],
+    '创业潜力':['锁定一个收费入口','做小规模真实测试','记录客户反馈并优化流程'],
+    '财位分析':['检查收款路径与产品展示','整理工作区与财务区','削减低回报支出'],
+    '理财时机':['设定月度预算','保留安全现金','分层投入，不追高'],
+    '新家入住择日':['先完成清洁与基础布置','确认床位与工作位','从可执行日期中择优'],
+    '新公司入住择日':['完成公司资料与付款入口','确认老板位与展示区','选择准备完成后的启动日'],
+    '住家':['清杂物','稳床位','顺动线'],
+    '办公室':['稳老板位','清入口动线','明确收款展示区'],
+    '个人改名':['确认改名用途','筛选音义与传播度','再配合五行方向'],
+    '金字塔能量解读':['写下当前最大卡点','选一个三个月目标','用一个关键词收束行动'],
+    '手相综合解读':['准备左右手清晰照片','标注惯用手','补充近期状态'],
+    '关系金字塔解读':['确认关系当前层级','找出主要卡点','设定下一步低压力行动'],
+    '双人手相合盘':['准备双方左右手照片','标注惯用手','补充关系状态'],
+    '断联修复':['停止连续追问','用短讯息低压力试探','观察回应后再推进'],
+    '事业共事':['写清分工','写清分钱方式','写清退出机制']
+  };
+  const steps = planMap[focus] || ['确认问题范围','整理关键资料','执行第一步现实行动'];
+
+  return `
+    <div class="ai-section">
+      <h5>📅 行动计划</h5>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:12px;">
+        ${steps.map((action, index) => `
+          <div style="background:rgba(14,21,32,.6);padding:12px;border-radius:8px;border-left:4px solid #58b9ff;">
+            <div style="color:#58b9ff;font-weight:700;margin-bottom:4px;">第 ${index + 1} 步</div>
+            <div style="color:#e8edf3;font-size:.92rem;">${safeText(action)}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function generateCulturalNotes(culture) {
+  return `
+    <div class="ai-note">
+      <strong>💡 VIP 报告说明：</strong><br>
+      1. 本页已统一生日资料源，避免八字、紫微、占星、灵数、金字塔各自读错日期。<br>
+      2. 当前报告为前端体验版，适合做 VIP Trial 与入口测试。<br>
+      3. 手相类报告需要后续加入掌纹图片上传，才能进入正式掌纹判断。<br>
+      4. 择日、紫微、完整星盘后续应接入后端引擎，不建议只靠前端简化算法做最终交付。
+    </div>
+  `;
 }
 
 // Main initialization
