@@ -3496,28 +3496,6 @@ function getCultureClass(culture) {
 }
 
 // 计算太阳星座（西方占星）
-function calculateSunSign(month, day) {
-  const signs = [
-    { name: '白羊座', dates: '3.21-4.19', emoji: '♈', element: '火', quality: '基本' },
-    { name: '金牛座', dates: '4.20-5.20', emoji: '♉', element: '土', quality: '固定' },
-    { name: '双子座', dates: '5.21-6.21', emoji: '♊', element: '风', quality: '变动' },
-    { name: '巨蟹座', dates: '6.22-7.22', emoji: '♋', element: '水', quality: '基本' },
-    { name: '狮子座', dates: '7.23-8.22', emoji: '♌', element: '火', quality: '固定' },
-    { name: '处女座', dates: '8.23-9.22', emoji: '♍', element: '土', quality: '变动' },
-    { name: '天秤座', dates: '9.23-10.23', emoji: '♎', element: '风', quality: '基本' },
-    { name: '天蝎座', dates: '10.24-11.22', emoji: '♏', element: '水', quality: '固定' },
-    { name: '射手座', dates: '11.23-12.21', emoji: '♐', element: '火', quality: '变动' },
-    { name: '摩羯座', dates: '12.22-1.19', emoji: '♑', element: '土', quality: '基本' },
-    { name: '水瓶座', dates: '1.20-2.18', emoji: '♒', element: '风', quality: '固定' },
-    { name: '双鱼座', dates: '2.19-3.20', emoji: '♓', element: '水', quality: '变动' }
-  ];
-  
-  // 简化计算
-  const index = (month - 1) % 12;
-  return signs[index] || signs[0];
-}
-
-// 星座爱情特质
 function getAstroLoveTrait(sign) {
   const traits = {
     '白羊座': '主动热情，喜欢追求新鲜感，在爱情中较为直接',
@@ -4155,41 +4133,183 @@ function showError(msg) {
 }
 
 /* ==============================
+   MASTER BIRTH ENGINE
+   One canonical birth profile for Bazi / Ziwei / Western / Numerology / Pyramid
+============================== */
+function normalizeCalendarValue(value) {
+  const v = String(value || '').toLowerCase();
+  if (v.includes('农') || v.includes('lunar')) return 'lunar';
+  return 'gregorian';
+}
+
+function resolveTimezone(country) {
+  const c = String(country || '').toLowerCase().trim();
+  if (
+    c.includes('sg') ||
+    c.includes('singapore') ||
+    c.includes('新加坡') ||
+    c.includes('singapura')
+  ) return 'Asia/Singapore';
+  if (c.includes('china') || c.includes('中国') || c.includes('hong kong') || c.includes('taiwan')) return 'Asia/Shanghai';
+  if (c.includes('japan') || c.includes('日本')) return 'Asia/Tokyo';
+  if (c.includes('india') || c.includes('印度')) return 'Asia/Kolkata';
+  return 'Asia/Singapore';
+}
+
+function pad2(n) {
+  return String(Number(n || 0)).padStart(2, '0');
+}
+
+function parseBirthDate(dateStr) {
+  const raw = String(dateStr || '').trim();
+
+  // Browser date input standard: YYYY-MM-DD
+  let m = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) {
+    return {
+      year: Number(m[1]),
+      month: Number(m[2]),
+      day: Number(m[3]),
+      iso: `${m[1]}-${pad2(m[2])}-${pad2(m[3])}`,
+      display: `${pad2(m[3])}/${pad2(m[2])}/${m[1]}`
+    };
+  }
+
+  // Fallback: DD/MM/YYYY, useful when pasted manually
+  m = raw.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) {
+    return {
+      year: Number(m[3]),
+      month: Number(m[2]),
+      day: Number(m[1]),
+      iso: `${m[3]}-${pad2(m[2])}-${pad2(m[1])}`,
+      display: `${pad2(m[1])}/${pad2(m[2])}/${m[3]}`
+    };
+  }
+
+  throw new Error('出生日期格式无效，请使用 YYYY-MM-DD 或 DD/MM/YYYY');
+}
+
+function parseBirthTime(timeStr) {
+  const raw = String(timeStr || '').trim();
+  if (!raw) {
+    return {
+      hour: 12,
+      minute: 0,
+      timeUnknown: true,
+      time24: '12:00',
+      display: '时间未知（系统暂以 12:00 中午作为临时计算基准）'
+    };
+  }
+
+  let hour = 0;
+  let minute = 0;
+  const lower = raw.toLowerCase();
+
+  let m = lower.match(/^(\d{1,2}):(\d{2})\s*(am|pm)?$/);
+  if (m) {
+    hour = Number(m[1]);
+    minute = Number(m[2]);
+    const ap = m[3];
+    if (ap === 'pm' && hour < 12) hour += 12;
+    if (ap === 'am' && hour === 12) hour = 0;
+  } else {
+    m = lower.match(/^(\d{1,2})\s*(am|pm)$/);
+    if (!m) throw new Error('出生时间格式无效，请使用 13:00 或 01:00 pm');
+    hour = Number(m[1]);
+    minute = 0;
+    const ap = m[2];
+    if (ap === 'pm' && hour < 12) hour += 12;
+    if (ap === 'am' && hour === 12) hour = 0;
+  }
+
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    throw new Error('出生时间无效，请检查小时与分钟');
+  }
+
+  return {
+    hour,
+    minute,
+    timeUnknown: false,
+    time24: `${pad2(hour)}:${pad2(minute)}`,
+    display: `${pad2(hour)}:${pad2(minute)}`
+  };
+}
+
+function calculateSunSign(month, day) {
+  const signs = [
+    { name: '摩羯座', dates: '12.22-1.19', emoji: '♑', element: '土', quality: '基本', start:[12,22], end:[1,19] },
+    { name: '水瓶座', dates: '1.20-2.18', emoji: '♒', element: '风', quality: '固定', start:[1,20], end:[2,18] },
+    { name: '双鱼座', dates: '2.19-3.20', emoji: '♓', element: '水', quality: '变动', start:[2,19], end:[3,20] },
+    { name: '白羊座', dates: '3.21-4.19', emoji: '♈', element: '火', quality: '基本', start:[3,21], end:[4,19] },
+    { name: '金牛座', dates: '4.20-5.20', emoji: '♉', element: '土', quality: '固定', start:[4,20], end:[5,20] },
+    { name: '双子座', dates: '5.21-6.20', emoji: '♊', element: '风', quality: '变动', start:[5,21], end:[6,20] },
+    { name: '巨蟹座', dates: '6.21-7.22', emoji: '♋', element: '水', quality: '基本', start:[6,21], end:[7,22] },
+    { name: '狮子座', dates: '7.23-8.22', emoji: '♌', element: '火', quality: '固定', start:[7,23], end:[8,22] },
+    { name: '处女座', dates: '8.23-9.22', emoji: '♍', element: '土', quality: '变动', start:[8,23], end:[9,22] },
+    { name: '天秤座', dates: '9.23-10.22', emoji: '♎', element: '风', quality: '基本', start:[9,23], end:[10,22] },
+    { name: '天蝎座', dates: '10.23-11.21', emoji: '♏', element: '水', quality: '固定', start:[10,23], end:[11,21] },
+    { name: '射手座', dates: '11.22-12.21', emoji: '♐', element: '火', quality: '变动', start:[11,22], end:[12,21] }
+  ];
+
+  return signs.find(sign => {
+    const [sm, sd] = sign.start;
+    const [em, ed] = sign.end;
+    if (sm > em) {
+      return (month === sm && day >= sd) || (month === em && day <= ed);
+    }
+    return (month === sm && day >= sd) || (month === em && day <= ed) || (month > sm && month < em);
+  }) || signs[0];
+}
+
+function createMasterBirthProfile(suffix) {
+  const date = parseBirthDate($(`birthdate${suffix}`)?.value || '');
+  const time = parseBirthTime($(`birthtime${suffix}`)?.value || '');
+  const country = $(`country${suffix}`)?.value?.trim() || '';
+  const calendarRaw = $(`calendar${suffix}`)?.value || '阳历';
+  const calendar = normalizeCalendarValue(calendarRaw);
+  const westernSun = calculateSunSign(date.month, date.day);
+
+  return {
+    name: $(`name${suffix}`)?.value?.trim() || '',
+    year: date.year,
+    month: date.month,
+    day: date.day,
+    hour: time.hour,
+    minute: time.minute,
+    timeUnknown: time.timeUnknown,
+    birth_date_iso: date.iso,
+    birth_date_display: date.display,
+    birth_time_24: time.time24,
+    birth_time_display: time.display,
+    calendar,
+    calendarLabel: calendarRaw,
+    country,
+    timezone: resolveTimezone(country),
+    gender: $(`gender${suffix}`)?.value || '',
+    westernSunSign: westernSun.name,
+    westernSunSignData: westernSun
+  };
+}
+
+function validateMasterBirthProfile(profile) {
+  if (!profile || !profile.year || !profile.month || !profile.day) {
+    throw new Error('生日资料无法读取，请重新选择出生日期');
+  }
+  if (profile.month < 1 || profile.month > 12 || profile.day < 1 || profile.day > 31) {
+    throw new Error('生日资料不正确，请检查日期');
+  }
+  return true;
+}
+
+
+/* ==============================
    读取出生信息
 ============================== */
 function readBirthInputs(suffix) {
-  const name = $(`name${suffix}`)?.value?.trim() || '';
-  const dateStr = $(`birthdate${suffix}`)?.value || '';
-  const timeStr = $(`birthtime${suffix}`)?.value || '';
-  const calendar = $(`calendar${suffix}`)?.value || '阳历';
-  const country = $(`country${suffix}`)?.value?.trim() || '';
-  const gender = $(`gender${suffix}`)?.value || '';
-  
-  let timeUnknown = false;
-  let hour = 0, minute = 0;
-  
-  if (timeStr) {
-    const [h, m] = timeStr.split(':').map(Number);
-    hour = h || 0;
-    minute = m || 0;
-  } else {
-    timeUnknown = true;
-  }
-  
-  const [year, month, day] = dateStr.split('-').map(Number);
-  
-  return {
-    name,
-    year: year || 2000,
-    month: month || 1,
-    day: day || 1,
-    hour,
-    minute,
-    timeUnknown,
-    calendar,
-    country,
-    gender
-  };
+  const profile = createMasterBirthProfile(suffix);
+  validateMasterBirthProfile(profile);
+  return profile;
 }
 
 /* ==============================
@@ -4334,7 +4454,7 @@ async function generateCulturalAnalysis(culture, focus, data, baziResult) {
     
   } else if (culture === '西方') {
     // 占星分析
-    const sunSign = calculateSunSign(data.month, data.day);
+    const sunSign = data.westernSunSignData || calculateSunSign(data.month, data.day);
     analysisHTML += `
       <div class="ai-section">
         <h5>⭐ 占星分析</h5>
@@ -4431,6 +4551,8 @@ async function onGenerate() {
   }
   
   const me = readBirthInputs('1');
+  validateMasterBirthProfile(me);
+  console.log('Master birth profile:', me);
   const focus = getFocus();
   const culture = getCultureResolved();
   const gender = $('#gender1')?.value || '';
@@ -4478,6 +4600,7 @@ async function onGenerate() {
     // 根据类型生成报告
     if (type === 'compatibility') {
       const person2 = readBirthInputs('2');
+      validateMasterBirthProfile(person2);
       reportHTML = await generateCompatibilityReport(me, person2, focus, culture);
     } else {
       reportHTML = await generateDeepReport(me, focus, type, culture, baziResult, namingSuggestions);
@@ -4675,9 +4798,11 @@ async function generateDeepReport(data, focus, type, culture, baziResult = null,
             <div style="color: #98a7b7; font-size: 0.85rem; margin-bottom: 5px;">个人信息</div>
             <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px;">
               <div>姓名：${data.name || '未提供'}</div>
-              <div>出生：${data.year}-${data.month}-${data.day}</div>
+              <div>出生：${data.birth_date_display || `${data.year}-${data.month}-${data.day}`} ${data.birth_time_24 || ''}</div>
+              <div>时区：${data.timezone || 'Asia/Singapore'}</div>
               <div>性别：${data.gender || '未提供'}</div>
               <div>地区：${data.country || '未提供'}</div>
+              <div>太阳星座：${data.westernSunSign || calculateSunSign(data.month, data.day).name}</div>
             </div>
           </div>
           <p style="color: var(--muted); font-size: 0.9rem; margin-top: 8px;">
@@ -4691,7 +4816,7 @@ async function generateDeepReport(data, focus, type, culture, baziResult = null,
     reportHTML += generateBaziAnalysis(baziResult);
     reportHTML += generatePersonalDestinyAnalysis(baziResult, focus);
   } else if (culture === '西方') {
-    const sunSign = calculateSunSign(data.month, data.day);
+    const sunSign = data.westernSunSignData || calculateSunSign(data.month, data.day);
     reportHTML += `
       <div class="ai-section">
         <h5>⭐ 占星分析</h5>
