@@ -7053,6 +7053,371 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
     setTimeout(wireAuth, 0);
   }
 })();
+
+/* =========================================================
+   VIP DEPTH PATCH — report engine v2
+   - Fixes custom picker/hidden select mismatch
+   - Makes Relationship Pyramid output as real pyramid layers
+   - Expands all VIP readings with deeper structure
+========================================================= */
+
+function getFocus() {
+  const type = getCurrentType();
+  const activeChip = document.querySelector(`#readingPicker .reading-chip.active[data-mode="${type}"]`);
+  if (activeChip?.dataset?.value) return activeChip.dataset.value;
+
+  if (type === 'compatibility') {
+    return document.getElementById('purpose_compatibility')?.value || '合盘分析';
+  }
+  return document.getElementById('purpose_personal')?.value || '恋爱缘分';
+}
+
+function v2RichList(items){
+  return `<ul class="vip-rich-list">${items.map(x => `<li>${safeText(x)}</li>`).join('')}</ul>`;
+}
+
+function v2Metric(label, value, note){
+  const width = Math.max(8, Math.min(100, Number(value) || 0));
+  return `
+    <div class="vip-metric">
+      <div class="vip-metric-top"><span>${safeText(label)}</span><b>${width}%</b></div>
+      <div class="vip-meter"><i style="width:${width}%"></i></div>
+      <div class="vip-metric-note">${safeText(note)}</div>
+    </div>
+  `;
+}
+
+function v2ReportBlock(title, body, items){
+  return `
+    <div class="analysis-point">
+      <h6>${safeText(title)}</h6>
+      <div class="analysis-detail">
+        <p>${safeText(body)}</p>
+        ${Array.isArray(items) && items.length ? v2RichList(items) : ''}
+      </div>
+    </div>
+  `;
+}
+
+function renderVipSections(sections, className='deep-analysis') {
+  return `
+    <div class="${className}">
+      ${sections.map((s, i) => {
+        const title = s[0];
+        const body = s[1] || '';
+        const items = s[2] || [];
+        return v2ReportBlock(title, body, items);
+      }).join('')}
+    </div>
+  `;
+}
+
+function getPersonalSections(focus, data, currentYear) {
+  const profileLine = `${data.birth_date_display || data.birth_date_iso} · ${data.birth_time_display || data.birth_time_24 || '时间未知'} · ${data.timezone || 'Asia/Singapore'}`;
+  const sun = data.westernSunSignData || calculateSunSign(data.month, data.day);
+  const life = getLifePathNumber(data);
+  const zodiac = getChineseZodiac(data.year);
+
+  const commonOpening = `本报告以统一生日资料源 ${profileLine} 为核心，不再让八字、占星、灵数、金字塔各自读取不同日期。当前判断会把太阳星座 ${sun.name}、生肖 ${zodiac}、灵数 ${life} 与命理主题合并成一个可执行方向。`;
+
+  const map = {
+    '恋爱缘分': [
+      ['本命情感结构', commonOpening + ' 恋爱缘分不是单看桃花多不多，而是看你吸引什么类型的人、自己在关系里如何表达安全感，以及对方是否能进入长期互动。', ['观察对方是否持续回应，而不是只看一两次热度。','避免用过度付出换确认感。','适合慢热、稳定、有责任感的对象。']],
+      ['关系吸引模式', '你的感情吸引点来自温度、照顾感与持续投入；但吸引力一旦进入现实，就需要边界、节奏与回应质量来支撑。', ['如果对方只在需要时出现，缘分强但稳定度不足。','如果对方愿意解释、交代、调整节奏，才有进入长期关系的可能。']],
+      ['未来窗口', `${currentYear} 下半年至 ${currentYear + 1} 上半年适合整理感情定位。重点不是急着确定名分，而是看双方能否建立稳定沟通和现实见面节奏。`, ['先稳定互动频率。','再测试现实安排。','最后才判断是否值得投入更多。']],
+      ['VIP判断重点', '真正适合你的关系，不应长期让你处在等待、猜测和焦虑里。VIP判断不是鼓励追，而是帮你分辨值得投入与需要止损的界线。', ['看回应质量。','看现实行动。','看对方是否愿意让关系更清楚。']]
+    ],
+    '婚姻走势': [
+      ['婚姻承诺结构', commonOpening + ' 婚姻走势要看承诺能不能落地，不是只看有没有对象或有没有感情。', ['金钱观是否能谈。','家庭边界是否清楚。','生活节奏是否可共住。']],
+      ['婚姻风险点', '婚姻最怕的不是吵架，而是长期不谈关键现实问题。若钱、房、家人、责任分工一直模糊，感情再深也会被现实消耗。', ['避免冷战型相处。','避免单方承担全部压力。','避免只谈感觉不谈安排。']],
+      ['未来推进策略', `${currentYear} 至 ${currentYear + 2} 的重点是建立现实共识。若已有对象，应先谈生活安排；若未定对象，应筛选能稳定沟通的人。`, ['先看责任感。','再看相处稳定度。','最后才看浪漫强度。']]
+    ],
+    '职场发展': [
+      ['事业定位', commonOpening + ' 职场发展要看你当前能力是否被正确放在可见位置。不是没有能力，而是能力有没有被包装成别人愿意付费或信任的成果。', ['整理作品与案例。','把方向感转成清楚服务。','减少只做幕后不展示的情况。']],
+      ['贵人与资源位', '贵人不一定是给钱的人，也可能是给渠道、给信任、给测试机会的人。你要主动让别人知道你能解决什么问题。', ['主动展示成果。','不要只讲概念，要给可见样本。','把复杂能力变成简单入口。']],
+      ['三个月执行路线', '未来三个月应以“可交付成果”为核心，而不是继续无限学习。每周至少完成一个可展示页面、案例、服务或报告模板。', ['第一月补齐样本。','第二月测试收费入口。','第三月收集反馈并优化。']]
+    ],
+    '创业潜力': [
+      ['创业人格结构', commonOpening + ' 创业潜力不是看胆量，而是看你能不能把方向感、产品、现金流、客户体验变成系统。', ['你适合做系统型平台，而不是只靠个人情绪冲动接单。','适合低成本先验证，再扩大。','避免一次性铺太多没有入口的功能。']],
+      ['商业模式判断', '目前最适合的是会员制、报告制、数字产品与可重复交付的黑箱系统。你的优势在整合，而不是单点技术炫耀。', ['先做一个核心收费入口。','把免费体验变成升级路径。','用报告与工具留下用户。']],
+      ['风险控制', '创业最大风险不是失败，而是没有分阶段。若全部功能同时上线，会造成维护压力和交付混乱。', ['先锁核心产品。','再做会员。','最后扩展商城与课程。']]
+    ],
+    '财位分析': [
+      ['本命财源结构', commonOpening + ' 财位分析不只是家中哪个角落放物品，而是看你的收入入口、收款路径、展示位置和长期守财能力。', ['收入是否集中在可复制服务。','客户是否容易找到购买入口。','空间是否支持专注与收款。']],
+      ['空间财位与动线', '住家或办公室的财位必须配合动线，不能只是摆饰。财位要干净、稳定、有光、有秩序，最好能对应工作桌、收款系统或产品展示。', ['避免杂物压财位。','避免财位潮湿、阴暗、堆旧物。','收款入口要清楚。']],
+      ['现实增财动作', '真正有效的财位，是命理建议加现实执行。你需要把能赚钱的产品放到最容易看到、最容易付款的位置。', ['整理付款链接。','优化产品页。','每周检查成交路径。']]
+    ],
+    '理财时机': [
+      ['现金流安全层', commonOpening + ' 理财时机先看现金流安全，不是先看高回报。若现金流不稳，任何投资都会变成压力源。', ['先保留安全现金。','不要用周转钱冒险。','先分清生活费、业务费、投资费。']],
+      ['风险周期', `${currentYear} 至 ${currentYear + 1} 适合保守分层，不适合因为焦虑而追高。真正的理财时机是你能承受波动的时候。`, ['小额分批。','不重仓单一方向。','每月复盘现金流。']],
+      ['守财策略', '你的财务系统应以可持续为主：固定收入入口、低成本测试、逐步扩大，而不是一次性赌大。', ['降低无效支出。','保留业务预算。','把钱投向可产生现金流的系统。']]
+    ],
+    '新家入住择日': [
+      ['入住择日核心', commonOpening + ' 新家入住择日不只是选一个黄道吉日，而是选一个空间已经准备好、家庭气场可以正式启动的时间。', ['清洁完成。','床位、炉灶、水电稳定。','搬家当天不混乱。']],
+      ['空间启动条件', '一个好日子必须配合现实准备。若当天赶工、争吵、欠缺收纳，即使日子好，气也不稳。', ['先完成基础布置。','再做入宅仪式。','最后才正式长期入住。']],
+      ['VIP择日逻辑', '后端正式版应接入完整择日引擎；当前页面可作为方向判断，最终交付应筛选可执行日期清单。', ['先列可行日期。','再排除冲克。','最后选启动感最稳定的日子。']]
+    ],
+    '新公司入住择日': [
+      ['公司启动结构', commonOpening + ' 公司入住择日要配合老板位、收款位、客户入口与团队动线。不是单纯选开门日期。', ['付款入口准备好。','产品展示准备好。','客户接待动线清楚。']],
+      ['开业气场', '开业当天最重要是稳定、清楚、可成交。混乱的开张会让公司气场一开始就散。', ['不要边搬边开业。','不要资料未完成就宣传。','先测试付款和客户流程。']],
+      ['VIP建议', '择日只是启动按钮，真正留财的是后续运营节奏。', ['固定发布内容。','固定复盘销售。','固定优化客户体验。']]
+    ],
+    '住家': [
+      ['住家气场结构', commonOpening + ' 住家风水重点是睡眠、情绪、财位与家庭沟通。家的气不稳，人就难专注。', ['入口要明亮。','床位要稳定。','财位要清洁。']],
+      ['家庭能量风险', '杂乱、潮湿、长期不用的物品，会让人的判断力和行动力下降。', ['减少堆积。','保留通道。','让重要区域有光。']],
+      ['调整方向', '先做低成本调整，不急着大装修。真正有效的是长期保持，而不是一次摆阵。', ['一周清一个区域。','固定收纳。','工作位与休息位分开。']]
+    ],
+    '办公室': [
+      ['办公室气口', commonOpening + ' 办公室风水重点是老板位、员工动线、客户入口与收款位置。', ['老板位要稳。','客户入口要清楚。','收款与展示区要明显。']],
+      ['事业压力位', '如果座位背后空、入口乱、展示不清，容易让团队没有方向，客户也难成交。', ['背后要有靠。','入口不要堵。','展示区要集中。']],
+      ['VIP调整路线', '先调整动线，再调整摆设；先解决成交路径，再做装饰。', ['整理接待区。','固定老板位。','优化付款入口。']]
+    ],
+    '个人改名': [
+      ['改名目的', commonOpening + ' 改名不是换字就改命，而是让名字更符合你的身份定位、传播记忆和五行补偏。', ['先确认用途：事业、社交、品牌或个人形象。','再看音义、五行、记忆度。']],
+      ['名字能量', '好名字要叫得顺、记得住、看得出气质。太复杂、太玄、太难读，反而不利传播。', ['音要稳。','义要正。','字形要干净。']],
+      ['使用建议', '改名后要长期一致使用，才会形成新的社交识别。', ['统一社媒。','统一名片。','统一报告署名。']]
+    ],
+    '宝宝名': [
+      ['宝宝命名核心', commonOpening + ' 宝宝名要先看出生结构，再看家庭期待与长期成长气质。不能只追求特别。', ['读音温和。','字义稳定。','避免太重、太偏、太难写。']],
+      ['五行扶助', '名字可作为辅助，不应强行用太极端的字补五行。重点是平衡、顺口、长大后也能使用。', ['童年好叫。','成年不尴尬。','中英文环境也可接受。']],
+      ['VIP建议', '正式宝宝命名应接入完整八字与父母资料后再筛选。', ['先定性别与姓氏。','再定五行方向。','最后选音义。']]
+    ],
+    '宠物名': [
+      ['宠物名能量', commonOpening + ' 宠物名重点是叫唤频率、亲密感与家庭融合，不需要太复杂。', ['短音节最好。','声音要温和。','家人都容易叫。']],
+      ['主宠连接', '名字会影响主人与宠物的互动情绪。越常叫、越顺口，连接越稳定。', ['避免太凶。','避免难读。','避免和指令混淆。']],
+      ['VIP建议', '宠物名适合结合性格、毛色、习惯和主人命理来定。', ['观察宠物性格。','选2到3个候选。','试叫一周。']]
+    ],
+    '公司名': [
+      ['品牌命名结构', commonOpening + ' 公司名不是只看吉字，而是看行业属性、客户记忆、域名可用性和成交气质。', ['名字要容易搜。','容易读。','容易联想到业务。']],
+      ['财气表达', '有财气的名字不是堆金钱字，而是让客户一眼知道你能解决什么问题。', ['清楚定位。','避免太玄。','保留扩展空间。']],
+      ['VIP建议', '正式公司命名应同时检查域名、社媒账号、商标和市场读感。', ['先确定品牌方向。','再生成候选。','最后做可用性检查。']]
+    ],
+    '金字塔能量解读': [
+      ['第一层：根基层', commonOpening + ' 根基层代表你现在最真实的现实状态：身体、金钱、生活秩序、基础安全感。若这一层不稳，上层愿望会很难落地。', ['先稳定作息。','先稳定现金流。','先减少杂乱任务。']],
+      ['第二层：阻力层', '阻力层代表你反复卡住的位置，通常不是能力不足，而是目标过多、情绪焦虑、行动入口不清。', ['找出一个最大卡点。','先停掉低价值消耗。','避免同时追太多方向。']],
+      ['第三层：资源层', '资源层代表你已有但没有完全使用的优势，例如方向感、表达能力、系统思维、旧客户、平台资产。', ['把能力产品化。','把内容整理成入口。','把旧资源重新激活。']],
+      ['第四层：方向层', '方向层要求你选择主线。能量不是越散越强，而是集中之后才会形成推动力。', ['设一个90天主线。','每周只推进关键模块。','避免临时换方向。']],
+      ['第五层：显化层', '显化层不是幻想结果，而是把愿望拆成可以执行、可以记录、可以复盘的现实动作。', ['每天一个小动作。','每周一个可见成果。','每月一次复盘。']]
+    ]
+  };
+  return map[focus] || [
+    ['VIP主题判断', commonOpening + ` 当前选题为「${focus}」，系统会以命理资料为底，再结合现实执行与行动建议。`, ['确认问题范围。','整理关键资料。','执行第一步现实行动。']]
+  ];
+}
+
+function getCompatibilitySections(focus, p1, p2, currentYear) {
+  const pairLine = `${p1.birth_date_display || p1.birth_date_iso} × ${p2.birth_date_display || p2.birth_date_iso}`;
+  const p1Name = p1.name || '本人';
+  const p2Name = p2.name || '第二人';
+  const timeNote = p2.timeUnknown ? `${p2Name} 出生时间未知，因此涉及时柱、宫位、精细流年部分应保留弹性。` : `双方出生时间已输入，可做较完整的时段参考。`;
+
+  if (focus === '关系金字塔解读') {
+    return [
+      ['第一层：现实根基 Reality Base', `这段关系目前的现实根基来自双方是否有稳定互动、是否愿意回应、是否愿意把关系从感觉带入现实安排。资料源为 ${pairLine}。${timeNote}`, ['看见面频率是否真实增加。','看金钱、时间、情绪是否长期单方承担。','看对方是否愿意解释和交代，而不是只在需要时出现。']],
+      ['第二层：情绪流动 Emotional Flow', `${p1Name} 与 ${p2Name} 的情绪连接强度不低，但强连接不等于稳定关系。若一方表达很多，另一方回应少，就会形成追赶感。`, ['判断重点是回应质量，不是称呼甜不甜。','若对方愿意分享身体、宠物、行程，代表有安全圈入口。','若长期没有现实安排，情绪层会消耗。']],
+      ['第三层：阻力核心 Resistance Core', '金字塔中段显示最容易卡住的不是没有缘分，而是关系定位不清。定位不清会让一个人期待推进，另一个人保持模糊。', ['避免用更多付出来换明确。','避免在对方低回应时不断追问。','需要建立低压力但清楚的沟通规则。']],
+      ['第四层：隐藏支持 Hidden Support', '隐藏支持来自双方长期互动、生活关心、信任积累，以及彼此在困难时是否仍愿意说明情况。隐藏支持不是轰烈，而是对方是否把你放进生活资讯圈。', ['对方愿意解释，是支持。','愿意求助，是信任。','愿意持续回来，是连接还在。']],
+      ['第五层：未来方向 Future Path', `${currentYear} 至 ${currentYear + 1} 是关系从模糊走向重新定位的窗口。未来方向不一定是立刻承诺，而是先看能否建立更稳定的现实节奏。`, ['先争取稳定见面或固定沟通。','再观察对方是否主动承担关系责任。','最后才决定继续深入还是降低投入。']],
+      ['第六层：共同显化 Joint Manifestation', '共同显化不是两个人一起许愿，而是共同做出能让关系更清楚的行动。如果只有一方显化，另一方不行动，这不叫共同关系。', ['设定一个低压力邀约。','观察是否有主动回流。','把未来判断放在行动上，不放在幻想上。']]
+    ];
+  }
+
+  const map = {
+    '缘分起落': [
+      ['缘分吸引结构', `双方资料源：${pairLine}。缘分起落看的是吸引力如何进入现实，而不是单看缘分强不强。`, ['吸引力强时，互动会有回流。','稳定度强时，对方会愿意安排时间。','若只在需要帮助时出现，关系仍属不稳定。']],
+      ['关系起落原因', '起落通常来自需求差：一方要确认，一方要空间；一方想推进，一方怕被限制。', ['不要把沉默自动解释成没感情。','也不要把偶尔热情解释成承诺。','看三周到六周的整体趋势。']],
+      ['推进窗口', `${currentYear} 至 ${currentYear + 1} 适合测试关系是否能从情绪陪伴走向现实安排。`, ['用低压力方式邀约。','看对方是否愿意配合。','不要只靠文字维持期待。']]
+    ],
+    '夫妻流年': [
+      ['夫妻年度结构', `双方资料源：${pairLine}。夫妻流年看责任分工、财务压力、家庭沟通与共同目标。`, ['钱要谈清楚。','家务与责任要分清。','双方要有共同年度目标。']],
+      ['风险点', '冷战、金钱避谈、家人边界不清，是婚姻流年最常见的消耗。', ['固定沟通时间。','避免旧账循环。','把问题写成可解决事项。']],
+      ['年度建议', `${currentYear} 适合建立婚姻制度，不只靠感情维持。`, ['每月一次关系复盘。','每季一次财务整理。','每半年确认未来计划。']]
+    ],
+    '合盘分析': [
+      ['个性互补结构', `双方资料源：${pairLine}。合盘分析看安全感来源、沟通速度、冲突处理方式是否可互补。`, ['一方敏感，一方回避时，要设沟通规则。','一方行动快，一方慢热时，要给缓冲。','互补不是完全一样，而是愿意修正。']],
+      ['冲突根源', '冲突很多时候不是事件，而是解读方式不同。一个人觉得被忽略，另一个人觉得被逼。', ['少用猜测。','多用具体问题。','避免情绪爆发后才沟通。']],
+      ['长期磨合建议', '可持续关系必须建立固定节奏。', ['固定联系节奏。','固定见面安排。','固定边界共识。']]
+    ],
+    '断联修复': [
+      ['断联状态判断', `双方资料源：${pairLine}。断联修复先判断对方是完全关闭、暂时逃避，还是仍保留回流入口。`, ['是否看讯息。','是否偶尔回应。','是否通过第三方或社媒保留连接。']],
+      ['复联方式', '复联不能一开始就逼解释。要先降低压力，再让对方愿意重新开口。', ['短讯息。','不追问。','不翻旧账。']],
+      ['修复窗口', `${currentYear} 至 ${currentYear + 1} 若仍有自然回应，可低压力重建；若完全无回应，应停止消耗。`, ['一次试探。','等待回应。','根据回应质量决定下一步。']]
+    ],
+    '事业共事': [
+      ['合作定位', `双方资料源：${pairLine}。事业共事看分工、分钱、决策权、风险承担和退出机制。`, ['谁负责方向。','谁负责执行。','谁负责付款与客户。']],
+      ['风险控制', '合伙最怕关系好但规则不清。越亲近越要写清楚。', ['先做小项目。','先测试付款。','先写退出方式。']],
+      ['VIP建议', '事业合盘不是看感情好不好，而是看利益冲突出现时还能不能合作。', ['合同化。','阶段化。','数据化。']]
+    ],
+    '宠物缘分': [
+      ['主宠情绪连接', `资料源：${pairLine}。主宠缘分看照顾节奏、生活习惯、情绪陪伴与责任稳定。`, ['宠物会感受主人情绪。','生活规律会减少宠物焦虑。','照顾方式比命理更重要。']],
+      ['互动重点', '宠物缘分的核心是稳定陪伴。', ['固定喂食。','固定清洁。','固定陪伴。']],
+      ['VIP建议', '命理只能辅助理解，照顾流程才是实际改变。', ['记录宠物习惯。','观察身体变化。','必要时看兽医。']]
+    ],
+    '婚期择日': [
+      ['婚期择日核心', `双方资料源：${pairLine}。婚期择日要先满足现实条件，再做命理筛选。`, ['场地可用。','双方家庭可出席。','预算与流程稳定。']],
+      ['择日优先级', '先排除明显冲突，再选双方都能舒服执行的日子。', ['不赶。','不乱。','不冲重要家庭安排。']],
+      ['VIP建议', '正式交付应给日期清单，不是只给一个日子。', ['列候选日期。','筛冲克。','选最稳日期。']]
+    ],
+    '新生宝宝择日': [
+      ['宝宝择时核心', `父母资料源：${pairLine}。宝宝择时必须医学安全优先，命理只能在医生允许范围内辅助。`, ['不为了命理违背医疗。','先看安全窗口。','再做五行平衡。']],
+      ['命理重点', '重点看日主稳定、五行平衡、父母缘分与成长资源。', ['避免极端格局执念。','选择平稳。','保留医学优先。']],
+      ['VIP建议', '正式版必须结合医生可行时间清单。', ['医生先定范围。','命理再筛。','家人再确认。']]
+    ],
+    '新家入住择日': [
+      ['双人入住结构', `双方资料源：${pairLine}。新家入住择日要同时看关系稳定、搬家准备、空间启动。`, ['先清洁。','先安床。','先确认水电网络。']],
+      ['关系影响', '搬家是关系压力测试。若过程混乱，日期再好也会影响气场。', ['分工清楚。','不要临时赶工。','不要带着争吵入宅。']],
+      ['VIP建议', '入宅日应是空间准备完成后的启动日。', ['整理完再选。','仪式从简但清楚。','入住后保持秩序。']]
+    ],
+    '新公司入住择日': [
+      ['公司入住结构', `双方资料源：${pairLine}。公司入住择日看业务入口、付款系统、客户展示和老板位。`, ['产品准备。','付款准备。','入口准备。']],
+      ['开业气场', '如果公司还没准备好，择日只会放大混乱。', ['先测试流程。','先做展示。','先完成收款。']],
+      ['VIP建议', '好日子是给准备好的人用的。', ['先准备。','再启动。','持续运营。']]
+    ]
+  };
+
+  return map[focus] || [
+    ['合盘核心', `双方资料源：${pairLine}，当前选题为「${focus}」。`, ['校准双方资料。','判断关系主题。','制定可执行下一步。']]
+  ];
+}
+
+function renderPyramidVisual(sections, title='金字塔层级图') {
+  const labels = sections.slice(0,6).map(s => s[0].replace(/^[^：]+：/,''));
+  return `
+    <div class="vip-pyramid-wrap">
+      <div class="vip-pyramid-title">${safeText(title)}</div>
+      <div class="vip-pyramid">
+        ${labels.map((label, i) => `<div class="vip-pyramid-layer layer-${i+1}"><span>${safeText(label)}</span></div>`).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function generateDeepReport(data, focus, type, culture, baziResult = null, namingSuggestions = null) {
+  const [icon, title] = getVipReportTitle(focus, 'personal');
+  const theme = getReadingTheme(focus, 'personal');
+  const modules = getCoreModules(focus, 'personal');
+  const sections = getPersonalSections(focus, data, new Date().getFullYear());
+  const sun = data.westernSunSignData || calculateSunSign(data.month, data.day);
+
+  let html = `
+    <div class="ai-report ${theme}">
+      <h4>${icon} ${title}</h4>
+      <div class="ai-section">
+        <h5>📋 VIP 核心资料</h5>
+        <p>本报告使用统一生日资料源。所有系统包括八字、占星、灵数、金字塔，都从同一份生日、时间、地区资料读取，避免同一用户在不同模块出现不同生日判断。</p>
+        ${renderBirthSummary(data, data.name || '本人')}
+        ${renderModuleChips(modules)}
+        <div class="vip-dashboard-mini">
+          ${v2Metric('资料完整度', data.timeUnknown ? 72 : 96, data.timeUnknown ? '出生时间未知，精细判断需保留弹性。' : '生日与时间完整，可进入较完整结构判断。')}
+          ${v2Metric('主题聚焦度', 88, `当前选题：${focus}`)}
+          ${v2Metric('行动可落地度', 82, '报告会转化为现实步骤，而不是只做玄学描述。')}
+        </div>
+      </div>`;
+
+  if (culture === '东方' && baziResult && !['金字塔能量解读'].includes(focus)) html += generateBaziAnalysis(baziResult);
+  if (focus === '金字塔能量解读') html += renderPyramidVisual(sections, '个人金字塔能量层级');
+  html += renderVipSections(sections, focus === '金字塔能量解读' ? 'deep-analysis pyramid-reading' : 'deep-analysis');
+  if (namingSuggestions && namingSuggestions.length > 0 && ['个人改名','宝宝名','宠物名','公司名'].includes(focus)) html += generateNamingSection(focus, namingSuggestions, culture);
+  html += generateActionPlan(focus, culture);
+  html += generateCulturalNotes(culture);
+  html += `</div>`;
+  return html;
+}
+
+function generateCompatibilityReport(person1, person2, focus, culture) {
+  const [icon, title] = getVipReportTitle(focus, 'compatibility');
+  const theme = getReadingTheme(focus, 'compatibility');
+  const modules = getCoreModules(focus, 'compatibility');
+  const sections = getCompatibilitySections(focus, person1, person2, new Date().getFullYear());
+
+  let bazi1 = null, bazi2 = null;
+  if (culture === '东方' && typeof BaziCalculator !== 'undefined') {
+    const calculator = new BaziCalculator();
+    bazi1 = calculator.calculateBazi(person1.year, person1.month, person1.day, person1.hour, person1.minute, person1.timeUnknown);
+    bazi2 = calculator.calculateBazi(person2.year, person2.month, person2.day, person2.hour, person2.minute, person2.timeUnknown);
+  }
+  const score = calculateCompatibilityScore(bazi1, bazi2, culture);
+
+  let html = `
+    <div class="ai-report ${theme}">
+      <h4>${icon} ${title}</h4>
+      <div class="ai-section">
+        <h5>📋 VIP 合盘核心资料</h5>
+        <p>合盘报告以双方统一出生资料为核心。若其中一方出生时间未知，系统会保留不确定性，不会硬把结果说死。</p>
+        <div class="compatibility-grid">
+          ${renderBirthSummary(person1, person1.name || '本人')}
+          <div class="compatibility-score">
+            <div class="score-circle"><div class="score-value">${score.total}</div></div>
+            <div class="score-label">${getCompatibilityLevel(score.total)}</div>
+            <div style="color:#98a7b7;font-size:.85rem;margin-top:8px;">关系结构参考分，不代表绝对结局。</div>
+          </div>
+          ${renderBirthSummary(person2, person2.name || '第二人')}
+        </div>
+        ${renderModuleChips(modules)}
+        <div class="vip-dashboard-mini">
+          ${v2Metric('吸引力', score.personality || 82, '看双方是否自然回流、愿意分享生活。')}
+          ${v2Metric('稳定度', score.elements || 76, '看关系能否进入固定沟通与现实安排。')}
+          ${v2Metric('推进难度', 100 - Math.min(88, Math.max(35, score.destiny || 62)), '分数越高代表阻力越大，需要更慢节奏。')}
+        </div>
+      </div>`;
+
+  if (focus === '关系金字塔解读') {
+    html += renderPyramidVisual(sections, '关系金字塔层级图');
+  }
+
+  if (culture === '东方' && bazi1 && bazi2 && !['关系金字塔解读'].includes(focus)) {
+    html += `
+      <div class="ai-section">
+        <h5>🌳 双方八字骨架</h5>
+        <div class="compatibility-grid">
+          <div class="person-card"><div class="person-name">${safeText(person1.name || '本人')}</div><div style="color:#98a7b7;font-size:.9rem;">${bazi1.pillars.year.stem}${bazi1.pillars.year.branch} ${bazi1.pillars.month.stem}${bazi1.pillars.month.branch} ${bazi1.pillars.day.stem}${bazi1.pillars.day.branch} ${bazi1.pillars.hour.stem}${bazi1.pillars.hour.branch}</div></div>
+          <div class="person-card"><div class="person-name">${safeText(person2.name || '第二人')}</div><div style="color:#98a7b7;font-size:.9rem;">${bazi2.pillars.year.stem}${bazi2.pillars.year.branch} ${bazi2.pillars.month.stem}${bazi2.pillars.month.branch} ${bazi2.pillars.day.stem}${bazi2.pillars.day.branch} ${bazi2.pillars.hour.stem}${bazi2.pillars.hour.branch}</div></div>
+        </div>
+      </div>`;
+  }
+
+  html += renderVipSections(sections, focus === '关系金字塔解读' ? 'deep-analysis pyramid-reading' : 'deep-analysis');
+  html += generateActionPlan(focus, culture);
+  html += generateCulturalNotes(culture);
+  html += `</div>`;
+  return html;
+}
+
+/* VIP depth CSS */
+(function(){
+  const css = `
+    .vip-rich-list{margin:12px 0 0 1.1rem;padding-left:1rem;color:#dfe8f3;line-height:1.75}
+    .vip-rich-list li{margin:6px 0}
+    .vip-dashboard-mini{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-top:14px}
+    .vip-metric{background:rgba(8,13,21,.62);border:1px solid rgba(212,175,55,.22);border-radius:14px;padding:12px}
+    .vip-metric-top{display:flex;justify-content:space-between;gap:10px;color:#f2d27a;font-weight:800;font-size:.9rem}
+    .vip-meter{height:8px;background:#121923;border-radius:999px;overflow:hidden;margin:8px 0;border:1px solid rgba(212,175,55,.18)}
+    .vip-meter i{display:block;height:100%;background:linear-gradient(90deg,#d4af37,#f2d27a);border-radius:999px}
+    .vip-metric-note{color:#98a7b7;font-size:.82rem;line-height:1.5}
+    .vip-pyramid-wrap{margin:18px 0;padding:18px;border:1px solid rgba(212,175,55,.26);border-radius:18px;background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,.012))}
+    .vip-pyramid-title{text-align:center;color:#f2d27a;font-family:"Noto Serif SC",serif;font-weight:900;margin-bottom:14px}
+    .vip-pyramid{display:flex;flex-direction:column;align-items:center;gap:8px}
+    .vip-pyramid-layer{height:42px;display:flex;align-items:center;justify-content:center;color:#191919;font-weight:900;border-radius:10px;background:linear-gradient(180deg,#fff3bf,#d4af37);box-shadow:0 8px 20px rgba(212,175,55,.18)}
+    .vip-pyramid-layer.layer-1{width:38%}
+    .vip-pyramid-layer.layer-2{width:50%}
+    .vip-pyramid-layer.layer-3{width:62%}
+    .vip-pyramid-layer.layer-4{width:74%}
+    .vip-pyramid-layer.layer-5{width:86%}
+    .vip-pyramid-layer.layer-6{width:98%}
+    @media(max-width:640px){
+      .vip-pyramid-layer.layer-1{width:58%}
+      .vip-pyramid-layer.layer-2{width:66%}
+      .vip-pyramid-layer.layer-3{width:74%}
+      .vip-pyramid-layer.layer-4{width:82%}
+      .vip-pyramid-layer.layer-5{width:90%}
+      .vip-pyramid-layer.layer-6{width:100%}
+    }
+  `;
+  const style = document.createElement('style');
+  style.textContent = css;
+  document.head.appendChild(style);
+})();
+
 </script>
 
 </body>  
