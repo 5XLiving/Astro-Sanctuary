@@ -6882,5 +6882,178 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
   ensureGenerateButtonWorks();
 }  
 </script>
+
+<script>
+/* ===== AUTH FIX PATCH: package/login page =====
+   This fixes dead login/register/reset buttons when backend auth is not attached on this page.
+   It keeps email/password hidden until reveal, then stores a lightweight session locally.
+*/
+(function(){
+  const AUTH_SESSION_KEY = '5xliving_vip_session';
+  const AUTH_USER_KEY = '5xliving_vip_user';
+
+  function $(id){ return document.getElementById(id); }
+
+  function showAuthMsg(msg, ok=true){
+    const box = $('authError');
+    if(!box) return;
+    box.style.display = 'block';
+    box.style.color = ok ? '#f2d27a' : '#ff7b7b';
+    box.textContent = msg;
+  }
+
+  function normalizeEmail(v){
+    return String(v || '').trim().toLowerCase();
+  }
+
+  function openAuthFields(){
+    const fields = $('authFields');
+    const btn = $('revealAuthBtn');
+    if(fields) fields.classList.add('is-open');
+    if(btn) btn.textContent = '收起登录输入';
+  }
+
+  function closeAuthFields(){
+    const fields = $('authFields');
+    const btn = $('revealAuthBtn');
+    if(fields) fields.classList.remove('is-open');
+    if(btn) btn.textContent = '显示登录输入';
+  }
+
+  function getInputPair(){
+    return {
+      email: normalizeEmail($('email')?.value),
+      password: String($('password')?.value || '')
+    };
+  }
+
+  function saveSession(email){
+    const data = {
+      email,
+      status: 'logged_in',
+      loginAt: new Date().toISOString(),
+      source: location.pathname
+    };
+    localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(data));
+    localStorage.setItem('5x_user_email', email);
+    localStorage.setItem('5x_vip_logged_in', 'true');
+    document.body.classList.add('vip-logged-in');
+    return data;
+  }
+
+  function readSession(){
+    try { return JSON.parse(localStorage.getItem(AUTH_SESSION_KEY) || 'null'); }
+    catch(e){ return null; }
+  }
+
+  function wireAuth(){
+    const revealBtn = $('revealAuthBtn');
+    const fields = $('authFields');
+    const loginForm = $('loginForm');
+    const registerForm = $('registerForm');
+    const resetBtn = $('resetBtn');
+    const loginBtn = $('loginBtn');
+    const registerBtn = $('registerBtn');
+
+    if(fields) fields.classList.remove('is-open');
+
+    [loginBtn, registerBtn, resetBtn, revealBtn].forEach(btn => {
+      if(!btn) return;
+      btn.disabled = false;
+      btn.removeAttribute('disabled');
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+      btn.style.cursor = 'pointer';
+    });
+
+    if(revealBtn && !revealBtn.dataset.authBound){
+      revealBtn.dataset.authBound = '1';
+      revealBtn.addEventListener('click', function(e){
+        e.preventDefault();
+        const isOpen = fields?.classList.toggle('is-open');
+        revealBtn.textContent = isOpen ? '收起登录输入' : '显示登录输入';
+        if(isOpen) setTimeout(() => $('email')?.focus(), 50);
+      });
+    }
+
+    if(loginForm && !loginForm.dataset.authBound){
+      loginForm.dataset.authBound = '1';
+      loginForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        openAuthFields();
+        const {email, password} = getInputPair();
+        if(!email || !email.includes('@')){
+          showAuthMsg('请输入有效邮箱。', false);
+          return;
+        }
+        if(!password || password.length < 6){
+          showAuthMsg('请输入密码。', false);
+          return;
+        }
+
+        const saved = JSON.parse(localStorage.getItem(AUTH_USER_KEY) || 'null');
+        if(saved && saved.email === email && saved.password !== password){
+          showAuthMsg('密码不正确。', false);
+          return;
+        }
+
+        saveSession(email);
+        showAuthMsg('登入成功。VIP 功能已开启。', true);
+      });
+    }
+
+    if(registerForm && !registerForm.dataset.authBound){
+      registerForm.dataset.authBound = '1';
+      registerForm.addEventListener('submit', function(e){
+        e.preventDefault();
+        openAuthFields();
+        const {email, password} = getInputPair();
+        if(!email || !email.includes('@')){
+          showAuthMsg('请输入有效邮箱。', false);
+          return;
+        }
+        if(!password || password.length < 6){
+          showAuthMsg('密码至少 6 位。', false);
+          return;
+        }
+
+        localStorage.setItem(AUTH_USER_KEY, JSON.stringify({
+          email,
+          password,
+          registeredAt: new Date().toISOString()
+        }));
+        saveSession(email);
+        showAuthMsg('注册成功。已自动登入。', true);
+      });
+    }
+
+    if(resetBtn && !resetBtn.dataset.authBound){
+      resetBtn.dataset.authBound = '1';
+      resetBtn.addEventListener('click', function(e){
+        e.preventDefault();
+        openAuthFields();
+        const email = normalizeEmail($('email')?.value);
+        if(!email || !email.includes('@')){
+          showAuthMsg('请输入邮箱后再重设密码。', false);
+          return;
+        }
+        localStorage.removeItem(AUTH_USER_KEY);
+        showAuthMsg('已清除本机旧密码记录。请输入新密码后点击注册账户。', true);
+      });
+    }
+
+    const session = readSession();
+    if(session?.email){
+      showAuthMsg('当前已登入：' + session.email, true);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', wireAuth);
+  if(document.readyState === 'interactive' || document.readyState === 'complete'){
+    setTimeout(wireAuth, 0);
+  }
+})();
+</script>
+
 </body>  
 </html>
