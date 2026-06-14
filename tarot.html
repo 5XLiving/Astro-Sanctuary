@@ -645,6 +645,10 @@ footer{
   }
 }
 
+
+.ai-reading-box{border:1px solid rgba(212,175,55,.22);background:rgba(255,255,255,.035)}
+.ai-main-reading{color:#dfe7f3;line-height:1.75;font-size:.96rem}
+.ai-main-reading p{margin:.5rem 0}
 </style>
 </head>
 <body>
@@ -1592,20 +1596,16 @@ footer{
       n === 3 ? ["past", "present", "future"] :
       ["single"];
 
-    const domAdv = (pack.domainAdvice && pack.domainAdvice.general) || withFallback("en-US").domainAdvice.general;
-    const you = pack.ui?.you || "You";
-    const read = pack.ui?.reading || "Reading";
     const qTxt = (question || "").trim() || pack.ui?.no_q || "";
+    const cardsLine = cards.map((card, i) => {
+      return `${posLabel(posKeys[i])}: ${cardName(card)} (${tagFor(card.reversed)})`;
+    }).join(" · ");
 
     const cardList = cards.map((card, i) => {
       const position = posLabel(posKeys[i]);
       const name = cardName(card);
       const tag = tagFor(card.reversed);
       const arch = previewLine(card);
-      const line =
-        card.group === "major"
-          ? (card.reversed ? domAdv.majorRev : domAdv.majorOk)
-          : (domAdv[card.suit] || domAdv.majorOk);
 
       return `
         <div class="reading-card-item">
@@ -1615,20 +1615,15 @@ footer{
           </div>
           <div class="reading-card-name">${escapeHTML(name)}</div>
           <div class="reading-card-meaning">${escapeHTML(arch)}</div>
-          <div class="reading-card-advice">${escapeHTML(line)}</div>
         </div>`;
     }).join("");
 
-    const overall =
-      cards.some(c => c.reversed)
-        ? "This reading shows a mixed signal: move forward, but slow down where the cards ask for clarity."
-        : "This reading shows a cleaner path: keep the question focused and take one concrete next step.";
-
     return `
-      <div class="reading-summary">
-        <div class="summary-pill">${escapeHTML(read)}</div>
+      <div class="reading-summary ai-reading-box" id="mainAiReading">
+        <div class="summary-pill">AI Tarot Reading</div>
         <h3>${escapeHTML(qTxt)}</h3>
-        <p>${escapeHTML(overall)}</p>
+        <p class="muted">正在根据你的问题和抽到的牌生成完整解读…</p>
+        <p class="muted" style="font-size:.9rem">${escapeHTML(cardsLine)}</p>
       </div>
 
       <div class="reading-card-list">
@@ -1639,6 +1634,61 @@ footer{
         ${pack.nextSteps || ""}
       </div>
     `;
+  }
+
+  function formatAiReadingText(text){
+    const safe = escapeHTML(text || "").trim();
+    if(!safe) return "";
+    return safe
+      .replace(/\n{3,}/g,"\n\n")
+      .replace(/\n\n/g,"</p><p>")
+      .replace(/\n/g,"<br>");
+  }
+
+  function buildMainTarotPrompt(question, n, cards){
+    const pack = withFallback(CUR);
+    const qTxt = (question || "").trim() || pack.ui?.no_q || "";
+
+    return [
+      `Give the main Tarot reading now.`,
+      `Question: ${qTxt}`,
+      `Requirements:`,
+      `- Base the answer ONLY on the drawn cards and their spread positions.`,
+      `- Do not give generic preset text.`,
+      `- Combine logic, feeling, likely direction, and prediction style guidance.`,
+      `- Structure the reading with these sections: Overall Message, Card-by-card, Hidden Warning, Likely Direction, Next Action.`,
+      `- For love/soulmate questions, be warm but honest. Do not guarantee fate. Use wording like likely, shows, suggests, needs time, depends on action.`,
+      `- Keep it practical and emotionally clear.`,
+      `- Reply in ${CUR}.`
+    ].join("\n");
+  }
+
+  async function generateMainTarotReading(question, n, cards){
+    const box = $id("mainAiReading");
+    if(!box) return;
+
+    try{
+      const messages = [
+        { role:"system", content: buildTarotSystemPrompt() },
+        { role:"system", content: buildTarotContext({question,n,cards}) },
+        { role:"user", content: buildMainTarotPrompt(question,n,cards) }
+      ];
+
+      const reply = await tarotAiCallWorker(messages);
+      box.innerHTML = `
+        <div class="summary-pill">AI Tarot Reading</div>
+        <h3>${escapeHTML((question || "").trim() || t("ui.no_q",""))}</h3>
+        <div class="ai-main-reading"><p>${formatAiReadingText(reply)}</p></div>
+      `;
+    }catch(err){
+      box.innerHTML = `
+        <div class="summary-pill">Quick Reading</div>
+        <h3>${escapeHTML((question || "").trim() || t("ui.no_q",""))}</h3>
+        <p class="muted">AI 解读暂时连接不到，我先显示牌面基础解读。错误：${escapeHTML(String(err.message||err))}</p>
+      `;
+    }
+
+    ensureTarotAiChatUI();
   }
 
   /* ========== TAROT AI FOLLOW-UP (Worker) ========== */
@@ -1890,6 +1940,9 @@ footer{
 
           // IMPORTANT: init Tarot AI follow-up with this spread
           setTarotAiSession(q, n, picks);
+
+          // Main AI reading: answer the user's actual question using the drawn cards.
+          generateMainTarotReading(q, n, picks);
 
           if (btnLoading) hide(btnLoading);
           if (btnText) show(btnText);
