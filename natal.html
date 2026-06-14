@@ -147,95 +147,172 @@ async function callNatalBackend(payload){
   throw new Error(data.error || data.detail || `Natal backend failed: ${res.status}`);
 }
 
-  function renderNatal(data){
-    const chart = data.chart || {};
-    const input = data.input || {};
+function renderNatal(data){
+  const chart=data.chart||{}, input=data.input||{};
+  const planets=chart.planets||{};
+  const houses=Array.isArray(chart.houses)?chart.houses:[];
+  const sun=chart.sun||planets.sun||{};
+  const moon=chart.moon||planets.moon||{};
+  const asc=chart.ascendant||{};
+  const mc=chart.midheaven||{};
 
-    const sun = chart.sun || {};
-    const moon = chart.moon || {};
-    const asc = chart.ascendant || {};
-    const mc = chart.midheaven || {};
-    const planets = chart.planets || {};
-    const houses = Array.isArray(chart.houses) ? chart.houses : [];
+  const birthdate=input.birthdate||$('birthdate').value;
+  const birthtime=input.birthtime||$('birthtime').value||'12:00';
+  const place=input.place||$('place').value.trim();
+  $('birthSummary').textContent=`${birthdate} ${$('timeUnknown').checked?'Time unknown':birthtime}${place?' @ '+place:''}`;
 
-    const name = input.name || $('name').value.trim();
-    const birthdate = input.birthdate || $('birthdate').value;
-    const birthtime = input.birthtime || $('birthtime').value || '12:00';
-    const place = input.place || $('place').value.trim();
+  const planetOrder=['sun','moon','mercury','venus','mars','jupiter','saturn'];
+  const planetLabel={
+    sun:'Sun 太阳',moon:'Moon 月亮',mercury:'Mercury 水星',venus:'Venus 金星',
+    mars:'Mars 火星',jupiter:'Jupiter 木星',saturn:'Saturn 土星'
+  };
 
-    const summary = `${name ? name + ' · ' : ''}${birthdate} ${$('timeUnknown').checked ? 'Time unknown' : birthtime}${place ? ' @ ' + place : ''}`;
-    $('birthSummary').textContent = summary;
+  $('planetGrid').innerHTML=`
+    <div class="planet"><div class="tit">Sun</div><div class="sign">${esc(formatPoint(sun))}</div></div>
+    <div class="planet"><div class="tit">Moon</div><div class="sign">${esc(formatPoint(moon))}</div></div>
+    <div class="planet"><div class="tit">Ascendant</div><div class="sign">${esc(formatPoint(asc))}</div></div>
+    <div class="planet"><div class="tit">Midheaven</div><div class="sign">${esc(formatPoint(mc))}</div></div>
+  `;
 
-    const sunObj = SIGNS.find(s=>s.key===sun.sign) || getSun(birthdate);
-    const el = sunObj.el;
-    const element = elName(el);
+  const planetRows=planetOrder.map(k=>{
+    const p=planets[k]||{};
+    return `<tr><td>${planetLabel[k]}</td><td>${esc(formatPoint(p))}</td><td>${planetMeaning(k)}</td><td>Calculated</td></tr>`;
+  }).join('');
 
-    $('planetGrid').innerHTML = `
-      <div class="planet"><div class="tit">Sun</div><div class="sign">${esc(formatPoint(sun))}</div></div>
-      <div class="planet"><div class="tit">Moon</div><div class="sign">${esc(formatPoint(moon))}</div></div>
-      <div class="planet"><div class="tit">Ascendant</div><div class="sign">${esc(formatPoint(asc))}</div></div>
-      <div class="planet"><div class="tit">Midheaven</div><div class="sign">${esc(formatPoint(mc))}</div></div>
-    `;
+  const houseRows=houses.map((h,i)=>{
+    return `<tr><td>House ${i+1} 宫位${i+1}</td><td>${esc(formatPoint(h))}</td><td>${houseMeaning(i+1)}</td><td>Calculated</td></tr>`;
+  }).join('');
 
-    $('chartTable').innerHTML = `
-      <tr><td>Sun</td><td>${esc(formatPoint(sun))}</td><td>${lang()==='en'?'Core identity':'核心身份'}</td><td>Calculated</td></tr>
-      <tr><td>Moon</td><td>${esc(formatPoint(moon))}</td><td>${lang()==='en'?'Emotional needs':'情绪需求'}</td><td>Calculated</td></tr>
-      <tr><td>Ascendant</td><td>${esc(formatPoint(asc))}</td><td>${lang()==='en'?'Outer personality':'外在气质'}</td><td>Calculated</td></tr>
-      <tr><td>Midheaven</td><td>${esc(formatPoint(mc))}</td><td>${lang()==='en'?'Career direction':'事业方向'}</td><td>Calculated</td></tr>
-      <tr><td>Houses</td><td>${houses.length ? houses.length + ' houses' : '-'}</td><td>${lang()==='en'?'Life areas':'人生领域'}</td><td>Calculated</td></tr>
-    `;
+  const aspects=calcAspects(planets);
+  const aspectRows=aspects.length?aspects.map(a=>{
+    return `<tr><td>${a.a} ${a.type} ${a.b}</td><td>${a.orb}° orb</td><td>${aspectMeaning(a.type)}</td><td>Calculated</td></tr>`;
+  }).join(''):`<tr><td>Aspects 相位</td><td>-</td><td>暂无主要相位</td><td>Calculated</td></tr>`;
 
-    setBars(el);
-    $('dominantElement').textContent = element;
-    $('modeValue').textContent = sunObj.mode || '-';
-    $('strengthValue').textContent = lang()==='en' ? 'Backend natal engine' : '后端真实排盘';
-    $('balanceTip').textContent = balanceTip(el);
+  $('chartTable').innerHTML=`
+    ${planetRows}
+    <tr><td>Ascendant 上升</td><td>${esc(formatPoint(asc))}</td><td>外在气质 / 身体入口</td><td>Calculated</td></tr>
+    <tr><td>Midheaven 天顶</td><td>${esc(formatPoint(mc))}</td><td>事业方向 / 社会角色</td><td>Calculated</td></tr>
+    ${houseRows}
+    ${aspectRows}
+  `;
 
-    const sunName = localSignName(sun.sign);
-    const moonName = localSignName(moon.sign);
-    const ascName = localSignName(asc.sign);
-    const mcName = localSignName(mc.sign);
+  const sunObj=SIGNS.find(s=>s.key===sun.sign)||getSun(birthdate);
+  const el=sunObj.el;
+  setBars(el);
+  $('dominantElement').textContent=elName(el);
+  $('modeValue').textContent=sunObj.mode||'-';
+  $('strengthValue').textContent='Full natal engine';
+  $('balanceTip').textContent=balanceTip(el);
 
-    $('personalityAnalysis').innerHTML =
-      item('Core Identity · 核心身份', personality(el, sunName)) +
-      item('Moon Pattern · 月亮情绪模式', lang()==='en'
-        ? `Moon in ${moonName} shows your emotional needs, comfort style and inner reaction pattern.`
-        : `月亮在${moonName}，代表你的情绪需求、安全感来源与内在反应模式。`) +
-      item('Ascendant · 上升气质', lang()==='en'
-        ? `Ascendant in ${ascName} describes your first impression and how you enter the world.`
-        : `上升在${ascName}，代表你的外在气质、第一印象和面对世界的方式。`);
+  const s=localSignName(sun.sign), m=localSignName(moon.sign), a=localSignName(asc.sign), mid=localSignName(mc.sign);
+  const h2=houses[1]?localSignName(houses[1].sign):'-';
+  const h7=houses[6]?localSignName(houses[6].sign):'-';
+  const h8=houses[7]?localSignName(houses[7].sign):'-';
+  const h9=houses[8]?localSignName(houses[8].sign):'-';
+  const h10=houses[9]?localSignName(houses[9].sign):mid;
 
-    $('loveAnalysis').innerHTML =
-      item('Relationship Pattern · 关系模式', love(el)) +
-      item('Emotional Need · 情绪需求', lang()==='en'
-        ? `Your Moon sign adds the deeper relationship need: ${moonName} style emotional security.`
-        : `你的月亮星座补充了更深层的关系需求：${moonName}式的安全感。`);
+  $('personalityAnalysis').innerHTML=
+    item('核心人格 · Sun', `太阳在${s}：${personality(el,s)}`)+
+    item('情绪模式 · Moon', `月亮在${m}：你的安全感、情绪反应和亲密需求带有${m}特质。`)+
+    item('外在气质 · Ascendant', `上升在${a}：别人第一眼看到的是${a}式的表达、反应和行动方式。`)+
+    item('水星 · 思考沟通', `水星在${localSignName(planets.mercury?.sign)}：代表你的学习方式、表达方式和判断逻辑。`);
 
-    $('careerAnalysis').innerHTML =
-      item('Career Direction · 事业方向', career(el, sunName)) +
-      item('Midheaven · 天顶方向', lang()==='en'
-        ? `Midheaven in ${mcName} points to public role, ambition and long-term career image.`
-        : `天顶在${mcName}，代表公众形象、事业野心与长期发展方向。`);
+  $('loveAnalysis').innerHTML=
+    item('感情入口 · Venus', `金星在${localSignName(planets.venus?.sign)}：代表喜欢的相处方式、审美、吸引力和爱人的方式。`)+
+    item('情绪需求 · Moon', `月亮在${m}：关系里真正需要的是被理解、被回应，以及符合${m}模式的安全感。`)+
+    item('第七宫 · Partnership', `第七宫在${h7}：长期伴侣关系容易吸引${h7}能量的人或关系模式。`)+
+    item('火星 · 欲望与冲突', `火星在${localSignName(planets.mars?.sign)}：代表主动追求、冲突处理和关系中的行动欲望。`);
 
-    $('wealthAnalysis').innerHTML =
-      item('Wealth Pattern · 财富模式 🔒', wealth(el)) +
-      item('VIP Depth · 深度解读', lang()==='en'
-        ? 'VIP can expand this with houses, Venus/Mars/Jupiter and timing windows.'
-        : 'VIP 可结合宫位、金星、火星、木星与流年窗口做完整财富蓝图。');
+  $('careerAnalysis').innerHTML=
+    item('事业主轴 · MC / 10th House', `天顶在${mid}，第十宫在${h10}：事业要走向公众角色、专业标签与长期社会位置。${career(el,s)}`)+
+    item('第九宫 · Vision / Teaching / Overseas', `第九宫在${h9}：代表高等学习、教学、出版、远方、国际视野和信念系统。`)+
+    item('土星 · Long-term Work', `土星在${localSignName(planets.saturn?.sign)}：事业上的压力点，也是你长期建立权威的位置。`)+
+    item('木星 · Growth', `木星在${localSignName(planets.jupiter?.sign)}：代表机会、扩张、贵人和容易放大的领域。`);
 
-    $('timingAnalysis').innerHTML =
-      item('Current Energy · 当前能量 🔒', lang()==='en'
-        ? 'Natal backend is now connected. Transit timing can be added next.'
-        : '本命后端已经接通。下一步可以继续接流年行运。');
+  $('wealthAnalysis').innerHTML=
+    item('第二宫 · Personal Money', `第二宫在${h2}：代表个人收入、价值感、赚钱方式和稳定现金流。`)+
+    item('第八宫 · Shared Money / Risk', `第八宫在${h8}：代表投资、借贷、合伙资源、风险控制和深层财务课题。`)+
+    item('金星 · Value Creation', `金星在${localSignName(planets.venus?.sign)}：代表你如何创造价值、吸引资源和处理享受型消费。`)+
+    item('木星 · Wealth Expansion', `木星在${localSignName(planets.jupiter?.sign)}：财富扩张来自学习、连接、机会判断和可复制系统。`);
 
-    document.querySelector('[data-tab="chart"]').click();
-  }
+  $('timingAnalysis').innerHTML=
+    item('当前版本', '本命盘已接入真实后端。下一步可接流年 transits、太阳回归、年度事业财富窗口。')+
+    item('Soul Print 延伸', '完整流年会把本命宫位 + 行运星体 + 事业财富窗口结合，形成年度行动建议。');
+
+  document.querySelector('[data-tab="chart"]').click();
+}
 
   function formatPoint(p){
     if(!p || !p.sign) return '-';
     return `${localSignName(p.sign)} ${Number(p.degree || 0).toFixed(2)}°`;
   }
 
+  function planetMeaning(k){
+  return {
+    sun:'核心身份 / 生命主轴',
+    moon:'情绪需求 / 安全感',
+    mercury:'思考沟通 / 学习方式',
+    venus:'感情审美 / 价值创造',
+    mars:'行动欲望 / 冲突方式',
+    jupiter:'机会扩张 / 贵人资源',
+    saturn:'责任压力 / 长期成就'
+  }[k]||'行星能量';
+}
+
+function houseMeaning(n){
+  return {
+    1:'自我 / 外在气质',
+    2:'收入 / 价值感 / 现金流',
+    3:'沟通 / 学习 / 兄弟姐妹',
+    4:'家庭 / 根基 / 内在安全',
+    5:'恋爱 / 创作 / 子女',
+    6:'工作日常 / 健康 / 服务',
+    7:'伴侣 / 合作 / 婚姻',
+    8:'投资 / 合伙财 / 风险 / 转化',
+    9:'高等学习 / 海外 / 信念 / 出版',
+    10:'事业 / 名声 / 社会位置',
+    11:'社群 / 人脉 / 长期愿景',
+    12:'潜意识 / 隐藏课题 / 灵性'
+  }[n]||'人生领域';
+}
+
+function calcAspects(planets){
+  const keys=['sun','moon','mercury','venus','mars','jupiter','saturn'];
+  const defs=[
+    {type:'Conjunction 合相',deg:0,orb:8},
+    {type:'Sextile 六合',deg:60,orb:5},
+    {type:'Square 刑相',deg:90,orb:6},
+    {type:'Trine 三分',deg:120,orb:6},
+    {type:'Opposition 对冲',deg:180,orb:8}
+  ];
+  const out=[];
+  for(let i=0;i<keys.length;i++){
+    for(let j=i+1;j<keys.length;j++){
+      const A=planets[keys[i]], B=planets[keys[j]];
+      if(!A||!B||A.absolute_degree==null||B.absolute_degree==null) continue;
+      let diff=Math.abs(A.absolute_degree-B.absolute_degree);
+      if(diff>180) diff=360-diff;
+      for(const d of defs){
+        const orb=Math.abs(diff-d.deg);
+        if(orb<=d.orb){
+          out.push({a:planetMeaning(keys[i]).split(' / ')[0],b:planetMeaning(keys[j]).split(' / ')[0],type:d.type,orb:orb.toFixed(2)});
+          break;
+        }
+      }
+    }
+  }
+  return out.slice(0,12);
+}
+
+function aspectMeaning(type){
+  if(type.includes('合相')) return '能量集中，主题明显';
+  if(type.includes('六合')) return '机会型相位，容易配合';
+  if(type.includes('刑相')) return '压力型相位，需要行动突破';
+  if(type.includes('三分')) return '顺流型相位，天赋较自然';
+  if(type.includes('对冲')) return '拉扯型相位，需要平衡两端';
+  return '主要相位';
+}
+  
   function localSignName(signKey){
     if(!signKey) return '-';
     const s = SIGNS.find(x=>x.key===signKey);
