@@ -822,37 +822,6 @@ input:focus,select:focus,textarea:focus,.field:focus{border-color:var(--gold2);b
   .num-metric-grid,.num-reading-grid{grid-template-columns:1fr}
 }
 
-/* ===== Current date/time display ===== */
-.current-timing-card{
-  margin-top:14px;
-  display:grid;
-  grid-template-columns:repeat(3,1fr);
-  gap:10px;
-  border:1px solid rgba(212,175,55,.18);
-  background:rgba(255,255,255,.035);
-  border-radius:18px;
-  padding:12px;
-}
-.current-timing-item{
-  border:1px solid rgba(255,255,255,.08);
-  background:rgba(7,10,15,.38);
-  border-radius:15px;
-  padding:11px 12px;
-}
-.current-timing-label{
-  color:var(--muted);
-  font-size:.8rem;
-  margin-bottom:5px;
-}
-.current-timing-value{
-  color:var(--gold2);
-  font-weight:900;
-  line-height:1.35;
-}
-@media(max-width:760px){
-  .current-timing-card{grid-template-columns:1fr}
-}
-
 </style>
 </head>
 <body>
@@ -898,20 +867,6 @@ input:focus,select:focus,textarea:focus,.field:focus{border-color:var(--gold2);b
         </div>
         <div style="display:flex;align-items:flex-end">
           <button class="btn" id="btnGen" data-i18n="btn_gen">生成分析</button>
-        </div>
-      </div>
-      <div class="current-timing-card" aria-live="polite">
-        <div class="current-timing-item">
-          <div class="current-timing-label" data-i18n="dob_selected_label">Selected DOB</div>
-          <div class="current-timing-value" id="selectedDobDisplay">-</div>
-        </div>
-        <div class="current-timing-item">
-          <div class="current-timing-label" data-i18n="current_date_label">Current Date</div>
-          <div class="current-timing-value" id="currentDateDisplay">-</div>
-        </div>
-        <div class="current-timing-item">
-          <div class="current-timing-label" data-i18n="current_time_label">Current Time</div>
-          <div class="current-timing-value" id="currentTimeDisplay">-</div>
         </div>
       </div>
       <div class="error" id="error" style="display:none"></div>
@@ -1146,37 +1101,17 @@ function showErr(msg){const e=gid('error');if(!e)return;e.textContent=msg;e.styl
 function strongPwd(pw){return pw&&pw.length>=8&&/[A-Z]/.test(pw)&&/[a-z]/.test(pw)&&/[0-9]/.test(pw)&&/[^A-Za-z0-9]/.test(pw)}async function safeJson(resp){try{return await resp.json()}catch{return{ok:false,msg:'upstream_error'}}}function showAuthErr(msg){const e=gid('authError');if(!e)return;e.textContent=msg||'';e.style.display='block';setTimeout(()=>{e.style.display='none';e.textContent=''},5000)}
 async function loginFlow(email,password){const res=await safeJson(await fetch(`${API_BASE}/api/login`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}));if(res.ok){localStorage.setItem('vipEmail',res.email||email);location.href='https://5xliving.github.io/Astro-Sanctuary/vip_soul_sanctuary.html';return}showAuthErr(t('err_login_fail')+(res.msg||''))}
 function wireAuth(){gid('loginForm')?.addEventListener('submit',async e=>{e.preventDefault();const email=(gid('email')?.value||'').trim();const password=(gid('password')?.value||'').trim();if(!email||!password)return showAuthErr(t('err_need_ep'));try{await loginFlow(email,password)}catch(err){showAuthErr(t('err_login_fail')+(err?.message||''))}});gid('registerForm')?.addEventListener('submit',async e=>{e.preventDefault();const email=(gid('email')?.value||'').trim();const password=(gid('password')?.value||'').trim();if(!email||!password)return showAuthErr(t('err_need_ep'));if(!strongPwd(password))return showAuthErr(t('err_pwd_rule'));try{const res=await safeJson(await fetch(`${API_BASE}/api/register`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,password})}));if(res.ok){localStorage.setItem('vipEmail',email);location.href='https://5xliving.github.io/Astro-Sanctuary/vip_soul_sanctuary.html';return}showAuthErr(t('err_register_fail')+(res.msg||''))}catch(err){showAuthErr(t('err_register_fail')+(err?.message||''))}});gid('resetBtn')?.addEventListener('click',async()=>{const email=prompt(t('ph_email')||'Email');if(!email)return;const newPassword=prompt(t('ph_password')||'New password');if(!newPassword)return;if(!strongPwd(newPassword))return showAuthErr(t('err_pwd_rule'));try{const res=await safeJson(await fetch(`${API_BASE}/api/reset`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email,newPassword})}));if(!res.ok)return showAuthErr(t('err_reset_fail')+(res.msg||''));alert(t('msg_reset_ok'))}catch(err){showAuthErr(t('err_reset_fail')+(err?.message||''))}})}
-function formatDisplayDate(d){
- const lang=getLang();
- try{return new Intl.DateTimeFormat(lang,{year:'numeric',month:'2-digit',day:'2-digit',weekday:'short'}).format(d)}catch{return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())}`}
-}
-function formatDisplayTime(d){
- const lang=getLang();
- try{return new Intl.DateTimeFormat(lang,{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(d)}catch{return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`}
-}
-function refreshCurrentClock(){
- const now=new Date();
- const cd=gid('currentDateDisplay');
- const ct=gid('currentTimeDisplay');
- if(cd)cd.textContent=formatDisplayDate(now);
- if(ct)ct.textContent=formatDisplayTime(now);
-}
-function refreshDobDisplay(){
- const out=gid('selectedDobDisplay');
+
+function setCurrentDateToBirthdate(){
  const input=gid('birthdate');
- if(!out||!input)return;
- if(!input.value){out.textContent=getLang().startsWith('zh')?'尚未选择':'Not selected';return}
- const [y,m,d]=input.value.split('-').map(Number);
- out.textContent=formatDisplayDate(new Date(y,m-1,d));
+ if(!input)return;
+ const now=new Date();
+ const iso=`${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}`;
+ input.value=iso;
 }
-function initCurrentTimingDisplay(){
- refreshCurrentClock();
- refreshDobDisplay();
- setInterval(refreshCurrentClock,1000);
- gid('birthdate')?.addEventListener('change',refreshDobDisplay);
-}
+
 function initChat(){const fab=gid('ssChatFab'),panel=gid('chatPanel'),close=gid('chatClose'),body=gid('chatBody'),input=gid('chatInput'),send=gid('chatSend');if(!fab||!panel||!close||!body||!input||!send)return;const add=(txt,me=false)=>{const div=document.createElement('div');div.className='ss-msg'+(me?' me':'');div.textContent=txt;body.appendChild(div);body.scrollTop=body.scrollHeight;return div};if(!body.dataset.ready){add(t('chat_welcome'));body.dataset.ready='1'}fab.onclick=()=>{panel.style.display=panel.style.display==='block'?'none':'block';panel.setAttribute('aria-hidden',panel.style.display==='block'?'false':'true')};close.onclick=()=>{panel.style.display='none';panel.setAttribute('aria-hidden','true')};async function ask(){const text=(input.value||'').trim();if(!text)return;input.value='';add(text,true);const ph=add('…');try{const res=await fetch(`${API_BASE}/api/chat`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({lang:getLang(),context:{page:'numerology',lastNumCtx:window.lastNumCtx||null,vipEmail:localStorage.getItem('vipEmail')||''},messages:[{role:'system',content:'You are the Soul Sanctuary numerology concierge. Help with numerology, website navigation and VIP membership. Keep replies warm and concise.'},{role:'user',content:text}]})});const json=await res.json().catch(()=>null);ph.textContent=(json&&(json.reply||json.answer||json.text||json.message||json?.choices?.[0]?.message?.content))||'Service busy. Please try again later.'}catch(e){ph.textContent='Network error. Please try again.'}}send.onclick=ask;input.addEventListener('keydown',e=>{if(e.key==='Enter')ask()})}
-document.addEventListener('DOMContentLoaded',()=>{const sel=gid('langSelect');const cur=getLang();if(sel)sel.value=cur;document.documentElement.lang=cur;applyI18n();initCurrentTimingDisplay();sel?.addEventListener('change',()=>{setLang(sel.value);applyI18n();refreshCurrentClock();refreshDobDisplay();if(window.lastNumCtx){renderProReport(window.lastNumCtx);renderAiBlock(window.lastNumCtx)}});gid('btnGen')?.addEventListener('click',generate);wireAuth();initChat();});
+document.addEventListener('DOMContentLoaded',()=>{const sel=gid('langSelect');const cur=getLang();if(sel)sel.value=cur;document.documentElement.lang=cur;applyI18n();setCurrentDateToBirthdate();sel?.addEventListener('change',()=>{setLang(sel.value);applyI18n();if(window.lastNumCtx){renderProReport(window.lastNumCtx);renderAiBlock(window.lastNumCtx)}});gid('btnGen')?.addEventListener('click',generate);wireAuth();initChat();});
 })();
 </script>
 
