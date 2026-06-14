@@ -79,7 +79,7 @@
 (() => {
   'use strict';
   const API_BASE='https://throbbing-lab-1440.hello5xliving.workers.dev';
-  const NATAL_API_BASE='http://139.180.218.119';
+  const NATAL_API_BASE='https://throbbing-lab-1440.hello5xliving.workers.dev';
   const $=id=>document.getElementById(id);
   const I18N={
     'zh-CN':{crumb:'本命星盘 · Full Chart',heroTitle:'Full Natal Chart',heroLead:'免费查看本命核心：太阳星座、元素结构、性格蓝图、感情模式、事业方向与财富倾向。Soul Blueprint 负责把星盘转成长期人生路线与行动方向。',birthInfo:'出生资料',birthSub:'先生成星盘，再查看各模块。',nameLabel:'姓名（可选）',genderLabel:'性别',confidential:'不透露',male:'男性',female:'女性',systemLabel:'系统',dateLabel:'出生日期',timeLabel:'出生时间',placeLabel:'出生地点',timeUnknown:'出生时间不详',generateBtn:'生成 Full Natal',prototypeNote:'备注：当前已接入后端星历引擎，可计算太阳、月亮、上升、天顶与宫位。相位与流年可后续继续扩展。'},
@@ -129,44 +129,23 @@
     }
   }
 
-  async function callNatalBackend(payload){
-    const endpoints = [];
+async function callNatalBackend(payload){
+  const endpoint = NATAL_API_BASE + '/api/natal/calculate';
 
-    // Same-origin backend. Works when page is served from your VPS/Nginx.
-    endpoints.push('/api/natal/calculate');
+  const res = await fetch(endpoint, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(payload)
+  });
 
-    // Direct VPS fallback for non-HTTPS testing pages.
-    if(location.protocol !== 'https:'){
-      endpoints.push('http://139.180.218.119/api/natal/calculate');
-    }
+  const data = await res.json().catch(()=>({}));
 
-    // Worker route fallback, only works after /api/natal/calculate is added to worker.js.
-    endpoints.push(NATAL_API_BASE + '/api/natal/calculate');
-
-    let lastErr = null;
-
-    for(const endpoint of endpoints){
-      try{
-        const res = await fetch(endpoint,{
-          method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body:JSON.stringify(payload)
-        });
-
-        const data = await res.json().catch(()=>({}));
-
-        if(res.ok && data.ok){
-          return data;
-        }
-
-        lastErr = new Error(data.error || data.detail || `Backend failed: ${endpoint}`);
-      }catch(e){
-        lastErr = e;
-      }
-    }
-
-    throw lastErr || new Error('Natal backend unavailable');
+  if(res.ok && data.ok){
+    return data;
   }
+
+  throw new Error(data.error || data.detail || `Natal backend failed: ${res.status}`);
+}
 
   function renderNatal(data){
     const chart = data.chart || {};
