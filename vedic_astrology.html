@@ -457,27 +457,46 @@ function pick(obj, path, fallback="-"){
   return path.split(".").reduce((a,k)=>a && a[k], obj) ?? fallback;
  }catch(e){return fallback}
 }
+const PLANET_LABELS={
+ zh: {sun:"太阳",moon:"月亮",mars:"火星",mercury:"水星",jupiter:"木星",venus:"金星",saturn:"土星",rahu:"罗睺",ketu:"计都"},
+ en: {sun:"Sun",moon:"Moon",mars:"Mars",mercury:"Mercury",jupiter:"Jupiter",venus:"Venus",saturn:"Saturn",rahu:"Rahu",ketu:"Ketu"}
+};
+const SIGN_LABELS={
+ zh: {Aries:"白羊座",Taurus:"金牛座",Gemini:"双子座",Cancer:"巨蟹座",Leo:"狮子座",Virgo:"处女座",Libra:"天秤座",Scorpio:"天蝎座",Sagittarius:"射手座",Capricorn:"摩羯座",Aquarius:"水瓶座",Pisces:"双鱼座"},
+ en: {Aries:"Aries",Taurus:"Taurus",Gemini:"Gemini",Cancer:"Cancer",Leo:"Leo",Virgo:"Virgo",Libra:"Libra",Scorpio:"Scorpio",Sagittarius:"Sagittarius",Capricorn:"Capricorn",Aquarius:"Aquarius",Pisces:"Pisces"}
+};
+const NAK_LABELS={
+ zh:{Ashwini:"阿湿毗尼",Bharani:"婆罗尼",Krittika:"昴宿",Rohini:"毕宿 / Rohini",Mrigashira:"觜宿",Ardra:"参宿",Punarvasu:"井宿",Pushya:"鬼宿",Ashlesha:"柳宿",Magha:"星宿",PurvaPhalguni:"张宿",UttaraPhalguni:"翼宿",Hasta:"轸宿",Chitra:"角宿",Swati:"亢宿",Vishakha:"氐宿",Anuradha:"房宿",Jyeshtha:"心宿",Mula:"尾宿",PurvaAshadha:"箕宿",UttaraAshadha:"斗宿",Shravana:"女宿",Dhanishta:"虚宿",Shatabhisha:"危宿",PurvaBhadrapada:"室宿",UttaraBhadrapada:"壁宿",Revati:"奎宿"},
+ en:{}
+};
+function isZh(){return lang()==="zh-CN"||lang()==="zh-TW"}
+function planetName(k){return (isZh()?PLANET_LABELS.zh:PLANET_LABELS.en)[k]||k}
+function signName(s){return (isZh()?SIGN_LABELS.zh:SIGN_LABELS.en)[s]||s||"-"}
+function nakName(n){
+ if(!n) return "-";
+ if(!isZh()) return n;
+ const key=String(n).replace(/\s+/g,"");
+ return NAK_LABELS.zh[key] || n;
+}
 function pointText(pt){
  if(!pt) return "-";
- const sign=pt.sign || "-";
+ const sign=signName(pt.sign);
  const deg=(pt.degree!==undefined && pt.degree!==null) ? ` ${pt.degree}°` : "";
- const house=pt.house ? ` · H${pt.house}` : "";
+ const house=pt.house ? ` · 第${pt.house}宫` : "";
  return `${sign}${deg}${house}`;
 }
 function renderD1(chart){
  const names=["sun","moon","mars","mercury","jupiter","venus","saturn","rahu","ketu"];
- const label={sun:"Sun",moon:"Moon",mars:"Mars",mercury:"Mercury",jupiter:"Jupiter",venus:"Venus",saturn:"Saturn",rahu:"Rahu",ketu:"Ketu"};
  return names.map(k=>{
   const x=chart?.[k] || {};
-  return `<div class="house"><strong>${escapeHtml(label[k])}</strong>${escapeHtml(pointText(x))}</div>`;
+  return `<div class="house"><strong>${escapeHtml(planetName(k))}</strong>${escapeHtml(pointText(x))}</div>`;
  }).join("");
 }
 function renderD9(chart){
  const names=["sun","moon","mars","mercury","jupiter","venus","saturn","rahu","ketu"];
- const label={sun:"Sun",moon:"Moon",mars:"Mars",mercury:"Mercury",jupiter:"Jupiter",venus:"Venus",saturn:"Saturn",rahu:"Rahu",ketu:"Ketu"};
  return names.map(k=>{
   const x=chart?.[k] || {};
-  return `<div class="house"><strong>${escapeHtml(label[k])}</strong>${escapeHtml(x.sign || "-")}</div>`;
+  return `<div class="house"><strong>${escapeHtml(planetName(k))}</strong>${escapeHtml(signName(x.sign))}</div>`;
  }).join("");
 }
 function renderVedic(data){
@@ -488,70 +507,99 @@ function renderVedic(data){
  const name=$("name").value.trim();
  const birthdt=$("birthdt").value;
  const birthplace=$("birthplace").value.trim();
+ const zh=isZh();
+
+ const L=zh?{
+  backend_note:"真实 Vedic 报告必须来自后端计算。本页只渲染后端 /api/vedic/calculate 返回的数据，不再生成假盘。",
+  name:"姓名", birth:"出生", place:"出生地", ayanamsa:"岁差校正",
+  lagna:"上升星座（Lagna）", lagna_desc:"拉格纳是吠陀占星的解盘入口，代表人格气质、身体状态与人生展开方式。D1 宫位从这里开始判断。",
+  moon:"月亮星座与宿曜（Nakshatra）", nak:"宿曜", pada:"Pada 宫位段",
+  d1:"本命盘 D1（Rashi）", d1_desc:"D1 负责现实人生结构：事业、关系、财富、家庭、健康与外在事件。",
+  d9:"九分盘 D9（Navamsa）", d9_desc:"D9 用来观察婚姻、灵魂成熟度、内在潜能与行星深层力量。",
+  dasha:"大运系统（Vimshottari Dasha）", lord:"出生月宿主星", balance:"剩余起运时间",
+  dasha_note:"根据月宿自动推算大运起点；完整 Mahadasha / Antardasha 时间线可在下一版后端扩展。",
+  karma:"业力课题（Karma）", saturn:"土星", rahu:"罗睺", ketu:"计都",
+  karma_desc:"Karma 重点看土星、罗睺 / 计都、8宫与12宫。完整宫主分析可在后端继续加入 house lord 逻辑。",
+  full:"完整命盘解读结构", full_desc:"已移除「关注主题」选择。Vedic Full Scope 默认输出完整人生方向；后续 AI 解读可以再根据事业、感情、财富等问题深入展开。",
+  years:"年"
+ }:{
+  backend_note:"Real Vedic report must come from backend calculation. This page only renders data returned by /api/vedic/calculate and no longer generates fake charts.",
+  name:"Name", birth:"Birth", place:"Place", ayanamsa:"Ayanamsa",
+  lagna:"Lagna / Ascendant", lagna_desc:"Lagna is the Vedic chart entry point. It represents personality, body signature and how life unfolds. D1 houses are judged from here.",
+  moon:"Moon Sign / Nakshatra", nak:"Nakshatra", pada:"Pada",
+  d1:"D1 Natal Chart / Rashi", d1_desc:"D1 shows worldly life structure: career, relationships, wealth, family, health and outer events.",
+  d9:"D9 Navamsa", d9_desc:"D9 reflects marriage, inner maturity, soul potential and deeper planetary strength.",
+  dasha:"Vimshottari Dasha", lord:"Birth Nakshatra Lord", balance:"Birth Dasha Balance",
+  dasha_note:"Basic Mahadasha seed calculated from Moon nakshatra. Full Antardasha timeline can be expanded later.",
+  karma:"Karma Indicators", saturn:"Saturn", rahu:"Rahu", ketu:"Ketu",
+  karma_desc:"Karma focuses on Saturn, Rahu / Ketu, 8th house and 12th house. Full house-lord analysis can be added in the next backend version.",
+  full:"Full Scope Reading Structure", full_desc:"Focus topic has been removed. Vedic Full Scope now gives a complete life direction by default; AI reading can later go deeper into career, love, wealth or health.",
+  years:"years"
+ };
 
  const html=`
- <div class="warn">真实 Vedic 报告必须来自后端计算。本页现在只渲染 /api/vedic/calculate 返回的数据；如果后端未接通，不再生成假盘。</div>
+ <div class="warn">${L.backend_note}</div>
  <div class="meta-grid" style="margin-top:14px">
-   <div class="meta"><div class="k">Name</div><div class="v">${escapeHtml(name||input.name||"-")}</div></div>
-   <div class="meta"><div class="k">Birth</div><div class="v">${escapeHtml(birthdt.replace("T"," ")||`${input.birthdate||""} ${input.birthtime||""}`)}</div></div>
-   <div class="meta"><div class="k">Place</div><div class="v">${escapeHtml(birthplace||input.place||"-")}</div></div>
-   <div class="meta"><div class="k">Ayanamsa</div><div class="v">${escapeHtml(input.ayanamsa_system||"Lahiri")} ${input.ayanamsa ? `· ${input.ayanamsa}°` : ""}</div></div>
+   <div class="meta"><div class="k">${L.name}</div><div class="v">${escapeHtml(name||input.name||"-")}</div></div>
+   <div class="meta"><div class="k">${L.birth}</div><div class="v">${escapeHtml(birthdt.replace("T"," ")||`${input.birthdate||""} ${input.birthtime||""}`)}</div></div>
+   <div class="meta"><div class="k">${L.place}</div><div class="v">${escapeHtml(birthplace||input.place||"-")}</div></div>
+   <div class="meta"><div class="k">${L.ayanamsa}</div><div class="v">${escapeHtml(input.ayanamsa_system||"Lahiri")} ${input.ayanamsa ? `· ${input.ayanamsa}°` : ""}</div></div>
  </div>
 
  <div class="result-grid" style="margin-top:14px">
    <div class="result-block">
-    <h3>⬆️ Lagna / Ascendant</h3>
-    <p class="note"><strong>${escapeHtml(pointText(vedic.lagna))}</strong><br>拉格纳是 Vedic 解盘入口，D1 宫位从这里展开。</p>
+    <h3>⬆️ ${L.lagna}</h3>
+    <p class="note"><strong>${escapeHtml(pointText(vedic.lagna))}</strong><br>${L.lagna_desc}</p>
    </div>
    <div class="result-block">
-    <h3>🌙 Moon Sign / Nakshatra</h3>
+    <h3>🌙 ${L.moon}</h3>
     <p class="note"><strong>${escapeHtml(pointText(vedic.moon_sign))}</strong><br>
-    Nakshatra：<strong>${escapeHtml(pick(vedic,"nakshatra.name"))}</strong> · Pada ${escapeHtml(pick(vedic,"nakshatra.pada"))}</p>
+    ${L.nak}：<strong>${escapeHtml(nakName(pick(vedic,"nakshatra.name")))}</strong> · ${L.pada} ${escapeHtml(pick(vedic,"nakshatra.pada"))}</p>
    </div>
  </div>
 
  <div class="result-grid" style="margin-top:14px">
   <div class="result-block">
-    <h3>🪐 D1 Natal Chart / Rashi</h3>
+    <h3>🪐 ${L.d1}</h3>
     <div class="chart-grid">${renderD1(vedic.d1_rashi_chart)}</div>
-    <p class="note">D1 负责现实人生结构：事业、关系、财富、家庭、健康与外在事件。</p>
+    <p class="note">${L.d1_desc}</p>
   </div>
   <div class="result-block">
-    <h3>💎 D9 Navamsa</h3>
+    <h3>💎 ${L.d9}</h3>
     <div class="chart-grid">${renderD9(vedic.d9_navamsa_chart)}</div>
-    <p class="note">D9 用来观察婚姻、灵魂成熟度、内在潜能与行星深层力量。</p>
+    <p class="note">${L.d9_desc}</p>
   </div>
  </div>
 
  <div class="result-grid" style="margin-top:14px">
   <div class="result-block">
-   <h3>⏳ Vimshottari Dasha</h3>
+   <h3>⏳ ${L.dasha}</h3>
    <p class="note">
-    Birth Nakshatra Lord：<strong>${escapeHtml(dasha.birth_nakshatra_lord || "-")}</strong><br>
-    Birth Dasha Balance：<strong>${escapeHtml(dasha.birth_dasha_balance_years ?? "-")} years</strong><br>
-    ${escapeHtml(dasha.note || "Full Mahadasha / Antardasha timeline requires next backend expansion.")}
+    ${L.lord}：<strong>${escapeHtml(planetName(String(dasha.birth_nakshatra_lord||"").toLowerCase()) || dasha.birth_nakshatra_lord || "-")}</strong><br>
+    ${L.balance}：<strong>${escapeHtml(dasha.birth_dasha_balance_years ?? "-")} ${L.years}</strong><br>
+    ${escapeHtml(dasha.note && !zh ? dasha.note : L.dasha_note)}
    </p>
   </div>
   <div class="result-block">
-   <h3>🕉️ Karma Indicators</h3>
+   <h3>🕉️ ${L.karma}</h3>
    <ul class="clean">
-    <li>Saturn：${escapeHtml(pointText(karma.saturn))}</li>
-    <li>Rahu：${escapeHtml(pointText(karma.rahu))}</li>
-    <li>Ketu：${escapeHtml(pointText(karma.ketu))}</li>
+    <li>${L.saturn}：${escapeHtml(pointText(karma.saturn))}</li>
+    <li>${L.rahu}：${escapeHtml(pointText(karma.rahu))}</li>
+    <li>${L.ketu}：${escapeHtml(pointText(karma.ketu))}</li>
    </ul>
-   <p class="note">Karma 重点看 Saturn、Rahu / Ketu、8宫与12宫。完整宫主分析需后端继续加 house lord 逻辑。</p>
+   <p class="note">${L.karma_desc}</p>
   </div>
  </div>
 
  <div class="result-block" style="margin-top:14px">
-  <h3>🎯 Full Scope Reading Structure</h3>
-  <p class="note">已移除「关注主题」选择。Vedic Full Scope 默认输出完整人生方向；后续 AI 解读可以再根据事业、感情、财富等问题深入展开。</p>
+  <h3>🎯 ${L.full}</h3>
+  <p class="note">${L.full_desc}</p>
   <div class="tabs">
-   <button class="btn tab active" type="button">Ascendant</button>
-   <button class="btn tab" type="button">D1</button>
-   <button class="btn tab" type="button">D9</button>
-   <button class="btn tab" type="button">Dasha</button>
-   <button class="btn tab" type="button">Karma</button>
+   <button class="btn tab active" type="button">${zh?"上升":"Ascendant"}</button>
+   <button class="btn tab" type="button">${zh?"本命盘 D1":"D1"}</button>
+   <button class="btn tab" type="button">${zh?"九分盘 D9":"D9"}</button>
+   <button class="btn tab" type="button">${zh?"大运":"Dasha"}</button>
+   <button class="btn tab" type="button">${zh?"业力":"Karma"}</button>
   </div>
  </div>`;
  $("resultText").innerHTML=html;
