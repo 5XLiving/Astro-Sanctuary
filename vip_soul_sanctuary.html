@@ -5341,6 +5341,128 @@ function getZodiacEmoji(signName) {
   return emojiMap[signName] || '⭐';
 }  
 
+
+/* ===== REAL VIP ACCESS CHECK =====
+   Local login can store email only.
+   Premium report generation opens only when backend confirms active app access.
+*/
+const VIP_ACCESS_API_BASE = 'https://throbbing-lab-1440.hello5xliving.workers.dev';
+const VIP_APP_KEY = 'astro';
+
+function getStoredVipIdentity(){
+  let session = null;
+  try { session = JSON.parse(localStorage.getItem('5xliving_vip_session') || 'null'); } catch(e){}
+  return {
+    app_key: VIP_APP_KEY,
+    user_id:
+      localStorage.getItem('5x_user_id') ||
+      localStorage.getItem('user_id') ||
+      localStorage.getItem('uid') ||
+      '',
+    email:
+      localStorage.getItem('5x_user_email') ||
+      localStorage.getItem('user_email') ||
+      session?.email ||
+      '',
+    source: location.pathname
+  };
+}
+
+function getStoredVipToken(){
+  return (
+    localStorage.getItem('5x_access_token') ||
+    localStorage.getItem('access_token') ||
+    localStorage.getItem('auth_token') ||
+    localStorage.getItem('token') ||
+    ''
+  );
+}
+
+async function checkVipAccess(){
+  const payload = getStoredVipIdentity();
+  const token = getStoredVipToken();
+  const headers = {'Content-Type':'application/json'};
+  if(token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${VIP_ACCESS_API_BASE}/api/app/check`, {
+    method:'POST',
+    headers,
+    credentials:'include',
+    body:JSON.stringify(payload)
+  });
+
+  let data = {};
+  try { data = await res.json(); } catch(e) {}
+
+  const allowed = !!(
+    data.allowed === true ||
+    data.active === true ||
+    data.has_access === true ||
+    data.access === true ||
+    data.status === 'active' ||
+    (data.ok === true && data.status === 'active')
+  );
+
+  return {allowed, data, status:res.status};
+}
+
+function renderVipLocked(reason){
+  const msg = reason ? `<div class="vip-access-note">验证结果：${safeText(reason)}</div>` : '';
+  return `
+    <div class="vip-lock-card">
+      <h4>🔒 VIP 专属报告已锁定</h4>
+      <p>此页面现在不会再用本机 localStorage 假登录解锁。系统必须通过服务器验证 <strong>${safeText(VIP_APP_KEY)}</strong> 会员权限后，才会生成完整 VIP 报告。</p>
+      <p>请先登录已开通 VIP 的账号，或升级会员后再生成报告。</p>
+      ${msg}
+      <div class="vip-lock-actions">
+        <a class="btn btn-gold" href="#vip-login">登入 / 验证账号</a>
+        <a class="btn btn-gold" href="https://yourshopifyshop.com/products/monthly-vip" target="_blank" rel="noopener noreferrer">升级 VIP</a>
+      </div>
+    </div>
+  `;
+}
+
+function showVipLocked(reason){
+  const resultSection = $('#result');
+  const resultContent = $('#result-content');
+  if(resultContent) resultContent.innerHTML = renderVipLocked(reason);
+  if(resultSection){
+    resultSection.style.display = 'block';
+    resultSection.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+}
+
+async function requireVipAccessBeforeReport(){
+  const resultSection = $('#result');
+  const resultContent = $('#result-content');
+  if(resultContent){
+    resultContent.innerHTML = `
+      <div class="loading">
+        <div class="loading-spinner"></div>
+        <p>正在验证 VIP 权限...</p>
+        <p style="font-size:.85rem;color:#98a7b7;">请稍候，系统正在向服务器确认会员状态。</p>
+      </div>
+    `;
+  }
+  if(resultSection) resultSection.style.display = 'block';
+
+  try{
+    const access = await checkVipAccess();
+    if(access.allowed) return true;
+    const reason =
+      access.data?.msg ||
+      access.data?.error ||
+      access.data?.status ||
+      `HTTP ${access.status}`;
+    showVipLocked(reason);
+    return false;
+  }catch(err){
+    showVipLocked(err.message || 'access_check_failed');
+    return false;
+  }
+}
+
+
 /* ==============================
    生成分析报告的主函数
 ============================== */
@@ -5358,6 +5480,9 @@ async function onGenerate() {
     showError(err);
     return;
   }
+
+  const vipAllowed = await requireVipAccessBeforeReport();
+  if (!vipAllowed) return;
   
   const me = readBirthInputs('1');
   validateMasterBirthProfile(me);
@@ -7333,7 +7458,7 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
     };
     localStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(data));
     localStorage.setItem('5x_user_email', email);
-    localStorage.setItem('5x_vip_logged_in', 'true');
+    localStorage.setItem('5x_vip_logged_in', 'pending_server_verify');
     document.body.classList.add('vip-logged-in');
     return data;
   }
@@ -7395,7 +7520,7 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
         }
 
         saveSession(email);
-        showAuthMsg('登入成功。VIP 功能已开启。', true);
+        showAuthMsg('登入成功。生成 VIP 报告时仍会向服务器验证权限。', true);
       });
     }
 
@@ -7420,7 +7545,7 @@ if (document.readyState === 'interactive' || document.readyState === 'complete')
           registeredAt: new Date().toISOString()
         }));
         saveSession(email);
-        showAuthMsg('注册成功。已自动登入。', true);
+        showAuthMsg('注册成功。生成 VIP 报告时仍会向服务器验证权限。', true);
       });
     }
 
@@ -8511,6 +8636,44 @@ textarea{
   box-shadow:0 10px 28px rgba(0,0,0,.32)!important;
 }
 .ss-chat-fab::before{color:var(--btn-text)!important;}
+
+/* ===== VIP Access Lock ===== */
+.vip-lock-card{
+  border:1px solid rgba(242,210,122,.36)!important;
+  background:linear-gradient(135deg,rgba(14,21,32,.96),rgba(8,12,19,.96))!important;
+  border-radius:16px;
+  padding:20px;
+  margin:12px 0;
+  box-shadow:0 18px 50px rgba(0,0,0,.42), inset 0 1px 0 rgba(242,210,122,.08);
+}
+.vip-lock-card h4{
+  color:#f2d27a;
+  margin:0 0 10px;
+  font-family:"Noto Serif SC",serif;
+  font-size:1.18rem;
+}
+.vip-lock-card p{
+  color:#c4d1df;
+  line-height:1.7;
+  margin:8px 0;
+}
+.vip-lock-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:14px;
+}
+.vip-lock-actions .btn{
+  width:auto!important;
+  min-width:160px;
+  border-radius:999px;
+}
+.vip-access-note{
+  color:#98a7b7;
+  font-size:.88rem;
+  margin-top:10px;
+}
+
 </style>
 
 </body>  
