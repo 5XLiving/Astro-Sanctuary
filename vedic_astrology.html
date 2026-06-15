@@ -283,20 +283,10 @@ footer{color:#6c7b8c;font-size:.85rem;text-align:center;padding:30px 0}
         <input id="birthplace" type="text" placeholder="Singapore / Kuala Lumpur / Tokyo">
       </div>
     </div>
-    <div class="row cols-3" style="margin-top:12px">
+    <div class="row cols-2" style="margin-top:12px">
       <div>
         <label data-i18n="birth_dt_label">出生日期与时间</label>
         <input id="birthdt" type="datetime-local">
-      </div>
-      <div>
-        <label data-i18n="topic_label">关注主题</label>
-        <select id="topic">
-          <option value="overall" data-i18n="topic_overall">综合人生方向</option>
-          <option value="career" data-i18n="topic_career">事业 / 工作</option>
-          <option value="love" data-i18n="topic_love">爱情 / 关系</option>
-          <option value="wealth" data-i18n="topic_wealth">财富 / 投资</option>
-          <option value="health" data-i18n="topic_health">健康 / 身心</option>
-        </select>
       </div>
       <div style="display:flex;align-items:end">
         <button class="btn" id="go" data-i18n="btn_gen">生成完整分析</button>
@@ -458,76 +448,104 @@ function setNow(){
  const bd=$("birthdt");
  if(bd && !bd.value) bd.value=`${n.getFullYear()}-${pad(n.getMonth()+1)}-${pad(n.getDate())}T${pad(n.getHours())}:${pad(n.getMinutes())}`;
 }
-function hash(s){let h=0;for(let i=0;i<s.length;i++){h=(h*31+s.charCodeAt(i))|0}return Math.abs(h)}
-const signs=["Aries","Taurus","Gemini","Cancer","Leo","Virgo","Libra","Scorpio","Sagittarius","Capricorn","Aquarius","Pisces"];
-const planets=["Sun","Moon","Mars","Mercury","Jupiter","Venus","Saturn","Rahu","Ketu"];
-const dashas=["Ketu","Venus","Sun","Moon","Mars","Rahu","Jupiter","Saturn","Mercury"];
-function createReading(){
+
+function escapeHtml(v){
+ return String(v ?? "").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[m]));
+}
+function pick(obj, path, fallback="-"){
+ try{
+  return path.split(".").reduce((a,k)=>a && a[k], obj) ?? fallback;
+ }catch(e){return fallback}
+}
+function pointText(pt){
+ if(!pt) return "-";
+ const sign=pt.sign || "-";
+ const deg=(pt.degree!==undefined && pt.degree!==null) ? ` ${pt.degree}°` : "";
+ const house=pt.house ? ` · H${pt.house}` : "";
+ return `${sign}${deg}${house}`;
+}
+function renderD1(chart){
+ const names=["sun","moon","mars","mercury","jupiter","venus","saturn","rahu","ketu"];
+ const label={sun:"Sun",moon:"Moon",mars:"Mars",mercury:"Mercury",jupiter:"Jupiter",venus:"Venus",saturn:"Saturn",rahu:"Rahu",ketu:"Ketu"};
+ return names.map(k=>{
+  const x=chart?.[k] || {};
+  return `<div class="house"><strong>${escapeHtml(label[k])}</strong>${escapeHtml(pointText(x))}</div>`;
+ }).join("");
+}
+function renderD9(chart){
+ const names=["sun","moon","mars","mercury","jupiter","venus","saturn","rahu","ketu"];
+ const label={sun:"Sun",moon:"Moon",mars:"Mars",mercury:"Mercury",jupiter:"Jupiter",venus:"Venus",saturn:"Saturn",rahu:"Rahu",ketu:"Ketu"};
+ return names.map(k=>{
+  const x=chart?.[k] || {};
+  return `<div class="house"><strong>${escapeHtml(label[k])}</strong>${escapeHtml(x.sign || "-")}</div>`;
+ }).join("");
+}
+function renderVedic(data){
+ const input=data.input || {};
+ const vedic=data.vedic || {};
+ const dasha=vedic.dasha || {};
+ const karma=vedic.karma_indicators || {};
  const name=$("name").value.trim();
  const birthdt=$("birthdt").value;
  const birthplace=$("birthplace").value.trim();
- const topic=$("topic").value;
- if(!birthdt||!birthplace){alert(t("need_birth"));return}
- const seed=hash(birthdt+"|"+birthplace+"|"+$("gender").value);
- const asc=signs[seed%12];
- const moonNak=["Ashwini","Bharani","Krittika","Rohini","Mrigashira","Ardra","Punarvasu","Pushya","Magha","Hasta","Swati","Anuradha","Mula","Shravana","Revati"][seed%15];
- const mainDasha=dashas[seed%dashas.length];
- const subDasha=dashas[(seed+3)%dashas.length];
- const d1=planets.map((p,i)=>({p,sign:signs[(seed+i*5)%12],house:(seed+i*7)%12+1}));
- const d9=planets.map((p,i)=>({p,sign:signs[(seed+i*8+3)%12],house:(seed+i*4+2)%12+1}));
- const dashaItems=dashas.slice(0,5).map((d,i)=>({d, pct:20+((seed+i*13)%70)}));
- const focus={
-  overall:"整体重点在命盘主轴、关系成熟度、职业方向与业力课题的整合。先看 Ascendant 与 D1 确认人生入口，再用 D9 与 Dasha 判断长期方向。",
-  career:"事业重点看第10宫、第6宫、第11宫，以及太阳、土星、火星与当前 Dasha。适合把职业路线拆成短期执行与长期定位。",
-  love:"关系重点看第7宫、金星、木星与 D9 Navamsa。D9 比 D1 更适合观察婚姻质量、长期承诺与内在匹配。",
-  wealth:"财富重点看第2宫、第11宫、第5宫、第9宫，以及木星、水星、金星与 Dasha 时机。避免只看单一财富宫。",
-  health:"健康重点看 Ascendant、第6宫、第8宫、第12宫，以及月亮、土星与火星。报告只提供身心趋势，不代替医疗意见。"
- }[topic] || "";
+
  const html=`
- <div class="warn">说明：此页面已升级为完整 Vedic Scope 前端报告结构。若要精准行星度数、宫位、D9 与 Vimshottari Dasha，需要接真实占星后端计算。</div>
+ <div class="warn">真实 Vedic 报告必须来自后端计算。本页现在只渲染 /api/vedic/calculate 返回的数据；如果后端未接通，不再生成假盘。</div>
  <div class="meta-grid" style="margin-top:14px">
-   <div class="meta"><div class="k">Name</div><div class="v">${name||"-"}</div></div>
-   <div class="meta"><div class="k">Birth</div><div class="v">${birthdt.replace("T"," ")}</div></div>
-   <div class="meta"><div class="k">Place</div><div class="v">${birthplace}</div></div>
-   <div class="meta"><div class="k">Focus</div><div class="v">${topic}</div></div>
+   <div class="meta"><div class="k">Name</div><div class="v">${escapeHtml(name||input.name||"-")}</div></div>
+   <div class="meta"><div class="k">Birth</div><div class="v">${escapeHtml(birthdt.replace("T"," ")||`${input.birthdate||""} ${input.birthtime||""}`)}</div></div>
+   <div class="meta"><div class="k">Place</div><div class="v">${escapeHtml(birthplace||input.place||"-")}</div></div>
+   <div class="meta"><div class="k">Ayanamsa</div><div class="v">${escapeHtml(input.ayanamsa_system||"Lahiri")} ${input.ayanamsa ? `· ${input.ayanamsa}°` : ""}</div></div>
  </div>
+
  <div class="result-grid" style="margin-top:14px">
    <div class="result-block">
     <h3>⬆️ Lagna / Ascendant</h3>
-    <p class="note"><strong>${asc}</strong> Ascendant. 拉格纳代表人格入口、身体气质、做事方式与人生起点。所有 D1 宫位都从这里开始判断。</p>
+    <p class="note"><strong>${escapeHtml(pointText(vedic.lagna))}</strong><br>拉格纳是 Vedic 解盘入口，D1 宫位从这里展开。</p>
    </div>
    <div class="result-block">
-    <h3>🌙 Moon Nakshatra</h3>
-    <p class="note"><strong>${moonNak}</strong>. 月宿用于情绪模式、潜意识需求，也会影响 Dasha 起点。</p>
+    <h3>🌙 Moon Sign / Nakshatra</h3>
+    <p class="note"><strong>${escapeHtml(pointText(vedic.moon_sign))}</strong><br>
+    Nakshatra：<strong>${escapeHtml(pick(vedic,"nakshatra.name"))}</strong> · Pada ${escapeHtml(pick(vedic,"nakshatra.pada"))}</p>
    </div>
  </div>
+
  <div class="result-grid" style="margin-top:14px">
   <div class="result-block">
     <h3>🪐 D1 Natal Chart / Rashi</h3>
-    <div class="chart-grid">${d1.map(x=>`<div class="house"><strong>H${x.house}</strong>${x.p}<br>${x.sign}</div>`).join("")}</div>
+    <div class="chart-grid">${renderD1(vedic.d1_rashi_chart)}</div>
     <p class="note">D1 负责现实人生结构：事业、关系、财富、家庭、健康与外在事件。</p>
   </div>
   <div class="result-block">
     <h3>💎 D9 Navamsa</h3>
-    <div class="chart-grid">${d9.map(x=>`<div class="house"><strong>H${x.house}</strong>${x.p}<br>${x.sign}</div>`).join("")}</div>
+    <div class="chart-grid">${renderD9(vedic.d9_navamsa_chart)}</div>
     <p class="note">D9 用来观察婚姻、灵魂成熟度、内在潜能与行星深层力量。</p>
   </div>
  </div>
+
  <div class="result-grid" style="margin-top:14px">
   <div class="result-block">
-   <h3>⏳ Dasha 大运系统</h3>
-   <p class="note">当前主线：<strong>${mainDasha} Mahadasha</strong>，副线：<strong>${subDasha} Antardasha</strong>。</p>
-   <div class="dasha-line">${dashaItems.map(x=>`<div class="dasha-item"><strong>${x.d}</strong><div class="bar"><span style="width:${x.pct}%"></span></div></div>`).join("")}</div>
+   <h3>⏳ Vimshottari Dasha</h3>
+   <p class="note">
+    Birth Nakshatra Lord：<strong>${escapeHtml(dasha.birth_nakshatra_lord || "-")}</strong><br>
+    Birth Dasha Balance：<strong>${escapeHtml(dasha.birth_dasha_balance_years ?? "-")} years</strong><br>
+    ${escapeHtml(dasha.note || "Full Mahadasha / Antardasha timeline requires next backend expansion.")}
+   </p>
   </div>
   <div class="result-block">
-   <h3>🕉️ Karma 理论</h3>
-   <p class="note">重点看 Rahu / Ketu 轴线、土星课题、第8宫与第12宫。Rahu 指向今生欲望与突破，Ketu 指向过去熟悉但需要松开的模式。</p>
-   <ul class="clean"><li>Rahu：今生要学习的新方向</li><li>Ketu：过去习惯与灵性记忆</li><li>Saturn：现实责任、延迟与功课</li></ul>
+   <h3>🕉️ Karma Indicators</h3>
+   <ul class="clean">
+    <li>Saturn：${escapeHtml(pointText(karma.saturn))}</li>
+    <li>Rahu：${escapeHtml(pointText(karma.rahu))}</li>
+    <li>Ketu：${escapeHtml(pointText(karma.ketu))}</li>
+   </ul>
+   <p class="note">Karma 重点看 Saturn、Rahu / Ketu、8宫与12宫。完整宫主分析需后端继续加 house lord 逻辑。</p>
   </div>
  </div>
+
  <div class="result-block" style="margin-top:14px">
-  <h3>🎯 Focus Reading</h3>
-  <p class="note">${focus}</p>
+  <h3>🎯 Full Scope Reading Structure</h3>
+  <p class="note">已移除「关注主题」选择。Vedic Full Scope 默认输出完整人生方向；后续 AI 解读可以再根据事业、感情、财富等问题深入展开。</p>
   <div class="tabs">
    <button class="btn tab active" type="button">Ascendant</button>
    <button class="btn tab" type="button">D1</button>
@@ -539,6 +557,46 @@ function createReading(){
  $("resultText").innerHTML=html;
  $("resultCard").style.display="block";
  $("resultCard").scrollIntoView({behavior:"smooth",block:"start"});
+}
+async function createReading(){
+ const birthdt=$("birthdt").value;
+ const birthplace=$("birthplace").value.trim();
+ if(!birthdt||!birthplace){alert(t("need_birth"));return}
+ const [birthdate,birthtimeRaw]=birthdt.split("T");
+ const birthtime=(birthtimeRaw||"12:00").slice(0,5);
+ const btn=$("go");
+ const old=btn.textContent;
+ btn.disabled=true;
+ btn.textContent="Calculating...";
+ try{
+  const r=await fetch("/api/vedic/calculate",{
+   method:"POST",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({
+    name:$("name").value.trim(),
+    gender:$("gender").value,
+    birthdate,
+    birthtime,
+    place:birthplace
+   })
+  });
+  const data=await r.json();
+  if(!r.ok || !data.ok) throw new Error(data.error || "Vedic backend failed");
+  renderVedic(data);
+ }catch(err){
+  $("resultText").innerHTML=`
+   <div class="warn">
+    Vedic backend not connected yet.<br><br>
+    This page now refuses to generate fake Vedic chart data. Please connect FastAPI route:
+    <strong>/api/vedic/calculate</strong>.
+    <br><br>Error: ${escapeHtml(err.message)}
+   </div>`;
+  $("resultCard").style.display="block";
+  $("resultCard").scrollIntoView({behavior:"smooth",block:"start"});
+ }finally{
+  btn.disabled=false;
+  btn.textContent=old;
+ }
 }
 function initChat(){
  const fab=$("ssChatFab"), panel=$("chatPanel"), close=$("chatClose"), body=$("chatBody"), input=$("chatInput"), send=$("chatSend");
