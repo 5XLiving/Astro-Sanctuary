@@ -369,6 +369,44 @@ input::placeholder{color:#6f8092;}
   margin-left:10px;
 }
 
+/* 分析类型 Tabs：放在「您的九星命盘分析」内切换 */
+.analysis-tabs{
+  display:flex;
+  flex-wrap:wrap;
+  gap:8px;
+  margin:2px 0 16px;
+  padding:10px;
+  border:1px solid rgba(212,175,55,.18);
+  border-radius:16px;
+  background:rgba(255,255,255,.035);
+}
+.analysis-tab{
+  flex:1 1 160px;
+  min-height:42px;
+  padding:9px 12px;
+  border-radius:999px;
+  border:1px solid rgba(212,175,55,.28);
+  background:rgba(7,10,15,.55);
+  color:var(--gold2);
+  font-weight:800;
+  cursor:pointer;
+  transition:.16s ease;
+}
+.analysis-tab:hover{
+  transform:translateY(-1px);
+  border-color:rgba(212,175,55,.75);
+  background:rgba(212,175,55,.08);
+}
+.analysis-tab.active{
+  background:linear-gradient(180deg,#fff8de,#d9b544);
+  color:#151515;
+  border-color:rgba(212,175,55,.75);
+  box-shadow:0 10px 24px rgba(212,175,55,.18);
+}
+@media(max-width:520px){
+  .analysis-tab{flex:1 1 100%;}
+}
+
 /* ===== Butler 报告区 ===== */
 .report{
   margin-top:12px;
@@ -963,7 +1001,7 @@ input:focus,select:focus,textarea:focus,.field:focus{
   <!-- 专业分析表单 -->
   <div class="card">
     <div class="h2" data-i18n="form_title">九星气学 · 专业命理分析</div>
-    <div class="row cols-3">
+    <div class="row cols-2">
       <div>
         <label class="muted" data-i18n="birth_label">出生日期</label>
         <input type="date" id="birthdate">
@@ -973,15 +1011,6 @@ input:focus,select:focus,textarea:focus,.field:focus{
         <select id="gender">
           <option value="male" data-i18n="gender_male">男性</option>
           <option value="female" data-i18n="gender_female">女性</option>
-        </select>
-      </div>
-      <div>
-        <label class="muted" data-i18n="analysis_type">分析类型</label>
-        <select id="analysisType">
-          <option value="comprehensive" data-i18n="analysis_type_comprehensive">综合命理分析</option>
-          <option value="career" data-i18n="analysis_type_career">事业财运专项</option>
-          <option value="relationship" data-i18n="analysis_type_relationship">感情婚姻专项</option>
-          <option value="health" data-i18n="analysis_type_health">健康运势专项</option>
         </select>
       </div>
     </div>
@@ -997,6 +1026,14 @@ input:focus,select:focus,textarea:focus,.field:focus{
       <span data-i18n="sec_star">您的九星命盘分析</span>
       <span class="analysis-type-indicator" id="analysisTypeIndicator"></span>
     </div>
+
+    <div class="analysis-tabs" id="analysisTabs" role="tablist" aria-label="Analysis type">
+      <button type="button" class="analysis-tab active" data-analysis-type="comprehensive" data-i18n="analysis_type_comprehensive">综合命理分析</button>
+      <button type="button" class="analysis-tab" data-analysis-type="career" data-i18n="analysis_type_career">事业财运专项</button>
+      <button type="button" class="analysis-tab" data-analysis-type="relationship" data-i18n="analysis_type_relationship">感情婚姻专项</button>
+      <button type="button" class="analysis-tab" data-analysis-type="health" data-i18n="analysis_type_health">健康运势专项</button>
+    </div>
+
     <div class="row cols-2">
       <div>
         <h3 style="color:var(--gold2); margin-bottom:12px;" data-i18n="sec_star_main">本命主星</h3>
@@ -1233,6 +1270,49 @@ const setLang = v => {
   localStorage.setItem(LANG_KEY, v);
   document.documentElement.lang = v;
 };
+
+let currentAnalysisType = 'comprehensive';
+
+function getAnalysisTypeLabel(type){
+  const typeKeyMap = {
+    comprehensive:'analysis_type_comprehensive',
+    career:'analysis_type_career',
+    relationship:'analysis_type_relationship',
+    health:'analysis_type_health'
+  };
+  return t(typeKeyMap[type] || 'analysis_type_comprehensive') || '';
+}
+
+function setActiveAnalysisTab(type){
+  currentAnalysisType = type || 'comprehensive';
+  document.querySelectorAll('.analysis-tab').forEach(btn => {
+    const active = btn.dataset.analysisType === currentAnalysisType;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+}
+
+function bindAnalysisTabs(){
+  document.querySelectorAll('.analysis-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.analysisType || 'comprehensive';
+      setActiveAnalysisTab(type);
+
+      const ctx = window._lastKyuuseiCtx;
+      if (!ctx) return;
+
+      ctx.analysisType = type;
+      ctx.analysisTypeLabel = getAnalysisTypeLabel(type);
+      window._lastKyuuseiCtx = ctx;
+
+      const deep = STARS_DEEP[ctx.starNum];
+      const deepLang = getStarText(ctx.starNum);
+      renderStarSection(ctx, deep, deepLang);
+      renderSpecializedSection(ctx, deepLang);
+      updateAiReport(ctx);
+    });
+  });
+}
 
 /* ===== i18n 词库 ===== */
 const i18n = {
@@ -4274,8 +4354,6 @@ async function updateAiReport(ctx){
 function buildKyuuseiReport(){
   const birthInput  = $('birthdate');
   const genderInput = $('gender');
-  const typeSelect  = $('analysisType');
-
   if (!birthInput){
     console.warn('[kyuusei] #birthdate not found');
     return;
@@ -4294,15 +4372,9 @@ function buildKyuuseiReport(){
     return;
   }
 
-  // 分析类型
-  const analysisType = (typeSelect && typeSelect.value) || 'comprehensive';
-  const typeKeyMap = {
-    comprehensive:'analysis_type_comprehensive',
-    career:'analysis_type_career',
-    relationship:'analysis_type_relationship',
-    health:'analysis_type_health'
-  };
-  const analysisTypeLabel = t(typeKeyMap[analysisType] || 'analysis_type_comprehensive') || '';
+  // 分析类型：改为「您的九星命盘分析」内的 Tabs 控制
+  const analysisType = currentAnalysisType || 'comprehensive';
+  const analysisTypeLabel = getAnalysisTypeLabel(analysisType);
 
   // 主星与深度资料
   const deep     = STARS_DEEP ? STARS_DEEP[starNum] : null;
@@ -4366,13 +4438,8 @@ function rerenderFromCtx(){
   const deepLang = getStarText(ctx.starNum);
 
   // 更新分析类型标签（跟随语言）
-  const typeKeyMap = {
-    comprehensive:'analysis_type_comprehensive',
-    career:'analysis_type_career',
-    relationship:'analysis_type_relationship',
-    health:'analysis_type_health'
-  };
-  ctx.analysisTypeLabel = t(typeKeyMap[ctx.analysisType] || 'analysis_type_comprehensive');
+  setActiveAnalysisTab(ctx.analysisType || currentAnalysisType || 'comprehensive');
+  ctx.analysisTypeLabel = getAnalysisTypeLabel(ctx.analysisType || currentAnalysisType || 'comprehensive');
 
   // 更新星星数据中的多语言部分
   const starMeta = STARS[ctx.starNum];
@@ -4430,6 +4497,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 初始化
   renderChips();
+  bindAnalysisTabs();
+  setActiveAnalysisTab(currentAnalysisType);
   applyI18n();  // This will set the select value correctly
   updateNowInfo();
 
