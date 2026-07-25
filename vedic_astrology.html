@@ -505,6 +505,20 @@ function renderVedic(data){
  const birthplace=$("birthplace").value.trim();
  const zh=isZh();
 
+ // If vedic data is missing, attempt a backend calculation via /api/vedic/calculate
+ if((!vedic || Object.keys(vedic).length === 0) && input){
+  try{
+   fetch('/api/vedic/calculate', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json'},
+    body: JSON.stringify(input)
+   })
+   .then(res => res.ok ? res.json() : Promise.reject(res.status))
+   .then(resData => renderVedic({input: input, vedic: resData}))
+   .catch(err => { console.warn('Vedic backend fetch failed', err); });
+  }catch(e){ console.warn('Vedic backend fetch error', e); }
+ }
+
  const L=zh?{
   backend_note:"真实 Vedic 报告必须来自后端计算。本页只渲染后端 /api/vedic/calculate 返回的数据，不再生成假盘。",
   name:"姓名", birth:"出生", place:"出生地", ayanamsa:"岁差校正",
@@ -591,6 +605,7 @@ function renderVedic(data){
  $("resultCard").style.display="block";
  $("resultCard").scrollIntoView({behavior:"smooth",block:"start"});
 }
+
 async function createReading(){
  const birthdt=$("birthdt").value;
  const birthplace=$("birthplace").value.trim();
