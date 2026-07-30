@@ -828,34 +828,457 @@ footer{
       </div>
     </aside>
 
-    <section class="card result-card">
-      <div class="card-head">
-        <div class="card-title">Tarot Spread · Card Board</div>
-        <div class="card-sub">抽牌后会显示牌阵、每张牌位置、核心含义与行动建议。</div>
+    <section class="card result-card tarot-result-outer">
+  <div class="tarot-result-header">
+    <div class="tarot-result-qinfo">
+      <div class="tarot-result-q" id="tarotResultQ">—</div>
+      <div class="tarot-result-spread" id="tarotResultSpread">—</div>
+    </div>
+    <div class="tarot-result-summary" id="tarotResultSummary"></div>
+  </div>
+  <div class="tarot-result-main">
+    <div class="tarot-board-shell">
+      <div id="tarotBoard" class="tarot-board">
+        <div class="board-empty">Draw your cards to reveal the spread.</div>
       </div>
-      <div class="card-body result-shell">
-        <div class="board-wrap">
-          <div id="board" class="board">
-            <div class="board-empty">Draw your cards to reveal the spread.</div>
-          </div>
-        </div>
-
-        <div id="reading" class="panel" style="display:none">
-          <h3 data-i18n="reading_title">解读与建议</h3>
-          <div id="readingText"></div>
-          <div id="mainAiReading" class="panel ai-reading-box" style="display:none;margin-top:12px">
+    </div>
+    <div class="tarot-interpret-shell">
+      <div class="tarot-interpret-panel" id="tarotInterpretPanel">
+        <div class="tarot-interpret-cardinfo" id="tarotInterpretCardInfo">—</div>
+        <div class="tarot-interpret-meaning" id="tarotInterpretMeaning">—</div>
+      </div>
+      <div id="reading" class="panel tarot-main-reading" style="display:none">
+        <h3 data-i18n="reading_title">解读与建议</h3>
+        <div id="readingText"></div>
+        <div id="mainAiReading" class="panel ai-reading-box" style="display:none;margin-top:12px">
           <h3>AI Tarot Reading</h3>
-              <div class="ai-main-reading">Waiting for AI reading...</div>
-          </div>
-          <div class="panel muted" style="margin-top:12px" data-i18n="disclaimer">
-            说明：塔罗为指引工具，非医学/法律/金融建议，请以理性判断与自我意愿为先。
-          </div>
-          <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;">
-            <button class="btn ghost" id="shareReading">分享</button>
-          </div>
+          <div class="ai-main-reading">Waiting for AI reading...</div>
+        </div>
+        <div class="panel muted" style="margin-top:12px" data-i18n="disclaimer">
+          说明：塔罗为指引工具，非医学/法律/金融建议，请以理性判断与自我意愿为先。
+        </div>
+        <div style="margin-top:12px;display:flex;gap:8px;justify-content:flex-end;">
+          <button class="btn ghost" id="shareReading">分享</button>
         </div>
       </div>
-    </section>
+    </div>
+  </div>
+</section>
+<style>
+/* Tarot Result Redesign */
+.tarot-result-outer {
+  padding: 0;
+  background: var(--panel-solid);
+  border: 1.5px solid var(--gold2);
+  box-shadow: 0 6px 32px rgba(212,175,55,.12);
+  border-radius: 26px;
+  margin-bottom: 32px;
+  overflow: visible;
+}
+.tarot-result-header {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 24px 28px 10px 28px;
+  border-bottom: 1px solid var(--line2);
+  background: linear-gradient(90deg,rgba(212,175,55,.07),rgba(255,255,255,.01));
+}
+.tarot-result-qinfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tarot-result-q {
+  font-size: 1.13rem;
+  font-weight: 900;
+  color: var(--gold2);
+  letter-spacing: .01em;
+  margin-bottom: 2px;
+}
+.tarot-result-spread {
+  font-size: .98rem;
+  color: var(--muted);
+}
+.tarot-result-summary {
+  color: #e6e7f2;
+  font-size: 1.01rem;
+  font-weight: 700;
+  text-align: right;
+  max-width: 44vw;
+  line-height: 1.5;
+}
+.tarot-result-main {
+  display: flex;
+  flex-direction: row;
+  gap: 34px;
+  padding: 24px 28px 28px 28px;
+}
+.tarot-board-shell {
+  flex: 1.55;
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+.tarot-board {
+  display: grid;
+  gap: 18px;
+  justify-content: center;
+  align-content: start;
+  min-height: 340px;
+  min-width: 340px;
+  background: none;
+}
+.tarot-board .tarot-card {
+  position: relative;
+  background: rgba(255,255,255,.055);
+  border: 2px solid var(--line2);
+  border-radius: 18px;
+  box-shadow: 0 10px 36px rgba(0,0,0,.32);
+  overflow: visible;
+  cursor: pointer;
+  transition: border-color .18s, box-shadow .18s, transform .13s;
+  width: 154px;
+  height: 256px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 10px;
+}
+.tarot-card.selected {
+  border-color: var(--gold2);
+  box-shadow: 0 0 0 3px var(--gold2), 0 10px 36px rgba(0,0,0,.32);
+  z-index: 2;
+  transform: scale(1.045);
+}
+.tarot-card .tarot-card-imgwrap {
+  width: 140px;
+  height: 220px;
+  border-radius: 13px;
+  overflow: hidden;
+  background: #000;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--gold2);
+  margin-top: 10px;
+  margin-bottom: 6px;
+  box-shadow: 0 4px 16px rgba(212,175,55,.15);
+}
+.tarot-card .tarot-card-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #181818;
+}
+.tarot-card .tarot-card-img-fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 1.2rem;
+  background: #181818;
+  border-radius: 13px;
+}
+.tarot-card .tarot-card-pos {
+  font-size: .93rem;
+  color: var(--muted);
+  margin-bottom: 2px;
+  margin-top: 2px;
+  font-weight: 700;
+}
+.tarot-card .tarot-card-name {
+  font-size: 1.02rem;
+  color: var(--gold2);
+  font-weight: 900;
+  margin-bottom: 1px;
+  text-align: center;
+}
+.tarot-card .tarot-card-orient {
+  font-size: .88rem;
+  color: #e8c76b;
+  font-weight: 700;
+  margin-bottom: 0;
+}
+.tarot-interpret-shell {
+  flex: 1.1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.tarot-interpret-panel {
+  background: rgba(212,175,55,.06);
+  border: 1.5px solid var(--gold2);
+  border-radius: 16px;
+  padding: 18px 16px 12px 16px;
+  min-height: 140px;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 12px rgba(212,175,55,.08);
+}
+.tarot-interpret-cardinfo {
+  font-size: 1.08rem;
+  color: var(--gold2);
+  font-weight: 800;
+  margin-bottom: 5px;
+}
+.tarot-interpret-meaning {
+  color: #e6e7f2;
+  font-size: 1.01rem;
+  line-height: 1.65;
+}
+.tarot-main-reading {
+  margin-top: 20px;
+}
+
+@media (max-width: 900px) {
+  .tarot-result-main {
+    flex-direction: column;
+    gap: 18px;
+    padding: 18px 8px 18px 8px;
+  }
+  .tarot-board-shell, .tarot-interpret-shell {
+    width: 100%;
+    min-width: 0;
+    flex: unset;
+  }
+  .tarot-board {
+    min-width: 0;
+    min-height: 0;
+    width: 100%;
+    grid-template-columns: 1fr !important;
+    gap: 14px;
+  }
+  .tarot-card {
+    width: 98vw;
+    max-width: 340px;
+    height: auto;
+    min-height: 120px;
+    flex-direction: row;
+    align-items: center;
+    padding: 8px 0;
+  }
+  .tarot-card .tarot-card-imgwrap {
+    width: 84px;
+    height: 132px;
+    margin: 0 14px 0 8px;
+  }
+  .tarot-card .tarot-card-pos, .tarot-card .tarot-card-name, .tarot-card .tarot-card-orient {
+    text-align: left;
+  }
+  .tarot-interpret-panel {
+    margin-bottom: 12px;
+    padding: 14px 10px;
+  }
+}
+@media (max-width: 600px) {
+  .tarot-result-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 16px 8px 6px 8px;
+  }
+  .tarot-result-main {
+    padding: 10px 2px 10px 2px;
+  }
+}
+</style>
+<script>
+(function tarotResultRedesign(){
+  // Patch: Tarot Result UI Redesign
+  const SPREADS = {
+    1: { layout: "spread-1", positions: [{ key: "single" }] },
+    3: { layout: "spread-3", positions: [{ key: "past" }, { key: "present" }, { key: "future" }] },
+    5: {
+      layout: "spread-5",
+      positions: [
+        { key: "top", cls: "pos-top" },
+        { key: "left", cls: "pos-left" },
+        { key: "center", cls: "pos-center" },
+        { key: "right", cls: "pos-right" },
+        { key: "bottom", cls: "pos-bottom" }
+      ]
+    },
+    10: {
+      layout: "spread-10",
+      positions: [{ key: "p1" }, { key: "p2" }, { key: "p3" }, { key: "p4" }, { key: "p5" }, { key: "p6" }, { key: "p7" }, { key: "p8" }, { key: "p9" }, { key: "p10" }]
+    }
+  };
+  function $id(id){ return document.getElementById(id); }
+  function escapeHTML(str){ return String(str??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
+  function t(key, dflt){ try{return window.t?window.t(key,dflt):dflt;}catch(e){return dflt;} }
+  function posLabel(key){ try{const pack=window.withFallback?window.withFallback(window.CUR):null;return pack?.pos?.[key]||key;}catch(e){return key;} }
+  function cardName(card){ try{const pack=window.withFallback?window.withFallback(window.CUR):null;if(card.group==="major")return pack?.majors?.[card.idx]?.[0]||`Major ${card.idx}`;const s=pack?.suits?.[card.suit]||{name:card.suit};const r=pack?.ranks?.[card.rank]||card.rank.toUpperCase();return `${s.name}${r}`;}catch(e){return card.id;} }
+  function tagFor(rev){ try{const pack=window.withFallback?window.withFallback(window.CUR):null;const tags=pack?.tags||window.withFallback("en-US").tags;return rev?tags.reversed:tags.upright;}catch(e){return rev?"Reversed":"Upright";} }
+  function previewLine(card){ try{const pack=window.withFallback?window.withFallback(window.CUR):null;if(card.group==="major"){const row=pack?.majors?.[card.idx]||["",""];
+    return `${row[1]||""} · ${row[2]||""}`.trim();}const s=pack?.suits?.[card.suit]||{name:card.suit,domain:""};const tone=pack?.ranks?.tone?.[card.rank]||"";return `${s.name}（${s.domain}）· ${tone}`.replace("（）","").trim();}catch(e){return card.id;} }
+
+  function getSpreadLabel(n){
+    switch(Number(n)){
+      case 1: return t("ui.s1","Single");
+      case 3: return t("ui.s3","Three Cards");
+      case 5: return t("ui.s5","Cross (5)");
+      case 10: return t("ui.s10","Celtic Cross (10)");
+      default: return `${n} Cards`;
+    }
+  }
+
+  function renderTarotBoard(n, cards, selectedIdx){
+    const board = $id("tarotBoard");
+    if(!board)return;
+    board.innerHTML = "";
+    board.className = "tarot-board";
+    // Layout for Celtic Cross (10): 3 rows (3,3,4)
+    if(n===10 && window.innerWidth>900){
+      // Desktop: grid layout
+      board.style.gridTemplateColumns = "repeat(4, max-content)";
+      board.style.gridTemplateRows = "repeat(3, max-content)";
+      // Positions: 0-2 (row1), 3-5 (row2), 6-9 (row3)
+      for(let i=0;i<10;i++){
+        const card = cards[i];
+        const posKey = SPREADS[10].positions[i].key;
+        const node = tarotCardNode(card,i,posKey,i===selectedIdx);
+        // Place in grid
+        node.style.gridRow = i<3?1:(i<6?2:3);
+        node.style.gridColumn = i<3?(i+1):(i<6?(i-2):(i-5));
+        board.appendChild(node);
+      }
+    }else{
+      // Mobile or other spreads: vertical list
+      board.style.gridTemplateColumns = "1fr";
+      cards.forEach((card,i)=>{
+        const posKey = SPREADS[n]?.positions?.[i]?.key || `c${i+1}`;
+        board.appendChild(tarotCardNode(card,i,posKey,i===selectedIdx));
+      });
+    }
+  }
+  function tarotCardNode(card,idx,posKey,selected){
+    const div = document.createElement("div");
+    div.className = "tarot-card"+(selected?" selected":"");
+    div.tabIndex = 0;
+    div.dataset.idx = idx;
+    div.dataset.cardId = card.id;
+    div.dataset.reversed = card.reversed?"true":"false";
+    // Image
+    const wrap = document.createElement("div");
+    wrap.className = "tarot-card-imgwrap";
+    if(card.reversed) wrap.style.transform = "rotate(180deg)";
+    const img = document.createElement("img");
+    img.className = "tarot-card-img";
+    img.src = `/img/tarot/${card.id}.webp`;
+    img.alt = cardName(card);
+    img.onerror = ()=>{
+      img.style.display='none';
+      if(!wrap.querySelector('.tarot-card-img-fallback')){
+        const fallback = document.createElement('div');
+        fallback.className = 'tarot-card-img-fallback';
+        fallback.textContent = '🃏';
+        wrap.appendChild(fallback);
+      }
+    };
+    wrap.appendChild(img);
+    // Labels
+    const pos = document.createElement("div");
+    pos.className = "tarot-card-pos";
+    pos.textContent = posLabel(posKey);
+    const name = document.createElement("div");
+    name.className = "tarot-card-name";
+    name.textContent = cardName(card);
+    const orient = document.createElement("div");
+    orient.className = "tarot-card-orient";
+    orient.textContent = tagFor(card.reversed);
+    // Compose
+    div.appendChild(wrap);
+    div.appendChild(pos);
+    div.appendChild(name);
+    div.appendChild(orient);
+    // Click/keyboard
+    div.addEventListener('click',()=>selectTarotCard(idx));
+    div.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){selectTarotCard(idx);}});
+    return div;
+  }
+  // State
+  let tarotCards = [];
+  let tarotN = 0;
+  let tarotSelected = 0;
+  let tarotQ = "";
+  function selectTarotCard(idx){
+    tarotSelected = idx;
+    renderTarotBoard(tarotN,tarotCards,tarotSelected);
+    renderInterpretPanel(tarotCards[tarotSelected],tarotSelected);
+  }
+  function renderInterpretPanel(card,idx){
+    const info = $id("tarotInterpretCardInfo");
+    const mean = $id("tarotInterpretMeaning");
+    if(!card){ info.textContent = "-"; mean.textContent = "-"; return; }
+    info.innerHTML = `<span style='font-size:1.04em;color:#ffe084'>${cardName(card)}</span> <span style='font-size:.98em;color:#e6c76b'>${tagFor(card.reversed)}</span> <span style='font-size:.92em;color:#b9bed1'>#${idx+1}</span> <span style='font-size:.92em;color:#b9bed1'>${posLabel(SPREADS[tarotN]?.positions?.[idx]?.key||"")}</span>`;
+    mean.textContent = previewLine(card);
+  }
+  function syncTarotResultUI(){
+    // Header
+    $id("tarotResultQ").textContent = tarotQ||t("ui.no_q","(No question)");
+    $id("tarotResultSpread").textContent = getSpreadLabel(tarotN);
+    $id("tarotResultSummary").textContent = tarotCards.map((card,i)=>`${posLabel(SPREADS[tarotN]?.positions?.[i]?.key||"")}: ${cardName(card)} (${tagFor(card.reversed)})`).join(" · ");
+    // Board & panel
+    renderTarotBoard(tarotN,tarotCards,tarotSelected);
+    renderInterpretPanel(tarotCards[tarotSelected],tarotSelected);
+  }
+  // Patch into main draw flow
+  const origRenderBoard = window.renderBoard;
+  const origRenderReading = window.renderReading;
+  window.renderBoard = function(n,cards){
+    tarotN = n; tarotCards = cards; tarotSelected = 0;
+    syncTarotResultUI();
+    // Also call original for fallback/compat
+    if(origRenderBoard) origRenderBoard.apply(this,arguments);
+  };
+  // When a new reading is generated, auto-select first card
+  function interceptDraw(){
+    // patch window.__LAST_PICKS
+    Object.defineProperty(window,"__LAST_PICKS",{
+      set(v){ tarotCards = v; tarotSelected=0; syncTarotResultUI(); },
+      get(){ return tarotCards; }, configurable:true
+    });
+  }
+  interceptDraw();
+  // On mobile, tap a card expands its meaning below
+  function mobileCardExpand(){
+    if(window.innerWidth<=900){
+      document.addEventListener('click',function(e){
+        const cardEl = e.target.closest('.tarot-card');
+        if(cardEl&&cardEl.parentNode&&cardEl.parentNode.classList.contains('tarot-board')){
+          selectTarotCard(Number(cardEl.dataset.idx));
+          // scroll to interpretation
+          setTimeout(()=>{
+            $id('tarotInterpretPanel')?.scrollIntoView({behavior:'smooth',block:'center'});
+          },120);
+        }
+      });
+    }
+  }
+  mobileCardExpand();
+  // Initial
+  document.addEventListener('DOMContentLoaded',()=>{
+    // If already have picks, render
+    if(window.__LAST_PICKS&&Array.isArray(window.__LAST_PICKS)){
+      tarotCards = window.__LAST_PICKS;
+      tarotN = parseInt($id("spread")?.value||String(tarotCards.length),10)||tarotCards.length;
+      tarotSelected = 0;
+      tarotQ = ($id("question")?.value||"").trim();
+      syncTarotResultUI();
+    }
+    // Listen for question input
+    $id("question")?.addEventListener("input",()=>{
+      tarotQ = ($id("question")?.value||"").trim();
+      $id("tarotResultQ").textContent = tarotQ||t("ui.no_q","(No question)");
+    });
+  });
+})();
+</script>
   </section>
 
 
