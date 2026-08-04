@@ -760,6 +760,66 @@ footer{
   .vip-login-head .btn{width:100%}
 }
 
+
+/* PATH3_TAROT_LAYOUT_PHASE1_V1 */
+.tarot-board{
+  display:grid;
+  justify-content:center;
+  align-items:start;
+  gap:18px;
+  width:100%;
+  max-width:100%;
+  overflow-x:hidden;
+}
+.tarot-board.spread-1{grid-template-columns:minmax(140px,190px)}
+.tarot-board.spread-3{grid-template-columns:repeat(3,minmax(120px,170px))}
+.tarot-board.spread-5{
+  grid-template-columns:repeat(3,minmax(110px,160px));
+  grid-template-areas:". top ." "left center right" ". bottom .";
+}
+.tarot-board.spread-10{
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+}
+.tarot-board.spread-10 .row{
+  display:grid;
+  gap:18px;
+  justify-content:center;
+}
+.tarot-board.spread-10 .row-1,
+.tarot-board.spread-10 .row-2{grid-template-columns:repeat(3,minmax(105px,150px))}
+.tarot-board.spread-10 .row-3{grid-template-columns:repeat(4,minmax(100px,145px))}
+.tarot-card{
+  width:100%;
+  max-width:170px;
+  min-width:0;
+}
+.tarot-card[data-pos="top"]{grid-area:top}
+.tarot-card[data-pos="left"]{grid-area:left}
+.tarot-card[data-pos="center"]{grid-area:center}
+.tarot-card[data-pos="right"]{grid-area:right}
+.tarot-card[data-pos="bottom"]{grid-area:bottom}
+@media(max-width:760px){
+  .tarot-board,
+  .tarot-board.spread-1,
+  .tarot-board.spread-3,
+  .tarot-board.spread-5{
+    grid-template-columns:1fr;
+    grid-template-areas:none;
+    justify-items:center;
+  }
+  .tarot-board.spread-10 .row,
+  .tarot-board.spread-10 .row-1,
+  .tarot-board.spread-10 .row-2,
+  .tarot-board.spread-10 .row-3{
+    grid-template-columns:1fr;
+    width:100%;
+    justify-items:center;
+  }
+  .tarot-card{max-width:220px}
+}
+
 </style>
 </head>
 <body>
@@ -1129,33 +1189,37 @@ footer{
 
   function renderTarotBoard(n, cards, selectedIdx){
     const board = $id("tarotBoard");
-    if(!board)return;
+    if(!board) return;
+
+    const spread = SPREADS[n] || SPREADS[3];
+    board.className = "tarot-board " + (spread.layout || ("spread-" + n));
     board.innerHTML = "";
-    board.className = "tarot-board";
-    // Layout for Celtic Cross (10): 3 rows (3,3,4)
-    if(n===10 && window.innerWidth>900){
-      // Desktop: grid layout
-      board.style.gridTemplateColumns = "repeat(4, max-content)";
-      board.style.gridTemplateRows = "repeat(3, max-content)";
-      // Positions: 0-2 (row1), 3-5 (row2), 6-9 (row3)
-      for(let i=0;i<10;i++){
-        const card = cards[i];
-        const posKey = SPREADS[10].positions[i].key;
-        const node = tarotCardNode(card,i,posKey,i===selectedIdx);
-        // Place in grid
-        node.style.gridRow = i<3?1:(i<6?2:3);
-        node.style.gridColumn = i<3?(i+1):(i<6?(i-2):(i-5));
-        board.appendChild(node);
-      }
-    }else{
-      // Mobile or other spreads: vertical list
-      board.style.gridTemplateColumns = "1fr";
-      cards.forEach((card,i)=>{
-        const posKey = SPREADS[n]?.positions?.[i]?.key || `c${i+1}`;
-        board.appendChild(tarotCardNode(card,i,posKey,i===selectedIdx));
-      });
+
+    if(!Array.isArray(cards) || !cards.length){
+      board.innerHTML = `<div class="board-empty">Draw your cards to reveal the spread.</div>`;
+      return;
     }
+
+    if(n === 10){
+      board.innerHTML = `<div class="row row-1"></div><div class="row row-2"></div><div class="row row-3"></div>`;
+      const rows = [board.querySelector(".row-1"), board.querySelector(".row-2"), board.querySelector(".row-3")];
+
+      cards.forEach((card, i) => {
+        const posKey = SPREADS[10].positions[i]?.key || `c${i+1}`;
+        const node = tarotCardNode(card, i, posKey, i === selectedIdx);
+        if(i < 3) rows[0]?.appendChild(node);
+        else if(i < 6) rows[1]?.appendChild(node);
+        else rows[2]?.appendChild(node);
+      });
+      return;
+    }
+
+    cards.forEach((card, i) => {
+      const posKey = spread.positions?.[i]?.key || `c${i+1}`;
+      board.appendChild(tarotCardNode(card, i, posKey, i === selectedIdx));
+    });
   }
+
   function tarotCardNode(card,idx,posKey,selected){
     const div = document.createElement("div");
     div.className = "tarot-card"+(selected?" selected":"");
