@@ -2346,21 +2346,43 @@ footer{
   }
 
   function buildMainTarotPrompt(question, n, cards){
+    /* PATH3_TAROT_REAL_PROMPT_GROUNDING_V2 */
     const pack = withFallback(CUR);
     const qTxt = (question || "").trim() || pack.ui?.no_q || "";
+    const posKeys =
+      n === 10 ? ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9", "p10"] :
+      n === 5 ? ["top", "left", "center", "right", "bottom"] :
+      n === 3 ? ["past", "present", "future"] :
+      ["single"];
+
+    const drawnCardLines = (cards || []).map((card, i) => {
+      const position = posLabel(posKeys[i]);
+      const name = cardName(card);
+      const status = tagFor(card.reversed);
+      const shortMeaning = previewLine(card);
+      return `${i + 1}. ${position}: ${name} - ${status}. Meaning clue: ${shortMeaning}`;
+    }).join("\\n");
 
     return [
       `Give the main Tarot reading now.`,
-      `Question: ${qTxt}`,
+      `User question: ${qTxt}`,
+      ``,
+      `Drawn cards, spread positions, and upright/reversed status:`,
+      drawnCardLines || `(No drawn cards were provided.)`,
+      ``,
       `Requirements:`,
-      `- Base the answer ONLY on the drawn cards and their spread positions.`,
-      `- Do not give generic preset text.`,
-      `- Combine logic, feeling, likely direction, and prediction style guidance.`,
-      `- Structure the reading with these sections: Overall Message, Card-by-card, Hidden Warning, Likely Direction, Next Action.`,
-      `- For love/soulmate questions, be warm but honest. Do not guarantee fate. Use wording like likely, shows, suggests, needs time, depends on action.`,
+      `- Start by answering the user's actual question directly, not with a generic introduction.`,
+      `- Base the answer ONLY on the drawn cards listed above, their spread positions, and upright/reversed status.`,
+      `- Explain how each important card changes the answer to this exact question.`,
+      `- For Card-by-card, mention position name, card name, and upright/reversed status.`,
+      `- Include a realistic likely direction, hidden warning, and next action based on this spread.`,
+      `- Do not invent cards that are not listed.`,
+      `- Do not give generic preset text that could apply to any spread.`,
+      `- For love/soulmate questions, be warm but honest. Do not guarantee fate. Use likely, shows, suggests, needs time, depends on action.`,
       `- Keep it practical and emotionally clear.`,
+      `- Structure the reading with: Direct Answer, Overall Message, Card-by-card, Hidden Warning, Likely Direction, Next Action.`,
       `- Reply in ${CUR}.`
-    ].join("\n");
+    ].join("\\n");
   }
 
   async function generateMainTarotReading(question, n, cards){
@@ -2794,85 +2816,7 @@ footer{
 })();
 </script>
 
-<script>
-/* PATH3_TAROT_READING_GROUNDING_V1 */
-(function () {
-  if (window.__path3TarotReadingGroundingV1) return;
-  window.__path3TarotReadingGroundingV1 = true;
 
-  function cleanText(el) {
-    return (el && (el.innerText || el.textContent) || "").replace(/\s+/g, " ").trim();
-  }
-
-  function tarotQuestion() {
-    const fields = ["#question", "#tarotQuestion", "#readingQuestion", "textarea", "input[type='text']"];
-    for (const sel of fields) {
-      const el = document.querySelector(sel);
-      if (el && String(el.value || "").trim()) return String(el.value).trim();
-    }
-    return "";
-  }
-
-  function drawnCards() {
-    const selectors = ["[data-card]", "[data-card-name]", ".reading-card-item", ".tarot-card", ".tarot-result-card", ".drawn-card", "#tarotBoard > *"];
-    const seen = new Set();
-    const out = [];
-    for (const sel of selectors) {
-      document.querySelectorAll(sel).forEach((el) => {
-        const t = cleanText(el);
-        if (t && t.length > 2 && !seen.has(t)) {
-          seen.add(t);
-          out.push(t);
-        }
-      });
-      if (out.length >= 10) break;
-    }
-    return out.slice(0, 10);
-  }
-
-  function groundingText() {
-    const q = tarotQuestion();
-    const cards = drawnCards();
-    if (!q && !cards.length) return "";
-    return [
-      "",
-      "TAROT_READING_GROUNDING_REQUIREMENTS:",
-      "Answer the user's actual question directly.",
-      "Base the interpretation on the drawn cards, spread positions, and upright/reversed status when visible.",
-      "Do not give a generic reading that ignores the cards.",
-      q ? "USER_QUESTION: " + q : "",
-      cards.length ? "DRAWN_CARDS_AND_VISIBLE_POSITIONS:" : "",
-      ...cards.map((card, i) => String(i + 1) + ". " + card)
-    ].filter(Boolean).join("\n");
-  }
-
-  const oldFetch = window.fetch;
-  window.fetch = function patchedTarotFetch(input, init) {
-    try {
-      const url = typeof input === "string" ? input : ((input && input.url) || "");
-      if (init && typeof init.body === "string" && /ai|chat|openai|deepseek/i.test(url)) {
-        const extra = groundingText();
-        if (extra) {
-          const data = JSON.parse(init.body);
-          if (Array.isArray(data.messages) && data.messages.length) {
-            const last = data.messages[data.messages.length - 1];
-            if (last && typeof last.content === "string" && !last.content.includes("TAROT_READING_GROUNDING_REQUIREMENTS")) {
-              last.content += "\n" + extra;
-              init = Object.assign({}, init, { body: JSON.stringify(data) });
-            }
-          } else if (typeof data.prompt === "string" && !data.prompt.includes("TAROT_READING_GROUNDING_REQUIREMENTS")) {
-            data.prompt += "\n" + extra;
-            init = Object.assign({}, init, { body: JSON.stringify(data) });
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("[tarot-grounding] skipped", e);
-    }
-    return oldFetch.call(this, input, init);
-  };
-})();
-</script>
 
 </body>
 </html>
