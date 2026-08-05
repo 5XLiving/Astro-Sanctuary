@@ -2793,5 +2793,86 @@ footer{
   });
 })();
 </script>
+
+<script>
+/* PATH3_TAROT_READING_GROUNDING_V1 */
+(function () {
+  if (window.__path3TarotReadingGroundingV1) return;
+  window.__path3TarotReadingGroundingV1 = true;
+
+  function cleanText(el) {
+    return (el && (el.innerText || el.textContent) || "").replace(/\s+/g, " ").trim();
+  }
+
+  function tarotQuestion() {
+    const fields = ["#question", "#tarotQuestion", "#readingQuestion", "textarea", "input[type='text']"];
+    for (const sel of fields) {
+      const el = document.querySelector(sel);
+      if (el && String(el.value || "").trim()) return String(el.value).trim();
+    }
+    return "";
+  }
+
+  function drawnCards() {
+    const selectors = ["[data-card]", "[data-card-name]", ".reading-card-item", ".tarot-card", ".tarot-result-card", ".drawn-card", "#tarotBoard > *"];
+    const seen = new Set();
+    const out = [];
+    for (const sel of selectors) {
+      document.querySelectorAll(sel).forEach((el) => {
+        const t = cleanText(el);
+        if (t && t.length > 2 && !seen.has(t)) {
+          seen.add(t);
+          out.push(t);
+        }
+      });
+      if (out.length >= 10) break;
+    }
+    return out.slice(0, 10);
+  }
+
+  function groundingText() {
+    const q = tarotQuestion();
+    const cards = drawnCards();
+    if (!q && !cards.length) return "";
+    return [
+      "",
+      "TAROT_READING_GROUNDING_REQUIREMENTS:",
+      "Answer the user's actual question directly.",
+      "Base the interpretation on the drawn cards, spread positions, and upright/reversed status when visible.",
+      "Do not give a generic reading that ignores the cards.",
+      q ? "USER_QUESTION: " + q : "",
+      cards.length ? "DRAWN_CARDS_AND_VISIBLE_POSITIONS:" : "",
+      ...cards.map((card, i) => String(i + 1) + ". " + card)
+    ].filter(Boolean).join("\n");
+  }
+
+  const oldFetch = window.fetch;
+  window.fetch = function patchedTarotFetch(input, init) {
+    try {
+      const url = typeof input === "string" ? input : ((input && input.url) || "");
+      if (init && typeof init.body === "string" && /ai|chat|openai|deepseek/i.test(url)) {
+        const extra = groundingText();
+        if (extra) {
+          const data = JSON.parse(init.body);
+          if (Array.isArray(data.messages) && data.messages.length) {
+            const last = data.messages[data.messages.length - 1];
+            if (last && typeof last.content === "string" && !last.content.includes("TAROT_READING_GROUNDING_REQUIREMENTS")) {
+              last.content += "\n" + extra;
+              init = Object.assign({}, init, { body: JSON.stringify(data) });
+            }
+          } else if (typeof data.prompt === "string" && !data.prompt.includes("TAROT_READING_GROUNDING_REQUIREMENTS")) {
+            data.prompt += "\n" + extra;
+            init = Object.assign({}, init, { body: JSON.stringify(data) });
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("[tarot-grounding] skipped", e);
+    }
+    return oldFetch.call(this, input, init);
+  };
+})();
+</script>
+
 </body>
 </html>
