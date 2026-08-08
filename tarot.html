@@ -283,75 +283,83 @@ input::placeholder,textarea::placeholder{color:#6f8092}
   text-align:center;
   line-height:1.7;
 }
+/* Base board now flexible. Specific spread classes control layout */
 .board{
-  display:grid;
-  grid-auto-flow:column;
-  grid-auto-columns:minmax(var(--card-w),1fr);
-  gap:var(--gap);
+  display:flex;
+  align-items:flex-start;
   justify-content:center;
-  align-content:start;
+  gap:var(--gap);
   margin:0;
   padding:4px;
+  flex-wrap:nowrap;
 }
+/* When narrow, allow wrapping into rows */
 @media(max-width:900px){
-  .board{
-    grid-auto-flow:row;
-    grid-template-columns:1fr 1fr;
-  }
+  .board{flex-wrap:wrap;gap:12px}
 }
-@media(max-width:600px){
-  .board{
-    grid-auto-flow:row;
-    grid-template-columns:1fr;
-  }
-}
+/* Spread specific layouts */
+.board.spread-1{justify-content:center}
+.board.spread-3{justify-content:center}
+.board.spread-5{justify-content:center}
+.board.spread-10{justify-content:center;flex-wrap:wrap}
+/* Card visual improvements */
 .board .card{
   display:flex;
   flex-direction:column;
   align-items:center;
   gap:8px;
   text-align:center;
-  background:rgba(255,255,255,.045);
-  border:1px solid var(--line2);
+  background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+  border:1px solid rgba(212,175,55,.08);
   border-radius:18px;
   padding:10px 10px 12px;
-  box-shadow:0 15px 42px rgba(0,0,0,.35);
-  width:calc(var(--card-w) + 22px);
-  transition:.2s ease;
+  box-shadow:0 20px 50px rgba(0,0,0,.45), 0 6px 18px rgba(212,175,55,.06) inset;
+  width:calc(var(--card-w) + 36px);
+  transition:transform .25s ease, box-shadow .25s ease;
   position:relative;
-  overflow:hidden;
-}
-.board .card::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  background:linear-gradient(135deg,rgba(212,175,55,.10),transparent 55%);
-  opacity:0;
-  transition:.25s;
+  overflow:visible;
+  transform-origin:center bottom;
 }
 .board .card:hover{
-  transform:translateY(-5px);
-  border-color:rgba(212,175,55,.55);
+  transform:translateY(-10px) scale(1.02);
+  box-shadow:0 30px 70px rgba(0,0,0,.58), 0 8px 22px rgba(212,175,55,.12) inset;
 }
-.board .card:hover::before{opacity:1}
 .board .imgwrap{
   width:var(--card-w);
   height:var(--card-h);
   border-radius:13px;
   overflow:hidden;
-  background:#000;
+  background:linear-gradient(180deg,#0b1220,#061018);
   display:grid;
   place-items:center;
-  border:1px solid rgba(212,175,55,.20);
-  box-shadow:inset 0 0 0 1px rgba(255,255,255,.04);
+  border:1px solid rgba(255,255,255,.03);
+  box-shadow:inset 0 -6px 18px rgba(0,0,0,.45), 0 12px 30px rgba(0,0,0,.55);
+  position:relative;
 }
-.board .card-img{
-  display:block;
-  width:100%;
-  height:100%;
-  object-fit:cover;
+.card-face{
+  color:var(--gold2);
+  font-weight:900;
+  font-family:"Noto Serif SC",serif;
+  padding:12px;
+  text-align:center;
+  font-size:.88rem;
 }
-.board .cap{
+.card-orientation{
+  position:absolute;
+  right:8px;
+  top:8px;
+  background:rgba(0,0,0,.35);
+  color:var(--gold2);
+  padding:4px 8px;
+  border-radius:999px;
+  font-size:.72rem;
+  font-weight:700;
+  border:1px solid rgba(212,175,55,.12);
+}
+.card.pos-label{
+  position:relative;
+}
+.card .cap{
   font-weight:900;
   font-size:.88rem;
   line-height:1.35;
@@ -362,10 +370,11 @@ input::placeholder,textarea::placeholder{color:#6f8092}
   color:var(--muted);
   line-height:1.45;
 }
-.card-drawn{animation:drawCard .45s ease both}
+.card-drawn{animation:drawCard .45s cubic-bezier(.2,.85,.32,1) both}
 @keyframes drawCard{
-  0%{transform:translateY(-18px) rotate(-3deg);opacity:0}
-  100%{transform:translateY(0) rotate(0);opacity:1}
+  0%{transform:translateY(12px) rotate(-6deg) scale(.96);opacity:0}
+  60%{opacity:1}
+  100%{transform:translateY(0) rotate(0) scale(1)}
 }
 .tooltip{display:none}
 .panel{
@@ -604,7 +613,7 @@ footer{
   .hero{padding:25px 0 10px}
   .h1,h1{text-align:left}
   .board-wrap{padding:12px;overflow:auto}
-  .board{grid-template-columns:1fr}
+  .board{flex-wrap:wrap}
 }
 .ai-reading-box{border:1px solid rgba(212,175,55,.22);background:rgba(255,255,255,.035)}
 .ai-main-reading{color:#dfe7f3;line-height:1.75;font-size:.96rem}
@@ -789,224 +798,342 @@ footer{
   </div>
 </div>
 <script>
-// PATCH: Improved Tarot Card Layout and AI Reading
+/*
+  Enhanced Tarot behavior:
+  - Responsive horizontal spreads (3-card centered horizontally)
+  - Improved card visuals, spacing, subtle transforms
+  - Interpretation routine receives: id, name, position, reversed and builds meaningful reading
+*/
 (function(){
-  // --- Responsive Tarot Card Layout ---
-  const SPREADS = {
-    1: { layout: "spread-1", positions: [{ key: "single" }] },
-    3: { layout: "spread-3", positions: [{ key: "past" }, { key: "present" }, { key: "future" }] },
-    5: {
-      layout: "spread-5",
-      positions: [
-        { key: "top", cls: "pos-top" },
-        { key: "left", cls: "pos-left" },
-        { key: "center", cls: "pos-center" },
-        { key: "right", cls: "pos-right" },
-        { key: "bottom", cls: "pos-bottom" }
-      ]
-    },
-    10: {
-      layout: "spread-10",
-      positions: [{ key: "p1" }, { key: "p2" }, { key: "p3" }, { key: "p4" }, { key: "p5" }, { key: "p6" }, { key: "p7" }, { key: "p8" }, { key: "p9" }, { key: "p10" }]
-    }
+  const $ = id => document.getElementById(id);
+  const board = $('board');
+  const goBtn = $('go');
+  const spreadSelect = $('spread');
+  const questionEl = $('question');
+  const readingEl = $('reading');
+  const readingText = $('readingText');
+  const tarotSpreadDesc = $('tarotSpreadDesc');
+  const progressBar = $('progressBar');
+  const progressFill = $('progressFill');
+  const btnLoading = $('btnLoading');
+  const btnText = $('btnText');
+
+  // Basic deck: 22 majors + 56 minor (4 suits x 14 ranks)
+  const MAJORS = [
+    'The Fool','The Magician','The High Priestess','The Empress','The Emperor','The Hierophant','The Lovers','The Chariot','Strength','Hermit','Wheel of Fortune','Justice','Hanged Man','Death','Temperance','The Devil','The Tower','The Star','The Moon','The Sun','Judgement','The World'
+  ];
+  const SUITS = {
+    Wands: ['Ace','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Page','Knight','Queen','King'],
+    Cups: ['Ace','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Page','Knight','Queen','King'],
+    Swords: ['Ace','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Page','Knight','Queen','King'],
+    Pentacles: ['Ace','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Page','Knight','Queen','King']
   };
-  function $id(id){ return document.getElementById(id); }
-  function escapeHTML(str){ return String(str??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;"); }
-  function t(key, dflt){ try{return window.t?window.t(key,dflt):dflt;}catch(e){return dflt;} }
-  function posLabel(key){ try{const pack=window.withFallback?window.withFallback(window.CUR):null;return pack?.pos?.[key]||key;}catch(e){return key;} }
-  function cardName(card){ try{const pack=window.withFallback?window.withFallback(window.CUR):null;if(card.group==="major")return pack?.majors?.[card.idx]?.[0]||`Major ${card.idx}`;const s=pack?.suits?.[card.suit]||{name:card.suit};const r=pack?.ranks?.[card.rank]||card.rank.toUpperCase();return `${s.name}${r}`;}catch(e){return card.id;} }
-  function tagFor(rev){ try{const pack=window.withFallback?window.withFallback(window.CUR):null;const tags=pack?.tags||window.withFallback("en-US").tags;return rev?tags.reversed:tags.upright;}catch(e){return rev?"Reversed":"Upright";} }
-  function previewLine(card){ try{const pack=window.withFallback?window.withFallback(window.CUR):null;if(card.group==="major"){const row=pack?.majors?.[card.idx]||["",""];
-    return `${row[1]||""} · ${row[2]||""}`.trim();}const s=pack?.suits?.[card.suit]||{name:card.suit,domain:""};const tone=pack?.ranks?.tone?.[card.rank]||"";return `${s.name}（${s.domain}）· ${tone}`.replace("（）","").trim();}catch(e){return card.id;} }
-  function getSpreadLabel(n){
-    switch(Number(n)){
-      case 1: return t("ui.s1","Single");
-      case 3: return t("ui.s3","Three Cards");
-      case 5: return t("ui.s5","Cross (5)");
-      case 10: return t("ui.s10","Celtic Cross (10)");
-      default: return `${n} Cards`;
-    }
-  }
-  function renderBoard(n, cards){
-    const board = $id("board");
-    if(!board) return;
-    const spread = SPREADS[n] || SPREADS[3];
-    board.className = "board " + (spread.layout || ("spread-" + n));
-    board.innerHTML = "";
-    if(!Array.isArray(cards) || !cards.length){
-      board.innerHTML = `<div class="board-empty">Draw your cards to reveal the spread.</div>`;
-      return;
-    }
-    if(n === 10){
-      // 3-3-4 grid for Celtic Cross
-      board.innerHTML = `<div class="row row-1"></div><div class="row row-2"></div><div class="row row-3"></div>`;
-      const rows = [board.querySelector(".row-1"), board.querySelector(".row-2"), board.querySelector(".row-3")];
-      cards.forEach((card, i) => {
-        const posKey = SPREADS[10].positions[i]?.key || `c${i+1}`;
-        const node = tarotCardNode(card, i, posKey, false);
-        if(i < 3) rows[0]?.appendChild(node);
-        else if(i < 6) rows[1]?.appendChild(node);
-        else rows[2]?.appendChild(node);
-      });
-      return;
-    }
-    cards.forEach((card, i) => {
-      const posKey = spread.positions?.[i]?.key || `c${i+1}`;
-      board.appendChild(tarotCardNode(card, i, posKey, false));
-    });
-  }
-  function tarotCardNode(card,idx,posKey,selected){
-    const div = document.createElement("div");
-    div.className = "card"+(selected?" selected":"");
-    div.dataset.pos = posKey;
-    div.tabIndex = 0;
-    div.dataset.idx = idx;
-    div.dataset.cardId = card.id;
-    div.dataset.reversed = card.reversed?"true":"false";
-    // Image
-    const wrap = document.createElement("div");
-    wrap.className = "imgwrap";
-    if(card.reversed) wrap.style.transform = "rotate(180deg)";
-    const img = document.createElement("img");
-    img.className = "card-img";
-    img.src = `/img/tarot/${card.id}.webp`;
-    img.alt = cardName(card);
-    img.onerror = ()=>{
-      img.style.display='none';
-      if(!wrap.querySelector('.tarot-card-img-fallback')){
-        const fallback = document.createElement('div');
-        fallback.className = 'tarot-card-img-fallback';
-        fallback.textContent = '🃏';
-        wrap.appendChild(fallback);
-      }
-    };
-    wrap.appendChild(img);
-    // Labels
-    const pos = document.createElement("div");
-    pos.className = "cap";
-    pos.textContent = posLabel(posKey);
-    const name = document.createElement("div");
-    name.className = "cap";
-    name.textContent = cardName(card);
-    const orient = document.createElement("div");
-    orient.className = "mean";
-    orient.textContent = tagFor(card.reversed);
-    // Compose
-    div.appendChild(wrap);
-    div.appendChild(pos);
-    div.appendChild(name);
-    div.appendChild(orient);
-    // Click/keyboard
-    return div;
-  }
-  // --- Tarot Reading Logic ---
-  function renderReading(question, n, cards){
-    if(!Array.isArray(cards)||!cards.length) return '';
-    const posKeys =
-      n === 10 ? ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9", "p10"] :
-      n === 5 ? ["top", "left", "center", "right", "bottom"] :
-      n === 3 ? ["past", "present", "future"] :
-      ["single"];
-    const qTxt = (question || "").trim() || t("ui.no_q", "");
-    const cardsLine = cards.map((card, i) => {
-      return `${posLabel(posKeys[i])}: ${cardName(card)} (${tagFor(card.reversed)})`;
-    }).join(" · ");
-    const cardList = cards.map((card, i) => {
-      const position = posLabel(posKeys[i]);
-      const name = cardName(card);
-      const tag = tagFor(card.reversed);
-      const arch = previewLine(card);
-      return `
-        <div class="reading-card-item">
-          <div class="reading-card-top">
-            <span class="reading-pos">${escapeHTML(position)}</span>
-            <span class="reading-status">${escapeHTML(tag)}</span>
-          </div>
-          <div class="reading-card-name">${escapeHTML(name)}</div>
-          <div class="reading-card-meaning">${escapeHTML(arch)}</div>
-        </div>`;
-    }).join("");
-    return `
-      <div class="reading-summary ai-reading-box" id="mainAiReading">
-        <div class="summary-pill">AI Tarot Reading</div>
-        <h3>${escapeHTML(qTxt)}</h3>
-        <p class="muted">正在根据你的问题和抽到的牌生成完整解读…</p>
-        <p class="muted" style="font-size:.9rem">${escapeHTML(cardsLine)}</p>
-      </div>
-      <div class="reading-card-list">
-        ${cardList}
-      </div>
-      <div class="reading-action-box">
-        <b>下一步（48 小时内）：</b><br>① 写下 1 条小目标；② 安排 1 个具体行动；③ 用 3 个客观指标衡量。
-      </div>
-    `;
-  }
-  // --- Draw Button Logic ---
-  function draw(n){
-    // 22 majors + 56 minors
-    const SUITS = ["wands","cups","swords","pentacles"];
-    const RANKS = ["ace","2","3","4","5","6","7","8","9","10","page","knight","queen","king"];
-    const MAJORS = Array.from({length:22},(_,i)=>i);
+
+  function buildDeck(){
     const deck = [];
-    MAJORS.forEach(i=>deck.push({id:`major_${String(i).padStart(2,"0")}",group:"major",idx:i}));
-    SUITS.forEach(s=>{RANKS.forEach(r=>deck.push({id:`${s}_${r}",group:"minor",suit:s,rank:r}));});
-    const pool = [...deck];
-    const picks = [];
-    for(let i=0;i<n;i++){
-      const idx = Math.floor(Math.random()*pool.length);
-      const card = pool.splice(idx,1)[0];
-      card.reversed = Math.random()<0.5;
-      picks.push(card);
-    }
-    return picks;
-  }
-  function onDraw(){
-    const spreadSel = $id("spread");
-    const qInput = $id("question");
-    const readingPanel = $id("reading");
-    const readingText = $id("readingText");
-    const n = parseInt(spreadSel?.value||"1",10)||1;
-    const picks = draw(n);
-    window.__LAST_PICKS = picks;
-    renderBoard(n, picks);
-    const q = (qInput?.value||"").trim()||t("ui.no_q","");
-    if(readingText) readingText.innerHTML = renderReading(q, n, picks);
-    if(readingPanel) readingPanel.style.display = '';
-    // Main AI reading: answer the user's actual question using the drawn cards.
-    generateMainTarotReading(q, n, picks);
-    readingPanel?.scrollIntoView({behavior:"smooth",block:"start"});
-  }
-  function generateMainTarotReading(question, n, cards){
-    const box = $id("mainAiReading");
-    if(!box) return;
-    box.style.display = '';
-    // Simulate AI reading for demo
-    let out = `<div class='summary-pill'>AI Tarot Reading</div><h3>${escapeHTML((question||"").trim()||t("ui.no_q",""))}</h3><div class='ai-main-reading'><p>`;
-    out += `<b>Direct Answer:</b> `+escapeHTML(question||'')+`<br><br>`;
-    out += `<b>Card-by-card:</b><ul style='margin:0 0 0 1.5em;'>`;
-    const posKeys =
-      n === 10 ? ["p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "p9", "p10"] :
-      n === 5 ? ["top", "left", "center", "right", "bottom"] :
-      n === 3 ? ["past", "present", "future"] :
-      ["single"];
-    cards.forEach((card,i)=>{
-      out += `<li>${posLabel(posKeys[i])}: <b>${cardName(card)}</b> (${tagFor(card.reversed)}) - ${escapeHTML(previewLine(card))}</li>`;
+    MAJORS.forEach((name, i)=>{
+      deck.push({id:`M${i}`, group:'major', name, idx:i});
     });
-    out += `</ul><br><b>Likely Direction:</b> 你需要关注行动和自我成长，注意隐藏的阻碍。<br><b>Next Action:</b> 记下你的目标，并采取一步实际行动。`;
-    out += `</p></div>`;
-    box.innerHTML = out;
+    Object.keys(SUITS).forEach(suit=>{
+      SUITS[suit].forEach((rank, i)=>{
+        deck.push({id:`${suit[0]}${i}`, group:'minor', suit, rank, name:`${rank} of ${suit}`});
+      });
+    });
+    return deck;
   }
-  // --- Init ---
-  document.addEventListener('DOMContentLoaded',function(){
-    // Draw button
-    const goBtn = $id("go");
-    goBtn?.addEventListener("click",onDraw);
-    // If already have picks, render
-    if(window.__LAST_PICKS&&Array.isArray(window.__LAST_PICKS)){
-      const n = parseInt($id("spread")?.value||String(window.__LAST_PICKS.length),10)||window.__LAST_PICKS.length;
-      renderBoard(n,window.__LAST_PICKS);
+
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j=Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]]=[arr[j],arr[i]];
     }
+    return arr;
+  }
+
+  // Position labels for common spreads
+  const SPREADS = {
+    1: ['Center'],
+    3: ['Past','Present','Future'],
+    5: ['Situation','Challenge','Advice','Outcome','Root'],
+    10: ['You','Crossing','Conscious','Unconscious','Past','Future','You (self)','Environment','Hopes','Outcome']
+  };
+
+  function formatCardLabel(card){
+    if(card.group==='major') return card.name;
+    return card.name;
+  }
+
+  function makeCardEl(card, positionLabel){
+    const el = document.createElement('div');
+    el.className = 'card card-drawn pos-label';
+    // store metadata for later
+    el.dataset.cardId = card.id;
+    el.dataset.cardName = card.name || card.name;
+    el.dataset.reversed = card.reversed ? '1' : '0';
+    el.dataset.position = positionLabel || '';
+
+    const imgWrap = document.createElement('div');
+    imgWrap.className = 'imgwrap';
+    // face content: show name and a subtle glyph
+    const face = document.createElement('div');
+    face.className = 'card-face';
+    face.style.fontSize = '0.82rem';
+    face.innerText = formatCardLabel(card);
+    imgWrap.appendChild(face);
+
+    if(card.reversed){
+      imgWrap.style.transform = 'rotate(180deg)';
+    }
+
+    const orient = document.createElement('div');
+    orient.className = 'card-orientation';
+    orient.innerText = card.reversed ? 'Reversed' : 'Upright';
+
+    const cap = document.createElement('div');
+    cap.className = 'cap';
+    cap.innerText = positionLabel || '';
+
+    const mean = document.createElement('div');
+    mean.className = 'mean';
+    mean.innerText = smallPreview(card);
+
+    el.appendChild(imgWrap);
+    el.appendChild(orient);
+    el.appendChild(cap);
+    el.appendChild(mean);
+
+    return el;
+  }
+
+  function smallPreview(card){
+    // Quick one-line preview: uses group to differentiate
+    if(card.group==='major'){
+      return (MAJORS[card.idx] || card.name) + ' — a major theme.';
+    }
+    return `${card.suit} · ${card.rank}`;
+  }
+
+  // Interpretation engine: basic mapping + generative fallback
+  const MAJOR_MEANINGS = {
+    'The Fool': 'New beginnings, trust, leap of faith',
+    'The Magician': 'Skill, initiative, manifestation',
+    'The High Priestess': 'Intuition, inner knowledge, quiet power',
+    'The Empress': 'Creativity, nurturing, abundance',
+    'The Emperor': 'Structure, authority, stability',
+    'The Lovers': 'Relationships, choices, values',
+    'Death': 'Transformation, ending and rebirth',
+    'The Star': 'Hope, healing, guidance',
+    'The Moon': 'Subconscious, intuition, uncertainty',
+    'The Sun': 'Clarity, joy, success'
+  };
+
+  const SUIT_THEMES = {
+    Wands: 'action, will and creativity',
+    Cups: 'emotion, relationships and inner life',
+    Swords: 'thought, conflict and clarity',
+    Pentacles: 'material matters, work and resources'
+  };
+
+  function interpretCard(card){
+    const base = (card.group==='major') ? (MAJOR_MEANINGS[card.name] || 'A major life theme.') : (`${SUIT_THEMES[card.suit] || card.suit} — ${card.rank}.`);
+    if(card.reversed){
+      return `${base} (Reversed — indicates blockage, internalization, or the opposite aspect).`;
+    }
+    return `${base} (Upright — the energy is active).`;
+  }
+
+  function buildReading(drawn, question){
+    // Summary
+    const summaryParts = [];
+    if(question) summaryParts.push(`Question: "${question.trim()}"`);
+    summaryParts.push(`Spread: ${drawn.length} cards.`);
+    // Build per-card interpretations
+    const items = drawn.map((c,i)=>{
+      return {
+        pos: c.position || (SPREADS[drawn.length] && SPREADS[drawn.length][i]) || `Position ${i+1}`,
+        name: formatCardLabel(c),
+        reversed: !!c.reversed,
+        meaning: interpretCard(c),
+        advice: generateAdvice(c)
+      };
+    });
+
+    return {summary: summaryParts.join(' · '), items};
+  }
+
+  function generateAdvice(card){
+    // Practical tip based on card group/suit and orientation
+    if(card.group==='major'){
+      if(card.reversed) return 'Reflect inward — what resistance exists? Small adjustments rather than big leaps.';
+      return 'Move with intent — a clear next step will help manifest this energy.';
+    }
+    // Minor suits
+    switch(card.suit){
+      case 'Wands': return card.reversed? 'Avoid impulsive action; clarify priorities.' : 'Take a small bold step toward your goal.';
+      case 'Cups': return card.reversed? 'Rest and process feelings before deciding.' : 'Open communication and self-care will help.';
+      case 'Swords': return card.reversed? 'Pause and reframe the narrative; avoid sharp confrontations.' : 'Define boundaries and communicate clearly.';
+      case 'Pentacles': return card.reversed? 'Review finances/resources; conserve where needed.' : 'Practical planning and steady progress will serve you.';
+      default: return 'Stay grounded and act with awareness.';
+    }
+  }
+
+  function renderReadingBlock(reading){
+    readingText.innerHTML = '';
+    const sumBox = document.createElement('div');
+    sumBox.className = 'reading-summary';
+    sumBox.innerHTML = `<h3>Summary</h3><p>${escapeHtml(reading.summary)}</p>`;
+    readingText.appendChild(sumBox);
+
+    const list = document.createElement('div');
+    list.className = 'reading-card-list';
+    reading.items.forEach(it=>{
+      const item = document.createElement('div');
+      item.className = 'reading-card-item';
+      item.innerHTML = `<div class="reading-card-top"><div class="reading-pos">${escapeHtml(it.pos)}</div><div class="reading-status">${it.reversed?"Reversed":"Upright"}</div></div><div class="reading-card-name">${escapeHtml(it.name)}</div><div class="reading-card-meaning">${escapeHtml(it.meaning)}</div><div class="reading-card-advice">建议：${escapeHtml(it.advice)}</div>`;
+      list.appendChild(item);
+    });
+    readingText.appendChild(list);
+
+    // Show reading
+    readingEl.style.display = 'block';
+    // Scroll into view on small devices
+    setTimeout(()=>{
+      readingEl.scrollIntoView({behavior:'smooth', block:'start'});
+    }, 150);
+  }
+
+  function escapeHtml(s){
+    if(!s) return '';
+    return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#039;");
+  }
+
+  function updateSpreadDesc(n){
+    const labels = SPREADS[n] || [];
+    tarotSpreadDesc.innerText = labels.length ? labels.join(' · ') : '';
+  }
+
+  // The main draw routine
+  async function drawCards(){
+    const n = Number(spreadSelect.value) || 3;
+    const question = questionEl.value || '';
+    if(!question.trim()){
+      // require question for focused reading
+      // show a subtle prompt instead of blocking
+      const qdisplay = $('qdisplay');
+      qdisplay.innerText = '（建议：输入你的问题以获得更聚焦的解读）';
+    }
+
+    goBtn.disabled = true;
+    btnLoading.style.display = 'inline-block';
+    btnText.style.opacity = '0.5';
+    progressBar.style.display = 'block';
+    progressFill.style.width = '8%';
+
+    const deck = buildDeck();
+    shuffle(deck);
+    // take top n
+    const picked = deck.slice(0, n).map(c=>({ ...c, reversed: Math.random() < 0.35 }));
+
+    // prepare board
+    board.innerHTML = '';
+    board.classList.remove('spread-1','spread-3','spread-5','spread-10');
+    board.classList.add('spread-' + n);
+
+    updateSpreadDesc(n);
+
+    // sequential reveal animation
+    for(let i=0;i<picked.length;i++){
+      const card = picked[i];
+      // position label
+      const posLabel = (SPREADS[n] && SPREADS[n][i]) || `Pos ${i+1}`;
+      const el = makeCardEl(card, posLabel);
+      el.style.opacity = '0';
+      // spatial arrangement tweaks for 3-card spread: slight fan
+      if(n===3){
+        const offset = (i - 1) * 8; // -8,0,8 deg tilt
+        el.style.transform = `rotate(${offset}deg)`;
+      } else if(n===5){
+        const offset = (i - 2) * 6;
+        el.style.transform = `rotate(${offset}deg)`;
+      }
+      board.appendChild(el);
+      // staggered reveal
+      await sleep(160);
+      el.style.opacity = '1';
+      el.classList.add('card-drawn');
+      progressFill.style.width = `${8 + ((i+1)/picked.length)*84}%`;
+    }
+
+    // Construct reading
+    const reading = buildReading(picked, question);
+    renderReadingBlock(reading);
+
+    // finalize
+    progressFill.style.width = '100%';
+    setTimeout(()=>{
+      progressBar.style.display = 'none';
+      btnLoading.style.display = 'none';
+      btnText.style.opacity = '1';
+      goBtn.disabled = false;
+    }, 400);
+  }
+
+  function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
+
+  // Event bindings
+  goBtn.addEventListener('click', function(e){
+    e.preventDefault();
+    drawCards().catch(err=>{
+      console.error(err);
+      goBtn.disabled = false;
+      btnLoading.style.display = 'none';
+      btnText.style.opacity = '1';
+      progressBar.style.display = 'none';
+    });
   });
+
+  // initial spread desc
+  updateSpreadDesc(Number(spreadSelect.value || 3));
+
+  // Optional: tap a card to expand details (client-side only)
+  board.addEventListener('click', (ev)=>{
+    const cardNode = ev.target.closest('.card');
+    if(!cardNode) return;
+    const id = cardNode.dataset.cardId;
+    const name = cardNode.dataset.cardName;
+    const reversed = cardNode.dataset.reversed === '1';
+    const pos = cardNode.dataset.position || '';
+    // Build small modal-like inline expansion
+    const popup = document.createElement('div');
+    popup.className = 'panel';
+    popup.style.position = 'absolute';
+    popup.style.left = '50%';
+    popup.style.transform = 'translateX(-50%)';
+    popup.style.top = 'calc(100% + 10px)';
+    popup.style.minWidth = '220px';
+    popup.innerHTML = `<strong style="color:var(--gold2)">${escapeHtml(name)}</strong><div style="margin-top:6px;color:var(--muted)">${escapeHtml(pos)} · ${reversed? 'Reversed' : 'Upright'}</div><div style="margin-top:8px;color:#c6d0de">${escapeHtml(interpretCard({ ...parseCardData(cardNode), name }))}</div><div style="text-align:right;margin-top:8px"><button class="btn ghost" style="padding:6px 10px">Close</button></div>`;
+    // remove existing popups
+    const existing = cardNode.querySelector('.panel');
+    if(existing) existing.remove();
+    cardNode.appendChild(popup);
+    popup.querySelector('button').addEventListener('click', ()=>popup.remove());
+  });
+
+  function parseCardData(node){
+    return {
+      id: node.dataset.cardId,
+      name: node.dataset.cardName,
+      reversed: node.dataset.reversed === '1',
+      position: node.dataset.position
+    };
+  }
+
+  // expose minimal API for other scripts if needed
+  window._tarot = {
+    draw: drawCards,
+    buildDeck
+  };
+
 })();
 </script>
 </body>
