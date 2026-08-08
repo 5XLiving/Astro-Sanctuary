@@ -815,6 +815,130 @@ html,body{overflow-x:hidden}
     © 5xLiving · Soul Sanctuary
   </footer>
 </main>
-
+<script>
+// Tarot logic injection
+(function() {
+  // Tarot deck data
+  const tarotDeck = [
+    { name: "The Fool", cn: "愚者", meaning: "新开始、冒险、自由、信任直觉", advice: "勇敢迈出新的一步，保持开放心态。" },
+    { name: "The Magician", cn: "魔术师", meaning: "创造力、主动、资源调动", advice: "善用已有资源，主动创造机会。" },
+    { name: "The High Priestess", cn: "女祭司", meaning: "直觉、潜意识、神秘", advice: "相信内在直觉，静观其变。" },
+    { name: "The Empress", cn: "女皇", meaning: "丰盛、关怀、孕育", advice: "关注身心健康，滋养你的计划。" },
+    { name: "The Emperor", cn: "皇帝", meaning: "权威、结构、掌控", advice: "制定规则，保持秩序。" },
+    { name: "The Hierophant", cn: "教皇", meaning: "传统、信仰、导师", advice: "寻求指导，遵循传统智慧。" },
+    { name: "The Lovers", cn: "恋人", meaning: "选择、关系、和谐", advice: "用心沟通，做出真诚的选择。" },
+    { name: "The Chariot", cn: "战车", meaning: "意志、胜利、前进", advice: "坚定目标，勇往直前。" },
+    { name: "Strength", cn: "力量", meaning: "勇气、内在力量、耐心", advice: "温柔而坚定地面对挑战。" },
+    { name: "The Hermit", cn: "隐士", meaning: "内省、独处、智慧", advice: "花时间独处，聆听内心。" },
+    { name: "Wheel of Fortune", cn: "命运之轮", meaning: "变化、机遇、循环", advice: "顺应变化，把握机遇。" },
+    { name: "Justice", cn: "正义", meaning: "公平、因果、决断", advice: "公正处理事务，做出理性决定。" },
+    { name: "The Hanged Man", cn: "倒吊人", meaning: "暂停、转变、牺牲", advice: "换个角度看问题，耐心等待。" },
+    { name: "Death", cn: "死神", meaning: "结束、转化、重生", advice: "接受结束，迎接新生。" },
+    { name: "Temperance", cn: "节制", meaning: "平衡、调和、耐心", advice: "保持平衡，适度行事。" },
+    { name: "The Devil", cn: "恶魔", meaning: "束缚、诱惑、执念", advice: "认清限制，摆脱负面影响。" },
+    { name: "The Tower", cn: "高塔", meaning: "突变、觉醒、冲击", advice: "面对变化，重建基础。" },
+    { name: "The Star", cn: "星星", meaning: "希望、灵感、疗愈", advice: "保持信心，追随希望。" },
+    { name: "The Moon", cn: "月亮", meaning: "迷茫、潜意识、幻象", advice: "警惕误导，信任直觉。" },
+    { name: "The Sun", cn: "太阳", meaning: "成功、快乐、正能量", advice: "积极乐观，享受成果。" },
+    { name: "Judgement", cn: "审判", meaning: "觉醒、反思、复苏", advice: "总结经验，迎接新阶段。" },
+    { name: "The World", cn: "世界", meaning: "圆满、完成、成就", advice: "庆祝成果，准备新旅程。" }
+    // 可扩展至78张
+  ];
+  // Spread definitions
+  const spreadDefs = {
+    "1": { name: "单张", desc: "一张牌，聚焦于问题的核心指引。", positions: ["核心指引"] },
+    "3": { name: "三张（过去/现在/未来）", desc: "三张牌，分别代表过去、现在、未来。", positions: ["过去", "现在", "未来"] },
+    "5": { name: "十字排法（5张）", desc: "五张牌，代表现状、挑战、潜力、建议、结果。", positions: ["现状", "挑战", "潜力", "建议", "结果"] },
+    "10": { name: "凯尔特十字（10张）", desc: "十张牌，详细剖析问题的各个层面。", positions: ["现状", "挑战", "潜意识", "显意识", "过去", "未来", "自我态度", "外界环境", "希望/恐惧", "最终结果"] }
+  };
+  // Utility: shuffle deck
+  function shuffle(array) {
+    let a = array.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  // DOM ready
+  function ready(fn) {
+    if (document.readyState !== 'loading') fn();
+    else document.addEventListener('DOMContentLoaded', fn);
+  }
+  ready(function() {
+    const btn = document.getElementById('go');
+    const qInput = document.getElementById('question');
+    const spreadSel = document.getElementById('spread');
+    const board = document.getElementById('board');
+    const reading = document.getElementById('reading');
+    const readingText = document.getElementById('readingText');
+    const tarotSpreadDesc = document.getElementById('tarotSpreadDesc');
+    // Draw handler
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      // Get values
+      const q = qInput.value.trim();
+      const spread = spreadSel.value;
+      if (!spreadDefs[spread]) return;
+      const spreadDef = spreadDefs[spread];
+      tarotSpreadDesc.textContent = spreadDef.desc;
+      if (!q) {
+        qInput.focus();
+        alert('请输入你的问题。');
+        return;
+      }
+      // Draw cards
+      let deck = shuffle(tarotDeck);
+      let count = spreadDef.positions.length;
+      if (deck.length < count) count = deck.length;
+      let cards = deck.slice(0, count).map(card => {
+        // 随机正逆位
+        let reversed = Math.random() < 0.5;
+        return { ...card, reversed };
+      });
+      // Render board
+      board.className = 'board spread-' + spread;
+      board.innerHTML = '';
+      cards.forEach((card, idx) => {
+        let html = `<div class="card card-drawn pos-label">
+          <div class="imgwrap">
+            <div class="card-face">${card.cn}<br><span style="font-size:.8em;color:var(--muted)">${card.name}</span></div>
+            <div class="card-orientation">${card.reversed ? '逆位' : '正位'}</div>
+          </div>
+          <div class="cap">${spreadDef.positions[idx]}</div>
+          <div class="mean">${card.meaning}${card.reversed ? '（逆位：含义反向或阻碍）' : ''}</div>
+        </div>`;
+        board.innerHTML += html;
+      });
+      // Show reading
+      reading.style.display = '';
+      // Simple reading summary
+      let summary = `<div class="reading-summary">
+        <div class="summary-pill">${spreadDef.name}</div>
+        <h3>你的问题：</h3>
+        <p>${q.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>
+      </div>`;
+      // Card list
+      let cardList = '<div class="reading-card-list">';
+      cards.forEach((card, idx) => {
+        cardList += `<div class="reading-card-item">
+          <div class="reading-card-top">
+            <span class="reading-pos">${spreadDef.positions[idx]}</span>
+            <span class="reading-status">${card.reversed ? '逆位' : '正位'}</span>
+          </div>
+          <div class="reading-card-name">${card.cn} <span style="font-size:.8em;color:var(--muted)">${card.name}</span></div>
+          <div class="reading-card-meaning">${card.meaning}${card.reversed ? '（逆位：意义反向或阻碍）' : ''}</div>
+          <div class="reading-card-advice">建议：${card.advice}</div>
+        </div>`;
+      });
+      cardList += '</div>';
+      readingText.innerHTML = summary + cardList;
+      // Hide AI reading (demo)
+      var mainAiReading = document.getElementById('mainAiReading');
+      if(mainAiReading) mainAiReading.style.display = 'none';
+    });
+  });
+})();
+</script>
 </body>
 </html>
