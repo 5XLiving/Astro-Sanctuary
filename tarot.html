@@ -958,7 +958,7 @@ html,body{overflow-x:hidden}
         board.innerHTML += html;
       });
       // Show reading
-      reading.style.display = '';
+      reading.style.display = 'block';
       // Simple reading summary
       let summary = `<div class="reading-summary">
         <div class="summary-pill">${spreadDef.name}</div>
@@ -979,10 +979,23 @@ html,body{overflow-x:hidden}
         </div>`;
       });
       cardList += '</div>';
-      readingText.innerHTML = summary + cardList;
-      // Hide AI reading (demo)
-      var mainAiReading = document.getElementById('mainAiReading');
-      if(mainAiReading) mainAiReading.style.display = 'none';
+      const safeQuestion = q.replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      const focusCard = cards[0];
+      const reversedCards = cards.filter(card => card.reversed);
+      const positionReadings = cards.map((card, idx) => {
+        const position = spreadDef.positions[idx];
+        const orientation = card.reversed ? '逆位显示这股能量受阻，需要先调整节奏或看清盲点。' : '正位显示这股能量可以被你主动运用。';
+        return `<li><strong>${position}：${card.cn}</strong> —— ${card.meaning}。${orientation}行动提示：${card.advice}</li>`;
+      }).join('');
+      const answer = `<section class="reading-guidance">
+        <h3>针对你的问题的塔罗回答</h3>
+        <p class="reading-question">你的问题：「${safeQuestion}」</p>
+        <p>核心讯息是：${focusCard.cn}把注意力带回${focusCard.meaning}。这不是脱离现实的定论，而是当前局势给你的提醒：${focusCard.advice}</p>
+        <ul class="reading-position-list">${positionReadings}</ul>
+        <p><strong>命运走向：</strong>${reversedCards.length ? `牌阵中有 ${reversedCards.length} 张逆位牌，表示推进前要处理阻碍、犹豫或信息不足；` : '牌面整体顺行，表示可以保持目前方向并逐步推进；'}不要急着一次解决全部问题。</p>
+        <p><strong>给你的指引：</strong>在接下来的 48 小时内，把牌面建议落实成一个具体的小行动，再根据真实反馈调整下一步。</p>
+      </section>`;
+      readingText.innerHTML = summary + answer + cardList;
     });
   });
 })();
