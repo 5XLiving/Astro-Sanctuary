@@ -907,6 +907,54 @@ html,body{overflow-x:hidden}
     }
     return a;
   }
+
+  function escapeHtml(value) {
+    return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+
+  function buildTarotNarrative(question, spreadDef, cards) {
+    const safeQuestion = escapeHtml(question.trim());
+    const cardSummary = cards.map((card, idx) => {
+      const position = spreadDef.positions[idx];
+      const direction = card.reversed ? '逆位' : '正位';
+      return `${position}：${card.cn}（${direction}）`;
+    }).join('；');
+
+    const focusCard = cards[0] || { cn: '未知牌', meaning: '请重新抽牌', advice: '先放下焦虑，再重新看问题。' };
+    const reversedCount = cards.filter(card => card.reversed).length;
+    const questionHint = /(爱情|感情|关系|恋爱|婚姻|伴侣|家人)/i.test(question)
+      ? '关系与情感层面'
+      : /(事业|工作|职业|career|升职|跳槽|生意|创业)/i.test(question)
+        ? '职业与发展层面'
+        : /(财务|金钱|投资|财富|收支|收入)/i.test(question)
+          ? '财务与资源层面'
+          : /(健康|身体|状态|疗愈|恢复)/i.test(question)
+            ? '健康与能量层面'
+            : '当前人生方向层面';
+
+    const actionLine = reversedCount > 0
+      ? `当前牌阵里有 ${reversedCount} 张逆位，说明你需要先识别阻力、拖延或误判，再决定是否推进。`
+      : '当前牌阵整体偏顺势，说明你可以在现有方向上稳步推进，不必急着强行改变。';
+
+    const positionReadings = cards.map((card, idx) => {
+      const position = spreadDef.positions[idx];
+      const direction = card.reversed ? '逆位提示需要缓一缓，注意隐藏阻力或认知偏差。' : '正位提示能量正在向你打开，适合主动推动。';
+      return `<li><strong>${position}：${card.cn}</strong> —— ${card.meaning}。${direction} 行动建议：${card.advice}</li>`;
+    }).join('');
+
+    return `
+      <section class="reading-guidance">
+        <h3>针对你的问题的塔罗回答</h3>
+        <p class="reading-question">你的问题：「${safeQuestion || '未填写问题'}」</p>
+        <p>这组牌落在 <strong>${spreadDef.name}</strong> 中，核心信息围绕「${questionHint}」展开：${cardSummary}。</p>
+        <p>最关键的一张是 <strong>${focusCard.cn}</strong>，它提醒你：${focusCard.meaning}。这意味着当下的关键不在于急着控制结果，而是在于先看清你真正要处理的方向：${focusCard.advice}</p>
+        <ul class="reading-position-list">${positionReadings}</ul>
+        <p><strong>整体判断：</strong>${actionLine}</p>
+        <p><strong>给你的指引：</strong>把当前最重要的一步落成具体行动，优先处理最明显的阻力，再根据反馈继续修正方向。不要因为短期不确定而放弃长期方向。</p>
+      </section>
+    `;
+  }
+
   // DOM ready
   function ready(fn) {
     if (document.readyState !== 'loading') fn();
@@ -959,13 +1007,16 @@ html,body{overflow-x:hidden}
       });
       // Show reading
       reading.style.display = 'block';
-      // Simple reading summary
+      const mainAiReading = document.getElementById('mainAiReading');
+      const aiMainReadingBox = mainAiReading.querySelector('.ai-main-reading');
+
+      // Summary and grounded interpretation based on the actual question + drawn cards + positions + orientation
       let summary = `<div class="reading-summary">
         <div class="summary-pill">${spreadDef.name}</div>
         <h3>你的问题：</h3>
-        <p>${q.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</p>
+        <p>${escapeHtml(q)}</p>
       </div>`;
-      // Card list
+
       let cardList = '<div class="reading-card-list">';
       cards.forEach((card, idx) => {
         cardList += `<div class="reading-card-item">
@@ -979,23 +1030,11 @@ html,body{overflow-x:hidden}
         </div>`;
       });
       cardList += '</div>';
-      const safeQuestion = q.replace(/</g,'&lt;').replace(/>/g,'&gt;');
-      const focusCard = cards[0];
-      const reversedCards = cards.filter(card => card.reversed);
-      const positionReadings = cards.map((card, idx) => {
-        const position = spreadDef.positions[idx];
-        const orientation = card.reversed ? '逆位显示这股能量受阻，需要先调整节奏或看清盲点。' : '正位显示这股能量可以被你主动运用。';
-        return `<li><strong>${position}：${card.cn}</strong> —— ${card.meaning}。${orientation}行动提示：${card.advice}</li>`;
-      }).join('');
-      const answer = `<section class="reading-guidance">
-        <h3>针对你的问题的塔罗回答</h3>
-        <p class="reading-question">你的问题：「${safeQuestion}」</p>
-        <p>核心讯息是：${focusCard.cn}把注意力带回${focusCard.meaning}。这不是脱离现实的定论，而是当前局势给你的提醒：${focusCard.advice}</p>
-        <ul class="reading-position-list">${positionReadings}</ul>
-        <p><strong>命运走向：</strong>${reversedCards.length ? `牌阵中有 ${reversedCards.length} 张逆位牌，表示推进前要处理阻碍、犹豫或信息不足；` : '牌面整体顺行，表示可以保持目前方向并逐步推进；'}不要急着一次解决全部问题。</p>
-        <p><strong>给你的指引：</strong>在接下来的 48 小时内，把牌面建议落实成一个具体的小行动，再根据真实反馈调整下一步。</p>
-      </section>`;
+
+      const answer = buildTarotNarrative(q, spreadDef, cards);
       readingText.innerHTML = summary + answer + cardList;
+      aiMainReadingBox.innerHTML = answer.replace(/<h3>.*?<\/h3>/s, '').replace(/<p class="reading-question">.*?<\/p>/, '');
+      mainAiReading.style.display = 'block';
     });
   });
 })();
