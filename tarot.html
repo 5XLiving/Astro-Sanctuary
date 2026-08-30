@@ -1002,6 +1002,150 @@ select option {
     return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
+  const tarotEnglish = {
+    cards: {
+      "The Fool": {
+        meaning: "new beginnings, adventure, freedom, trusting intuition",
+        advice: "Take a brave first step and stay open-minded."
+      },
+      "The Magician": {
+        meaning: "creativity, initiative, using available resources",
+        advice: "Use what you already have and actively create opportunity."
+      },
+      "The High Priestess": {
+        meaning: "intuition, subconscious wisdom, hidden knowledge",
+        advice: "Trust your inner knowing and observe before acting."
+      },
+      "The Empress": {
+        meaning: "abundance, care, growth, emotional nourishment",
+        advice: "Nourish your heart, body, and the plan you want to grow."
+      },
+      "The Emperor": {
+        meaning: "structure, authority, stability, control",
+        advice: "Create clear boundaries and bring order to the situation."
+      },
+      "The Hierophant": {
+        meaning: "tradition, values, guidance, commitment",
+        advice: "Seek wise guidance and act according to your deeper values."
+      },
+      "The Lovers": {
+        meaning: "choice, relationship, attraction, harmony",
+        advice: "Communicate sincerely and choose from the heart."
+      },
+      "The Chariot": {
+        meaning: "willpower, movement, victory, determination",
+        advice: "Stay focused and move forward with clear intention."
+      },
+      "Strength": {
+        meaning: "courage, inner strength, patience, gentle power",
+        advice: "Face the challenge with calm confidence and patience."
+      },
+      "The Hermit": {
+        meaning: "reflection, solitude, wisdom, inner searching",
+        advice: "Take quiet time to listen to your inner truth."
+      },
+      "Wheel of Fortune": {
+        meaning: "change, cycles, timing, opportunity",
+        advice: "Adapt to the change and recognize the opening."
+      },
+      "Justice": {
+        meaning: "truth, fairness, cause and effect, clear decisions",
+        advice: "Look at the facts clearly and make a fair decision."
+      },
+      "The Hanged Man": {
+        meaning: "pause, surrender, new perspective, waiting",
+        advice: "Step back and look at the situation from another angle."
+      },
+      "Death": {
+        meaning: "ending, transformation, release, rebirth",
+        advice: "Let the old pattern end so something new can begin."
+      },
+      "Temperance": {
+        meaning: "balance, moderation, patience, healing",
+        advice: "Stay balanced and do not force the timing."
+      },
+      "The Devil": {
+        meaning: "attachment, temptation, fear, unhealthy patterns",
+        advice: "Recognize what is keeping you stuck and reclaim your power."
+      },
+      "The Tower": {
+        meaning: "sudden change, awakening, disruption, truth revealed",
+        advice: "Face the truth and rebuild on a stronger foundation."
+      },
+      "The Star": {
+        meaning: "hope, inspiration, healing, renewed faith",
+        advice: "Keep faith alive and follow the path of healing."
+      },
+      "The Moon": {
+        meaning: "confusion, illusion, hidden feelings, uncertainty",
+        advice: "Do not rush. Trust intuition, but verify what is unclear."
+      },
+      "The Sun": {
+        meaning: "success, joy, clarity, positive energy",
+        advice: "Stay optimistic and let the truth come into the light."
+      },
+      "Judgement": {
+        meaning: "awakening, reflection, renewal, second chance",
+        advice: "Learn from the past and step into a new stage."
+      },
+      "The World": {
+        meaning: "completion, fulfillment, achievement, closure",
+        advice: "Recognize what has completed and prepare for the next cycle."
+      }
+    },
+    spreadNames: {
+      "单张": "Single Card",
+      "三张（过去/现在/未来）": "Three Cards — Past / Present / Future",
+      "十字排法（5张）": "Cross Spread — 5 Cards",
+      "凯尔特十字（10张）": "Celtic Cross — 10 Cards"
+    },
+    positions: {
+      "核心指引": "Core guidance",
+      "过去": "Past",
+      "现在": "Present",
+      "未来": "Future",
+      "现状": "Situation",
+      "挑战": "Challenge",
+      "潜力": "Potential",
+      "建议": "Advice",
+      "结果": "Outcome",
+      "潜意识": "Subconscious",
+      "显意识": "Conscious focus",
+      "自我态度": "Your attitude",
+      "外界环境": "Outside influence",
+      "希望/恐惧": "Hope / fear",
+      "最终结果": "Final outcome"
+    }
+  };
+
+  function isZhLang(lang) {
+    return String(lang || '').toLowerCase().startsWith('zh');
+  }
+
+  function localizedSpreadName(spreadDef, lang) {
+    if (isZhLang(lang)) return spreadDef.name;
+    return tarotEnglish.spreadNames[spreadDef.name] || spreadDef.name;
+  }
+
+  function localizedPosition(position, lang) {
+    if (isZhLang(lang)) return position;
+    return tarotEnglish.positions[position] || position;
+  }
+
+  function localizedCardName(card, lang) {
+    return isZhLang(lang) ? (card.cn || card.name) : (card.name || card.cn);
+  }
+
+  function localizedMeaning(card, lang) {
+    if (isZhLang(lang)) return card.meaning || '';
+    return tarotEnglish.cards[card.name]?.meaning || card.meaning || '';
+  }
+
+  function localizedAdvice(card, lang) {
+    if (isZhLang(lang)) return card.advice || '';
+    return tarotEnglish.cards[card.name]?.advice || card.advice || '';
+  }
+
   function getTarotLang() {
     const value = document.getElementById('langSelect')?.value || 'en-US';
     return value;
@@ -1123,12 +1267,13 @@ select option {
     const questionType = detectQuestionType(question);
     const directAnswer = buildDirectAnswer(question, questionType, outcomeCard, reversedCount, cards, lang);
 
-    const cardLabel = (card) => t.zh ? (card.cn || card.name) : (card.name || card.cn);
-    const cardMeaning = (card) => card.meaning || '';
-    const cardAdvice = (card) => card.advice || '';
+    const spreadName = localizedSpreadName(spreadDef, lang);
+    const cardLabel = (card) => localizedCardName(card, lang);
+    const cardMeaning = (card) => localizedMeaning(card, lang);
+    const cardAdvice = (card) => localizedAdvice(card, lang);
 
     const cardSummary = cards.map((card, idx) => {
-      const position = spreadDef.positions[idx];
+      const position = localizedPosition(spreadDef.positions[idx], lang);
       const direction = card.reversed ? t.reversed : t.upright;
       return `${position}: ${cardLabel(card)} (${direction})`;
     }).join(t.zh ? '；' : '; ');
@@ -1142,7 +1287,7 @@ select option {
         : 'The spread has mostly open energy, which means the situation can move forward with clear action.');
 
     const positionReadings = cards.map((card, idx) => {
-      const position = spreadDef.positions[idx];
+      const position = localizedPosition(spreadDef.positions[idx], lang);
       const direction = card.reversed
         ? (t.zh ? '这张牌逆位，表示这个位置有阻塞、延迟、隐藏情绪或表达不完整。' : 'Because this card is reversed, this part of the situation is blocked, delayed, hidden, or not fully expressed.')
         : (t.zh ? '这张牌正位，表示这个位置的能量较清楚，比较容易推动。' : 'Because this card is upright, this part of the situation is clearer and easier to work with.');
@@ -1168,7 +1313,7 @@ select option {
         <p class="reading-question">${t.yourQuestion}:「${safeQuestion || t.noQuestion}」</p>
         <p><strong>${t.directAnswer}:</strong> ${escapeHtml(directAnswer)}</p>
         <p><strong>${t.overallEnergy}:</strong> ${escapeHtml(overallLine)}</p>
-        <p><strong>${t.spread}:</strong> ${escapeHtml(spreadDef.name)}. <strong>${t.cards}:</strong> ${escapeHtml(cardSummary)}.</p>
+        <p><strong>${t.spread}:</strong> ${escapeHtml(spreadName)}. <strong>${t.cards}:</strong> ${escapeHtml(cardSummary)}.</p>
         <p><strong>${t.keyCard}:</strong> ${escapeHtml(cardLabel(focusCard))} — ${escapeHtml(cardMeaning(focusCard))}. <strong>${t.outcomeCard}:</strong> ${escapeHtml(cardLabel(outcomeCard))} — ${escapeHtml(cardMeaning(outcomeCard))}${outcomeCard.reversed ? (t.zh ? '，但逆位表示结果目前受阻或延迟。' : ', but reversed means the result is currently blocked or delayed.') : (t.zh ? '，正位表示道路较开放。' : ', and upright means the path is more open.')}</p>
         <ul class="reading-position-list">${positionReadings}</ul>
         <p><strong>${t.guidance}:</strong> ${escapeHtml(practicalAdvice)}</p>
@@ -1231,26 +1376,39 @@ select option {
       const mainAiReading = document.getElementById('mainAiReading');
       const aiMainReadingBox = mainAiReading.querySelector('.ai-main-reading');
 
-      // Summary and grounded interpretation based on the actual question + drawn cards + positions + orientation
+      // Summary and grounded interpretation based on selected language.
+      const activeLang = getTarotLang();
+      const activeZh = isZhLang(activeLang);
+      const summarySpreadName = localizedSpreadName(spreadDef, activeLang);
+
       let summary = `<div class="reading-summary">
-        <div class="summary-pill">${spreadDef.name}</div>
-        <h3>你的问题：</h3>
+        <div class="summary-pill">${escapeHtml(summarySpreadName)}</div>
+        <h3>${activeZh ? '你的问题：' : 'Your question:'}</h3>
         <p>${escapeHtml(q)}</p>
       </div>`;
 
       let cardList = '<div class="reading-card-list">';
       cards.forEach((card, idx) => {
+        const positionLabel = localizedPosition(spreadDef.positions[idx], activeLang);
+        const directionLabel = card.reversed
+          ? (activeZh ? '逆位' : 'Reversed')
+          : (activeZh ? '正位' : 'Upright');
+        const reversedNote = card.reversed
+          ? (activeZh ? '（逆位：意义反向或阻碍）' : ' (reversed: blocked, delayed, or inverted energy)')
+          : '';
+
         cardList += `<div class="reading-card-item">
           <div class="reading-card-top">
-            <span class="reading-pos">${spreadDef.positions[idx]}</span>
-            <span class="reading-status">${card.reversed ? '逆位' : '正位'}</span>
+            <span class="reading-pos">${escapeHtml(positionLabel)}</span>
+            <span class="reading-status">${directionLabel}</span>
           </div>
-          <div class="reading-card-name">${card.cn} <span style="font-size:.8em;color:var(--muted)">${card.name}</span></div>
-          <div class="reading-card-meaning">${card.meaning}${card.reversed ? '（逆位：意义反向或阻碍）' : ''}</div>
-          <div class="reading-card-advice">建议：${card.advice}</div>
+          <div class="reading-card-name">${escapeHtml(localizedCardName(card, activeLang))} <span style="font-size:.8em;color:var(--muted)">${escapeHtml(activeZh ? card.name : card.cn)}</span></div>
+          <div class="reading-card-meaning">${escapeHtml(localizedMeaning(card, activeLang))}${reversedNote}</div>
+          <div class="reading-card-advice">${activeZh ? '建议' : 'Advice'}: ${escapeHtml(localizedAdvice(card, activeLang))}</div>
         </div>`;
       });
       cardList += '</div>';
+
       const answer = buildTarotNarrative(q, spreadDef, cards);
       readingText.innerHTML = summary + answer + cardList;
       readingText.style.display = 'block';
