@@ -749,6 +749,42 @@ select option {
   display: none !important;
 }
 
+
+/* --- Reading visibility + i18n/dropdown repair --- */
+#readingText {
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  margin-bottom: 12px;
+}
+
+#readingText:empty {
+  display: none !important;
+}
+
+.reading-guidance,
+.reading-summary,
+.reading-card-list {
+  display: block;
+}
+
+.lang select,
+select {
+  color-scheme: dark;
+  background: rgba(7,10,15,.92);
+  color: var(--gold2);
+}
+
+.lang select option,
+select option {
+  background: #101722;
+  color: #f5d77d;
+}
+
+.ai-reading-box {
+  display: none !important;
+}
+
 </style>
 </head>
 <body>
@@ -966,129 +1002,176 @@ select option {
     return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
 
-  function buildTarotNarrative(question, spreadDef, cards) {
-    const safeQuestion = escapeHtml(question.trim());
-    const reversedCount = cards.filter(card => card.reversed).length;
-    const focusCard = cards[0] || { name: 'Unknown', cn: 'Unknown', meaning: 'try again', advice: 'Pause and draw again.', reversed: false };
-    const outcomeCard = cards[cards.length - 1] || focusCard;
+  function getTarotLang() {
+    const value = document.getElementById('langSelect')?.value || 'en-US';
+    return value;
+  }
 
-    function detectQuestionType(q) {
-      const text = String(q || '').toLowerCase();
+  function tarotText(lang) {
+    const zh = String(lang || '').toLowerCase().startsWith('zh');
+    return {
+      zh,
+      title: zh ? '针对你的问题的塔罗回答' : 'Tarot answer for your question',
+      yourQuestion: zh ? '你的问题' : 'Your question',
+      directAnswer: zh ? '直接回答' : 'Direct answer',
+      overallEnergy: zh ? '整体能量' : 'Overall energy',
+      spread: zh ? '牌阵' : 'Spread',
+      cards: zh ? '牌面组合' : 'Cards',
+      keyCard: zh ? '关键牌' : 'Key card',
+      outcomeCard: zh ? '结果牌' : 'Outcome card',
+      guidance: zh ? '指引' : 'Guidance',
+      noQuestion: zh ? '未填写问题' : 'No question entered',
+      upright: zh ? '正位' : 'Upright',
+      reversed: zh ? '逆位' : 'Reversed',
+      advice: zh ? '建议' : 'Advice'
+    };
+  }
 
-      if (/(love|relationship|together|togather|crush|partner|ex|marry|marriage|爱情|感情|关系|恋爱|复合|在一起|喜欢|婚姻|伴侣)/i.test(text)) {
-        return 'relationship';
-      }
+  function detectQuestionType(q) {
+    const text = String(q || '').toLowerCase();
 
-      if (/(career|job|work|business|offer|promotion|事业|工作|职业|升职|跳槽|生意|创业)/i.test(text)) {
-        return 'career';
-      }
-
-      if (/(money|finance|wealth|income|investment|财务|金钱|投资|财富|收支|收入|财运)/i.test(text)) {
-        return 'finance';
-      }
-
-      if (/(health|healing|body|recover|健康|身体|状态|疗愈|恢复)/i.test(text)) {
-        return 'health';
-      }
-
-      return 'general';
+    if (/(love|relationship|together|togather|crush|partner|ex|marry|marriage|爱情|感情|关系|恋爱|复合|在一起|喜欢|婚姻|伴侣)/i.test(text)) {
+      return 'relationship';
     }
 
-    function isYesNoQuestion(q) {
-      return /^(will|can|should|is|are|do|does|did|would|could)\b/i.test(String(q || '').trim())
-        || /(会不会|能不能|可不可以|是否|是不是|有没有|要不要)/.test(String(q || ''));
+    if (/(career|job|work|business|offer|promotion|事业|工作|职业|升职|跳槽|生意|创业)/i.test(text)) {
+      return 'career';
     }
 
-    function buildDirectAnswer(q, type, outcome, reversedTotal) {
-      const outcomeOpen = !outcome.reversed;
-      const manyReversed = reversedTotal >= Math.ceil(cards.length / 2);
-      const yesNo = isYesNoQuestion(q);
+    if (/(money|finance|wealth|income|investment|财务|金钱|投资|财富|收支|收入|财运)/i.test(text)) {
+      return 'finance';
+    }
 
-      if (type === 'relationship') {
-        if (outcomeOpen && !manyReversed) {
-          return yesNo
-            ? 'The cards lean positive: love or emotional interest can grow, but it still depends on real communication and mutual effort.'
-            : 'The relationship energy is open. There is room for warmth, attraction, or emotional growth if both sides respond honestly.';
-        }
+    if (/(health|healing|body|recover|健康|身体|状态|疗愈|恢复)/i.test(text)) {
+      return 'health';
+    }
 
-        if (outcomeOpen && manyReversed) {
-          return 'The cards show possibility, but not a clean yes yet. There may be attraction, but fear, timing, distance, or unclear communication is blocking the relationship.';
-        }
+    return 'general';
+  }
 
-        return 'The cards do not show a stable yes right now. The feeling may be uncertain, blocked, or not fully expressed. Watch actions more than words before investing too much hope.';
-      }
+  function isYesNoQuestion(q) {
+    return /^(will|can|should|is|are|do|does|did|would|could)\b/i.test(String(q || '').trim())
+      || /(会不会|能不能|可不可以|是否|是不是|有没有|要不要)/.test(String(q || ''));
+  }
 
-      if (type === 'career') {
-        if (outcomeOpen && !manyReversed) return 'The cards lean positive. This can move forward if you act clearly and use the resources already available to you.';
-        if (outcomeOpen && manyReversed) return 'There is opportunity, but the process has resistance. Adjust the plan before pushing harder.';
-        return 'The cards advise caution. The result is not stable yet, so review your strategy before making a big move.';
-      }
+  function buildDirectAnswer(q, type, outcome, reversedTotal, cards, lang) {
+    const t = tarotText(lang);
+    const outcomeOpen = !outcome.reversed;
+    const manyReversed = reversedTotal >= Math.ceil(cards.length / 2);
+    const yesNo = isYesNoQuestion(q);
 
-      if (type === 'finance') {
-        if (outcomeOpen && !manyReversed) return 'The cards show room for improvement, but money choices should stay practical and measured.';
-        if (outcomeOpen && manyReversed) return 'There may be opportunity, but risk is high. Protect your resources before chasing gain.';
-        return 'The cards advise conservative financial choices for now. Avoid rushed decisions.';
-      }
-
-      if (type === 'health') {
-        return 'The cards point toward rest, balance, and recovery. Tarot is not medical advice, so real health concerns should be checked with a professional.';
-      }
-
+    if (type === 'relationship') {
       if (outcomeOpen && !manyReversed) {
-        return yesNo
-          ? 'The cards lean positive. The situation can move forward if you take the right next step.'
-          : 'The cards show an open path, but the result depends on how you respond now.';
+        return t.zh
+          ? '牌面倾向正面：这段关系有发展、靠近或表达感情的空间，但仍需要真实沟通和双方行动配合。'
+          : 'The cards lean positive: love or emotional interest can grow, but it still depends on real communication and mutual effort.';
       }
 
       if (outcomeOpen && manyReversed) {
-        return 'The answer is conditional: possible, but blocked. Clear the resistance first.';
+        return t.zh
+          ? '牌面显示有机会，但不是稳定确定的“是”。其中可能有好感，但恐惧、时机、距离或沟通不清正在阻挡关系。'
+          : 'The cards show possibility, but not a clean yes yet. There may be attraction, but fear, timing, distance, or unclear communication is blocking the relationship.';
       }
 
-      return 'The cards show uncertainty rather than a clear yes. The outcome depends on how the current obstacle is handled.';
+      return t.zh
+        ? '牌面现在不显示稳定明确的“是”。感情可能不确定、受阻或尚未表达清楚。先看对方行动，不要只靠想象投入太多期待。'
+        : 'The cards do not show a stable yes right now. The feeling may be uncertain, blocked, or not fully expressed. Watch actions more than words before investing too much hope.';
     }
 
+    if (type === 'career') {
+      if (outcomeOpen && !manyReversed) return t.zh ? '牌面偏正面。只要你行动清楚并善用已有资源，这件事可以继续推进。' : 'The cards lean positive. This can move forward if you act clearly and use the resources already available to you.';
+      if (outcomeOpen && manyReversed) return t.zh ? '有机会，但过程有阻力。先调整计划，再继续推动。' : 'There is opportunity, but the process has resistance. Adjust the plan before pushing harder.';
+      return t.zh ? '牌面建议谨慎。结果还不稳定，做大决定前先复盘策略。' : 'The cards advise caution. The result is not stable yet, so review your strategy before making a big move.';
+    }
+
+    if (type === 'finance') {
+      if (outcomeOpen && !manyReversed) return t.zh ? '财务有改善空间，但要保持实际和节制。' : 'The cards show room for improvement, but money choices should stay practical and measured.';
+      if (outcomeOpen && manyReversed) return t.zh ? '可能有机会，但风险偏高。先保护本金和资源。' : 'There may be opportunity, but risk is high. Protect your resources before chasing gain.';
+      return t.zh ? '牌面建议保守处理财务，避免冲动决定。' : 'The cards advise conservative financial choices for now. Avoid rushed decisions.';
+    }
+
+    if (type === 'health') {
+      return t.zh
+        ? '牌面指向休息、平衡和恢复。塔罗不是医疗建议，如有真实症状请咨询专业人士。'
+        : 'The cards point toward rest, balance, and recovery. Tarot is not medical advice, so real health concerns should be checked with a professional.';
+    }
+
+    if (outcomeOpen && !manyReversed) {
+      return t.zh
+        ? '牌面偏正面。只要你采取正确下一步，事情有机会推进。'
+        : 'The cards lean positive. The situation can move forward if you take the right next step.';
+    }
+
+    if (outcomeOpen && manyReversed) {
+      return t.zh
+        ? '答案是有条件的：有可能，但目前受阻。先清理阻力。'
+        : 'The answer is conditional: possible, but blocked. Clear the resistance first.';
+    }
+
+    return t.zh
+      ? '牌面显示不确定，而不是明确的是。结果取决于你如何处理当前阻碍。'
+      : 'The cards show uncertainty rather than a clear yes. The outcome depends on how the current obstacle is handled.';
+  }
+
+  function buildTarotNarrative(question, spreadDef, cards) {
+    const lang = getTarotLang();
+    const t = tarotText(lang);
+    const safeQuestion = escapeHtml(question.trim());
+    const reversedCount = cards.filter(card => card.reversed).length;
+    const focusCard = cards[0] || { name: 'Unknown', cn: '未知牌', meaning: 'try again', advice: 'Pause and draw again.', reversed: false };
+    const outcomeCard = cards[cards.length - 1] || focusCard;
     const questionType = detectQuestionType(question);
-    const directAnswer = buildDirectAnswer(question, questionType, outcomeCard, reversedCount);
+    const directAnswer = buildDirectAnswer(question, questionType, outcomeCard, reversedCount, cards, lang);
+
+    const cardLabel = (card) => t.zh ? (card.cn || card.name) : (card.name || card.cn);
+    const cardMeaning = (card) => card.meaning || '';
+    const cardAdvice = (card) => card.advice || '';
 
     const cardSummary = cards.map((card, idx) => {
       const position = spreadDef.positions[idx];
-      const direction = card.reversed ? 'Reversed' : 'Upright';
-      return `${position}: ${card.name || card.cn} (${direction})`;
-    }).join('; ');
+      const direction = card.reversed ? t.reversed : t.upright;
+      return `${position}: ${cardLabel(card)} (${direction})`;
+    }).join(t.zh ? '；' : '; ');
 
     const overallLine = reversedCount > 0
-      ? `There are ${reversedCount} reversed card(s). This means the situation has resistance, delay, fear, or unclear energy that must be handled before the answer becomes stable.`
-      : 'The spread has mostly open energy, which means the situation can move forward with clear action.';
+      ? (t.zh
+        ? `当前牌阵有 ${reversedCount} 张逆位，说明这件事存在阻力、拖延、恐惧或表达不清，需要先处理这些阻碍，答案才会稳定。`
+        : `There are ${reversedCount} reversed card(s). This means the situation has resistance, delay, fear, or unclear energy that must be handled before the answer becomes stable.`)
+      : (t.zh
+        ? '牌阵整体能量较顺，说明这件事可以通过清楚行动继续推进。'
+        : 'The spread has mostly open energy, which means the situation can move forward with clear action.');
 
     const positionReadings = cards.map((card, idx) => {
       const position = spreadDef.positions[idx];
       const direction = card.reversed
-        ? 'Because this card is reversed, this part of the situation is blocked, delayed, hidden, or not fully expressed.'
-        : 'Because this card is upright, this part of the situation is clearer and easier to work with.';
+        ? (t.zh ? '这张牌逆位，表示这个位置有阻塞、延迟、隐藏情绪或表达不完整。' : 'Because this card is reversed, this part of the situation is blocked, delayed, hidden, or not fully expressed.')
+        : (t.zh ? '这张牌正位，表示这个位置的能量较清楚，比较容易推动。' : 'Because this card is upright, this part of the situation is clearer and easier to work with.');
 
-      return `<li><strong>${position}: ${card.name || card.cn}</strong> — ${card.meaning}. ${direction} Advice: ${card.advice}</li>`;
+      return `<li><strong>${escapeHtml(position)}: ${escapeHtml(cardLabel(card))}</strong> — ${escapeHtml(cardMeaning(card))}. ${direction} ${t.advice}: ${escapeHtml(cardAdvice(card))}</li>`;
     }).join('');
 
     const practicalAdvice = questionType === 'relationship'
-      ? 'Do not chase certainty only through imagination. Look for real signs: reply speed, willingness to meet, emotional consistency, and whether the person makes space for you. Ask gently, then judge by action.'
+      ? (t.zh
+        ? '不要只靠想象追求确定感。请观察真实信号：回复速度、是否愿意见面、情绪是否稳定、是否愿意为你留空间。可以温和表达一次，然后用对方行动来判断。'
+        : 'Do not chase certainty only through imagination. Look for real signs: reply speed, willingness to meet, emotional consistency, and whether the person makes space for you. Ask gently, then judge by action.')
       : questionType === 'career'
-        ? 'Choose one practical next step, remove the clearest obstacle, and test the result before making a bigger move.'
+        ? (t.zh ? '选一个最实际的下一步，先处理最明显的阻碍，再根据反馈决定是否加大行动。' : 'Choose one practical next step, remove the clearest obstacle, and test the result before making a bigger move.')
         : questionType === 'finance'
-          ? 'Protect your base first. Do not make emotional money decisions until the facts are clearer.'
+          ? (t.zh ? '先保护基础资源。事实不清楚前，不要用情绪做金钱决定。' : 'Protect your base first. Do not make emotional money decisions until the facts are clearer.')
           : questionType === 'health'
-            ? 'Focus on rest, balance, and support. For real symptoms, use professional medical help.'
-            : 'Take one concrete action that can give you real feedback. Do not stay stuck in guessing.';
+            ? (t.zh ? '优先休息、平衡和支持。若有真实症状，请寻求专业医疗帮助。' : 'Focus on rest, balance, and support. For real symptoms, use professional medical help.')
+            : (t.zh ? '采取一个能得到真实反馈的具体行动，不要一直停留在猜测里。' : 'Take one concrete action that can give you real feedback. Do not stay stuck in guessing.');
 
     return `
       <section class="reading-guidance">
-        <h3>Tarot answer for your question</h3>
-        <p class="reading-question">Your question:「${safeQuestion || 'No question entered'}」</p>
-        <p><strong>Direct answer:</strong> ${directAnswer}</p>
-        <p><strong>Overall energy:</strong> ${overallLine}</p>
-        <p><strong>Spread:</strong> ${spreadDef.name}. Cards: ${cardSummary}.</p>
-        <p><strong>Key card:</strong> ${focusCard.name || focusCard.cn} shows the main theme: ${focusCard.meaning}. <strong>Outcome card:</strong> ${outcomeCard.name || outcomeCard.cn} shows the likely direction: ${outcomeCard.meaning}${outcomeCard.reversed ? ', but reversed means the result is currently blocked or delayed.' : ', and upright means the path is more open.'}</p>
+        <h3>${t.title}</h3>
+        <p class="reading-question">${t.yourQuestion}:「${safeQuestion || t.noQuestion}」</p>
+        <p><strong>${t.directAnswer}:</strong> ${escapeHtml(directAnswer)}</p>
+        <p><strong>${t.overallEnergy}:</strong> ${escapeHtml(overallLine)}</p>
+        <p><strong>${t.spread}:</strong> ${escapeHtml(spreadDef.name)}. <strong>${t.cards}:</strong> ${escapeHtml(cardSummary)}.</p>
+        <p><strong>${t.keyCard}:</strong> ${escapeHtml(cardLabel(focusCard))} — ${escapeHtml(cardMeaning(focusCard))}. <strong>${t.outcomeCard}:</strong> ${escapeHtml(cardLabel(outcomeCard))} — ${escapeHtml(cardMeaning(outcomeCard))}${outcomeCard.reversed ? (t.zh ? '，但逆位表示结果目前受阻或延迟。' : ', but reversed means the result is currently blocked or delayed.') : (t.zh ? '，正位表示道路较开放。' : ', and upright means the path is more open.')}</p>
         <ul class="reading-position-list">${positionReadings}</ul>
-        <p><strong>Guidance:</strong> ${practicalAdvice}</p>
+        <p><strong>${t.guidance}:</strong> ${escapeHtml(practicalAdvice)}</p>
       </section>
     `;
   }
@@ -1168,6 +1251,11 @@ select option {
         </div>`;
       });
       cardList += '</div>';
+      const answer = buildTarotNarrative(q, spreadDef, cards);
+      readingText.innerHTML = summary + answer + cardList;
+      readingText.style.display = 'block';
+      aiMainReadingBox.innerHTML = '';
+      mainAiReading.style.display = 'none';
 
       // five-x-direct-deep-tarot-output-v2
       function tarotEscapeHtml(value) {
@@ -1276,14 +1364,8 @@ select option {
 
         return `<div class="ai-tarot-depth-reading" data-fix="${marker}">${lines.map(p).join("")}</div>`;
       }
-
-      const answer = buildDeepTarotAnswer(q, cards);
-      readingText.innerHTML = summary + cardList;
-      aiMainReadingBox.innerHTML = answer;
-      mainAiReading.style.display = 'block';
       // Re-affirm the reading section visibility after all innerHTML writes (defensive fix for the reported issue)
       reading.style.display = 'block';
-      readingText.style.display = 'block';
     });
   });
 })();
