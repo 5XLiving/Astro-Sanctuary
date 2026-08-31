@@ -1257,6 +1257,34 @@ select option {
       : 'The cards show uncertainty rather than a clear yes. The outcome depends on how the current obstacle is handled.';
   }
 
+  function positionMeaning(position, card, lang, questionType) {
+    const zh = isZhLang(lang);
+    const pos = localizedPosition(position, lang);
+    const cardName = localizedCardName(card, lang);
+    const meaning = localizedMeaning(card, lang);
+
+    if (zh) {
+      if (questionType === 'relationship') {
+        return `${pos} 的 ${cardName} 表示这段关系在这个位置上的真实能量：${meaning}。请把它看成对感情互动、沟通状态和对方行动的提示，而不是单独的好坏判断。`;
+      }
+      return `${pos} 的 ${cardName} 表示这个位置的主要能量：${meaning}。它说明你需要从这个角度理解当前局面。`;
+    }
+
+    if (questionType === 'relationship') {
+      return `In the ${pos} position, ${cardName} shows how this part of the relationship is operating. Its meaning is ${meaning}. For your question, this points to emotional timing, communication, consistency, and whether the connection is being expressed through real action.`;
+    }
+
+    if (questionType === 'career') {
+      return `In the ${pos} position, ${cardName} describes the work or direction-related energy here. Its meaning is ${meaning}. This shows what needs attention before the situation can move forward.`;
+    }
+
+    if (questionType === 'finance') {
+      return `In the ${pos} position, ${cardName} describes the money or resource-related energy here. Its meaning is ${meaning}. This shows where to protect, adjust, or act more carefully.`;
+    }
+
+    return `In the ${pos} position, ${cardName} shows the main energy of this part of the situation. Its meaning is ${meaning}. This explains what the card is asking you to notice before choosing your next step.`;
+  }
+
   function buildTarotNarrative(question, spreadDef, cards) {
     const lang = getTarotLang();
     const t = tarotText(lang);
@@ -1287,12 +1315,29 @@ select option {
         : 'The spread has mostly open energy, which means the situation can move forward with clear action.');
 
     const positionReadings = cards.map((card, idx) => {
-      const position = localizedPosition(spreadDef.positions[idx], lang);
-      const direction = card.reversed
-        ? (t.zh ? '这张牌逆位，表示这个位置有阻塞、延迟、隐藏情绪或表达不完整。' : 'Because this card is reversed, this part of the situation is blocked, delayed, hidden, or not fully expressed.')
-        : (t.zh ? '这张牌正位，表示这个位置的能量较清楚，比较容易推动。' : 'Because this card is upright, this part of the situation is clearer and easier to work with.');
+      const rawPosition = spreadDef.positions[idx];
+      const position = localizedPosition(rawPosition, lang);
+      const cardName = cardLabel(card);
+      const meaning = cardMeaning(card);
+      const advice = cardAdvice(card);
 
-      return `<li><strong>${escapeHtml(position)}: ${escapeHtml(cardLabel(card))}</strong> — ${escapeHtml(cardMeaning(card))}. ${direction} ${t.advice}: ${escapeHtml(cardAdvice(card))}</li>`;
+      const direction = card.reversed
+        ? (t.zh
+          ? '这张牌逆位，表示这个位置有阻塞、延迟、隐藏情绪、表达不完整，或能量没有顺利流动。'
+          : 'Because this card is reversed, this part of the situation is blocked, delayed, hidden, or not fully expressed.')
+        : (t.zh
+          ? '这张牌正位，表示这个位置的能量较清楚，比较容易被看见、理解或推动。'
+          : 'Because this card is upright, this part of the situation is clearer, more visible, and easier to work with.');
+
+      const deeperMeaning = positionMeaning(rawPosition, card, lang, questionType);
+
+      return `<li>
+        <strong>${escapeHtml(position)}: ${escapeHtml(cardName)}</strong>
+        <div><strong>${t.zh ? '牌义' : 'Meaning'}:</strong> ${escapeHtml(meaning)}</div>
+        <div><strong>${t.zh ? '位置解读' : 'Position reading'}:</strong> ${escapeHtml(deeperMeaning)}</div>
+        <div><strong>${card.reversed ? t.reversed : t.upright}:</strong> ${direction}</div>
+        <div><strong>${t.advice}:</strong> ${escapeHtml(advice)}</div>
+      </li>`;
     }).join('');
 
     const practicalAdvice = questionType === 'relationship'
@@ -1410,7 +1455,7 @@ select option {
       cardList += '</div>';
 
       const answer = buildTarotNarrative(q, spreadDef, cards);
-      readingText.innerHTML = summary + answer + cardList;
+      readingText.innerHTML = summary + answer;
       readingText.style.display = 'block';
       aiMainReadingBox.innerHTML = '';
       mainAiReading.style.display = 'none';
