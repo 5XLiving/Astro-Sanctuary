@@ -988,6 +988,109 @@ select option {
     "5": { name: "十字排法（5张）", desc: "五张牌，代表现状、挑战、潜力、建议、结果。", positions: ["现状", "挑战", "潜力", "建议", "结果"] },
     "10": { name: "凯尔特十字（10张）", desc: "十张牌，详细剖析问题的各个层面。", positions: ["现状", "挑战", "潜意识", "显意识", "过去", "未来", "自我态度", "外界环境", "希望/恐惧", "最终结果"] }
   };
+  // Current reading state. Used so language changes re-render the same cards,
+  // instead of drawing a new tarot result.
+  let currentTarotState = null;
+
+  function renderTarotBoard(board, spread, spreadDef, cards) {
+    const activeLang = getTarotLang ? getTarotLang() : (document.getElementById('langSelect')?.value || 'en-US');
+    const activeZh = typeof isZhLang === 'function' ? isZhLang(activeLang) : String(activeLang || '').toLowerCase().startsWith('zh');
+
+    board.className = 'board spread-' + spread;
+    board.innerHTML = '';
+
+    cards.forEach((card, idx) => {
+      const directionLabel = card.reversed
+        ? (activeZh ? '逆位' : 'Reversed')
+        : (activeZh ? '正位' : 'Upright');
+
+      const positionLabel = typeof localizedPosition === 'function'
+        ? localizedPosition(spreadDef.positions[idx], activeLang)
+        : spreadDef.positions[idx];
+
+      const cardDisplayName = typeof localizedCardName === 'function'
+        ? localizedCardName(card, activeLang)
+        : (activeZh ? card.cn : card.name);
+
+      const secondaryName = activeZh ? card.name : card.cn;
+
+      const meaning = typeof localizedMeaning === 'function'
+        ? localizedMeaning(card, activeLang)
+        : card.meaning;
+
+      const reversedNote = card.reversed
+        ? (activeZh ? '（逆位：意义反向或阻碍）' : ' (reversed: blocked, delayed, or inverted energy)')
+        : '';
+
+      const html = `<div class="card card-drawn pos-label">
+        <div class="imgwrap">
+          <div class="card-face">${escapeHtml(cardDisplayName)}<br><span style="font-size:.8em;color:var(--muted)">${escapeHtml(secondaryName || '')}</span></div>
+          <div class="card-orientation">${directionLabel}</div>
+        </div>
+        <div class="cap">${escapeHtml(positionLabel)}</div>
+        <div class="mean">${escapeHtml(meaning)}${reversedNote}</div>
+      </div>`;
+
+      board.innerHTML += html;
+    });
+  }
+
+  function renderTarotReading(state) {
+    if (!state) return;
+
+    const q = state.question;
+    const spread = state.spread;
+    const spreadDef = state.spreadDef;
+    const cards = state.cards;
+
+    const board = document.getElementById('board');
+    const reading = document.getElementById('reading');
+    const readingText = document.getElementById('readingText');
+    const tarotSpreadDesc = document.getElementById('tarotSpreadDesc');
+    const langSelect = document.getElementById('langSelect');
+
+    if (langSelect) {
+      langSelect.addEventListener('change', function() {
+        if (currentTarotState) {
+          renderTarotReading(currentTarotState);
+        }
+      });
+    }
+    const mainAiReading = document.getElementById('mainAiReading');
+    const aiMainReadingBox = mainAiReading ? mainAiReading.querySelector('.ai-main-reading') : null;
+
+    const activeLang = getTarotLang();
+    const activeZh = isZhLang(activeLang);
+    const summarySpreadName = localizedSpreadName(spreadDef, activeLang);
+
+    if (tarotSpreadDesc) {
+      tarotSpreadDesc.textContent = activeZh ? spreadDef.desc : (
+        spread === '1' ? 'One card focused on the core guidance.' :
+        spread === '3' ? 'Three cards showing past, present, and future.' :
+        spread === '5' ? 'Five cards for situation, challenge, potential, advice, and outcome.' :
+        'Ten cards exploring the deeper layers of the question.'
+      );
+    }
+
+    renderTarotBoard(board, spread, spreadDef, cards);
+
+    let summary = `<div class="reading-summary">
+      <div class="summary-pill">${escapeHtml(summarySpreadName)}</div>
+      <h3>${activeZh ? '你的问题：' : 'Your question:'}</h3>
+      <p>${escapeHtml(q)}</p>
+    </div>`;
+
+    const answer = buildTarotNarrative(q, spreadDef, cards);
+
+    reading.style.display = 'block';
+    readingText.innerHTML = summary + answer;
+    readingText.style.display = 'block';
+
+    if (aiMainReadingBox) aiMainReadingBox.innerHTML = '';
+    if (mainAiReading) mainAiReading.style.display = 'none';
+  }
+
+
   // Utility: shuffle deck
   function shuffle(array) {
     let a = array.slice();
@@ -1379,6 +1482,15 @@ select option {
     const reading = document.getElementById('reading');
     const readingText = document.getElementById('readingText');
     const tarotSpreadDesc = document.getElementById('tarotSpreadDesc');
+    const langSelect = document.getElementById('langSelect');
+
+    if (langSelect) {
+      langSelect.addEventListener('change', function() {
+        if (currentTarotState) {
+          renderTarotReading(currentTarotState);
+        }
+      });
+    }
     // Draw handler
     btn.addEventListener('click', function(e) {
       e.preventDefault();
@@ -1402,20 +1514,17 @@ select option {
         let reversed = Math.random() < 0.5;
         return { ...card, reversed };
       });
-      // Render board
-      board.className = 'board spread-' + spread;
-      board.innerHTML = '';
-      cards.forEach((card, idx) => {
-        let html = `<div class="card card-drawn pos-label">
-          <div class="imgwrap">
-            <div class="card-face">${card.cn}<br><span style="font-size:.8em;color:var(--muted)">${card.name}</span></div>
-            <div class="card-orientation">${card.reversed ? '逆位' : '正位'}</div>
-          </div>
-          <div class="cap">${spreadDef.positions[idx]}</div>
-          <div class="mean">${card.meaning}${card.reversed ? '（逆位：含义反向或阻碍）' : ''}</div>
-        </div>`;
-        board.innerHTML += html;
-      });
+      // Save and render this reading. Re-rendering language will reuse the same cards.
+      currentTarotState = {
+        question: q,
+        spread,
+        spreadDef,
+        cards
+      };
+
+      renderTarotReading(currentTarotState);
+      return;
+
       // Show reading
       reading.style.display = 'block';
       const mainAiReading = document.getElementById('mainAiReading');
