@@ -952,776 +952,269 @@ select option {
     © 5xLiving · Soul Sanctuary
   </footer>
 </main>
-<script>
-// Tarot logic injection
-(function() {
-  // Tarot deck data
-  const tarotDeck = [
-    { name: "The Fool", cn: "愚者", meaning: "新开始、冒险、自由、信任直觉", advice: "勇敢迈出新的一步，保持开放心态。" },
-    { name: "The Magician", cn: "魔术师", meaning: "创造力、主动、资源调动", advice: "善用已有资源，主动创造机会。" },
-    { name: "The High Priestess", cn: "女祭司", meaning: "直觉、潜意识、神秘", advice: "相信内在直觉，静观其变。" },
-    { name: "The Empress", cn: "女皇", meaning: "丰盛、关怀、孕育", advice: "关注身心健康，滋养你的计划。" },
-    { name: "The Emperor", cn: "皇帝", meaning: "权威、结构、掌控", advice: "制定规则，保持秩序。" },
-    { name: "The Hierophant", cn: "教皇", meaning: "传统、信仰、导师", advice: "寻求指导，遵循传统智慧。" },
-    { name: "The Lovers", cn: "恋人", meaning: "选择、关系、和谐", advice: "用心沟通，做出真诚的选择。" },
-    { name: "The Chariot", cn: "战车", meaning: "意志、胜利、前进", advice: "坚定目标，勇往直前。" },
-    { name: "Strength", cn: "力量", meaning: "勇气、内在力量、耐心", advice: "温柔而坚定地面对挑战。" },
-    { name: "The Hermit", cn: "隐士", meaning: "内省、独处、智慧", advice: "花时间独处，聆听内心。" },
-    { name: "Wheel of Fortune", cn: "命运之轮", meaning: "变化、机遇、循环", advice: "顺应变化，把握机遇。" },
-    { name: "Justice", cn: "正义", meaning: "公平、因果、决断", advice: "公正处理事务，做出理性决定。" },
-    { name: "The Hanged Man", cn: "倒吊人", meaning: "暂停、转变、牺牲", advice: "换个角度看问题，耐心等待。" },
-    { name: "Death", cn: "死神", meaning: "结束、转化、重生", advice: "接受结束，迎接新生。" },
-    { name: "Temperance", cn: "节制", meaning: "平衡、调和、耐心", advice: "保持平衡，适度行事。" },
-    { name: "The Devil", cn: "恶魔", meaning: "束缚、诱惑、执念", advice: "认清限制，摆脱负面影响。" },
-    { name: "The Tower", cn: "高塔", meaning: "突变、觉醒、冲击", advice: "面对变化，重建基础。" },
-    { name: "The Star", cn: "星星", meaning: "希望、灵感、疗愈", advice: "保持信心，追随希望。" },
-    { name: "The Moon", cn: "月亮", meaning: "迷茫、潜意识、幻象", advice: "警惕误导，信任直觉。" },
-    { name: "The Sun", cn: "太阳", meaning: "成功、快乐、正能量", advice: "积极乐观，享受成果。" },
-    { name: "Judgement", cn: "审判", meaning: "觉醒、反思、复苏", advice: "总结经验，迎接新阶段。" },
-    { name: "The World", cn: "世界", meaning: "圆满、完成、成就", advice: "庆祝成果，准备新旅程。" }
-    // 可扩展至78张
-  ];
-  // Spread definitions
-  const spreadDefs = {
-    "1": { name: "单张", desc: "一张牌，聚焦于问题的核心指引。", positions: ["核心指引"] },
-    "3": { name: "三张（过去/现在/未来）", desc: "三张牌，分别代表过去、现在、未来。", positions: ["过去", "现在", "未来"] },
-    "5": { name: "十字排法（5张）", desc: "五张牌，代表现状、挑战、潜力、建议、结果。", positions: ["现状", "挑战", "潜力", "建议", "结果"] },
-    "10": { name: "凯尔特十字（10张）", desc: "十张牌，详细剖析问题的各个层面。", positions: ["现状", "挑战", "潜意识", "显意识", "过去", "未来", "自我态度", "外界环境", "希望/恐惧", "最终结果"] }
-  };
-  // Current reading state. Used so language changes re-render the same cards,
-  // instead of drawing a new tarot result.
-  let currentTarotState = null;
-
-  function renderTarotBoard(board, spread, spreadDef, cards) {
-    const activeLang = getTarotLang ? getTarotLang() : (document.getElementById('langSelect')?.value || 'en-US');
-    const activeZh = typeof isZhLang === 'function' ? isZhLang(activeLang) : String(activeLang || '').toLowerCase().startsWith('zh');
-
-    board.className = 'board spread-' + spread;
-    board.innerHTML = '';
-
-    cards.forEach((card, idx) => {
-      const directionLabel = card.reversed
-        ? (activeZh ? '逆位' : 'Reversed')
-        : (activeZh ? '正位' : 'Upright');
-
-      const positionLabel = typeof localizedPosition === 'function'
-        ? localizedPosition(spreadDef.positions[idx], activeLang)
-        : spreadDef.positions[idx];
-
-      const cardDisplayName = typeof localizedCardName === 'function'
-        ? localizedCardName(card, activeLang)
-        : (activeZh ? card.cn : card.name);
-
-      const secondaryName = activeZh ? card.name : card.cn;
-
-      const meaning = typeof localizedMeaning === 'function'
-        ? localizedMeaning(card, activeLang)
-        : card.meaning;
-
-      const reversedNote = card.reversed
-        ? (activeZh ? '（逆位：意义反向或阻碍）' : ' (reversed: blocked, delayed, or inverted energy)')
-        : '';
-
-      const html = `<div class="card card-drawn pos-label">
-        <div class="imgwrap">
-          <div class="card-face">${escapeHtml(cardDisplayName)}<br><span style="font-size:.8em;color:var(--muted)">${escapeHtml(secondaryName || '')}</span></div>
-          <div class="card-orientation">${directionLabel}</div>
-        </div>
-        <div class="cap">${escapeHtml(positionLabel)}</div>
-        <div class="mean">${escapeHtml(meaning)}${reversedNote}</div>
-      </div>`;
-
-      board.innerHTML += html;
-    });
-  }
-
-  function renderTarotReading(state) {
-    if (!state) return;
-
-    const q = state.question;
-    const spread = state.spread;
-    const spreadDef = state.spreadDef;
-    const cards = state.cards;
-
-    const board = document.getElementById('board');
-    const reading = document.getElementById('reading');
-    const readingText = document.getElementById('readingText');
-    const tarotSpreadDesc = document.getElementById('tarotSpreadDesc');
-    const langSelect = document.getElementById('langSelect');
-
-    if (langSelect) {
-      langSelect.addEventListener('change', function() {
-        if (currentTarotState) {
-          renderTarotReading(currentTarotState);
-        }
-      });
-    }
-    const mainAiReading = document.getElementById('mainAiReading');
-    const aiMainReadingBox = mainAiReading ? mainAiReading.querySelector('.ai-main-reading') : null;
-
-    const activeLang = getTarotLang();
-    const activeZh = isZhLang(activeLang);
-    const summarySpreadName = localizedSpreadName(spreadDef, activeLang);
-
-    if (tarotSpreadDesc) {
-      tarotSpreadDesc.textContent = activeZh ? spreadDef.desc : (
-        spread === '1' ? 'One card focused on the core guidance.' :
-        spread === '3' ? 'Three cards showing past, present, and future.' :
-        spread === '5' ? 'Five cards for situation, challenge, potential, advice, and outcome.' :
-        'Ten cards exploring the deeper layers of the question.'
-      );
-    }
-
-    renderTarotBoard(board, spread, spreadDef, cards);
-
-    let summary = `<div class="reading-summary">
-      <div class="summary-pill">${escapeHtml(summarySpreadName)}</div>
-      <h3>${activeZh ? '你的问题：' : 'Your question:'}</h3>
-      <p>${escapeHtml(q)}</p>
-    </div>`;
-
-    const answer = buildTarotNarrative(q, spreadDef, cards);
-
-    reading.style.display = 'block';
-    readingText.innerHTML = summary + answer;
-    readingText.style.display = 'block';
-
-    if (aiMainReadingBox) aiMainReadingBox.innerHTML = '';
-    if (mainAiReading) mainAiReading.style.display = 'none';
-  }
-
-
-  // Utility: shuffle deck
-  function shuffle(array) {
-    let a = array.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
-  }
-
-  function escapeHtml(value) {
-    return String(value || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-  }
-
-  const tarotEnglish = {
-    cards: {
-      "The Fool": {
-        meaning: "new beginnings, adventure, freedom, trusting intuition",
-        advice: "Take a brave first step and stay open-minded."
-      },
-      "The Magician": {
-        meaning: "creativity, initiative, using available resources",
-        advice: "Use what you already have and actively create opportunity."
-      },
-      "The High Priestess": {
-        meaning: "intuition, subconscious wisdom, hidden knowledge",
-        advice: "Trust your inner knowing and observe before acting."
-      },
-      "The Empress": {
-        meaning: "abundance, care, growth, emotional nourishment",
-        advice: "Nourish your heart, body, and the plan you want to grow."
-      },
-      "The Emperor": {
-        meaning: "structure, authority, stability, control",
-        advice: "Create clear boundaries and bring order to the situation."
-      },
-      "The Hierophant": {
-        meaning: "tradition, values, guidance, commitment",
-        advice: "Seek wise guidance and act according to your deeper values."
-      },
-      "The Lovers": {
-        meaning: "choice, relationship, attraction, harmony",
-        advice: "Communicate sincerely and choose from the heart."
-      },
-      "The Chariot": {
-        meaning: "willpower, movement, victory, determination",
-        advice: "Stay focused and move forward with clear intention."
-      },
-      "Strength": {
-        meaning: "courage, inner strength, patience, gentle power",
-        advice: "Face the challenge with calm confidence and patience."
-      },
-      "The Hermit": {
-        meaning: "reflection, solitude, wisdom, inner searching",
-        advice: "Take quiet time to listen to your inner truth."
-      },
-      "Wheel of Fortune": {
-        meaning: "change, cycles, timing, opportunity",
-        advice: "Adapt to the change and recognize the opening."
-      },
-      "Justice": {
-        meaning: "truth, fairness, cause and effect, clear decisions",
-        advice: "Look at the facts clearly and make a fair decision."
-      },
-      "The Hanged Man": {
-        meaning: "pause, surrender, new perspective, waiting",
-        advice: "Step back and look at the situation from another angle."
-      },
-      "Death": {
-        meaning: "ending, transformation, release, rebirth",
-        advice: "Let the old pattern end so something new can begin."
-      },
-      "Temperance": {
-        meaning: "balance, moderation, patience, healing",
-        advice: "Stay balanced and do not force the timing."
-      },
-      "The Devil": {
-        meaning: "attachment, temptation, fear, unhealthy patterns",
-        advice: "Recognize what is keeping you stuck and reclaim your power."
-      },
-      "The Tower": {
-        meaning: "sudden change, awakening, disruption, truth revealed",
-        advice: "Face the truth and rebuild on a stronger foundation."
-      },
-      "The Star": {
-        meaning: "hope, inspiration, healing, renewed faith",
-        advice: "Keep faith alive and follow the path of healing."
-      },
-      "The Moon": {
-        meaning: "confusion, illusion, hidden feelings, uncertainty",
-        advice: "Do not rush. Trust intuition, but verify what is unclear."
-      },
-      "The Sun": {
-        meaning: "success, joy, clarity, positive energy",
-        advice: "Stay optimistic and let the truth come into the light."
-      },
-      "Judgement": {
-        meaning: "awakening, reflection, renewal, second chance",
-        advice: "Learn from the past and step into a new stage."
-      },
-      "The World": {
-        meaning: "completion, fulfillment, achievement, closure",
-        advice: "Recognize what has completed and prepare for the next cycle."
-      }
-    },
-    spreadNames: {
-      "单张": "Single Card",
-      "三张（过去/现在/未来）": "Three Cards — Past / Present / Future",
-      "十字排法（5张）": "Cross Spread — 5 Cards",
-      "凯尔特十字（10张）": "Celtic Cross — 10 Cards"
-    },
-    positions: {
-      "核心指引": "Core guidance",
-      "过去": "Past",
-      "现在": "Present",
-      "未来": "Future",
-      "现状": "Situation",
-      "挑战": "Challenge",
-      "潜力": "Potential",
-      "建议": "Advice",
-      "结果": "Outcome",
-      "潜意识": "Subconscious",
-      "显意识": "Conscious focus",
-      "自我态度": "Your attitude",
-      "外界环境": "Outside influence",
-      "希望/恐惧": "Hope / fear",
-      "最终结果": "Final outcome"
-    }
-  };
-
-  function isZhLang(lang) {
-    return String(lang || '').toLowerCase().startsWith('zh');
-  }
-
-  function localizedSpreadName(spreadDef, lang) {
-    if (isZhLang(lang)) return spreadDef.name;
-    return tarotEnglish.spreadNames[spreadDef.name] || spreadDef.name;
-  }
-
-  function localizedPosition(position, lang) {
-    if (isZhLang(lang)) return position;
-    return tarotEnglish.positions[position] || position;
-  }
-
-  function localizedCardName(card, lang) {
-    return isZhLang(lang) ? (card.cn || card.name) : (card.name || card.cn);
-  }
-
-  function localizedMeaning(card, lang) {
-    if (isZhLang(lang)) return card.meaning || '';
-    return tarotEnglish.cards[card.name]?.meaning || card.meaning || '';
-  }
-
-  function localizedAdvice(card, lang) {
-    if (isZhLang(lang)) return card.advice || '';
-    return tarotEnglish.cards[card.name]?.advice || card.advice || '';
-  }
-
-  function getTarotLang() {
-    const value = document.getElementById('langSelect')?.value || 'en-US';
-    return value;
-  }
-
-  function tarotText(lang) {
-    const zh = String(lang || '').toLowerCase().startsWith('zh');
-    return {
-      zh,
-      title: zh ? '针对你的问题的塔罗回答' : 'Tarot answer for your question',
-      yourQuestion: zh ? '你的问题' : 'Your question',
-      directAnswer: zh ? '直接回答' : 'Direct answer',
-      overallEnergy: zh ? '整体能量' : 'Overall energy',
-      spread: zh ? '牌阵' : 'Spread',
-      cards: zh ? '牌面组合' : 'Cards',
-      keyCard: zh ? '关键牌' : 'Key card',
-      outcomeCard: zh ? '结果牌' : 'Outcome card',
-      guidance: zh ? '指引' : 'Guidance',
-      noQuestion: zh ? '未填写问题' : 'No question entered',
-      upright: zh ? '正位' : 'Upright',
-      reversed: zh ? '逆位' : 'Reversed',
-      advice: zh ? '建议' : 'Advice'
-    };
-  }
-
-  function detectQuestionType(q) {
-    const text = String(q || '').toLowerCase();
-
-    if (/(love|relationship|together|togather|crush|partner|ex|marry|marriage|爱情|感情|关系|恋爱|复合|在一起|喜欢|婚姻|伴侣)/i.test(text)) {
-      return 'relationship';
-    }
-
-    if (/(career|job|work|business|offer|promotion|事业|工作|职业|升职|跳槽|生意|创业)/i.test(text)) {
-      return 'career';
-    }
-
-    if (/(money|finance|wealth|income|investment|财务|金钱|投资|财富|收支|收入|财运)/i.test(text)) {
-      return 'finance';
-    }
-
-    if (/(health|healing|body|recover|健康|身体|状态|疗愈|恢复)/i.test(text)) {
-      return 'health';
-    }
-
-    return 'general';
-  }
-
-  function isYesNoQuestion(q) {
-    return /^(will|can|should|is|are|do|does|did|would|could)\b/i.test(String(q || '').trim())
-      || /(会不会|能不能|可不可以|是否|是不是|有没有|要不要)/.test(String(q || ''));
-  }
-
-  function buildDirectAnswer(q, type, outcome, reversedTotal, cards, lang) {
-    const t = tarotText(lang);
-    const outcomeOpen = !outcome.reversed;
-    const manyReversed = reversedTotal >= Math.ceil(cards.length / 2);
-    const yesNo = isYesNoQuestion(q);
-
-    if (type === 'relationship') {
-      if (outcomeOpen && !manyReversed) {
-        return t.zh
-          ? '牌面倾向正面：这段关系有发展、靠近或表达感情的空间，但仍需要真实沟通和双方行动配合。'
-          : 'The cards lean positive: love or emotional interest can grow, but it still depends on real communication and mutual effort.';
-      }
-
-      if (outcomeOpen && manyReversed) {
-        return t.zh
-          ? '牌面显示有机会，但不是稳定确定的“是”。其中可能有好感，但恐惧、时机、距离或沟通不清正在阻挡关系。'
-          : 'The cards show possibility, but not a clean yes yet. There may be attraction, but fear, timing, distance, or unclear communication is blocking the relationship.';
-      }
-
-      return t.zh
-        ? '牌面现在不显示稳定明确的“是”。感情可能不确定、受阻或尚未表达清楚。先看对方行动，不要只靠想象投入太多期待。'
-        : 'The cards do not show a stable yes right now. The feeling may be uncertain, blocked, or not fully expressed. Watch actions more than words before investing too much hope.';
-    }
-
-    if (type === 'career') {
-      if (outcomeOpen && !manyReversed) return t.zh ? '牌面偏正面。只要你行动清楚并善用已有资源，这件事可以继续推进。' : 'The cards lean positive. This can move forward if you act clearly and use the resources already available to you.';
-      if (outcomeOpen && manyReversed) return t.zh ? '有机会，但过程有阻力。先调整计划，再继续推动。' : 'There is opportunity, but the process has resistance. Adjust the plan before pushing harder.';
-      return t.zh ? '牌面建议谨慎。结果还不稳定，做大决定前先复盘策略。' : 'The cards advise caution. The result is not stable yet, so review your strategy before making a big move.';
-    }
-
-    if (type === 'finance') {
-      if (outcomeOpen && !manyReversed) return t.zh ? '财务有改善空间，但要保持实际和节制。' : 'The cards show room for improvement, but money choices should stay practical and measured.';
-      if (outcomeOpen && manyReversed) return t.zh ? '可能有机会，但风险偏高。先保护本金和资源。' : 'There may be opportunity, but risk is high. Protect your resources before chasing gain.';
-      return t.zh ? '牌面建议保守处理财务，避免冲动决定。' : 'The cards advise conservative financial choices for now. Avoid rushed decisions.';
-    }
-
-    if (type === 'health') {
-      return t.zh
-        ? '牌面指向休息、平衡和恢复。塔罗不是医疗建议，如有真实症状请咨询专业人士。'
-        : 'The cards point toward rest, balance, and recovery. Tarot is not medical advice, so real health concerns should be checked with a professional.';
-    }
-
-    if (outcomeOpen && !manyReversed) {
-      return t.zh
-        ? '牌面偏正面。只要你采取正确下一步，事情有机会推进。'
-        : 'The cards lean positive. The situation can move forward if you take the right next step.';
-    }
-
-    if (outcomeOpen && manyReversed) {
-      return t.zh
-        ? '答案是有条件的：有可能，但目前受阻。先清理阻力。'
-        : 'The answer is conditional: possible, but blocked. Clear the resistance first.';
-    }
-
-    return t.zh
-      ? '牌面显示不确定，而不是明确的是。结果取决于你如何处理当前阻碍。'
-      : 'The cards show uncertainty rather than a clear yes. The outcome depends on how the current obstacle is handled.';
-  }
-
-  function positionMeaning(position, card, lang, questionType) {
-    const zh = isZhLang(lang);
-    const pos = localizedPosition(position, lang);
-    const cardName = localizedCardName(card, lang);
-    const meaning = localizedMeaning(card, lang);
-
-    if (zh) {
-      if (questionType === 'relationship') {
-        return `${pos} 的 ${cardName} 表示这段关系在这个位置上的真实能量：${meaning}。请把它看成对感情互动、沟通状态和对方行动的提示，而不是单独的好坏判断。`;
-      }
-      return `${pos} 的 ${cardName} 表示这个位置的主要能量：${meaning}。它说明你需要从这个角度理解当前局面。`;
-    }
-
-    if (questionType === 'relationship') {
-      return `In the ${pos} position, ${cardName} shows how this part of the relationship is operating. Its meaning is ${meaning}. For your question, this points to emotional timing, communication, consistency, and whether the connection is being expressed through real action.`;
-    }
-
-    if (questionType === 'career') {
-      return `In the ${pos} position, ${cardName} describes the work or direction-related energy here. Its meaning is ${meaning}. This shows what needs attention before the situation can move forward.`;
-    }
-
-    if (questionType === 'finance') {
-      return `In the ${pos} position, ${cardName} describes the money or resource-related energy here. Its meaning is ${meaning}. This shows where to protect, adjust, or act more carefully.`;
-    }
-
-    return `In the ${pos} position, ${cardName} shows the main energy of this part of the situation. Its meaning is ${meaning}. This explains what the card is asking you to notice before choosing your next step.`;
-  }
-
-  function buildTarotNarrative(question, spreadDef, cards) {
-    const lang = getTarotLang();
-    const t = tarotText(lang);
-    const safeQuestion = escapeHtml(question.trim());
-    const reversedCount = cards.filter(card => card.reversed).length;
-    const focusCard = cards[0] || { name: 'Unknown', cn: '未知牌', meaning: 'try again', advice: 'Pause and draw again.', reversed: false };
-    const outcomeCard = cards[cards.length - 1] || focusCard;
-    const questionType = detectQuestionType(question);
-    const directAnswer = buildDirectAnswer(question, questionType, outcomeCard, reversedCount, cards, lang);
-
-    const spreadName = localizedSpreadName(spreadDef, lang);
-    const cardLabel = (card) => localizedCardName(card, lang);
-    const cardMeaning = (card) => localizedMeaning(card, lang);
-    const cardAdvice = (card) => localizedAdvice(card, lang);
-
-    const cardSummary = cards.map((card, idx) => {
-      const position = localizedPosition(spreadDef.positions[idx], lang);
-      const direction = card.reversed ? t.reversed : t.upright;
-      return `${position}: ${cardLabel(card)} (${direction})`;
-    }).join(t.zh ? '；' : '; ');
-
-    const overallLine = reversedCount > 0
-      ? (t.zh
-        ? `当前牌阵有 ${reversedCount} 张逆位，说明这件事存在阻力、拖延、恐惧或表达不清，需要先处理这些阻碍，答案才会稳定。`
-        : `There are ${reversedCount} reversed card(s). This means the situation has resistance, delay, fear, or unclear energy that must be handled before the answer becomes stable.`)
-      : (t.zh
-        ? '牌阵整体能量较顺，说明这件事可以通过清楚行动继续推进。'
-        : 'The spread has mostly open energy, which means the situation can move forward with clear action.');
-
-    const positionReadings = cards.map((card, idx) => {
-      const rawPosition = spreadDef.positions[idx];
-      const position = localizedPosition(rawPosition, lang);
-      const cardName = cardLabel(card);
-      const meaning = cardMeaning(card);
-      const advice = cardAdvice(card);
-
-      const direction = card.reversed
-        ? (t.zh
-          ? '这张牌逆位，表示这个位置有阻塞、延迟、隐藏情绪、表达不完整，或能量没有顺利流动。'
-          : 'Because this card is reversed, this part of the situation is blocked, delayed, hidden, or not fully expressed.')
-        : (t.zh
-          ? '这张牌正位，表示这个位置的能量较清楚，比较容易被看见、理解或推动。'
-          : 'Because this card is upright, this part of the situation is clearer, more visible, and easier to work with.');
-
-      const deeperMeaning = positionMeaning(rawPosition, card, lang, questionType);
-
-      return `<li>
-        <strong>${escapeHtml(position)}: ${escapeHtml(cardName)}</strong>
-        <div><strong>${t.zh ? '牌义' : 'Meaning'}:</strong> ${escapeHtml(meaning)}</div>
-        <div><strong>${t.zh ? '位置解读' : 'Position reading'}:</strong> ${escapeHtml(deeperMeaning)}</div>
-        <div><strong>${card.reversed ? t.reversed : t.upright}:</strong> ${direction}</div>
-        <div><strong>${t.advice}:</strong> ${escapeHtml(advice)}</div>
-      </li>`;
-    }).join('');
-
-    const practicalAdvice = questionType === 'relationship'
-      ? (t.zh
-        ? '不要只靠想象追求确定感。请观察真实信号：回复速度、是否愿意见面、情绪是否稳定、是否愿意为你留空间。可以温和表达一次，然后用对方行动来判断。'
-        : 'Do not chase certainty only through imagination. Look for real signs: reply speed, willingness to meet, emotional consistency, and whether the person makes space for you. Ask gently, then judge by action.')
-      : questionType === 'career'
-        ? (t.zh ? '选一个最实际的下一步，先处理最明显的阻碍，再根据反馈决定是否加大行动。' : 'Choose one practical next step, remove the clearest obstacle, and test the result before making a bigger move.')
-        : questionType === 'finance'
-          ? (t.zh ? '先保护基础资源。事实不清楚前，不要用情绪做金钱决定。' : 'Protect your base first. Do not make emotional money decisions until the facts are clearer.')
-          : questionType === 'health'
-            ? (t.zh ? '优先休息、平衡和支持。若有真实症状，请寻求专业医疗帮助。' : 'Focus on rest, balance, and support. For real symptoms, use professional medical help.')
-            : (t.zh ? '采取一个能得到真实反馈的具体行动，不要一直停留在猜测里。' : 'Take one concrete action that can give you real feedback. Do not stay stuck in guessing.');
-
-    return `
-      <section class="reading-guidance">
-        <h3>${t.title}</h3>
-        <p class="reading-question">${t.yourQuestion}:「${safeQuestion || t.noQuestion}」</p>
-        <p><strong>${t.directAnswer}:</strong> ${escapeHtml(directAnswer)}</p>
-        <p><strong>${t.overallEnergy}:</strong> ${escapeHtml(overallLine)}</p>
-        <p><strong>${t.spread}:</strong> ${escapeHtml(spreadName)}. <strong>${t.cards}:</strong> ${escapeHtml(cardSummary)}.</p>
-        <p><strong>${t.keyCard}:</strong> ${escapeHtml(cardLabel(focusCard))} — ${escapeHtml(cardMeaning(focusCard))}. <strong>${t.outcomeCard}:</strong> ${escapeHtml(cardLabel(outcomeCard))} — ${escapeHtml(cardMeaning(outcomeCard))}${outcomeCard.reversed ? (t.zh ? '，但逆位表示结果目前受阻或延迟。' : ', but reversed means the result is currently blocked or delayed.') : (t.zh ? '，正位表示道路较开放。' : ', and upright means the path is more open.')}</p>
-        <ul class="reading-position-list">${positionReadings}</ul>
-        <p><strong>${t.guidance}:</strong> ${escapeHtml(practicalAdvice)}</p>
-      </section>
-    `;
-  }
-
-  // DOM ready
-  function ready(fn) {
-    if (document.readyState !== 'loading') fn();
-    else document.addEventListener('DOMContentLoaded', fn);
-  }
-  ready(function() {
-    const btn = document.getElementById('go');
-    const qInput = document.getElementById('question');
-    const spreadSel = document.getElementById('spread');
-    const board = document.getElementById('board');
-    const reading = document.getElementById('reading');
-    const readingText = document.getElementById('readingText');
-    const tarotSpreadDesc = document.getElementById('tarotSpreadDesc');
-    const langSelect = document.getElementById('langSelect');
-
-    if (langSelect) {
-      langSelect.addEventListener('change', function() {
-        if (currentTarotState) {
-          renderTarotReading(currentTarotState);
-        }
-      });
-    }
-    // Draw handler
-    btn.addEventListener('click', function(e) {
-      e.preventDefault();
-      // Get values
-      const q = qInput.value.trim();
-      const spread = spreadSel.value;
-      if (!spreadDefs[spread]) return;
-      const spreadDef = spreadDefs[spread];
-      tarotSpreadDesc.textContent = spreadDef.desc;
-      if (!q) {
-        qInput.focus();
-        alert('请输入你的问题。');
-        return;
-      }
-      // Draw cards
-      let deck = shuffle(tarotDeck);
-      let count = spreadDef.positions.length;
-      if (deck.length < count) count = deck.length;
-      let cards = deck.slice(0, count).map(card => {
-        // 随机正逆位
-        let reversed = Math.random() < 0.5;
-        return { ...card, reversed };
-      });
-      // Save and render this reading. Re-rendering language will reuse the same cards.
-      currentTarotState = {
-        question: q,
-        spread,
-        spreadDef,
-        cards
-      };
-
-      renderTarotReading(currentTarotState);
-      return;
-
-      // Show reading
-      reading.style.display = 'block';
-      const mainAiReading = document.getElementById('mainAiReading');
-      const aiMainReadingBox = mainAiReading.querySelector('.ai-main-reading');
-
-      // Summary and grounded interpretation based on selected language.
-      const activeLang = getTarotLang();
-      const activeZh = isZhLang(activeLang);
-      const summarySpreadName = localizedSpreadName(spreadDef, activeLang);
-
-      let summary = `<div class="reading-summary">
-        <div class="summary-pill">${escapeHtml(summarySpreadName)}</div>
-        <h3>${activeZh ? '你的问题：' : 'Your question:'}</h3>
-        <p>${escapeHtml(q)}</p>
-      </div>`;
-
-      let cardList = '<div class="reading-card-list">';
-      cards.forEach((card, idx) => {
-        const positionLabel = localizedPosition(spreadDef.positions[idx], activeLang);
-        const directionLabel = card.reversed
-          ? (activeZh ? '逆位' : 'Reversed')
-          : (activeZh ? '正位' : 'Upright');
-        const reversedNote = card.reversed
-          ? (activeZh ? '（逆位：意义反向或阻碍）' : ' (reversed: blocked, delayed, or inverted energy)')
-          : '';
-
-        cardList += `<div class="reading-card-item">
-          <div class="reading-card-top">
-            <span class="reading-pos">${escapeHtml(positionLabel)}</span>
-            <span class="reading-status">${directionLabel}</span>
-          </div>
-          <div class="reading-card-name">${escapeHtml(localizedCardName(card, activeLang))} <span style="font-size:.8em;color:var(--muted)">${escapeHtml(activeZh ? card.name : card.cn)}</span></div>
-          <div class="reading-card-meaning">${escapeHtml(localizedMeaning(card, activeLang))}${reversedNote}</div>
-          <div class="reading-card-advice">${activeZh ? '建议' : 'Advice'}: ${escapeHtml(localizedAdvice(card, activeLang))}</div>
-        </div>`;
-      });
-      cardList += '</div>';
-
-      const answer = buildTarotNarrative(q, spreadDef, cards);
-      readingText.innerHTML = summary + answer;
-      readingText.style.display = 'block';
-      aiMainReadingBox.innerHTML = '';
-      mainAiReading.style.display = 'none';
-
-      // five-x-direct-deep-tarot-output-v2
-      function tarotEscapeHtml(value) {
-        return String(value || "")
-          .replace(/&/g, "&amp;")
-          .replace(/</g, "&lt;")
-          .replace(/>/g, "&gt;")
-          .replace(/"/g, "&quot;")
-          .replace(/'/g, "&#39;");
-      }
-
-      function tarotValue(item, keys) {
-        const base = item && item.card ? item.card : item;
-        for (const key of keys) {
-          if (item && item[key] != null) return item[key];
-          if (base && base[key] != null) return base[key];
-        }
-        return "";
-      }
-
-      function tarotName(item) {
-        return String(tarotValue(item, ["name", "title", "card", "label"]) || "").trim();
-      }
-
-      function tarotOrientation(item) {
-        const raw = String(tarotValue(item, ["orientation", "direction", "status"]) || "").toLowerCase();
-        if (raw.includes("rev") || item?.reversed === true || item?.card?.reversed === true) return "Reversed";
-        return "Upright";
-      }
-
-      function tarotPosition(item, index) {
-        const fallback = [
-          "Situation", "Challenge", "Subconscious", "Conscious", "Past",
-          "Future", "Self attitude", "Environment", "Hopes/Fears", "Final outcome"
-        ];
-        return String(tarotValue(item, ["position", "slot", "place"]) || fallback[index] || `Card ${index + 1}`);
-      }
-
-      function buildDeepTarotAnswer(question, cards) {
-        const qText = String(question || "").trim();
-        const qLower = qText.toLowerCase();
-
-        const items = (cards || []).map((item, index) => ({
-          name: tarotName(item),
-          orientation: tarotOrientation(item),
-          position: tarotPosition(item, index)
-        })).filter(item => item.name);
-
-        const reversedCount = items.filter(item => item.orientation === "Reversed").length;
-        const findCard = name => items.find(item => item.name.toLowerCase() === name.toLowerCase());
-        const findPosition = name => items.find(item => item.position.toLowerCase().includes(name.toLowerCase()));
-
-        const lovers = findCard("The Lovers");
-        const justice = findCard("Justice");
-        const world = findCard("The World");
-        const strength = findCard("Strength");
-        const star = findCard("The Star");
-        const devil = findCard("The Devil");
-        const outcome = findPosition("Final outcome") || items[items.length - 1];
-
-        const isLoveQuestion = /\b(love|relationship|crush|romance|like me|date|dating|girlfriend|boyfriend|marry|miss me)\b/i.test(qText);
-        const personMatch = qText.match(/\bwill\s+(.+?)\s+(love|like|miss|date|choose)\s+me\b/i);
-        const person = personMatch ? personMatch[1].trim() : "this person";
-
-        const cardPhrase = card => card ? `${card.name} ${card.orientation} in ${card.position}` : "";
-        const p = text => `<p>${tarotEscapeHtml(text)}</p>`;
-        const lines = [];
-
-        if (isLoveQuestion) {
-          lines.push(`For your question, “${qText}”, this spread does not show a simple guaranteed yes. It shows relationship potential, but it also warns that love cannot be forced and the timing is not fully open yet.`);
-
-          if (lovers) {
-            lines.push(`${cardPhrase(lovers)} is the strongest relationship signal. It suggests possible attraction, harmony, or an important emotional choice, but it is still a choice that must be mutual.`);
-          }
-
-          if (reversedCount >= 5) {
-            lines.push(`Because ${reversedCount} cards are reversed, the main message is blockage, delay, or emotional resistance. ${person} may not be impossible to reach, but the connection is not flowing freely right now.`);
-          }
-
-          if (justice) {
-            lines.push(`${cardPhrase(justice)} says the situation needs fairness and honesty. Do not rely only on hope or signs; pay attention to ${person}'s real actions and whether the effort is balanced.`);
-          }
-
-          if (world) {
-            lines.push(`${cardPhrase(world)} shows something unfinished. The relationship may not be ready to become complete, official, or secure yet.`);
-          }
-
-          if (strength || star) {
-            lines.push(`Strength and Star energy being blocked points to insecurity, doubt, or weakened hope. The advice is to stay calm and regain confidence before making a dramatic move.`);
-          }
-
-          if (devil) {
-            lines.push(`${cardPhrase(devil)} warns against obsession, fear of rejection, jealousy, or attachment. Wanting love is natural, but needing one fixed answer too urgently can create pressure.`);
-          }
-
-          if (outcome) {
-            lines.push(`${cardPhrase(outcome)} is the outcome warning. If this is The Fool reversed, do not rush into an impulsive confession. Take a sincere but careful step and watch the response.`);
-          }
-
-          lines.push(`Practical guidance: be kind, communicate honestly, and look for consistent interest from ${person}. The spread suggests possible connection, especially through The Lovers, but the final answer depends on whether both people choose it freely.`);
-        } else {
-          lines.push(`This reading is guidance, not a repeated card list. The spread asks you to slow down, understand the obstacle, and take one grounded next step.`);
-          if (reversedCount >= 5) lines.push(`${reversedCount} reversed cards show delay, resistance, or misjudgment. Clear the blockage before forcing the outcome.`);
-          if (outcome) lines.push(`${cardPhrase(outcome)} shows the outcome pattern and what you should correct next.`);
-        }
-
-        return `<div class="ai-tarot-depth-reading" data-fix="${marker}">${lines.map(p).join("")}</div>`;
-      }
-      // Re-affirm the reading section visibility after all innerHTML writes (defensive fix for the reported issue)
-      reading.style.display = 'block';
-    });
-  });
-})();
-</script>
-<!-- TAROT_LANGUAGE_FIX_V2_START -->
-<script id="tarot-language-fix-v2">
+<script id="tarot-i18n-apply-v3">
 (function(){
-  if (window.__tarotLanguageFixV2) return;
-  window.__tarotLanguageFixV2 = true;
-  const COPY = {
-    "zh-CN": { lang:"zh-CN", title:"塔罗牌占卜", lead:"输入你的问题，选择牌阵并抽牌。免费层提供牌意与下一步行动；Soul Print 可展开更深的人生指引。", question:"问题", placeholder:"请输入你的问题（必填，决定解读方向）", spread:"牌阵", draw:"抽牌", spreadTitle:"塔罗牌阵", empty:"抽牌后将在这里显示你的牌阵。", reading:"解读与建议", disclaimer:"说明：塔罗为指引工具，非医学/法律/金融建议，请以理性判断与自我意愿为先。", share:"分享", home:"首页", upright:"正位", reversed:"逆位", missing:"请输入你的问题。", q:"你的问题", guidance:"给你的指引" },
-    "zh-TW": { lang:"zh-TW", title:"塔羅牌占卜", lead:"輸入你的問題，選擇牌陣並抽牌。免費層提供牌意與下一步行動；Soul Print 可展開更深的人生指引。", question:"問題", placeholder:"請輸入你的問題（必填，決定解讀方向）", spread:"牌陣", draw:"抽牌", spreadTitle:"塔羅牌陣", empty:"抽牌後將在這裡顯示你的牌陣。", reading:"解讀與建議", disclaimer:"說明：塔羅為指引工具，非醫學/法律/金融建議，請以理性判斷與自我意願為先。", share:"分享", home:"首頁", upright:"正位", reversed:"逆位", missing:"請輸入你的問題。", q:"你的問題", guidance:"給你的指引" },
-    "en-US": { lang:"en", title:"Tarot Reading", lead:"Enter your question, choose a spread, and draw cards for focused guidance. The free layer gives card meanings and next actions; Soul Print expands into deeper life guidance.", question:"Question", placeholder:"Enter your question (required; it sets the direction of the reading)", spread:"Spread", draw:"Draw Cards", spreadTitle:"Tarot Spread", empty:"Draw your cards to reveal the spread.", reading:"Reading & Guidance", disclaimer:"Note: Tarot is a guidance tool, not medical, legal, or financial advice. Please rely on rational judgment and your own free will.", share:"Share", home:"Home", upright:"Upright", reversed:"Reversed", missing:"Please enter your question.", q:"Your question", guidance:"Guidance" },
-    "ja-JP": { lang:"ja", title:"タロット占い", lead:"質問を入力し、スプレッドを選んでカードを引いてください。無料レイヤーではカードの意味と次の行動を示します。", question:"質問", placeholder:"質問を入力してください（必須）", spread:"スプレッド", draw:"カードを引く", spreadTitle:"タロットスプレッド", empty:"カードを引くとスプレッドが表示されます。", reading:"解釈とアドバイス", disclaimer:"注意：タロットは指針であり、医療・法律・金融の助言ではありません。", share:"共有", home:"ホーム", upright:"正位置", reversed:"逆位置", missing:"質問を入力してください。", q:"あなたの質問", guidance:"指針" },
-    "th-TH": { lang:"th", title:"ดูไพ่ทาโรต์", lead:"พิมพ์คำถาม เลือกรูปแบบไพ่ แล้วเปิดไพ่เพื่อรับคำแนะนำที่ชัดเจน", question:"คำถาม", placeholder:"พิมพ์คำถามของคุณ (จำเป็น)", spread:"รูปแบบไพ่", draw:"เปิดไพ่", spreadTitle:"รูปแบบไพ่ทาโรต์", empty:"เปิดไพ่เพื่อแสดงผล", reading:"คำอ่านและคำแนะนำ", disclaimer:"หมายเหตุ: ไพ่ทาโรต์เป็นเครื่องมือให้แนวทาง ไม่ใช่คำแนะนำทางแพทย์ กฎหมาย หรือการเงิน", share:"แชร์", home:"หน้าแรก", upright:"ปกติ", reversed:"กลับหัว", missing:"กรุณาพิมพ์คำถามของคุณ", q:"คำถามของคุณ", guidance:"แนวทาง" },
-    "ms-MY": { lang:"ms", title:"Bacaan Tarot", lead:"Masukkan soalan, pilih susunan kad, dan cabut kad untuk panduan yang lebih fokus.", question:"Soalan", placeholder:"Masukkan soalan anda (wajib)", spread:"Susunan Kad", draw:"Cabut Kad", spreadTitle:"Susunan Tarot", empty:"Cabut kad untuk memaparkan susunan.", reading:"Bacaan & Panduan", disclaimer:"Nota: Tarot ialah alat panduan, bukan nasihat perubatan, undang-undang atau kewangan.", share:"Kongsi", home:"Laman Utama", upright:"Tegak", reversed:"Terbalik", missing:"Sila masukkan soalan anda.", q:"Soalan anda", guidance:"Panduan" }
-  };
-  const SPREADS = {
-    "1": { "zh-CN":["单张","一张牌，聚焦于问题的核心指引。",["核心指引"]], "zh-TW":["單張","一張牌，聚焦於問題的核心指引。",["核心指引"]], "en-US":["One Card","One card focused on the core guidance of your question.",["Core guidance"]], "ja-JP":["1枚引き","質問の中心となる指針を示します。",["核心の指針"]], "th-TH":["ไพ่หนึ่งใบ","ไพ่หนึ่งใบเพื่อจับประเด็นหลักของคำถาม",["คำแนะนำหลัก"]], "ms-MY":["Satu Kad","Satu kad yang menumpukan panduan utama soalan anda.",["Panduan utama"]] },
-    "3": { "zh-CN":["三张（过去 / 现在 / 未来）","三张牌，分别代表过去、现在、未来。",["过去","现在","未来"]], "zh-TW":["三張（過去 / 現在 / 未來）","三張牌，分別代表過去、現在、未來。",["過去","現在","未來"]], "en-US":["Three Cards (Past / Present / Future)","Three cards showing past, present, and future.",["Past","Present","Future"]], "ja-JP":["3枚（過去 / 現在 / 未来）","過去・現在・未来を示します。",["過去","現在","未来"]], "th-TH":["ไพ่สามใบ (อดีต / ปัจจุบัน / อนาคต)","ไพ่สามใบแทนอดีต ปัจจุบัน และอนาคต",["อดีต","ปัจจุบัน","อนาคต"]], "ms-MY":["Tiga Kad (Lalu / Kini / Akan Datang)","Tiga kad mewakili lalu, kini, dan akan datang.",["Lalu","Kini","Akan datang"]] },
-    "5": { "zh-CN":["十字排法（5张）","五张牌，代表现状、挑战、潜力、建议、结果。",["现状","挑战","潜力","建议","结果"]], "zh-TW":["十字排法（5張）","五張牌，代表現狀、挑戰、潛力、建議、結果。",["現狀","挑戰","潛力","建議","結果"]], "en-US":["Cross Spread (5 Cards)","Five cards for situation, challenge, potential, advice, and outcome.",["Situation","Challenge","Potential","Advice","Outcome"]], "ja-JP":["クロス（5枚）","状況・課題・可能性・助言・結果を示します。",["状況","課題","可能性","助言","結果"]], "th-TH":["รูปแบบกางเขน (5 ใบ)","สถานการณ์ ความท้าทาย ศักยภาพ คำแนะนำ และผลลัพธ์",["สถานการณ์","ความท้าทาย","ศักยภาพ","คำแนะนำ","ผลลัพธ์"]], "ms-MY":["Silang (5 Kad)","Situasi, cabaran, potensi, nasihat, dan hasil.",["Situasi","Cabaran","Potensi","Nasihat","Hasil"]] },
-    "10": { "zh-CN":["凯尔特十字（10张）","十张牌，详细剖析问题的各个层面。",["现状","挑战","潜意识","显意识","过去","未来","自我态度","外界环境","希望/恐惧","最终结果"]], "zh-TW":["凱爾特十字（10張）","十張牌，詳細剖析問題的各個層面。",["現狀","挑戰","潛意識","顯意識","過去","未來","自我態度","外界環境","希望/恐懼","最終結果"]], "en-US":["Celtic Cross (10 Cards)","Ten cards exploring the layers of the question.",["Situation","Challenge","Subconscious","Conscious","Past","Future","Self attitude","Environment","Hopes/Fears","Final outcome"]], "ja-JP":["ケルト十字（10枚）","問題の複数の層を詳しく読み解きます。",["状況","課題","潜在意識","顕在意識","過去","未来","自己姿勢","周囲の環境","希望/恐れ","最終結果"]], "th-TH":["เคลติกครอส (10 ใบ)","วิเคราะห์หลายมิติของคำถาม",["สถานการณ์","ความท้าทาย","จิตใต้สำนึก","จิตสำนึก","อดีต","อนาคต","ท่าทีของตนเอง","สภาพแวดล้อม","ความหวัง/ความกลัว","ผลลัพธ์สุดท้าย"]], "ms-MY":["Celtic Cross (10 Kad)","Meneroka lapisan soalan dengan lebih terperinci.",["Situasi","Cabaran","Bawah sedar","Sedar","Lalu","Akan datang","Sikap diri","Persekitaran","Harapan/Ketakutan","Hasil akhir"]] }
-  };
-  function val(){ return (document.getElementById("langSelect")||{}).value || "zh-CN"; }
-  function t(){ return COPY[val()] || COPY["en-US"]; }
-  function info(){ const spread=(document.getElementById("spread")||{}).value || "1"; return (SPREADS[spread] && (SPREADS[spread][val()] || SPREADS[spread]["en-US"])) || SPREADS["1"]["en-US"]; }
-  function txt(sel, value){ const el=document.querySelector(sel); if(el) el.textContent=value; }
-  function attr(sel, name, value){ const el=document.querySelector(sel); if(el) el.setAttribute(name, value); }
-  function apply(){
-    const c=t(), s=info();
-    document.documentElement.lang=c.lang;
-    document.title=c.title + " · Tarot | 5xLiving";
-    txt(".mini-link.hide-mobile", c.home); txt(".crumb", c.title + " · Soul Cards"); txt(".h1", c.title); txt(".lead", c.lead);
-    const labels=document.querySelectorAll(".form-card label"); if(labels[0]) labels[0].textContent=c.question; if(labels[1]) labels[1].textContent=c.spread;
-    attr("#question", "placeholder", c.placeholder); txt("#btnText", c.draw); txt(".result-card .card-title", c.spreadTitle); txt("#tarotSpreadDesc", s[1]); txt(".board-empty", c.empty); txt("#reading h3", c.reading); txt("#shareReading", c.share);
-    const dis=document.querySelector('[data-i18n="disclaimer"]'); if(dis) dis.textContent=c.disclaimer;
-    const opts=document.querySelectorAll("#spread option"); Object.keys(SPREADS).forEach(function(k,i){ if(opts[i]) opts[i].textContent=(SPREADS[k][val()]||SPREADS[k]["en-US"])[0]; });
-    const pos=s[2]; document.querySelectorAll("#board .cap").forEach(function(el,i){ if(pos[i]) el.textContent=pos[i]; });
-    document.querySelectorAll("#board .card-orientation").forEach(function(el){ const reversed=/逆位|Reversed|逆位置|กลับหัว|Terbalik/i.test(el.textContent); el.textContent=reversed?c.reversed:c.upright; });
+  if (window.__tarotI18nApplyV3) return;
+  window.__tarotI18nApplyV3 = true;
+
+  function pack(){
+    var sel = document.getElementById('langSelect');
+    return window.__tarotPack ? window.__tarotPack(sel ? sel.value : 'zh-CN') : null;
   }
-  document.addEventListener("DOMContentLoaded", function(){ apply(); const l=document.getElementById("langSelect"); if(l) l.addEventListener("change", apply); const go=document.getElementById("go"); if(go) go.addEventListener("click", function(){ setTimeout(apply, 80); }); });
-  setTimeout(apply, 500);
+  function setText(selector, value){
+    if (value == null) return;
+    var el = document.querySelector(selector);
+    if (el) el.textContent = value;
+  }
+  function setAll(selector, value){
+    if (value == null) return;
+    document.querySelectorAll(selector).forEach(function(el){ el.textContent = value; });
+  }
+  function setAttr(selector, name, value){
+    if (value == null) return;
+    var el = document.querySelector(selector);
+    if (el) el.setAttribute(name, value);
+  }
+  function setList(root, items){
+    if (!root || !items) return;
+    var lis = root.querySelectorAll('li');
+    items.forEach(function(text, i){ if (lis[i]) lis[i].textContent = text; });
+  }
+
+  function apply(){
+    var c = pack();
+    if (!c) return;
+    var v = c.vip || {};
+
+    document.documentElement.lang = c.htmlLang || 'en';
+    document.title = c.docTitle || document.title;
+
+    setText('.brand .title', c.brand);
+    setText('.brand-sub', c.brandSub);
+    setText('label[for="langSelect"]', c.langLabel);
+    setText('.top-actions .mini-link.hide-mobile', c.home);
+    setText('.top-actions .mini-link:not(.hide-mobile)', c.soulPrintLink);
+
+    setText('.crumb', c.crumb);
+    setText('.h1', c.title);
+    setText('.hero .lead', c.lead);
+
+    setText('.form-card .card-title', c.setupTitle);
+    setText('.form-card .card-sub', c.setupSub);
+    setText('label[for="question"]', c.questionLabel);
+    setAttr('#question', 'placeholder', c.questionPh);
+    setText('label[for="spread"]', c.spreadLabel);
+    setText('#btnText', c.drawBtn);
+    setText('#qdisplay', c.tipFocus);
+
+    var spreadOpts = document.querySelectorAll('#spread option');
+    spreadOpts.forEach(function(opt){
+      var name = c.spreadNamesByCount && c.spreadNamesByCount[opt.value];
+      if (name) opt.textContent = name;
+    });
+
+    setText('.result-card .card-title', c.spreadCardTitle);
+    setText('.board-empty', c.boardEmpty);
+    setText('#reading > h3', c.readingTitle);
+    setText('#mainAiReading h3', c.aiReadingTitle);
+    setText('[data-i18n="disclaimer"]', c.disclaimer);
+    setText('#shareReading', c.share);
+
+    var descEl = document.getElementById('tarotSpreadDesc');
+    var spreadSel = document.getElementById('spread');
+    if (descEl && spreadSel && c.spreadDescsByCount && !(window.__tarotHasReading && window.__tarotHasReading())) {
+      descEl.textContent = c.spreadDescsByCount[spreadSel.value] || '';
+    }
+
+    var vipInfo = document.querySelector('.vip-info-card');
+    if (vipInfo) {
+      setText('.vip-info-card .card-title', v.headTitle);
+      setText('.vip-info-card .card-sub', v.headSub);
+      setText('.vip-info-card .vip-login-head .btn', v.loginLink);
+      var features = vipInfo.querySelectorAll('.vip-feature-card');
+      if (features[0]) {
+        var t0 = features[0].querySelector('.vip-feature-title');
+        if (t0) t0.textContent = v.feature1Title;
+        setList(features[0], v.feature1Items);
+      }
+      if (features[1]) {
+        var t1 = features[1].querySelector('.vip-feature-title');
+        if (t1) t1.textContent = v.feature2Title;
+        setList(features[1], v.feature2Items);
+      }
+      setText('.vip-note-box', v.note);
+    }
+
+    var vipLogin = document.querySelector('.vip-login-card');
+    if (vipLogin) {
+      setText('.vip-login-card .card-title', v.loginTitle);
+      setText('.vip-login-card .card-sub', v.loginSub);
+      setText('.vip-login-card .vip-login-head .btn', v.upgrade);
+      setText('label[for="email"]', v.emailLabel);
+      setText('label[for="password"]', v.passwordLabel);
+      setAttr('#email', 'placeholder', v.emailPh);
+      setAttr('#password', 'placeholder', v.passwordPh);
+      setText('#loginBtn', v.loginBtn);
+      setText('#registerBtn', v.registerBtn);
+      setText('#resetBtn', v.resetBtn);
+      var backShop = vipLogin.querySelector('.vip-form-actions a.btn.ghost.block');
+      if (backShop && v.backShop) backShop.textContent = v.backShop;
+      var vipCard = vipLogin.querySelector('.vip-card');
+      if (vipCard) {
+        var notes = vipCard.querySelectorAll('.note');
+        if (notes[0] && v.memberNote) notes[0].textContent = v.memberNote;
+        if (notes[1] && v.priceNote) notes[1].textContent = v.priceNote;
+        setList(vipCard.querySelector('.mini-list'), v.memberList);
+        var upgradeBtn = vipCard.querySelector('a.btn.block');
+        if (upgradeBtn && v.upgradeBtn) upgradeBtn.textContent = v.upgradeBtn;
+      }
+    }
+
+    setText('main > footer', v.footer);
+  }
+
+  window.__tarotApplyChrome = apply;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', apply);
+  } else {
+    apply();
+  }
+  var sel = document.getElementById('langSelect');
+  if (sel) sel.addEventListener('change', apply);
 })();
 </script>
-<!-- TAROT_LANGUAGE_FIX_V2_END -->
+<!-- TAROT_I18N_FULL_V3_END -->
+<script id="tarot-i18n-apply-v3">
+(function(){
+  if (window.__tarotI18nApplyV3) return;
+  window.__tarotI18nApplyV3 = true;
+
+  function pack(){
+    var sel = document.getElementById('langSelect');
+    return window.__tarotPack ? window.__tarotPack(sel ? sel.value : 'zh-CN') : null;
+  }
+  function setText(selector, value){
+    if (value == null) return;
+    var el = document.querySelector(selector);
+    if (el) el.textContent = value;
+  }
+  function setAll(selector, value){
+    if (value == null) return;
+    document.querySelectorAll(selector).forEach(function(el){ el.textContent = value; });
+  }
+  function setAttr(selector, name, value){
+    if (value == null) return;
+    var el = document.querySelector(selector);
+    if (el) el.setAttribute(name, value);
+  }
+  function setList(root, items){
+    if (!root || !items) return;
+    var lis = root.querySelectorAll('li');
+    items.forEach(function(text, i){ if (lis[i]) lis[i].textContent = text; });
+  }
+
+  function apply(){
+    var c = pack();
+    if (!c) return;
+    var v = c.vip || {};
+
+    document.documentElement.lang = c.htmlLang || 'en';
+    document.title = c.docTitle || document.title;
+
+    setText('.brand .title', c.brand);
+    setText('.brand-sub', c.brandSub);
+    setText('label[for="langSelect"]', c.langLabel);
+    setText('.top-actions .mini-link.hide-mobile', c.home);
+    setText('.top-actions .mini-link:not(.hide-mobile)', c.soulPrintLink);
+
+    setText('.crumb', c.crumb);
+    setText('.h1', c.title);
+    setText('.hero .lead', c.lead);
+
+    setText('.form-card .card-title', c.setupTitle);
+    setText('.form-card .card-sub', c.setupSub);
+    setText('label[for="question"]', c.questionLabel);
+    setAttr('#question', 'placeholder', c.questionPh);
+    setText('label[for="spread"]', c.spreadLabel);
+    setText('#btnText', c.drawBtn);
+    setText('#qdisplay', c.tipFocus);
+
+    var spreadOpts = document.querySelectorAll('#spread option');
+    spreadOpts.forEach(function(opt){
+      var name = c.spreadNamesByCount && c.spreadNamesByCount[opt.value];
+      if (name) opt.textContent = name;
+    });
+
+    setText('.result-card .card-title', c.spreadCardTitle);
+    setText('.board-empty', c.boardEmpty);
+    setText('#reading > h3', c.readingTitle);
+    setText('#mainAiReading h3', c.aiReadingTitle);
+    setText('[data-i18n="disclaimer"]', c.disclaimer);
+    setText('#shareReading', c.share);
+
+    var descEl = document.getElementById('tarotSpreadDesc');
+    var spreadSel = document.getElementById('spread');
+    if (descEl && spreadSel && c.spreadDescsByCount && !(window.__tarotHasReading && window.__tarotHasReading())) {
+      descEl.textContent = c.spreadDescsByCount[spreadSel.value] || '';
+    }
+
+    var vipInfo = document.querySelector('.vip-info-card');
+    if (vipInfo) {
+      setText('.vip-info-card .card-title', v.headTitle);
+      setText('.vip-info-card .card-sub', v.headSub);
+      setText('.vip-info-card .vip-login-head .btn', v.loginLink);
+      var features = vipInfo.querySelectorAll('.vip-feature-card');
+      if (features[0]) {
+        var t0 = features[0].querySelector('.vip-feature-title');
+        if (t0) t0.textContent = v.feature1Title;
+        setList(features[0], v.feature1Items);
+      }
+      if (features[1]) {
+        var t1 = features[1].querySelector('.vip-feature-title');
+        if (t1) t1.textContent = v.feature2Title;
+        setList(features[1], v.feature2Items);
+      }
+      setText('.vip-note-box', v.note);
+    }
+
+    var vipLogin = document.querySelector('.vip-login-card');
+    if (vipLogin) {
+      setText('.vip-login-card .card-title', v.loginTitle);
+      setText('.vip-login-card .card-sub', v.loginSub);
+      setText('.vip-login-card .vip-login-head .btn', v.upgrade);
+      setText('label[for="email"]', v.emailLabel);
+      setText('label[for="password"]', v.passwordLabel);
+      setAttr('#email', 'placeholder', v.emailPh);
+      setAttr('#password', 'placeholder', v.passwordPh);
+      setText('#loginBtn', v.loginBtn);
+      setText('#registerBtn', v.registerBtn);
+      setText('#resetBtn', v.resetBtn);
+      var backShop = vipLogin.querySelector('.vip-form-actions a.btn.ghost.block');
+      if (backShop && v.backShop) backShop.textContent = v.backShop;
+      var vipCard = vipLogin.querySelector('.vip-card');
+      if (vipCard) {
+        var notes = vipCard.querySelectorAll('.note');
+        if (notes[0] && v.memberNote) notes[0].textContent = v.memberNote;
+        if (notes[1] && v.priceNote) notes[1].textContent = v.priceNote;
+        setList(vipCard.querySelector('.mini-list'), v.memberList);
+        var upgradeBtn = vipCard.querySelector('a.btn.block');
+        if (upgradeBtn && v.upgradeBtn) upgradeBtn.textContent = v.upgradeBtn;
+      }
+    }
+
+    setText('main > footer', v.footer);
+  }
+
+  window.__tarotApplyChrome = apply;
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', apply);
+  } else {
+    apply();
+  }
+  var sel = document.getElementById('langSelect');
+  if (sel) sel.addEventListener('change', apply);
+})();
+</script>
+<!-- TAROT_I18N_FULL_V3_END -->
 </body>
 </html>
